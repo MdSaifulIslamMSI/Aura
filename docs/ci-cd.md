@@ -48,11 +48,12 @@ GitHub's 10-input `workflow_dispatch` limit:
 - `deploy_targets=backend,frontend-multihost,gateway`
 - `release_targets=desktop,mobile`
 - `rollback_targets=backend,frontend-multihost,gateway`
-- `rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","gateway":"deployment-id"}`
+- `rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","railway":"deployment-id","cloudflare":"deployment-id","github-pages":"commit-sha","gateway":"deployment-id"}`
 
 Leave target inputs blank for no-op validation runs. Use only the target names
 you intend to run. `frontend-multihost` always covers Netlify, the Vercel
-storefront, AWS CloudFront, Render, and Railway together. A lane cannot appear in both
+storefront, AWS CloudFront, Render, Railway, Cloudflare Pages, and GitHub Pages
+together. A lane cannot appear in both
 `deploy_targets` and `rollback_targets` in the same run; the command center
 rejects that request before any production mutation. Supply only the
 provider-specific keys needed by the selected rollback lanes in
@@ -82,6 +83,8 @@ Required repository secrets:
 - `NETLIFY_AUTH_TOKEN`
 - `RENDER_API_KEY`
 - `RAILWAY_API_TOKEN`
+- `CLOUDFLARE_API_TOKEN`
+- `GH_PAGES_TOKEN`
 
 Optional for trusted Windows desktop releases:
 
@@ -111,6 +114,7 @@ Required repository variables or secrets:
 - `RAILWAY_SERVICE_ID`
 - `RAILWAY_PROJECT_ID`
 - `RAILWAY_ENVIRONMENT_ID`
+- `CLOUDFLARE_ACCOUNT_ID`
 
 Optional repository variables:
 
@@ -118,6 +122,10 @@ Optional repository variables:
 - `VERCEL_PROJECT_NAME`, defaults to `app`
 - `RENDER_PRODUCTION_URL`, defaults to `https://aura-storefront.onrender.com`
 - `RAILWAY_PRODUCTION_URL`, defaults to unset (Railway deploy/rollback skip the URL probe when empty)
+- `CLOUDFLARE_PAGES_PROJECT`, defaults to `aura-storefront`
+- `CLOUDFLARE_PAGES_PRODUCTION_URL`, defaults to `https://aura-storefront.pages.dev`
+- `GH_PAGES_REPO`, defaults to `mdsaifulislammsi.github.io`
+- `GH_PAGES_PRODUCTION_URL`, defaults to `https://mdsaifulislammsi.github.io`
 
 AWS deployment is configured through OIDC in `.github/workflows/deploy-backend-aws.yml`:
 

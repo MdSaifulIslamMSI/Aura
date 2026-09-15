@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       rollback_ref:
-        description: Full 40-hex commit SHA that was live before the failed release
+        description: Railway deployment id that was live before the failed release (a 40-hex commit SHA triggers the rebuild fallback)
         required: false
         default: ""
         type: string

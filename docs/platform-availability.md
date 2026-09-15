@@ -4,7 +4,7 @@ Aura is available through the strongest runtime each platform can realistically 
 
 ## Full App Surfaces
 
-- Web/PWA: Vercel, Netlify, and AWS CloudFront serve the same production storefront.
+- Web/PWA: Vercel, Netlify, AWS CloudFront, Render, Railway, Cloudflare Pages, and GitHub Pages serve the same production storefront.
 - Desktop: Windows, macOS, and Linux packages ship through the desktop release lane.
 - Mobile: the current mobile release lane publishes an Android debug APK and an iOS simulator ZIP. Store-signed Android AAB and real-device iOS/iPadOS IPA artifacts require signing, provisioning, and distribution setup before they can be presented as installable packages.
 

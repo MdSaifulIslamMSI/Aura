@@ -12,7 +12,7 @@ on:
       - Docker
       - staging-frontend-smoke
       - Deploy Backend To AWS
-      - Deploy Frontend To Netlify, Vercel, AWS, And Render
+      - Deploy Storefront To Multi-Host Platforms
       - Deploy Gateway To Vercel
       - Desktop Release
       - Mobile Release

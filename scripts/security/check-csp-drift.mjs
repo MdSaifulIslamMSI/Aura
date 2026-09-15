@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in six
-// places (app/index.html meta, vercel.json, netlify.toml, render.yaml,
-// app/Caddyfile, and the Helmet config in server/index.js). This script asserts:
-//   1. The four static copies are semantically identical to the canonical
+// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in
+// seven places (app/index.html meta, vercel.json, netlify.toml, render.yaml,
+// app/Caddyfile, cloudflare/_headers, and the Helmet config in
+// server/index.js). This script asserts:
+//   1. The static copies are semantically identical to the canonical
 //      policy in app/index.html (directive-by-directive, order-insensitive).
 //   2. The server-side imgSrc directive matches the canonical img-src sources.
 // Exit 1 on any drift.
@@ -89,6 +90,18 @@ const extractFromCaddyfile = () => {
     return [...values];
 };
 
+const extractFromCloudflareHeaders = () => {
+    const source = read('cloudflare/_headers');
+    const values = new Set();
+    // _headers format: "/*" block followed by "  Name: value" lines.
+    const pattern = /^\s{2,}Content-Security-Policy:\s*(.+)$/gim;
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+        values.add(normalize(match[1].trim()));
+    }
+    return [...values];
+};
+
 const extractServerImgSrc = () => {
     const source = read('server/index.js');
     const match = source.match(/imgSrc:\s*\[([^\]]+)\]/);
@@ -119,6 +132,7 @@ const others = [
     ...extractFromNetlifyToml().map((value, i) => ({ file: `netlify.toml#${i + 1}`, value })),
     ...extractFromRenderYaml().map((value, i) => ({ file: `render.yaml#${i + 1}`, value })),
     ...extractFromCaddyfile().map((value, i) => ({ file: `app/Caddyfile#${i + 1}`, value })),
+    ...extractFromCloudflareHeaders().map((value, i) => ({ file: `cloudflare/_headers#${i + 1}`, value })),
 ];
 const canonicalDirectives = parseDirectives(canonical);
 for (const other of others) {
@@ -153,4 +167,4 @@ if (failures.length > 0) {
     process.exit(1);
 }
 
-console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, render.yaml, app/Caddyfile, and server/index.js are in sync.');
+console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, render.yaml, app/Caddyfile, cloudflare/_headers, and server/index.js are in sync.');

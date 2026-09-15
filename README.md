@@ -2,7 +2,7 @@
   <h1>Aura Marketplace</h1>
   <p><strong>AI shopping, secure checkout, and gated production delivery in one commerce operating repo.</strong></p>
   <img src="docs/assets/readme/aura-wordmark.svg" alt="Aura Marketplace wordmark" width="720">
-  <p><strong>One release train. Four storefront hosts. Auth and environment gates that fail closed.</strong></p>
+  <p><strong>One release train. Seven storefront hosts. Byte-identical and fail-closed.</strong></p>
   <p>
     <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml"><img alt="Quality Foundation" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=for-the-badge"></a>
     <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security.yml"><img alt="Security Gate" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security.yml?branch=main&label=security&style=for-the-badge"></a>
@@ -37,6 +37,9 @@ This repository is not a demo landing page. It is the operating surface for prod
 | Storefront - Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same storefront artifact on Netlify. |
 | AWS CloudFront | [dbtrhsolhec1s.cloudfront.net](https://dbtrhsolhec1s.cloudfront.net) | AWS-hosted production surface and same-origin backend proxy target. |
 | Storefront - Render | [aura-storefront.onrender.com](https://aura-storefront.onrender.com) | Same storefront artifact on Render with backend rewrites. |
+| Storefront - Railway | Caddy-served Docker lane (URL in `RAILWAY_PRODUCTION_URL`) | Same storefront artifact rebuilt on Railway with the CI build-env contract. |
+| Storefront - Cloudflare Pages | [aura-storefront.pages.dev](https://aura-storefront.pages.dev) | Same storefront artifact uploaded directly to Cloudflare Pages. |
+| Storefront - GitHub Pages | [mdsaifulislammsi.github.io](https://mdsaifulislammsi.github.io) | Same storefront artifact published to the user-site repo. |
 
 Production pages expose release traceability through `aura-release-id` and `aura-release-commit` meta tags. Treat those tags, the GitHub production workflow run, and read-only health probes as the source of truth for what is live.
 

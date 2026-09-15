@@ -1,4 +1,4 @@
-name: Deploy Frontend To Netlify, Vercel, AWS, And Render
+name: Deploy Storefront To Multi-Host Platforms
 
 on:
   pull_request:
@@ -60,9 +60,15 @@ on:
       render_storefront_rollback_ref:
         description: Render deploy id that was live before this release
         value: ${{ jobs.build-frontend.outputs.render_rollback_ref }}
-      railway_rollback_commit:
-        description: Commit SHA captured before the Railway release deploy
-        value: ${{ jobs.build-frontend.outputs.railway_rollback_commit }}
+      railway_rollback_ref:
+        description: Railway deployment id that was live before this release
+        value: ${{ jobs.build-frontend.outputs.railway_rollback_ref }}
+      cloudflare_pages_rollback_ref:
+        description: Cloudflare Pages deployment id that was live before this release
+        value: ${{ jobs.build-frontend.outputs.cloudflare_rollback_ref }}
+      github_pages_rollback_ref:
+        description: GitHub Pages commit SHA that was live before this release
+        value: ${{ jobs.build-frontend.outputs.github_pages_rollback_ref }}
       netlify_production_url:
         description: Netlify production URL published by this release
         value: ${{ jobs.deploy-production.outputs.site_url }}
@@ -78,6 +84,12 @@ on:
       railway_production_url:
         description: Railway production URL published by this release
         value: ${{ jobs.deploy-railway-production.outputs.site_url }}
+      cloudflare_pages_production_url:
+        description: Cloudflare Pages production URL published by this release
+        value: ${{ jobs.deploy-cloudflare-production.outputs.site_url }}
+      github_pages_production_url:
+        description: GitHub Pages production URL published by this release
+        value: ${{ jobs.deploy-github-pages-production.outputs.site_url }}
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -102,6 +114,12 @@ on:
       RAILWAY_ENVIRONMENT_ID:
         required: false
       RAILWAY_SERVICE_ID:
+        required: false
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+      GH_PAGES_TOKEN:
         required: false
       VITE_FIREBASE_API_KEY:
         required: false
@@ -155,6 +173,11 @@ env:
   RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID }}
   RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
   RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'aura-storefront' }}
+  CLOUDFLARE_PAGES_PRODUCTION_URL: ${{ vars.CLOUDFLARE_PAGES_PRODUCTION_URL || 'https://aura-storefront.pages.dev' }}
+  GITHUB_PAGES_REPO: ${{ vars.GH_PAGES_REPO || 'mdsaifulislammsi.github.io' }}
+  GITHUB_PAGES_PRODUCTION_URL: ${{ vars.GH_PAGES_PRODUCTION_URL || 'https://mdsaifulislammsi.github.io' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
   AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
@@ -185,7 +208,9 @@ jobs:
       netlify_rollback_ref: ${{ steps.rollback_targets.outputs.netlify_ref }}
       vercel_storefront_rollback_ref: ${{ steps.rollback_targets.outputs.vercel_ref }}
       render_rollback_ref: ${{ steps.rollback_targets.outputs.render_ref }}
-      railway_rollback_commit: ${{ steps.rollback_targets.outputs.railway_commit }}
+      railway_rollback_ref: ${{ steps.rollback_targets.outputs.railway_ref }}
+      cloudflare_rollback_ref: ${{ steps.rollback_targets.outputs.cloudflare_ref }}
+      github_pages_rollback_ref: ${{ steps.rollback_targets.outputs.github_pages_ref }}
     defaults:
       run:
         working-directory: ./app
@@ -210,6 +235,9 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
           DEPLOY_TARGET: ${{ inputs.target || '' }}
           DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' }}
         run: |
@@ -222,13 +250,17 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
-          # Render is production-only in CI (previews stay native), so its
-          # configuration is required only where the lane actually mutates.
+          # Render, Railway, Cloudflare Pages, and GitHub Pages are
+          # production-only in CI (previews stay native), so their
+          # configuration is required only where the lanes actually mutate.
           if [ "${DEPLOY_TARGET}" = "production" ]; then
             test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
             test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
             test -n "${RAILWAY_API_TOKEN}" || { echo "Missing GitHub secret RAILWAY_API_TOKEN"; exit 1; }
             test -n "${RAILWAY_SERVICE_ID}" || { echo "Missing GitHub variable or secret RAILWAY_SERVICE_ID"; exit 1; }
+            test -n "${CLOUDFLARE_API_TOKEN}" || { echo "Missing GitHub secret CLOUDFLARE_API_TOKEN"; exit 1; }
+            test -n "${CLOUDFLARE_ACCOUNT_ID}" || { echo "Missing GitHub variable or secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+            test -n "${GH_PAGES_TOKEN}" || { echo "Missing GitHub secret GH_PAGES_TOKEN"; exit 1; }
           fi
 
       - name: Capture provider-specific production rollback targets
@@ -240,6 +272,11 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
           ALLOW_MISSING_ROLLBACK_TARGET: ${{ inputs.allow_missing_rollback_target == true && 'true' || 'false' }}
         run: |
           set -euo pipefail
@@ -310,24 +347,81 @@ jobs:
 
           echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
 
-          # Railway's rollback hook rebuilds a pinned commit, so the target is
-          # the commit Railway is currently serving, not a deployment id.
-          # railway deployment list --json is newest-first; take the first
-          # SUCCESS deployment's meta.commitSha, falling back to the release
-          # SHA (GITHUB_SHA) when Railway is not reachable or nothing is live
-          # yet — the Railway rollback hook fails closed on a non-SHA ref.
-          railway_commit=""
-          if [ -n "${RAILWAY_API_TOKEN:-}" ] && command -v railway >/dev/null 2>&1; then
-            railway_commit="$(RAILWAY_API_TOKEN="${RAILWAY_API_TOKEN}" railway deployment list \
-              --service "${RAILWAY_SERVICE_ID}" --environment "${RAILWAY_ENVIRONMENT_ID}" --json 2>/dev/null \
-              | jq -r '[.[]?] | map(select(.status == "SUCCESS")) | .[0].meta.commitSha // .[0].meta.commit // empty' 2>/dev/null || true)"
+          # Railway rollback restores the deployment SNAPSHOT (image + variables,
+          # no rebuild) via the GraphQL deploymentRollback mutation, so the
+          # target is the deployment id Railway is currently serving. Query the
+          # GraphQL API directly; the CLI is not installed in this job.
+          railway_ref=""
+          if [ -n "${RAILWAY_API_TOKEN:-}" ] && [ -n "${RAILWAY_SERVICE_ID:-}" ]; then
+            railway_deployments="$(mktemp)"
+            RAILWAY_QUERY='query($serviceId: String!, $environmentId: String!, $first: Int!) { deployments(serviceId: $serviceId, environmentId: $environmentId, first: $first) { edges { node { id status meta } } } }'
+            if curl --fail --show-error --silent --location \
+                --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+                --header "Content-Type: application/json" \
+                --data "$(jq -n --arg q "${RAILWAY_QUERY}" --arg s "${RAILWAY_SERVICE_ID}" --arg e "${RAILWAY_ENVIRONMENT_ID}" '{query: $q, variables: {serviceId: $s, environmentId: $e, first: 10}}')" \
+                "https://backboard.railway.com/graphql/v2" \
+                > "${railway_deployments}" 2>/dev/null; then
+              railway_ref="$(jq -r '[.data.deployments.edges[]?.node] | map(select(.status == "SUCCESS")) | .[0].id // empty' "${railway_deployments}" 2>/dev/null || true)"
+            fi
           fi
-          if [ -z "${railway_commit}" ]; then
-            railway_commit="${GITHUB_SHA}"
-            echo "Railway live commit could not be resolved; using release SHA ${GITHUB_SHA} as the rollback ref." >&2
+          if [ -z "${railway_ref}" ]; then
+            # First Railway production release, or the API call failed. Fail
+            # closed unless explicitly acknowledged; the Railway rollback hook
+            # also fails closed on an empty ref.
+            if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
+              echo "Railway has no live deployment to restore (or the API call failed), so auto-rollback could not protect this release." >&2
+              echo "Re-run with allow_missing_rollback_target=true to accept a first-ever release without a Railway rollback target." >&2
+              exit 1
+            fi
+            echo "Railway has no live deployment yet (first release); proceeding WITHOUT a Railway rollback target by explicit acknowledgement." >&2
           fi
 
-          echo "railway_commit=${railway_commit}" >> "$GITHUB_OUTPUT"
+          echo "railway_ref=${railway_ref}" >> "$GITHUB_OUTPUT"
+
+          # Cloudflare Pages rollback re-serves a previous deployment snapshot
+          # via its REST API, so the target is the deployment id currently
+          # active on the production environment.
+          cloudflare_ref=""
+          if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            cloudflare_deployments="$(mktemp)"
+            if curl --fail --show-error --silent --location \
+                --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+                "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?per_page=10" \
+                > "${cloudflare_deployments}" 2>/dev/null; then
+              cloudflare_ref="$(jq -r '[.result[]?] | map(select(.env == "production" and .latest_stage.status == "active")) | .[0].id // empty' "${cloudflare_deployments}" 2>/dev/null || true)"
+            fi
+          fi
+          if [ -z "${cloudflare_ref}" ]; then
+            if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
+              echo "Cloudflare Pages has no active production deployment to restore (or the API call failed), so auto-rollback could not protect this release." >&2
+              echo "Re-run with allow_missing_rollback_target=true to accept a first-ever release without a Cloudflare rollback target." >&2
+              exit 1
+            fi
+            echo "Cloudflare Pages has no active production deployment yet (first release); proceeding WITHOUT a Cloudflare rollback target by explicit acknowledgement." >&2
+          fi
+
+          echo "cloudflare_ref=${cloudflare_ref}" >> "$GITHUB_OUTPUT"
+
+          # GitHub Pages rollback force-pushes the captured prior commit of the
+          # deployment-dedicated user-site repo, so the target is the commit
+          # currently deployed there.
+          github_pages_ref=""
+          if [ -n "${GH_PAGES_TOKEN:-}" ]; then
+            github_pages_ref="$(curl --fail --show-error --silent --location \
+              --header "Authorization: Bearer ${GH_PAGES_TOKEN}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${GITHUB_PAGES_REPO}/commits/${GITHUB_PAGES_BRANCH:-main}" \
+              | jq -r '.sha // empty' 2>/dev/null || true)"
+          fi
+          if [ -z "${github_pages_ref}" ]; then
+            if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
+              echo "GitHub Pages has no deployed commit to restore (or the API call failed), so auto-rollback could not protect this release." >&2
+              echo "Re-run with allow_missing_rollback_target=true to accept a first-ever release without a GitHub Pages rollback target." >&2
+              exit 1
+            fi
+            echo "GitHub Pages has no deployed commit yet (first release); proceeding WITHOUT a GitHub Pages rollback target by explicit acknowledgement." >&2
+          fi
+
+          echo "github_pages_ref=${github_pages_ref}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         run: npm ci
@@ -1128,6 +1222,7 @@ jobs:
   deploy-railway-production:
     needs:
       - build-frontend
+      - validate-aws-production-access
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -1195,6 +1290,211 @@ jobs:
             echo "- Shared build time: ${BUILT_AT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  deploy-cloudflare-production:
+    needs:
+      - build-frontend
+      - validate-aws-production-access
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: cloudflare-pages-production
+      url: ${{ steps.deploy.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+
+    steps:
+      - name: Mark Cloudflare Pages production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download shared frontend
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: frontend-dist
+          path: app/dist
+
+      - name: Publish Cloudflare Pages production deploy
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          CLOUDFLARE_API_TOKEN="$(printf '%s' "${CLOUDFLARE_API_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "GitHub secret CLOUDFLARE_API_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${CLOUDFLARE_API_TOKEN}"
+
+          # Direct upload of the shared artifact: Cloudflare Pages serves the
+          # uploaded bytes as-is (no build, no post-processing), so this host
+          # is byte-identical to the shared artifact by construction. The
+          # generated _headers file carries the same CSP/security header
+          # contract as every other host.
+          stage_dir="${RUNNER_TEMP}/cloudflare-pages"
+          rm -rf "${stage_dir}"
+          cp -a app/dist "${stage_dir}"
+          cp cloudflare/_headers "${stage_dir}/_headers"
+
+          DEPLOY_OUTPUT="$(CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}" \
+            npx --yes wrangler pages deploy "${stage_dir}" \
+            --project-name "${CLOUDFLARE_PAGES_PROJECT}" \
+            --branch main \
+            --commit-dirty true 2>&1)"
+          printf '%s\n' "${DEPLOY_OUTPUT}" >&2
+
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[a-f0-9-]+\.[a-z0-9-]+\.pages\.dev' | head -n 1 | tr -d '\r' || true)"
+          if [ -z "${DEPLOY_URL}" ]; then
+            echo "Wrangler did not report a deployment URL." >&2
+            exit 1
+          fi
+          echo "deploy_url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+          echo "site_url=${CLOUDFLARE_PAGES_PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Cloudflare Pages to serve the app shell
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+        run: |
+          set -euo pipefail
+          READINESS_ATTEMPTS=12
+          for attempt in $(seq 1 "${READINESS_ATTEMPTS}"); do
+            if curl --fail --silent --show-error --location --max-time 15 "${SITE_URL}" > /dev/null 2>&1; then
+              echo "Cloudflare Pages serves the app shell (attempt ${attempt})."
+              exit 0
+            fi
+            echo "Cloudflare Pages app shell not ready (attempt ${attempt}/${READINESS_ATTEMPTS})." >&2
+            sleep 10
+          done
+          echo "Cloudflare Pages did not serve the app shell after readiness polling." >&2
+          exit 1
+
+      - name: Add Cloudflare Pages production deploy to job summary
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
+          PROJECT: ${{ env.CLOUDFLARE_PAGES_PROJECT }}
+        run: |
+          {
+            echo "### Cloudflare Pages Production"
+            echo
+            echo "- Project: ${PROJECT}"
+            echo "- Production URL: ${SITE_URL}"
+            echo "- Deployment URL: ${DEPLOY_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-github-pages-production:
+    needs:
+      - build-frontend
+      - validate-aws-production-access
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages-production
+      url: ${{ steps.deploy.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+
+    steps:
+      - name: Mark GitHub Pages production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Download shared frontend
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: frontend-dist
+          path: app/dist
+
+      - name: Publish GitHub Pages release
+        id: deploy
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GITHUB_PAGES_OWNER: ${{ github.repository_owner }}
+          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+        run: |
+          set -euo pipefail
+
+          GH_PAGES_TOKEN="$(printf '%s' "${GH_PAGES_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${GH_PAGES_TOKEN}" ]; then
+            echo "GitHub secret GH_PAGES_TOKEN is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${GH_PAGES_TOKEN}"
+
+          # The user-site repo serves at the account root, so the shared
+          # artifact deploys byte-identically (no base-path rebuild). The repo
+          # is deployment-dedicated: its history exists to make rollback a
+          # force-push of the captured prior commit.
+          repo_dir="${RUNNER_TEMP}/github-pages-repo"
+          rm -rf "${repo_dir}"
+          git clone --depth 20 \
+            "https://x-access-token:${GH_PAGES_TOKEN}@github.com/${GITHUB_PAGES_OWNER}/${GITHUB_PAGES_REPO}.git" \
+            "${repo_dir}"
+
+          cd "${repo_dir}"
+          git config user.name "aura-release-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          # Replace the working tree with the shared artifact. .nojekyll keeps
+          # branch-based Pages from running Jekyll over the published tree.
+          find . -mindepth 1 -maxdepth 1 -not -name .git -not -name .nojekyll -exec rm -rf {} +
+          cp -a "${GITHUB_WORKSPACE}/app/dist/." .
+          touch .nojekyll
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "GitHub Pages tree already matches the release; nothing to push."
+          else
+            git commit -m "release ${GITHUB_SHA} (${BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)})"
+            git push origin main
+          fi
+          echo "site_url=${GITHUB_PAGES_PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for GitHub Pages to serve the app shell
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+        run: |
+          set -euo pipefail
+          READINESS_ATTEMPTS=20
+          for attempt in $(seq 1 "${READINESS_ATTEMPTS}"); do
+            body="$(curl --fail --silent --show-error --location --max-time 15 \
+              --header 'Cache-Control: no-cache' --header 'Pragma: no-cache' \
+              "${SITE_URL}/?aura_pages_check=${GITHUB_SHA}" 2>/dev/null || true)"
+            if printf '%s' "${body}" | grep -q "aura-release-commit\" content=\"${GITHUB_SHA:0:8}"; then
+              echo "GitHub Pages serves the release (attempt ${attempt})."
+              exit 0
+            fi
+            echo "GitHub Pages not serving the release yet (attempt ${attempt}/${READINESS_ATTEMPTS})." >&2
+            sleep 20
+          done
+          echo "GitHub Pages did not serve the release after readiness polling." >&2
+          exit 1
+
+      - name: Add GitHub Pages production deploy to job summary
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          REPO: ${{ env.GITHUB_PAGES_REPO }}
+        run: |
+          {
+            echo "### GitHub Pages Production"
+            echo
+            echo "- Repository: ${REPO}"
+            echo "- Production URL: ${SITE_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-render-production:
     needs:
@@ -1514,6 +1814,8 @@ jobs:
       - deploy-aws-production
       - deploy-render-production
       - deploy-railway-production
+      - deploy-cloudflare-production
+      - deploy-github-pages-production
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1577,7 +1879,7 @@ jobs:
           done < "${RUNNER_TEMP}/aura-release/production-assets.txt"
           echo "Vercel assets fetched: $(wc -l < "${RUNNER_TEMP}/aura-release/production-assets.txt")"
 
-      - name: Verify Netlify, Vercel, AWS, Render, and Railway production release coherence
+      - name: Verify Netlify, Vercel, AWS, Render, Railway, Cloudflare, and GitHub Pages production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
           AURA_EXPECTED_COMMIT: ${{ github.sha }}
@@ -1588,7 +1890,9 @@ jobs:
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","assetsDir":"${{ runner.temp }}/aura-release/assets"},
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
-              {"name":"railway-production","url":"${{ needs.deploy-railway-production.outputs.site_url }}"}
+              {"name":"railway-production","url":"${{ needs.deploy-railway-production.outputs.site_url }}"},
+              {"name":"cloudflare-pages-production","url":"${{ needs.deploy-cloudflare-production.outputs.site_url }}"},
+              {"name":"github-pages-production","url":"${{ needs.deploy-github-pages-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -1606,7 +1910,9 @@ jobs:
               {"name":"vercel","url":"${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}"},
               {"name":"aws","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
-              {"name":"railway","url":"${{ needs.deploy-railway-production.outputs.site_url }}"}
+              {"name":"railway","url":"${{ needs.deploy-railway-production.outputs.site_url }}"},
+              {"name":"cloudflare-pages","url":"${{ needs.deploy-cloudflare-production.outputs.site_url }}"},
+              {"name":"github-pages","url":"${{ needs.deploy-github-pages-production.outputs.site_url }}"}
             ]
         run: |
           set -euo pipefail
@@ -1740,7 +2046,7 @@ jobs:
     permissions:
       contents: read
     with:
-      rollback_ref: ${{ needs.build-frontend.outputs.railway_rollback_commit }}
+      rollback_ref: ${{ needs.build-frontend.outputs.railway_rollback_ref }}
       parent_holds_production_lock: true
     secrets:
       RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
@@ -1755,4 +2061,56 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
       VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+
+  rollback-cloudflare-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - deploy-render-production
+      - deploy-railway-production
+      - deploy-cloudflare-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-cloudflare-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-cloudflare.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.cloudflare_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  rollback-github-pages-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - deploy-render-production
+      - deploy-railway-production
+      - deploy-cloudflare-production
+      - deploy-github-pages-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-github-pages-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-github-pages.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.github_pages_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
 

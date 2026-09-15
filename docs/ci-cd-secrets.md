@@ -11,6 +11,8 @@ This production pipeline is planner-driven. Missing cloud configuration does not
 | `NETLIFY_AUTH_TOKEN` | Netlify frontend deploy | Netlify CLI authentication token. |
 | `VERCEL_TOKEN` | Gateway and Vercel frontend deploys | Vercel CLI authentication token. |
 | `RENDER_API_KEY` | Render frontend deploy and rollback | Render API key for the coordinated multi-host storefront release. |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare Pages frontend deploy and rollback | Cloudflare API token with Pages Edit permission. |
+| `GH_PAGES_TOKEN` | GitHub Pages frontend deploy and rollback | Fine-grained PAT with contents write on the `GH_PAGES_REPO` user-site repo. |
 | `RAILWAY_API_TOKEN` | Railway frontend deploy and rollback | Railway account/workspace API token (`Authorization: Bearer` against `https://backboard.railway.com/graphql/v2`). |
 
 ## Optional Sentry Secrets for Error Tracking
@@ -45,6 +47,11 @@ frontend deploy uploads releases/sourcemaps only when `SENTRY_AUTH_TOKEN` exists
 | `RAILWAY_SERVICE_ID` | Railway frontend deploy and rollback | Railway storefront service id/name; may also be a secret. |
 | `RAILWAY_PROJECT_ID` | Railway frontend deploy and rollback | Railway project id used to link the CLI before mutating. |
 | `RAILWAY_ENVIRONMENT_ID` | Railway frontend deploy and rollback | Railway environment id (production) for the storefront service. |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Pages deploy and rollback | Cloudflare account id; may also be a secret. |
+| `CLOUDFLARE_PAGES_PROJECT` | Cloudflare Pages deploy | Pages project name, defaults to `aura-storefront`. |
+| `CLOUDFLARE_PAGES_PRODUCTION_URL` | Cloudflare Pages deploy and smoke tests | Public Pages production URL, defaults to `https://aura-storefront.pages.dev`. |
+| `GH_PAGES_REPO` | GitHub Pages deploy and rollback | User-site repo name, defaults to `mdsaifulislammsi.github.io`. |
+| `GH_PAGES_PRODUCTION_URL` | GitHub Pages deploy and smoke tests | Public user-site URL, defaults to `https://mdsaifulislammsi.github.io`. |
 | `RAILWAY_PRODUCTION_URL` | Railway frontend deploy and smoke tests | Public Railway storefront URL, e.g. `https://aura-storefront.up.railway.app`. |
 | `GATEWAY_PRODUCTION_URL` | Gateway smoke tests | Public gateway production URL. |
 | `BACKEND_HEALTH_PATH` | Optional smoke tests | Backend health path, defaults to `/health`. |

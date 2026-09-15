@@ -46,7 +46,7 @@ on:
         type: string
 
       rollback_refs_json:
-        description: 'Provider-specific refs JSON ({"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","gateway":"deployment-id"}) or the literal last-known-good to resolve the recorded pointer from Parameter Store'
+        description: 'Provider-specific refs JSON ({"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","railway":"deployment-id","cloudflare":"deployment-id","github-pages":"commit-sha","gateway":"deployment-id"}) or the literal last-known-good to resolve the recorded pointer from Parameter Store'
         required: false
         default: "{}"
         type: string
@@ -131,7 +131,7 @@ jobs:
             exit 1
           }
           REFS_JSON="$(ROLLBACK_REFS_JSON="${PARAMETER_VALUE}" node <<'NODE'
-          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'gateway']);
+          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'railway', 'cloudflare', 'github-pages', 'gateway']);
           let refs;
           try {
             refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
@@ -212,6 +212,9 @@ jobs:
       rollback_vercel_storefront_ref: ${{ steps.plan.outputs.rollback_vercel_storefront_ref }}
       rollback_aws_frontend_ref: ${{ steps.plan.outputs.rollback_aws_frontend_ref }}
       rollback_render_ref: ${{ steps.plan.outputs.rollback_render_ref }}
+      rollback_railway_ref: ${{ steps.plan.outputs.rollback_railway_ref }}
+      rollback_cloudflare_ref: ${{ steps.plan.outputs.rollback_cloudflare_ref }}
+      rollback_github_pages_ref: ${{ steps.plan.outputs.rollback_github_pages_ref }}
       rollback_gateway_ref: ${{ steps.plan.outputs.rollback_gateway_ref }}
 
     steps:
@@ -253,6 +256,13 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY || '' }}
           RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID || '' }}
           RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN || '' }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID || '' }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID || '' }}
+          RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || '' }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID || '' }}
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN || '' }}
           GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
         run: |
           set -euo pipefail
@@ -349,7 +359,7 @@ jobs:
 
           rollback_ref_for() {
             ROLLBACK_REF_KEY="$1" ROLLBACK_REFS_JSON="${INPUT_ROLLBACK_REFS_JSON}" node <<'NODE'
-          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'gateway']);
+          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'railway', 'cloudflare', 'github-pages', 'gateway']);
           let refs;
           try {
             refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
@@ -413,6 +423,9 @@ jobs:
           rollback_vercel_storefront_ref="$(rollback_ref_for vercel-storefront)"
           rollback_aws_frontend_ref="$(rollback_ref_for aws-frontend)"
           rollback_render_ref="$(rollback_ref_for render)"
+          rollback_railway_ref="$(rollback_ref_for railway)"
+          rollback_cloudflare_ref="$(rollback_ref_for cloudflare)"
+          rollback_github_pages_ref="$(rollback_ref_for github-pages)"
           rollback_gateway_ref="$(rollback_ref_for gateway)"
 
           changed_files=()
@@ -468,10 +481,18 @@ jobs:
             'vercel.json' \
             'app/vercel.json' \
             '.vercelignore' \
+            'render.yaml' \
+            'app/Caddyfile' \
+            'app/railway.toml' \
+            'app/Dockerfile.railway' \
+            'cloudflare/_headers' \
             'infra/aws/bootstrap-frontend-s3.ps1' \
             'infra/aws/bootstrap-frontend-github-oidc.ps1' \
             'infra/aws/deploy-frontend-s3.ps1' \
             'docs/aws-frontend-deployment.md' \
+            'docs/railway-frontend-deployment.md' \
+            'docs/cloudflare-pages-frontend-deployment.md' \
+            'docs/github-pages-frontend-deployment.md' \
             'docs/ci-cd-secrets.md' \
             'package.json' \
             'package-lock.json' \
@@ -482,6 +503,17 @@ jobs:
             '.github/workflows/rollback-frontend-aws.yml' \
             '.github/workflows/rollback-storefront-vercel.yml' \
             'scripts/rollback-storefront-vercel.sh' \
+            '.github/workflows/rollback-render.yml' \
+            'scripts/rollback-render.sh' \
+            '.github/workflows/rollback-railway.yml' \
+            'scripts/deploy-railway.sh' \
+            'scripts/rollback-railway.sh' \
+            'scripts/railway-vars.cjs' \
+            'scripts/railway-release-env.cjs' \
+            '.github/workflows/rollback-cloudflare.yml' \
+            'scripts/rollback-cloudflare.sh' \
+            '.github/workflows/rollback-github-pages.yml' \
+            'scripts/rollback-github-pages.sh' \
             '.github/workflows/production-cicd.yml')"
 
           frontend_aws_changed="$(surface_changed frontend_aws \
@@ -547,7 +579,7 @@ jobs:
             '.github/workflows/production-cicd.yml')"
 
           backend_missing="$(missing_names AWS_DEPLOY_ROLE_ARN AWS_DEPLOY_BUCKET AWS_INSTANCE_TAG_VALUE AWS_PARAMETER_STORE_PATH_PREFIX AURA_BACKEND_ORIGIN)"
-          frontend_netlify_missing="$(missing_names NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID AWS_FRONTEND_BUCKET AWS_FRONTEND_DISTRIBUTION_ID AWS_FRONTEND_PUBLIC_URL AWS_FRONTEND_DEPLOY_ROLE_ARN RENDER_API_KEY RENDER_SERVICE_ID AURA_BACKEND_ORIGIN)"
+          frontend_netlify_missing="$(missing_names NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID NETLIFY_PRODUCTION_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID AWS_FRONTEND_BUCKET AWS_FRONTEND_DISTRIBUTION_ID AWS_FRONTEND_PUBLIC_URL AWS_FRONTEND_DEPLOY_ROLE_ARN RENDER_API_KEY RENDER_SERVICE_ID RAILWAY_API_TOKEN RAILWAY_SERVICE_ID RAILWAY_PRODUCTION_URL CLOUDFLARE_API_TOKEN GH_PAGES_TOKEN AURA_BACKEND_ORIGIN)"
           frontend_aws_missing="$(missing_names AWS_FRONTEND_BUCKET AWS_FRONTEND_DISTRIBUTION_ID AWS_FRONTEND_PUBLIC_URL AWS_FRONTEND_DEPLOY_ROLE_ARN AURA_BACKEND_ORIGIN)"
           gateway_missing="$(missing_names VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID GATEWAY_PRODUCTION_URL)"
 
@@ -591,6 +623,9 @@ jobs:
             test -n "${rollback_vercel_storefront_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json['vercel-storefront']." >&2; exit 1; }
             test -n "${rollback_aws_frontend_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json['aws-frontend']." >&2; exit 1; }
             test -n "${rollback_render_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json.render." >&2; exit 1; }
+            test -n "${rollback_railway_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json.railway." >&2; exit 1; }
+            test -n "${rollback_cloudflare_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json.cloudflare." >&2; exit 1; }
+            test -n "${rollback_github_pages_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json.github-pages." >&2; exit 1; }
           fi
 
           if [ "${INPUT_ROLLBACK_BACKEND}" = "true" ]; then
@@ -701,6 +736,9 @@ jobs:
           emit rollback_vercel_storefront_ref "${rollback_vercel_storefront_ref}"
           emit rollback_aws_frontend_ref "${rollback_aws_frontend_ref}"
           emit rollback_render_ref "${rollback_render_ref}"
+          emit rollback_railway_ref "${rollback_railway_ref}"
+          emit rollback_cloudflare_ref "${rollback_cloudflare_ref}"
+          emit rollback_github_pages_ref "${rollback_github_pages_ref}"
           emit rollback_gateway_ref "${rollback_gateway_ref}"
 
           {
@@ -719,7 +757,7 @@ jobs:
             echo "| Surface | Changed | Ready | Missing config | Planned action |"
             echo "|---|---:|---:|---|---:|"
             echo "| Backend | ${backend_changed} | ${backend_ready} | ${backend_missing} | ${should_deploy_backend} |"
-            echo "| Frontend multihost (Netlify, Vercel, AWS, Render) | ${frontend_netlify_changed} | ${frontend_netlify_ready} | ${frontend_netlify_missing} | ${should_deploy_frontend_netlify} |"
+            echo "| Frontend multihost (Netlify, Vercel, AWS, Render, Railway, Cloudflare, GitHub Pages) | ${frontend_netlify_changed} | ${frontend_netlify_ready} | ${frontend_netlify_missing} | ${should_deploy_frontend_netlify} |"
             echo "| Gateway | ${gateway_changed} | ${gateway_ready} | ${gateway_missing} | ${should_deploy_gateway} |"
             echo "| Desktop | ${desktop_changed} | n/a | none | ${should_release_desktop} |"
             echo "| Mobile | ${mobile_changed} | n/a | none | ${should_release_mobile} |"
@@ -1147,7 +1185,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-frontend-netlify:
-    name: Deploy storefront to Netlify, Vercel, AWS, and Render
+    name: Deploy storefront to the multi-host platforms
     needs:
       - plan
       - quality-gates
@@ -1180,6 +1218,13 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
       VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
       VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
       VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -1464,6 +1509,9 @@ jobs:
           VERCEL_STOREFRONT_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_production_url || vars.VERCEL_PRODUCTION_URL || '' }}
           AWS_FRONTEND_PUBLIC_URL: ${{ needs.deploy-frontend-netlify.outputs.aws_frontend_production_url || vars.AWS_FRONTEND_PUBLIC_URL || '' }}
           RENDER_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.render_production_url || vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
+          RAILWAY_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.railway_production_url || vars.RAILWAY_PRODUCTION_URL || '' }}
+          CLOUDFLARE_PAGES_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.cloudflare_pages_production_url || vars.CLOUDFLARE_PAGES_PRODUCTION_URL || 'https://aura-storefront.pages.dev' }}
+          GITHUB_PAGES_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.github_pages_production_url || vars.GH_PAGES_PRODUCTION_URL || 'https://mdsaifulislammsi.github.io' }}
           GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
           GATEWAY_HEALTH_PATH: ${{ vars.GATEWAY_HEALTH_PATH || '/' }}
         run: |
@@ -1506,6 +1554,9 @@ jobs:
           smoke_if_deployed "vercel storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${VERCEL_STOREFRONT_PRODUCTION_URL}"
           smoke_if_deployed "aws storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${AWS_FRONTEND_PUBLIC_URL}"
           smoke_if_deployed "render storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${RENDER_PRODUCTION_URL}"
+          smoke_if_deployed "railway storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${RAILWAY_PRODUCTION_URL}"
+          smoke_if_deployed "cloudflare pages storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${CLOUDFLARE_PAGES_PRODUCTION_URL}"
+          smoke_if_deployed "github pages storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${GITHUB_PAGES_PRODUCTION_URL}"
           smoke_if_deployed "gateway" "${GATEWAY_DEPLOY_RESULT}" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
 
           # Deep smoke: the login-flow security smoke exercises the real auth
@@ -1805,6 +1856,105 @@ jobs:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
 
+  rollback-frontend-railway:
+    name: Roll back Railway storefront
+    needs:
+      - plan
+      - production-approval
+      - deploy-frontend-netlify
+      - smoke-tests
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
+          needs.deploy-frontend-netlify.result == 'success' &&
+          needs.smoke-tests.result == 'failure'
+        )
+      )
+    uses: ./.github/workflows/rollback-railway.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.plan.outputs.rollback_railway_ref != '' && needs.plan.outputs.rollback_railway_ref || needs.deploy-frontend-netlify.outputs.railway_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_CONFIG: ${{ secrets.VITE_FIREBASE_CONFIG }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID }}
+      VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN }}
+
+  rollback-frontend-cloudflare:
+    name: Roll back Cloudflare Pages storefront
+    needs:
+      - plan
+      - production-approval
+      - deploy-frontend-netlify
+      - smoke-tests
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
+          needs.deploy-frontend-netlify.result == 'success' &&
+          needs.smoke-tests.result == 'failure'
+        )
+      )
+    uses: ./.github/workflows/rollback-cloudflare.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.plan.outputs.rollback_cloudflare_ref != '' && needs.plan.outputs.rollback_cloudflare_ref || needs.deploy-frontend-netlify.outputs.cloudflare_pages_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  rollback-frontend-github-pages:
+    name: Roll back GitHub Pages storefront
+    needs:
+      - plan
+      - production-approval
+      - deploy-frontend-netlify
+      - smoke-tests
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
+          needs.deploy-frontend-netlify.result == 'success' &&
+          needs.smoke-tests.result == 'failure'
+        )
+      )
+    uses: ./.github/workflows/rollback-github-pages.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.plan.outputs.rollback_github_pages_ref != '' && needs.plan.outputs.rollback_github_pages_ref || needs.deploy-frontend-netlify.outputs.github_pages_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+
   rollback-gateway:
     name: Roll back gateway
     needs:
@@ -1847,6 +1997,9 @@ jobs:
       - rollback-frontend-vercel-storefront
       - rollback-frontend-aws
       - rollback-frontend-render
+      - rollback-frontend-railway
+      - rollback-frontend-cloudflare
+      - rollback-frontend-github-pages
       - rollback-gateway
     if: always()
 
@@ -1861,6 +2014,9 @@ jobs:
           SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
           ROLLBACK_FRONTEND_RENDER_RESULT: ${{ needs.rollback-frontend-render.result }}
+          ROLLBACK_FRONTEND_RAILWAY_RESULT: ${{ needs.rollback-frontend-railway.result }}
+          ROLLBACK_FRONTEND_CLOUDFLARE_RESULT: ${{ needs.rollback-frontend-cloudflare.result }}
+          ROLLBACK_FRONTEND_GITHUB_PAGES_RESULT: ${{ needs.rollback-frontend-github-pages.result }}
           SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
           ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
           IS_WORKFLOW_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
@@ -1877,6 +2033,9 @@ jobs:
             echo "| Vercel storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_VERCEL_RESULT} |"
             echo "| AWS frontend | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
             echo "| Render storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_RENDER_RESULT} |"
+            echo "| Railway storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_RAILWAY_RESULT} |"
+            echo "| Cloudflare Pages storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_CLOUDFLARE_RESULT} |"
+            echo "| GitHub Pages storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_GITHUB_PAGES_RESULT} |"
             echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo
             echo "| Auto rollback condition | Value |"
@@ -2206,6 +2365,9 @@ jobs:
       - rollback-frontend-vercel-storefront
       - rollback-frontend-aws
       - rollback-frontend-render
+      - rollback-frontend-railway
+      - rollback-frontend-cloudflare
+      - rollback-frontend-github-pages
       - rollback-gateway
       - rollback-decisions
       - release-desktop
@@ -2261,6 +2423,9 @@ jobs:
           SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
           ROLLBACK_FRONTEND_RENDER_RESULT: ${{ needs.rollback-frontend-render.result }}
+          ROLLBACK_FRONTEND_RAILWAY_RESULT: ${{ needs.rollback-frontend-railway.result }}
+          ROLLBACK_FRONTEND_CLOUDFLARE_RESULT: ${{ needs.rollback-frontend-cloudflare.result }}
+          ROLLBACK_FRONTEND_GITHUB_PAGES_RESULT: ${{ needs.rollback-frontend-github-pages.result }}
           SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
           ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
           SHOULD_RELEASE_DESKTOP: ${{ needs.plan.outputs.should_release_desktop }}
@@ -2338,6 +2503,9 @@ jobs:
             echo "| Frontend Vercel | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_VERCEL_RESULT} |"
             echo "| Frontend AWS | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
             echo "| Frontend Render | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_RENDER_RESULT} |"
+            echo "| Frontend Railway | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_RAILWAY_RESULT} |"
+            echo "| Frontend Cloudflare | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_CLOUDFLARE_RESULT} |"
+            echo "| Frontend GitHub Pages | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_GITHUB_PAGES_RESULT} |"
             echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo
             echo "### H. Desktop/mobile release result"

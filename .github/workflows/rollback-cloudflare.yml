@@ -1,0 +1,61 @@
+name: Rollback Cloudflare Pages Storefront
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Cloudflare Pages deployment id that was live before the failed release
+        required: false
+        default: ""
+        type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-cloudflare', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'aura-storefront' }}
+  CLOUDFLARE_PAGES_PRODUCTION_URL: ${{ vars.CLOUDFLARE_PAGES_PRODUCTION_URL || 'https://aura-storefront.pages.dev' }}
+
+jobs:
+  rollback:
+    name: Roll back Cloudflare Pages storefront
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout current rollback tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Execute Cloudflare Pages rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "scripts/rollback-cloudflare.sh" ]; then
+            bash scripts/rollback-cloudflare.sh
+          else
+            echo "::error::Missing rollback hook: scripts/rollback-cloudflare.sh"
+            echo "Create one hook that restores the previous Cloudflare Pages production deployment."
+            exit 1
+          fi
