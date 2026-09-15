@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    buildCloudflarePagesHeaders,
     buildFrontendSecurityHeaders,
     buildFrontendSecurityHeaderValues,
     buildHostedBackendRewrites,
@@ -51,6 +52,9 @@ await writeFile(path.join(repoRoot, 'app', 'Caddyfile'), railwayCaddyfile);
 
 const railwayToml = buildRailwayToml(hostedBackendOrigin);
 await writeFile(path.join(repoRoot, 'app', 'railway.toml'), railwayToml);
+
+const cloudflarePagesHeaders = buildCloudflarePagesHeaders(hostedBackendOrigin);
+await writeFile(path.join(repoRoot, 'cloudflare', '_headers'), `${cloudflarePagesHeaders}\n`);
 
 const appIndexTarget = path.join(repoRoot, 'app', 'index.html');
 const appIndexHtml = await readFile(appIndexTarget, 'utf8');

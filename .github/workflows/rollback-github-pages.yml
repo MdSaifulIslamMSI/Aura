@@ -1,0 +1,59 @@
+name: Rollback GitHub Pages Storefront
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Commit SHA of the user-site repo that was live before the failed release
+        required: false
+        default: ""
+        type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      GH_PAGES_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-github-pages', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GITHUB_PAGES_REPO: ${{ vars.GH_PAGES_REPO || 'mdsaifulislammsi.github.io' }}
+  GITHUB_PAGES_PRODUCTION_URL: ${{ vars.GH_PAGES_PRODUCTION_URL || 'https://mdsaifulislammsi.github.io' }}
+
+jobs:
+  rollback:
+    name: Roll back GitHub Pages storefront
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout current rollback tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Execute GitHub Pages rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GITHUB_PAGES_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "scripts/rollback-github-pages.sh" ]; then
+            bash scripts/rollback-github-pages.sh
+          else
+            echo "::error::Missing rollback hook: scripts/rollback-github-pages.sh"
+            echo "Create one hook that restores the previous GitHub Pages release commit."
+            exit 1
+          fi
