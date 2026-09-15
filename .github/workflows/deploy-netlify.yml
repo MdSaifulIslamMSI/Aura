@@ -1321,6 +1321,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download shared frontend
+        id: download_frontend
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: frontend-dist
+          path: app/dist
+
+      - name: Retry artifact download on transient digest mismatch
+        # download-artifact v8 verifies an upload digest that occasionally
+        # mismatches in transit while the artifact itself is intact (observed
+        # 2026-09-15: the same artifact downloaded cleanly for the Vercel and
+        # GitHub Pages lanes in the same run). One retry covers it.
+        if: steps.download_frontend.outcome == 'failure'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: frontend-dist

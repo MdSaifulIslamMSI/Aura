@@ -47,6 +47,13 @@ const buildRailwayBuildEnv = (env = process.env) => {
   for (const key of passthrough) {
     contract[key] = env[key] ?? '';
   }
+  // The shared CI build drops empty VITE_* vars before building (the build
+  // step's empty-drop loop), and `railway variable set --stdin` rejects empty
+  // values outright. Dropping them here keeps a Railway rebuild byte-comparable
+  // with the shared artifact: absent key on both sides, never defined-empty.
+  for (const key of Object.keys(contract)) {
+    if (contract[key] === '') delete contract[key];
+  }
   return contract;
 };
 
