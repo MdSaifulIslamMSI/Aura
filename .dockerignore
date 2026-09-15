@@ -46,7 +46,17 @@ payment-secrets*.env
 **/*.base64
 **/*.crt
 **/*.csr
-app
+# The storefront lanes build the frontend from the repo root (Vercel, Netlify,
+# AWS, Render, and Railway all run app/ scripts against the checked-out repo),
+# and the Railway image also needs config/desktopAuthLoopback.cjs and
+# shared/assistantCapabilities.json in its context. Native projects, logs, and
+# build output under app/ stay excluded; every secret pattern below is intact.
+app/android
+app/ios
+app/log
+app/.run-logs
+app/.netlify
+app/.vercel
 desktop
 docs
 gateway

@@ -11,13 +11,21 @@ production coherence gate, not assumed.
 ## Live service (one-time, dashboard)
 
 1. Railway Dashboard > New Project > Deploy from GitHub repo > select this repo.
-2. Add a service for the storefront with:
-   - Root Directory `app`
+2. Add the service for the storefront with:
+   - Root Directory **empty** (repo root — required, see below)
    - Config File `/app/railway.toml`
-   - Dockerfile Path `Dockerfile.railway`
-   - Watch Paths `/app/**`
-3. `railway.toml` (generated, do not hand-edit) pins:
-   `builder = "DOCKERFILE"`, `dockerfilePath = "Dockerfile.railway"`,
+   - Dockerfile Path `app/Dockerfile.railway`
+   - Watch Paths `/app/**`, `config/desktopAuthLoopback.cjs`, `shared/assistantCapabilities.json`
+3. Why the repo root: the Vite build graph reads two files outside `app/`
+   (`app/config/vercelRoutingContract.mjs` imports
+   `../../config/desktopAuthLoopback.cjs`, and
+   `app/src/utils/assistantCommands.js` imports
+   `../../../shared/assistantCapabilities.json`). Every other storefront lane
+   builds from the repo root for the same reason, and Railway's Root Directory
+   setting *is* the Docker build context — rooting it at `app/` makes those two
+   files unreachable (`[UNRESOLVED_IMPORT]`).
+4. `railway.toml` (generated, do not hand-edit) pins:
+   `builder = "DOCKERFILE"`, `dockerfilePath = "app/Dockerfile.railway"`,
    `healthcheckPath = "/"`, `healthcheckTimeout = 300`,
    `restartPolicyType = "ALWAYS"`, `restartPolicyMaxRetries = 5`.
 4. Generate a public domain (service Networking > Generate Domain), e.g.
