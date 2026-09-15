@@ -1,0 +1,43 @@
+name: GH Pages PAT Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_PAGES_REPO: ${{ vars.GH_PAGES_REPO || 'mdsaifulislammsi.github.io' }}
+
+jobs:
+  probe:
+    name: Probe GH_PAGES_TOKEN write access
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write probe against the user-site repo
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GITHUB_PAGES_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_PAGES_OWNER}/${GITHUB_PAGES_REPO}"
+          status="$(curl -s --max-time 20 -o /tmp/probe.json -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer ${GH_PAGES_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${repo}/contents/.pat-write-probe" \
+            -d "{\"message\":\"write probe\",\"content\":\"$(printf probe | base64)\"}")"
+          echo "Write probe: HTTP ${status}"
+          if [ "${status}" = "201" ]; then
+            sha="$(jq -r '.content.sha' /tmp/probe.json)"
+            curl -s --max-time 20 -o /dev/null -X DELETE \
+              -H "Authorization: Bearer ${GH_PAGES_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${repo}/contents/.pat-write-probe" \
+              -d "{\"message\":\"remove write probe\",\"sha\":\"${sha}\"}"
+            echo "PROBE PASS: GH_PAGES_TOKEN has Contents write on ${repo}."
+          else
+            cat /tmp/probe.json >&2 || true
+            echo "PROBE FAIL: GH_PAGES_TOKEN cannot write to ${repo}. Check Repository access + Contents: Read and write on the PAT." >&2
+            exit 1
+          fi
