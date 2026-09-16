@@ -16,6 +16,7 @@
 // Expected manifest: {"vars":[{"name":"VITE_X","empty":false}, ...]}
 // Exit 0 = parity holds; exit 1 = contract violations (listed).
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 /**
  * Pure parity checker (fixture-tested). Each host arg: {vars: [{key, value}]|null}
@@ -136,21 +137,38 @@ async function collectRenderVars(token, serviceId) {
 // Values arrive masked for secrets, so masked entries carry value null
 // (presence-only evidence, same as the Vercel collector below).
 async function collectRailwayVars(apiToken, projectId, environmentId, serviceId) {
-  const response = await fetch('https://backboard.railway.com/graphql/v2', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: 'query variables($projectId: String!, $environmentId: String!, $serviceId: String) { variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId) }',
-      variables: { projectId, environmentId, serviceId },
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`https://backboard.railway.com/graphql/v2 -> HTTP ${response.status}`);
+  const body = {
+    query: 'query variables($projectId: String!, $environmentId: String!, $serviceId: String) { variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId) }',
+    variables: { projectId, environmentId, serviceId },
+  };
+  // Project tokens authenticate with the Project-Access-Token header
+  // (Bearer is rejected); account/user tokens use Bearer. Try the project
+  // header first and fall back to Bearer only on 401/403.
+  const headerAttempts = [
+    { 'Project-Access-Token': apiToken, 'Content-Type': 'application/json' },
+    { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+  ];
+  let payload;
+  let lastAuthError;
+  for (const headers of headerAttempts) {
+    const response = await fetch('https://backboard.railway.com/graphql/v2', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (response.status === 401 || response.status === 403) {
+      lastAuthError = new Error(`https://backboard.railway.com/graphql/v2 -> HTTP ${response.status}`);
+      continue;
+    }
+    if (!response.ok) {
+      throw new Error(`https://backboard.railway.com/graphql/v2 -> HTTP ${response.status}`);
+    }
+    payload = await response.json();
+    break;
   }
-  const payload = await response.json();
+  if (!payload) {
+    throw lastAuthError || new Error('https://backboard.railway.com/graphql/v2 -> no response');
+  }
   if (payload.errors?.length) {
     throw new Error(`railway variables query failed: ${payload.errors[0]?.message || 'unknown error'}`);
   }
@@ -230,6 +248,8 @@ async function main() {
 }
 
 // CLI entry only when executed directly (fixture tests import the pure checker).
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
+// pathToFileURL resolves relative invocations (node ./app/scripts/...) to the
+// same absolute file URL as import.meta.url on every platform.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
 }

@@ -390,7 +390,7 @@ jobs:
                 --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
                 "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?per_page=10" \
                 > "${cloudflare_deployments}" 2>/dev/null; then
-              cloudflare_ref="$(jq -r '[.result[]?] | map(select(.env == "production" and .latest_stage.status == "active")) | .[0].id // empty' "${cloudflare_deployments}" 2>/dev/null || true)"
+              cloudflare_ref="$(jq -r '[.result[]?] | map(select(.env == "production" and .latest_stage.status == "success")) | .[0].id // empty' "${cloudflare_deployments}" 2>/dev/null || true)"
             fi
           fi
           if [ -z "${cloudflare_ref}" ]; then
@@ -455,6 +455,56 @@ jobs:
       - name: Capture shared release timestamp
         id: release
         run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify host env parity with CI build contract
+        if: inputs.target == 'production'
+        working-directory: .
+        env:
+          # Keep in sync with 'Build shared frontend artifact' below: the
+          # manifest must describe exactly what the build will inline
+          # (workflow-level VITE_FIREBASE_*/VITE_DUO_*/VITE_ADMIN_* flow in
+          # automatically, same as for the build).
+          VITE_DEPLOY_TARGET: multi-host
+          VITE_API_URL: ${{ steps.backend.outputs.origin }}/api
+          VITE_RELEASE_ID: ${{ github.sha }}
+          VITE_RELEASE_SHA: ${{ github.sha }}
+          VITE_RELEASE_CHANNEL: production
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_RELEASE_TIME: ${{ steps.release.outputs.built_at }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
+          VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
+          VITE_DD_SITE: us5.datadoghq.com
+          VITE_SENTRY_RELEASE: ${{ github.sha }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ env.RENDER_SERVICE_ID }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          # Emit the expected manifest from the live env with the same
+          # empty-drop semantics as the build step: empty VITE_ vars are
+          # unset before the build, so they are `empty: true` here. Hosts
+          # without creds are skipped by the verifier; collection errors
+          # fail closed so a blind release cannot ship.
+          MANIFEST="${RUNNER_TEMP}/expected-vite-manifest.json"
+          MANIFEST_PATH="${MANIFEST}" node -e '
+            const vars = Object.keys(process.env)
+              .filter((key) => key.startsWith("VITE_"))
+              .map((name) => ({ name, empty: process.env[name] === "" }));
+            require("fs").writeFileSync(
+              process.env.MANIFEST_PATH,
+              JSON.stringify({ vars }, null, 2)
+            );
+          '
+          node ./app/scripts/verify_host_env_parity.mjs --expected-file "${MANIFEST}"
 
       - name: Build shared frontend artifact
         env:
@@ -1356,15 +1406,27 @@ jobs:
           rm -rf "${stage_dir}"
           cp -a app/dist "${stage_dir}"
           cp cloudflare/_headers "${stage_dir}/_headers"
+          cp cloudflare/_redirects "${stage_dir}/_redirects"
 
+          # NOTE: `set -e` would exit silently if wrangler fails inside the
+          # command substitution below, hiding all diagnostics. Capture the
+          # exit code explicitly so the raw output is always printed.
+          set +e
           DEPLOY_OUTPUT="$(CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}" \
             npx --yes wrangler pages deploy "${stage_dir}" \
             --project-name "${CLOUDFLARE_PAGES_PROJECT}" \
             --branch main \
             --commit-dirty true 2>&1)"
+          WRANGLER_EXIT=$?
+          set -e
           printf '%s\n' "${DEPLOY_OUTPUT}" >&2
+          echo "wrangler exit code: ${WRANGLER_EXIT}" >&2
+          if [ "${WRANGLER_EXIT}" -ne 0 ]; then
+            echo "Wrangler pages deploy failed (exit ${WRANGLER_EXIT}). Check CLOUDFLARE_API_TOKEN scope (Pages:write), CLOUDFLARE_ACCOUNT_ID, and that project '${CLOUDFLARE_PAGES_PROJECT}' exists." >&2
+            exit 1
+          fi
 
-          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[a-f0-9-]+\.[a-z0-9-]+\.pages\.dev' | head -n 1 | tr -d '\r' || true)"
+          DEPLOY_URL="$(printf '%s\n' "${DEPLOY_OUTPUT}" | grep -Eo 'https://[A-Za-z0-9.-]+\.pages\.dev' | head -n 1 | tr -d '\r' || true)"
           if [ -z "${DEPLOY_URL}" ]; then
             echo "Wrangler did not report a deployment URL." >&2
             exit 1
@@ -1565,8 +1627,14 @@ jobs:
           # shared artifact. For its build to be byte-identical to the shared
           # artifact, Render must see the exact same VITE_* inputs CI used —
           # release metadata AND every telemetry/firebase value (empty or not),
-          # because import.meta.env inlining changes emitted bytes. All
-          # previous values are restored after the deploy goes live.
+          # because import.meta.env inlining changes emitted bytes.
+          #
+          # The parity variables are deliberately left standing on the service
+          # after the deploy goes live (same policy as the Railway lane):
+          # restoring prior values afterwards would trigger a Render rebuild
+          # WITHOUT the release metadata, and that unversioned rebuild would
+          # silently replace the verified release minutes after the coherence
+          # gate passes. The next release overwrites these keys again.
           parity_json="$(node -e '
             const literals = {
               VITE_DEPLOY_TARGET: "multi-host",
@@ -1605,16 +1673,6 @@ jobs:
 
           mapfile -t parity_keys < <(printf '%s' "$parity_json" | jq -r 'keys[]')
 
-          env_list="$(mktemp)"
-          curl --fail --show-error --silent --location \
-            --header "${auth_header}" \
-            "${api_base}/services/${RENDER_SERVICE_ID}/env-vars" \
-            > "${env_list}"
-
-          prior_value() {
-            jq -r --arg key "$1" '.[] | select(.key == $key) | .value // ""' "${env_list}"
-          }
-
           set_release_env() {
             curl --fail --show-error --silent --location \
               --request PUT \
@@ -1633,32 +1691,13 @@ jobs:
               > /dev/null || true
           }
 
-          restore_release_env() {
-            local status="$?"
-            trap - EXIT
-            local key prior
-            for key in "${modified_keys[@]}"; do
-              prior="$(printf '%s' "$parity_prior" | jq -r --arg key "$key" '.[$key] // ""')"
-              if [ -n "${prior}" ]; then
-                set_release_env "${key}" "${prior}" || true
-              else
-                delete_release_env "${key}"
-              fi
-            done
-            exit "${status}"
-          }
-          trap restore_release_env EXIT
-
-          modified_keys=()
-          parity_prior='{}'
           for key in "${parity_keys[@]}"; do
-            parity_prior="$(jq -cn --argjson base "$parity_prior" --arg key "$key" --arg value "$(prior_value "$key")" '$base + {($key): $value}')"
             value="$(printf '%s' "$parity_json" | jq -r --arg key "$key" '.[$key] // ""')"
-            if set_release_env "${key}" "${value}"; then
-              modified_keys+=("${key}")
-            elif [ -n "${value}" ]; then
-              echo "Failed to set Render env var ${key}; aborting rather than shipping a non-parity build." >&2
-              exit 1
+            if [ -n "${value}" ]; then
+              if ! set_release_env "${key}" "${value}"; then
+                echo "Failed to set Render env var ${key}; aborting rather than shipping a non-parity build." >&2
+                exit 1
+              fi
             else
               # Render rejects empty values; delete any prior key so the stale
               # value cannot leak into Render's build while CI dropped it.

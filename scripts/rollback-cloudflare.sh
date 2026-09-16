@@ -23,18 +23,23 @@ require_env() {
 
 require_command curl
 require_command jq
-require_env ROLLBACK_REF
 require_env CLOUDFLARE_API_TOKEN
 require_env CLOUDFLARE_ACCOUNT_ID
+
+# An empty ROLLBACK_REF is deliberately allowed through by the capture step
+# when the release was acknowledged without a rollback target
+# (allow_missing_rollback_target=true: first-ever release or capture miss).
+# There is nothing to restore, so skip gracefully instead of failing the
+# release. When the Cloudflare deploy itself failed, production still serves
+# whatever was live before, which is exactly the desired end state.
+if [[ -z "${ROLLBACK_REF:-}" ]]; then
+  echo "No Cloudflare Pages rollback target was captured; nothing to restore, skipping."
+  exit 0
+fi
 
 project="${CLOUDFLARE_PAGES_PROJECT:-aura-storefront}"
 api_base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}"
 rollback_ref="${ROLLBACK_REF}"
-
-if [[ -z "${rollback_ref}" ]]; then
-  echo "Cloudflare Pages rollback requires ROLLBACK_REF: the deployment id that was live before the failed release." >&2
-  exit 1
-fi
 
 # Confirm the target deployment still exists before mutating.
 deploy_file="$(mktemp)"

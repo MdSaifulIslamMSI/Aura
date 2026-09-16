@@ -34,17 +34,38 @@ describe('corsFlags', () => {
             'https://aurapilot.netlify.app',
             'https://dbtrhsolhec1s.cloudfront.net',
             'https://aurapilot.aws.app',
+            'https://aura-storefront.pages.dev',
+            'https://mdsaifulislammsi.github.io',
+            'https://aura-storefront-production.up.railway.app',
         ]));
         expect(isOriginAllowed('https://aurapilot.vercel.app')).toBe(true);
         expect(isOriginAllowed('https://aurapilot.netlify.app')).toBe(true);
         expect(isOriginAllowed('https://dbtrhsolhec1s.cloudfront.net')).toBe(true);
         expect(isOriginAllowed('https://aurapilot.aws.app')).toBe(true);
+        expect(isOriginAllowed('https://aura-storefront.pages.dev')).toBe(true);
+        expect(isOriginAllowed('https://mdsaifulislammsi.github.io')).toBe(true);
+        expect(isOriginAllowed('https://aura-storefront-production.up.railway.app')).toBe(true);
     });
 
     test('still rejects unrelated production origins', () => {
         const { isOriginAllowed } = loadCorsFlags();
 
         expect(isOriginAllowed('https://example.com')).toBe(false);
+    });
+
+    test('accepts the CORS_ORIGINS plural alias required by the environment contract', () => {
+        const { allowedOrigins, isOriginAllowed } = loadCorsFlags({
+            env: {
+                CORS_ORIGINS: 'https://shop.example.test, https://admin.example.test',
+            },
+        });
+
+        expect(allowedOrigins).toEqual(expect.arrayContaining([
+            'https://shop.example.test',
+            'https://admin.example.test',
+        ]));
+        expect(isOriginAllowed('https://shop.example.test')).toBe(true);
+        expect(isOriginAllowed('https://evil.example.test')).toBe(false);
     });
 
     test('does not add hosted production origins in explicit staging runtime', () => {

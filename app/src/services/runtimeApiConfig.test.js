@@ -94,11 +94,60 @@ describe('runtimeApiConfig', () => {
     expect(resolveServiceOrigin('/api')).toBe('https://dbtrhsolhec1s.cloudfront.net');
   });
 
+  it('prefers the hosted proxy path on Render when a different direct API origin is configured', () => {
+    vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://aura-storefront.onrender.com',
+        host: 'aura-storefront.onrender.com',
+        hostname: 'aura-storefront.onrender.com',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
+    expect(resolveServiceOrigin('/api')).toBe('https://aura-storefront.onrender.com');
+  });
+
+  it('prefers the hosted proxy path on Railway when a different direct API origin is configured', () => {
+    vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://aura-storefront-production.up.railway.app',
+        host: 'aura-storefront-production.up.railway.app',
+        hostname: 'aura-storefront-production.up.railway.app',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
+    expect(resolveServiceOrigin('/api')).toBe('https://aura-storefront-production.up.railway.app');
+  });
+
+  it('keeps the direct API origin on static-only lanes without a same-origin proxy', () => {
+    vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://aura-storefront.pages.dev',
+        host: 'aura-storefront.pages.dev',
+        hostname: 'aura-storefront.pages.dev',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('https://backend.example.com/api');
+    expect(resolveServiceOrigin('/api')).toBe('https://backend.example.com');
+  });
+
   it('detects Vercel, Netlify, and CloudFront production hosts as hosted frontends', () => {
     expect(isHostedFrontendRuntimeHost('aurapilot.vercel.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aurapilot.netlify.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('dbtrhsolhec1s.cloudfront.net')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aurapilot.aws.app')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('aura-storefront.onrender.com')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('aura-storefront-production.up.railway.app')).toBe(true);
+    expect(isHostedFrontendRuntimeHost('aura-storefront.pages.dev')).toBe(false);
+    expect(isHostedFrontendRuntimeHost('mdsaifulislammsi.github.io')).toBe(false);
     expect(isHostedFrontendRuntimeHost('localhost')).toBe(false);
   });
 

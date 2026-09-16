@@ -32,11 +32,21 @@ const hostedProductionOrigins = [
     'https://dbtrhsolhec1s.cloudfront.net',
     'https://aura-storefront.onrender.com',
     'https://aurapilot.aws.app',
+    // Direct-call lanes without a same-origin /api proxy: the bundle calls
+    // the backend edge cross-origin, so these must be allowlisted by default
+    // (explicit CORS_ORIGIN / *_FRONTEND_URL env still adds more).
+    'https://aura-storefront.pages.dev',
+    'https://mdsaifulislammsi.github.io',
+    'https://aura-storefront-production.up.railway.app',
 ];
 
 const collectConfiguredOrigins = () => {
     const configuredOrigins = [
         ...parseOrigins(process.env.CORS_ORIGIN),
+        // Accept the plural alias too: the environment contract and
+        // env validator require CORS_ORIGINS, so an operator satisfying
+        // the validator with only the plural must still be enforced.
+        ...parseOrigins(process.env.CORS_ORIGINS),
         normalizeOrigin(process.env.FRONTEND_URL),
         normalizeOrigin(process.env.APP_PUBLIC_URL),
         normalizeOrigin(process.env.VERCEL_FRONTEND_URL),

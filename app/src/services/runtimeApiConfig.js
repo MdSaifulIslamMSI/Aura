@@ -23,12 +23,24 @@ const isSupportedApiBaseUrl = (value = '') => {
 
 const HOSTED_FRONTEND_EXACT_HOSTS = new Set(['aurapilot.aws.app']);
 
+// Suffixes for frontend hosts that proxy /api (and /health, /uploads,
+// /socket.io) same-origin to the backend edge (Netlify/Vercel rewrites,
+// Render routes, Railway Caddy). Static-only lanes (Cloudflare Pages,
+// GitHub Pages, S3 website) have no same-origin proxy and call the backend
+// directly, so they are deliberately NOT listed here.
+const HOSTED_FRONTEND_HOST_SUFFIXES = [
+  '.vercel.app',
+  '.netlify.app',
+  '.cloudfront.net',
+  '.onrender.com',
+  '.railway.app',
+  '.up.railway.app',
+];
+
 export const isHostedFrontendRuntimeHost = (host = '') => {
     const normalizedHost = normalizeHost(host);
     return HOSTED_FRONTEND_EXACT_HOSTS.has(normalizedHost)
-        || normalizedHost.endsWith('.vercel.app')
-        || normalizedHost.endsWith('.netlify.app')
-        || normalizedHost.endsWith('.cloudfront.net');
+        || HOSTED_FRONTEND_HOST_SUFFIXES.some((suffix) => normalizedHost.endsWith(suffix));
 };
 
 export const isLocalFrontendRuntimeHost = (host = '') => {

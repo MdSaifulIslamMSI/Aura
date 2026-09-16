@@ -26,8 +26,20 @@ export RAILWAY_API_TOKEN RAILWAY_ENVIRONMENT_ID RAILWAY_SERVICE_ID
 export RAILWAY_TOKEN="${RAILWAY_API_TOKEN}"
 
 if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
-  railway link --project "${RAILWAY_PROJECT_ID}" \
-    --environment "${RAILWAY_ENVIRONMENT_ID}" </dev/null || true
+  if ! railway link --project "${RAILWAY_PROJECT_ID}" \
+    --environment "${RAILWAY_ENVIRONMENT_ID}" </dev/null; then
+    echo "warning: 'railway link' failed; continuing with explicit --project/--environment/--service flags." >&2
+  fi
+fi
+
+# Fail fast when the token cannot query the Railway API: every step below
+# (variable push, upload, status poll) needs it.
+if ! railway deployment list \
+  --service "${RAILWAY_SERVICE_ID}" \
+  --environment "${RAILWAY_ENVIRONMENT_ID}" \
+  --json >/dev/null 2>&1; then
+  echo "Railway API probe failed. Check that RAILWAY_API_TOKEN is valid and has access to service ${RAILWAY_SERVICE_ID} in environment ${RAILWAY_ENVIRONMENT_ID}." >&2
+  exit 1
 fi
 
 echo "Pushing CI build-env parity vars onto Railway service ${RAILWAY_SERVICE_ID}."
@@ -69,6 +81,11 @@ while [ "${attempt}" -lt "${attempts}" ]; do
   fi
   if [ "${status}" = "FAILED" ] || [ "${status}" = "CRASHED" ] || [ "${status}" = "REMOVED" ]; then
     echo "Railway deploy ended in status '${status}'." >&2
+    exit 1
+  fi
+  if [ "${status}" = "SKIPPED" ]; then
+    echo "Railway deploy was SKIPPED (terminal): the service ignored this CI upload." >&2
+    echo "Check the Railway dashboard for service ${RAILWAY_SERVICE_ID}: a GitHub-connected auto-deploy, a superseding deployment, or branch/environment rules may be skipping CLI uploads." >&2
     exit 1
   fi
   if [ "${attempt}" -ge "${attempts}" ]; then

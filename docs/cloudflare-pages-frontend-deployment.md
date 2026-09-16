@@ -17,9 +17,10 @@ release byte gate verifies it anyway.
   from `app/config/vercelRoutingContract.mjs`) is staged into the uploaded
   directory by the deploy job and checked as the seventh CSP copy by
   `scripts/security/check-csp-drift.mjs`.
-- Routing: no `_redirects` file is generated. The bundle calls the hosted
-  backend origin directly (same as Netlify/Vercel) and Pages' default SPA
-  behavior routes unknown paths to `/index.html` (no `404.html` is deployed).
+- Routing: the generated `cloudflare/_redirects` file pins the SPA fallback
+  (`/* /index.html 200`) explicitly instead of relying on Pages' default
+  routing, so deep links survive refresh (no `404.html` is deployed).
+  The bundle calls the hosted backend origin directly (same as Netlify/Vercel).
 - Previews: none from CI. Cloudflare's native preview deployments would need
   git integration, which direct-upload mode does not offer.
 

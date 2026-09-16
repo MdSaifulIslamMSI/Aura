@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     buildCloudflarePagesHeaders,
+    buildCloudflarePagesRedirects,
     buildFrontendSecurityHeaders,
     buildFrontendSecurityHeaderValues,
     buildHostedBackendRewrites,
@@ -56,6 +57,9 @@ await writeFile(path.join(repoRoot, 'app', 'railway.toml'), railwayToml);
 const cloudflarePagesHeaders = buildCloudflarePagesHeaders(hostedBackendOrigin);
 await writeFile(path.join(repoRoot, 'cloudflare', '_headers'), `${cloudflarePagesHeaders}\n`);
 
+const cloudflarePagesRedirects = buildCloudflarePagesRedirects();
+await writeFile(path.join(repoRoot, 'cloudflare', '_redirects'), cloudflarePagesRedirects);
+
 const appIndexTarget = path.join(repoRoot, 'app', 'index.html');
 const appIndexHtml = await readFile(appIndexTarget, 'utf8');
 const nextAppIndexHtml = appIndexHtml.replace(
@@ -89,31 +93,47 @@ const renderNetlifyHeaders = (headers) => [
 
 const getNetlifyRedirectFrom = (section) => section.match(/^\s*from\s*=\s*"([^"]+)"/m)?.[1] || '';
 const netlifyProxyPaths = new Set(netlifyRedirects.map(({ from }) => from));
-const netlifyTarget = path.join(repoRoot, 'netlify.toml');
-const netlifyConfig = await readFile(netlifyTarget, 'utf8');
-const netlifyConfigWithHeaders = netlifyConfig.replace(
-    /\[\[headers\]\][\s\S]*?(?=\r?\n\[\[redirects\]\]|\s*$)/,
-    renderNetlifyHeaders(sharedNetlifyHeaders)
-);
-const netlifySections = netlifyConfigWithHeaders.split(/\r?\n(?=\[\[redirects\]\])/);
-const nextNetlifySections = [];
-let insertedNetlifyProxyRedirects = false;
+// Both Netlify configs stay in sync: the repo-root file (used with the repo
+// root as base directory) and app/netlify.toml (used with app/ as base
+// directory). A base-directory choice must never silently change the
+// security-header posture, so the [[headers]] block is inserted when missing.
+const netlifyTargets = [
+    path.join(repoRoot, 'netlify.toml'),
+    path.join(repoRoot, 'app', 'netlify.toml'),
+];
 
-for (const section of netlifySections) {
-    if (section.startsWith('[[redirects]]')) {
-        const from = getNetlifyRedirectFrom(section);
+for (const netlifyTarget of netlifyTargets) {
+    let netlifyConfig = await readFile(netlifyTarget, 'utf8');
+    if (!/^\[\[headers\]\]/m.test(netlifyConfig)) {
+        netlifyConfig = netlifyConfig.replace(
+            /(\[build\][^\[]*?)(?=\r?\n\[\[redirects\]\])/,
+            (_, build) => `${build.trimEnd()}\n\n${renderNetlifyHeaders(sharedNetlifyHeaders)}`
+        );
+    }
+    const netlifyConfigWithHeaders = netlifyConfig.replace(
+        /\[\[headers\]\][\s\S]*?(?=\r?\n\[\[redirects\]\]|\s*$)/,
+        renderNetlifyHeaders(sharedNetlifyHeaders)
+    );
+    const netlifySections = netlifyConfigWithHeaders.split(/\r?\n(?=\[\[redirects\]\])/);
+    const nextNetlifySections = [];
+    let insertedNetlifyProxyRedirects = false;
 
-        if (netlifyProxyPaths.has(from)) {
-            if (!insertedNetlifyProxyRedirects) {
-                nextNetlifySections.push(renderNetlifyRedirects(netlifyRedirects));
-                insertedNetlifyProxyRedirects = true;
+    for (const section of netlifySections) {
+        if (section.startsWith('[[redirects]]')) {
+            const from = getNetlifyRedirectFrom(section);
+
+            if (netlifyProxyPaths.has(from)) {
+                if (!insertedNetlifyProxyRedirects) {
+                    nextNetlifySections.push(renderNetlifyRedirects(netlifyRedirects));
+                    insertedNetlifyProxyRedirects = true;
+                }
+
+                continue;
             }
-
-            continue;
         }
+
+        nextNetlifySections.push(section.trimEnd());
     }
 
-    nextNetlifySections.push(section.trimEnd());
+    await writeFile(netlifyTarget, `${nextNetlifySections.join('\n\n')}\n`);
 }
-
-await writeFile(netlifyTarget, `${nextNetlifySections.join('\n\n')}\n`);
