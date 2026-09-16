@@ -1,7 +1,7 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
  *  OTP SYSTEM — 100 TEST SUITE (HARDENED)
- *  Now tests: bcrypt hashing, attempt tracking, lockout, audit logging
+ *  Now tests: keyed OTP hashing, attempt tracking, lockout, audit logging
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -220,13 +220,13 @@ describe('POST /api/otp/send — Signup Flow', () => {
         expect(dbUser.isVerified).toBe(false);
     });
 
-    test('22. stores a BCRYPT HASH (not plaintext) in DB', async () => {
+    test('22. stores a KEYED HASH (not plaintext) in DB', async () => {
         const u = uniqueUser();
         await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'signup' });
         const dbUser = await User.findOne({ email: u.email }).select('+otp');
-        // bcrypt hashes start with $2a$ or $2b$
-        expect(dbUser.otp).toMatch(/^\$2[ab]\$/);
+        // HMAC-SHA256 hashes are stored with an explicit algorithm prefix
+        expect(dbUser.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
         // Must NOT be 6 digits (plaintext)
         expect(dbUser.otp).not.toMatch(/^\d{6}$/);
     });
@@ -420,12 +420,12 @@ describe('POST /api/otp/send — Login & Forgot Password', () => {
         });
     });
 
-    test('38. stores bcrypt hash for login OTP', async () => {
+    test('38. stores keyed hash for login OTP', async () => {
         const user = await seedVerified();
         await request(app).post('/api/otp/send')
             .send({ email: user.email, phone: user.phone, purpose: 'login' });
         const u = await User.findById(user._id).select('+otp');
-        expect(u.otp).toMatch(/^\$2[ab]\$/);
+        expect(u.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
     });
 
     test('39. sets purpose to "forgot-password"', async () => {
@@ -1091,7 +1091,7 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
 
         // DB has hashed OTP — we can't extract plaintext. Tested via unit tests above.
         const u = await User.findById(verUser._id).select('+otp');
-        expect(u.otp).toMatch(/^\$2[ab]\$/); // Confirm it's hashed
+        expect(u.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/); // Confirm it's hashed
     });
 
     test('93. progressive lockout: 1st wrong → 2nd wrong → ... → 5th = LOCKED', async () => {
@@ -1141,13 +1141,13 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
         expect(JSON.stringify(sendRes.body)).not.toMatch(/\$2[ab]\$/);
     });
 
-    test('97. OTP in DB is ALWAYS a bcrypt hash (never plaintext)', async () => {
+    test('97. OTP in DB is ALWAYS a keyed hash (never plaintext)', async () => {
         const u = uniqueUser();
         await request(app).post('/api/otp/send')
             .send({ email: u.email, phone: u.phone, purpose: 'signup' });
         const db = await User.findOne({ phone: u.phone }).select('+otp');
-        // bcrypt hash format
-        expect(db.otp).toMatch(/^\$2[ab]\$\d{2}\$.{53}$/);
+        // HMAC-SHA256 hash format
+        expect(db.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
     });
 
     test('98. re-signup after abandoned attempt works', async () => {

@@ -87,9 +87,10 @@ const assertWebhookSignature = ({ source, req, rawBody = '' }) => {
     if (!Number.isFinite(timestampMs) || Math.abs(Date.now() - timestampMs) > FIVE_MINUTES_MS) {
         throw new AppError('Status webhook timestamp is invalid or expired', 401);
     }
+    // Only the timestamp-bound HMAC is accepted; a raw-body HMAC would be
+    // replayable within the eventId dedupe window.
     const expectedWithTimestamp = crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-    const expectedRaw = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-    if (!signature || (!safeEqual(signature, expectedWithTimestamp) && !safeEqual(signature, expectedRaw))) {
+    if (!signature || !safeEqual(signature, expectedWithTimestamp)) {
         throw new AppError('Status webhook signature is invalid', 401);
     }
 };

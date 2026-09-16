@@ -50,7 +50,6 @@ const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
-const BCRYPT_SALT_ROUNDS = 8;
 const LOGIN_PROOF_MAX_AGE_SECONDS = 10 * 60;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const RESET_PASSWORD_SESSION_TTL_MS = 10 * 60 * 1000;
@@ -474,21 +473,63 @@ const AUTH_ASSURANCE_BY_PURPOSE = {
 const getAssuranceForPurpose = (purpose) => AUTH_ASSURANCE_BY_PURPOSE[purpose] || 'otp';
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
-const hashOtp = (otp) => bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
-const compareOtp = async (otp, storedHash) => {
-    if (!storedHash) return false;
-    if (!storedHash.startsWith('sha256:')) {
-        return bcrypt.compare(otp, storedHash);
+
+// OTPs are 6-digit low-entropy codes: a fast unkeyed hash or a salt-stored HMAC is
+// offline-brute-forceable, so the hash must be keyed by a server-side secret (pepper).
+const getOtpHashSecret = () => {
+    const secret = String(
+        process.env.OTP_HASH_SECRET
+        || process.env.OTP_FLOW_SECRET
+        || process.env.JWT_SECRET
+        || ''
+    ).trim();
+    if (secret) return secret;
+    if (process.env.NODE_ENV === 'test') return 'aura-test-otp-hash-secret';
+    throw new AppError('OTP hash secret is not configured', 500);
+};
+
+const OTP_HASH_PREFIX = 'hmac-sha256:';
+
+const hashOtp = (otp) => (
+    `${OTP_HASH_PREFIX}${crypto
+        .createHmac('sha256', getOtpHashSecret())
+        .update(String(otp ?? '').trim())
+        .digest('hex')}`
+);
+
+const compareOtp = (otp, storedHash) => {
+    if (!storedHash) return Promise.resolve(false);
+    const normalizedOtp = String(otp ?? '').trim();
+    if (storedHash.startsWith(OTP_HASH_PREFIX)) {
+        const stored = Buffer.from(storedHash.slice(OTP_HASH_PREFIX.length), 'hex');
+        const computed = Buffer.from(
+            crypto.createHmac('sha256', getOtpHashSecret()).update(normalizedOtp).digest('hex'),
+            'hex'
+        );
+        let isMatch = false;
+        try {
+            isMatch = stored.length === computed.length && crypto.timingSafeEqual(stored, computed);
+        } catch (err) {
+            isMatch = false;
+        }
+        return Promise.resolve(isMatch);
     }
-    const parts = storedHash.split(':');
-    if (parts.length !== 3) return false;
-    const [, salt, hash] = parts;
-    const computedHash = crypto.createHmac('sha256', salt).update(otp).digest('hex');
-    try {
-        return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(computedHash, 'hex'));
-    } catch (err) {
-        return false;
+    if (storedHash.startsWith('sha256:')) {
+        const parts = storedHash.split(':');
+        if (parts.length !== 3) return Promise.resolve(false);
+        const [, salt, hash] = parts;
+        const computedHash = crypto.createHmac('sha256', salt).update(normalizedOtp).digest('hex');
+        try {
+            return Promise.resolve(
+                crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(computedHash, 'hex'))
+            );
+        } catch (err) {
+            return Promise.resolve(false);
+        }
     }
+    // Legacy bcrypt hashes (pre-pepper era) only live for the OTP TTL, so no
+    // re-hash-on-verify upgrade is needed — they age out within minutes.
+    return bcrypt.compare(normalizedOtp, storedHash);
 };
 
 const verifyLoginCredentialProof = async ({ credentialProofToken, expectedEmail }) => {
@@ -1049,7 +1090,12 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         targetUser = verifiedByEmail || verifiedByPhone || null;
 
         if (!targetUser && !useStrictLoginIdentity && ['login', 'forgot-password'].includes(purpose) && isLoginAutoRecoverEnabled()) {
-            const vaultProfile = await getAuthProfileSnapshotByEmail(email);
+            let vaultProfile = null;
+            try {
+                vaultProfile = await getAuthProfileSnapshotByEmail(email);
+            } catch (vaultError) {
+                logger.warn('otp.vault_recovery_unavailable', { error: vaultError.message });
+            }
             if (vaultProfile) {
                 if (vaultProfile.phone && !phoneIdentityMatches(vaultProfile.phone, canonicalPhone)) {
                     const reason = `phone mismatch expected ${maskPhoneSuffix(vaultProfile.phone)} from auth vault snapshot`;

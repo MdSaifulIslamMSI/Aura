@@ -1603,6 +1603,7 @@ const refreshBrowserSession = async ({
 };
 
 module.exports = {
+    isSecureRequest,
     SESSION_COOKIE_NAME,
     SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,

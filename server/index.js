@@ -481,6 +481,7 @@ app.use(helmet({
     crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     crossOriginResourcePolicy: { policy: 'same-site' },
     referrerPolicy: { policy: 'no-referrer' },
+    strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
 }));
 app.use(compression());
 app.use(cors({

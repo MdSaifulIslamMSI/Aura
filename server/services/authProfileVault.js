@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const VAULT_DIR = path.join(__dirname, '..', 'data');
-const KEY_DERIVATION_SALT = 'aura-salt';
+// Only used to decrypt legacy records written before per-record salts; never for new ciphertext.
+const LEGACY_KEY_DERIVATION_SALT = 'aura-salt';
 const CURRENT_KEY_VERSION = String(process.env.AUTH_VAULT_SECRET_VERSION || 'v1').trim() || 'v1';
 
 const parseBoolean = (value, fallback = false) => {
@@ -68,26 +69,42 @@ const getVaultSecretsByVersion = () => new Map(
 const encrypt = (text, secret) => {
     if (!text) return '';
     try {
+        const salt = crypto.randomBytes(16);
         const iv = crypto.randomBytes(12);
-        const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
+        const key = crypto.scryptSync(secret, salt, 32);
         const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         let encrypted = cipher.update(text, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         const authTag = cipher.getAuthTag().toString('hex');
-        return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+        return `v1:${salt.toString('hex')}:${iv.toString('hex')}:${authTag}:${encrypted}`;
     } catch (error) {
         logger.error('vault.encrypt_failed', { error: error.message });
-        return text;
+        throw error;
     }
 };
 
 const decrypt = (data, secret) => {
     if (!data || !data.includes(':') || !secret) return data;
     try {
-        const [ivHex, authTagHex, encrypted] = data.split(':');
-        const iv = Buffer.from(ivHex, 'hex');
-        const authTag = Buffer.from(authTagHex, 'hex');
-        const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
+        const parts = data.split(':');
+        let key;
+        let iv;
+        let authTag;
+        let encrypted;
+        if (parts.length === 5 && parts[0] === 'v1') {
+            const salt = Buffer.from(parts[1], 'hex');
+            iv = Buffer.from(parts[2], 'hex');
+            authTag = Buffer.from(parts[3], 'hex');
+            encrypted = parts[4];
+            key = crypto.scryptSync(secret, salt, 32);
+        } else if (parts.length === 3) {
+            iv = Buffer.from(parts[0], 'hex');
+            authTag = Buffer.from(parts[1], 'hex');
+            encrypted = parts[2];
+            key = crypto.scryptSync(secret, LEGACY_KEY_DERIVATION_SALT, 32);
+        } else {
+            return null;
+        }
         const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         decipher.setAuthTag(authTag);
         let decrypted = decipher.update(encrypted, 'hex', 'utf8');
