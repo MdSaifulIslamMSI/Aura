@@ -13,23 +13,24 @@
 #                          AURA_RESTORE_CONFIRM=YES.
 #
 # Required env: AURA_BACKUP_BUCKET, AWS_REGION, RESTORE_S3_KEY
-# (production/mongo/<backup-id>/mongo.archive.gz).
+# (production/mongo/<backup-id>/mongo.archive.gz[.enc]).
 set -euo pipefail
 
 [ -n "${AURA_BACKUP_BUCKET:-}" ] || { echo "AURA_BACKUP_BUCKET is required"; exit 1; }
 [ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }
-[ -n "${RESTORE_S3_KEY:-}" ] || { echo "RESTORE_S3_KEY is required (e.g. production/mongo/<backup-id>/mongo.archive.gz)"; exit 1; }
+[ -n "${RESTORE_S3_KEY:-}" ] || { echo "RESTORE_S3_KEY is required (e.g. production/mongo/<backup-id>/mongo.archive.gz or .gz.enc)"; exit 1; }
 case "${RESTORE_S3_KEY}" in
-  production/mongo/*/mongo.archive.gz) ;;
-  *) echo "RESTORE_S3_KEY must match production/mongo/<backup-id>/mongo.archive.gz"; exit 1 ;;
+  production/mongo/*/mongo.archive.gz) ARCHIVE_FILE="mongo.archive.gz" ;;
+  production/mongo/*/mongo.archive.gz.enc) ARCHIVE_FILE="mongo.archive.gz.enc" ;;
+  *) echo "RESTORE_S3_KEY must match production/mongo/<backup-id>/mongo.archive.gz[.enc]"; exit 1 ;;
 esac
 
 WORK_DIR="/opt/aura/restore-work/$(date -u +%Y%m%d-%H%M%S)"
 mkdir -p "$WORK_DIR"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-BASE_KEY="${RESTORE_S3_KEY%/mongo.archive.gz}"
-aws s3 cp "s3://${AURA_BACKUP_BUCKET}/${BASE_KEY}/mongo.archive.gz" "$WORK_DIR/mongo.archive.gz" \
+BASE_KEY="${RESTORE_S3_KEY%/$ARCHIVE_FILE}"
+aws s3 cp "s3://${AURA_BACKUP_BUCKET}/${BASE_KEY}/$ARCHIVE_FILE" "$WORK_DIR/$ARCHIVE_FILE" \
   --region "$AWS_REGION" --only-show-errors
 aws s3 cp "s3://${AURA_BACKUP_BUCKET}/${BASE_KEY}/checksums.sha256" "$WORK_DIR/checksums.sha256" \
   --region "$AWS_REGION" --only-show-errors
@@ -39,6 +40,49 @@ aws s3 cp "s3://${AURA_BACKUP_BUCKET}/${BASE_KEY}/manifest.json" "$WORK_DIR/mani
 (cd "$WORK_DIR" && sha256sum --check checksums.sha256)
 grep -Fq '"environment":"production"' "$WORK_DIR/manifest.json"
 echo "Archive integrity verified for ${RESTORE_S3_KEY}"
+
+# Client-side envelope decryption (backups uploaded with
+# AURA_BACKUP_ENCRYPTION_KMS_KEY_ID). The data key is unwrapped ON THE HOST with
+# the instance role; it exists only in memory and is never written to disk.
+if [ "$ARCHIVE_FILE" = "mongo.archive.gz.enc" ]; then
+  [ -n "${BACKUP_CRYPTO_JS:-}" ] && [ -f "${BACKUP_CRYPTO_JS}" ] || { echo "BACKUP_CRYPTO_JS must point to backup-archive-crypto.js to restore encrypted backups"; exit 1; }
+  HEADER_JSON="$(sed -n '2p' "$WORK_DIR/mongo.archive.gz.enc")"
+  WRAPPED_B64="$(printf '%s' "$HEADER_JSON" | jq -r '.wrapped // empty')"
+  KDF_MODE="$(printf '%s' "$HEADER_JSON" | jq -r '.kdf.mode // empty')"
+
+  run_restore_crypto() {
+    local mode="$1" in_file="$2" out_file="$3"
+    if command -v node >/dev/null 2>&1; then
+      node "$BACKUP_CRYPTO_JS" "$mode" "$in_file" "$out_file"
+    elif command -v docker >/dev/null 2>&1; then
+      docker run --rm --network none \
+        -v "$(cd "$(dirname "$BACKUP_CRYPTO_JS")" && pwd):/crypto:ro" \
+        -v "$WORK_DIR:/work" \
+        -e DEK_B64 -e AURA_BACKUP_ENCRYPTION_MASTER_KEY \
+        node:22-alpine node "/crypto/$(basename "$BACKUP_CRYPTO_JS")" \
+        "$mode" "/work/$(basename "$in_file")" "/work/$(basename "$out_file")"
+    else
+      echo "Restoring encrypted backups requires node or docker on the host"; exit 1
+    fi
+  }
+
+  if [ -n "$WRAPPED_B64" ]; then
+    printf '%s' "$WRAPPED_B64" | base64 -d > "$WORK_DIR/wrapped.bin"
+    DEK_B64="$(aws kms decrypt --ciphertext-blob "fileb://$WORK_DIR/wrapped.bin" \
+      --region "$AWS_REGION" --output text --query 'Plaintext')"
+    rm -f "$WORK_DIR/wrapped.bin"
+    export DEK_B64
+  elif [ "$KDF_MODE" = "scrypt" ]; then
+    [ -n "${AURA_BACKUP_ENCRYPTION_MASTER_KEY:-}" ] || { echo "This archive was encrypted in local-master mode; AURA_BACKUP_ENCRYPTION_MASTER_KEY is required"; exit 1; }
+    export AURA_BACKUP_ENCRYPTION_MASTER_KEY
+  else
+    echo "Encrypted archive header has no key reference; refusing to restore"; exit 1
+  fi
+
+  run_restore_crypto decrypt "$WORK_DIR/mongo.archive.gz.enc" "$WORK_DIR/mongo.archive.gz"
+  test -s "$WORK_DIR/mongo.archive.gz" || { echo "Decrypted archive is missing"; exit 1; }
+  unset DEK_B64 WRAPPED_B64 AURA_BACKUP_ENCRYPTION_MASTER_KEY || true
+fi
 
 if [ "${RESTORE_DRILL:-false}" = "true" ]; then
   DRILL_ID="$(basename "$BASE_KEY")"

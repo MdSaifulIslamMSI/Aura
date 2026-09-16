@@ -338,7 +338,8 @@
         "from": "app/dist",
         "to": "app-dist",
         "filter": [
-          "**/*"
+          "**/*",
+          "!**/*.map"
         ]
       },
       {

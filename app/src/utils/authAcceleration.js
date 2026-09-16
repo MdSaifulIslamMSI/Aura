@@ -255,7 +255,9 @@ const resolveProviderLabel = (providerIds = []) => {
 };
 
 export const readAuthIdentityMemory = () => {
-    const storage = getStorage('local');
+    // Session-scoped on purpose: login-accelerator PII (email/phone/name) must
+    // not persist in localStorage across browser restarts.
+    const storage = getStorage('session');
     const parsed = purgeIfExpired(storage, AUTH_IDENTITY_MEMORY_KEY, AUTH_IDENTITY_TTL_MS);
     if (!parsed) return null;
 
@@ -286,7 +288,7 @@ export const readAuthIdentityMemory = () => {
 };
 
 export const writeAuthIdentityMemory = (snapshot = {}) => {
-    const storage = getStorage('local');
+    const storage = getStorage('session');
     if (!storage) return;
 
     const email = normalizeEmail(snapshot.email);
@@ -314,7 +316,7 @@ export const writeAuthIdentityMemory = (snapshot = {}) => {
 };
 
 export const clearAuthIdentityMemory = () => {
-    const storage = getStorage('local');
+    const storage = getStorage('session');
     storage?.removeItem(AUTH_IDENTITY_MEMORY_KEY);
 };
 

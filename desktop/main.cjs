@@ -32,6 +32,7 @@ const {
 const { isDesktopOwnerAccessSignInAvailable } = require('./ownerAccessAuth.cjs');
 const { formatDesktopAuthResultForRenderer } = require('./browserAuthResult.cjs');
 const { buildLaunchShellDataUrl } = require('./launchShell.cjs');
+const { createDesktopSecureStorage } = require('./secureStorage.cjs');
 const {
     canGrantDesktopRuntimePermission,
     isAllowedAuthWindowNavigation,
@@ -113,6 +114,23 @@ const openSafeExternalUrlInBackground = (candidate) => {
 
 app.userAgentFallback = DESKTOP_AUTH_USER_AGENT;
 app.commandLine.appendSwitch('user-agent', DESKTOP_AUTH_USER_AGENT);
+
+// OS-keychain-backed storage for renderer secrets (trusted-device session).
+// Plaintext never touches disk; unavailable OS providers keep values memory-only.
+const secureStorage = createDesktopSecureStorage({
+    resolveStorageDir: () => app.getPath('userData'),
+    safeStorage,
+});
+
+ipcMain.handle('desktop:secure-storage:get', (event, key = '') => {
+    assertTrustedDesktopIpcSender(event);
+    return secureStorage.read(String(key || ''));
+});
+
+ipcMain.handle('desktop:secure-storage:set', (event, key = '', value = '') => {
+    assertTrustedDesktopIpcSender(event);
+    return secureStorage.write(String(key || ''), String(value ?? ''));
+});
 
 ipcMain.handle('desktop:app-info', (event) => {
     assertTrustedDesktopIpcSender(event);

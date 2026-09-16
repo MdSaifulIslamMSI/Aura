@@ -676,10 +676,42 @@ describe('deviceTrustClient', () => {
     expect(deviceTrustClient.getTrustedDeviceId()).toBe('aura_hosted_browser_device_1');
     expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe('aura_hosted_browser_device_1');
     expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('desktop-bound-device-session');
-    expect(JSON.parse(localStorage.getItem('aura_trusted_device_session_v1'))).toEqual({
+    expect(JSON.parse(sessionStorage.getItem('aura_trusted_device_session_v1'))).toEqual({
       token: 'desktop-bound-device-session',
       expiresAt,
     });
+  });
+
+  it('mirrors the desktop session token to safeStorage and hydrates it at boot', async () => {
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47831',
+      protocol: 'http:',
+      origin: 'http://localhost:47831',
+    });
+    const secureStore = new Map();
+    setDesktopBridge({
+      isDesktop: true,
+      readSecureStorage: async (key) => secureStore.get(key) || '',
+      writeSecureStorage: async (key, value) => {
+        secureStore.set(key, value);
+        return true;
+      },
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+
+    deviceTrustClient.cacheTrustedDeviceSessionToken('keychain-session-token', expiresAt);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(secureStore.get('aura_trusted_device_session_v1')).toBeTruthy();
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+
+    sessionStorage.clear();
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('');
+
+    const restored = await deviceTrustClient.hydrateTrustedDeviceSessionFromSecureStorage();
+    expect(restored).toBe(true);
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('keychain-session-token');
   });
 
   it('rejects an invalid hosted-browser device identity without replacing local state', async () => {
@@ -749,7 +781,7 @@ describe('deviceTrustClient', () => {
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('configured-device-token');
   });
 
-  it('persists the trusted-device session token across desktop app restarts', async () => {
+  it('keeps desktop session tokens out of localStorage and mirrors them to safeStorage', async () => {
     setRuntimeHost({
       hostname: 'localhost',
       host: 'localhost:47831',
@@ -757,15 +789,26 @@ describe('deviceTrustClient', () => {
       origin: 'http://localhost:47831',
     });
     setUserAgent(`${originalUserAgent} Electron/37.2.1`);
+    const secureStore = new Map();
+    setDesktopBridge({
+      isDesktop: true,
+      readSecureStorage: async (key) => secureStore.get(key) || '',
+      writeSecureStorage: async (key, value) => {
+        secureStore.set(key, value);
+        return true;
+      },
+    });
     const deviceTrustClient = await loadDeviceTrustModule();
 
     deviceTrustClient.cacheTrustedDeviceSessionToken('desktop-device-token');
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
-    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(secureStore.get('aura_trusted_device_session_v1')).toBeTruthy();
   });
 
-  it('persists the trusted-device session token across native mobile app restarts', async () => {
+  it('keeps native mobile session tokens session-scoped with no localStorage mirror', async () => {
     setRuntimeHost({
       hostname: 'aurapilot.vercel.app',
       host: 'aurapilot.vercel.app',
@@ -781,10 +824,10 @@ describe('deviceTrustClient', () => {
     deviceTrustClient.cacheTrustedDeviceSessionToken('native-device-token');
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('native-device-token');
-    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('native-device-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
   });
 
-  it('persists desktop trusted-device tokens when Electron uses a Chrome-like user agent', async () => {
+  it('keeps desktop tokens out of localStorage when Electron uses a Chrome-like user agent', async () => {
     setRuntimeHost({
       hostname: 'localhost',
       host: 'localhost:47831',
@@ -792,13 +835,12 @@ describe('deviceTrustClient', () => {
       origin: 'http://localhost:47831',
     });
     setUserAgent('Mozilla/5.0 Chrome/124.0.0.0 Safari/537.36');
-    setDesktopBridge({ isDesktop: true });
     const deviceTrustClient = await loadDeviceTrustModule();
 
     deviceTrustClient.cacheTrustedDeviceSessionToken('desktop-bridge-token');
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
-    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
   });
 
   it('rotates a legacy loopback Electron identity into the desktop namespace before handoff sync', async () => {

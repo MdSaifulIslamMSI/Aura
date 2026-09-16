@@ -12,6 +12,7 @@ import { SocketProvider } from './context/SocketContext';
 import { AdminAccessLockedState, AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 import { EmergencyStatusProvider, useEmergencyStatus } from './context/EmergencyStatusContext';
+import { hydrateTrustedDeviceSessionFromSecureStorage } from './services/deviceTrustClient';
 
 import Navbar, { NavbarFailureFallback } from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -194,6 +195,12 @@ function AppContent() {
     () => shouldShowBackendStatusBanner(chromePathname),
     [chromePathname]
   );
+
+  useEffect(() => {
+    // Desktop: restore the trusted-device session from OS-keychain storage
+    // before the first authenticated request needs it (fire-and-forget).
+    hydrateTrustedDeviceSessionFromSecureStorage().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {

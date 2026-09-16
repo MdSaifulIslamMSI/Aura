@@ -170,8 +170,6 @@ describe('fieldEncryptionService', () => {
             SSMClient: class {
                 // eslint-disable-next-line class-methods-use-this
                 async send(command) {
-                    // eslint-disable-next-line global-require
-                    const mod = require('@aws-sdk/client-ssm');
                     if (command.constructor.name === 'GetParameterCommand') {
                         if (!storedParameter) {
                             const error = new Error('ParameterNotFound');

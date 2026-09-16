@@ -75,6 +75,7 @@ $resolvedDistDir = Resolve-Path -LiteralPath $DistDir
 
 aws s3 sync "$resolvedDistDir" "s3://$resolvedBucketName" `
     --region $AwsRegion `
+    --exclude "*.map" `
     --delete `
     --cache-control "public,max-age=300" | Out-Null
 
@@ -82,6 +83,7 @@ $assetsDir = Join-Path $resolvedDistDir "assets"
 if (Test-Path -LiteralPath $assetsDir) {
     aws s3 sync "$assetsDir" "s3://$resolvedBucketName/assets" `
         --region $AwsRegion `
+        --exclude "*.map" `
         --delete `
         --cache-control "public,max-age=31536000,immutable" | Out-Null
 }
