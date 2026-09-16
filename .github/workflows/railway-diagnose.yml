@@ -46,7 +46,23 @@ jobs:
           railway status --json > "${RUNNER_TEMP}/railway-diag/status.json" 2>&1 || true
           cat "${RUNNER_TEMP}/railway-diag/status.json"
 
-          echo "=== deployments (id/status/createdAt only) ==="
+          echo "=== build logs: our bypassed SUCCESS deployment c1cf12ba ==="
+          railway logs c1cf12ba-a54d-4107-a34a-d24507b68381 \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            -b -n 150 --json > "${RUNNER_TEMP}/railway-diag/build-ours.json" 2>&1 || true
+          DIAG_IN="${RUNNER_TEMP}/railway-diag/build-ours.json" node -e '
+            const fs = require("fs");
+            let lines = [];
+            try {
+              const raw = fs.readFileSync(process.env.DIAG_IN, "utf8").trim().split("\n");
+              lines = raw.map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+            } catch {}
+            console.log(`build log lines: ${lines.length}`);
+            for (const l of lines) console.log(`[${l.timestamp || "?"}] ${(l.message || "").slice(0, 300)}`);
+          '
+
+          echo "=== deployments (id/status/createdAt/meta) ==="
           railway deployment list \
             --service "${RAILWAY_SERVICE_ID}" \
             --environment "${RAILWAY_ENVIRONMENT_ID}" \
