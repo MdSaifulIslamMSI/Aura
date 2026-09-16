@@ -103,6 +103,14 @@ describe('account profile optimistic concurrency', () => {
             statusCode: 409,
             code: 'ACCOUNT_PROFILE_VERSION_CONFLICT',
         }));
-        expect(recordAuthSecurityEvent).not.toHaveBeenCalled();
+        // userController deliberately emits a security telemetry event on
+        // optimistic-concurrency conflicts (audit trail for stale writes).
+        expect(recordAuthSecurityEvent).toHaveBeenCalledWith(expect.objectContaining({
+            event: 'account.profile.updated',
+            outcome: 'failure',
+            reason: 'version_conflict',
+            surface: 'account_profile',
+            meta: { optimisticConcurrency: true },
+        }));
     });
 });
