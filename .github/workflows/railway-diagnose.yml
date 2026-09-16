@@ -1,0 +1,109 @@
+name: Railway Diagnose (temporary, read-only)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# TEMPORARY diagnostic for the Railway stale-traffic incident. Strictly
+# read-only: lists deployments, domains, and VARIABLE NAMES ONLY (never
+# values). Delete after use.
+jobs:
+  diagnose:
+    name: Diagnose Railway service state
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
+      RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+      RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@5
+
+      - name: Collect redacted Railway state
+        run: |
+          set -uo pipefail
+          export RAILWAY_TOKEN="${RAILWAY_API_TOKEN}"
+          railway link --project "${RAILWAY_PROJECT_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" </dev/null || true
+
+          mkdir -p "${RUNNER_TEMP}/railway-diag"
+
+          echo "=== project status (linked context) ==="
+          railway status --json > "${RUNNER_TEMP}/railway-diag/status.json" 2>&1 || true
+          cat "${RUNNER_TEMP}/railway-diag/status.json"
+
+          echo "=== deployments (id/status/createdAt only) ==="
+          railway deployment list \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            --json > "${RUNNER_TEMP}/railway-diag/deployments-raw.json" 2>&1 || true
+          node -e '
+            const fs = require("fs");
+            const out = process.env.DIAG_OUT;
+            let items = [];
+            try {
+              const raw = JSON.parse(fs.readFileSync(process.env.DIAG_IN, "utf8"));
+              items = Array.isArray(raw) ? raw : raw.deployments || [];
+            } catch { items = []; }
+            const slim = items.map((d) => ({
+              id: d.id || null,
+              status: d.status || null,
+              createdAt: d.createdAt || d.created_at || null,
+              creator: (d.creator && (d.creator.email || d.creator.name)) || null,
+            }));
+            fs.writeFileSync(out, JSON.stringify(slim.slice(0, 25), null, 2));
+            console.log(JSON.stringify(slim.slice(0, 25), null, 2));
+          '
+
+          echo "=== domains (public DNS names only, no secrets) ==="
+          railway domain list \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            --json > "${RUNNER_TEMP}/railway-diag/domains.json" 2>&1 || true
+          cat "${RUNNER_TEMP}/railway-diag/domains.json"
+
+          echo "=== variables (KEY NAMES + empty/non-empty ONLY, values never printed) ==="
+          railway variable list \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            --json > "${RUNNER_TEMP}/railway-diag/variables-raw.json" 2>&1 || true
+          DIAG_IN="${RUNNER_TEMP}/railway-diag/variables-raw.json" DIAG_OUT="${RUNNER_TEMP}/railway-diag/variables-keys.json" node -e '
+            const fs = require("fs");
+            let raw;
+            try { raw = JSON.parse(fs.readFileSync(process.env.DIAG_IN, "utf8")); }
+            catch { console.log("(variable list unavailable)"); process.exit(0); }
+            const entries = Array.isArray(raw)
+              ? raw.map((e) => [e.key || e.name, e.value])
+              : Object.entries(raw);
+            const keysOnly = entries
+              .filter(([k]) => typeof k === "string" && k)
+              .map(([k, v]) => ({ key: k, empty: (v ?? "") === "" }));
+            fs.writeFileSync(process.env.DIAG_OUT, JSON.stringify(keysOnly, null, 2));
+            console.log(`total vars: ${keysOnly.length}`);
+            console.log("VITE_ keys: " + JSON.stringify(keysOnly.filter((e) => e.key.startsWith("VITE_"))));
+            console.log("non-VITE_ keys: " + JSON.stringify(keysOnly.filter((e) => !e.key.startsWith("VITE_")).map((e) => e.key)));
+          '
+        env:
+          DIAG_IN: ${{ runner.temp }}/railway-diag/deployments-raw.json
+          DIAG_OUT: ${{ runner.temp }}/railway-diag/deployments.json
+
+      - name: Upload redacted diagnosis
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: railway-diagnosis
+          path: ${{ runner.temp }}/railway-diag/
+          retention-days: 3
