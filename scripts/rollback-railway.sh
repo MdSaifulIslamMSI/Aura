@@ -127,10 +127,10 @@ if [[ "${rollback_ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
   # of reusing a stale cached dist/.
   printf '%s' "rollback-${rollback_ref}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
 
-  # app/.env.production for the rebuild (same rationale as
+  # app/.railway-build-env for the rebuild (same rationale as
   # scripts/deploy-railway.sh): generated from the same contract builder
   # railway-vars.cjs pushes, non-empty VITE_* only.
-  RAILWAY_ENV_FILE="${stage_dir}/app/.env.production" node -e '
+  RAILWAY_ENV_FILE="${stage_dir}/app/.railway-build-env" node -e '
     const fs = require("fs");
     const { buildRailwayBuildEnv } = require("./scripts/railway-release-env.cjs");
     const lines = Object.entries(buildRailwayBuildEnv())

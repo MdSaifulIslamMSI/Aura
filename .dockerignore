@@ -8,11 +8,6 @@ __pycache__
 *.log
 **/.env
 **/.env.*
-# Exception: the CI-staged Railway build contract (scripts/deploy-railway.sh
-# writes app/.env.production into the upload staging area only; it is never
-# committed). Without this, the Vite build inside `railway up` Docker builds
-# silently misses every VITE_* var and bakes unversioned bytes.
-!app/.env.production
 .student-pack.local.env
 !.env.example
 !**/*.example.env

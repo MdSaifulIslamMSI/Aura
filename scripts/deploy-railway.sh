@@ -66,15 +66,14 @@ cp .dockerignore "${stage_dir}/.dockerignore"
 # staging area, never into the repo working tree.
 printf '%s' "${GITHUB_SHA:?}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
 
-# app/.env.production for the Railway build: Vite always loads it, so the
-# build inlines the CI contract even though `railway up` Docker builds do not
-# receive service variables. Generated from buildRailwayBuildEnv() — the same
-# single source of truth railway-vars.cjs pushes to the host — so the file
-# and the host contract cannot drift from each other (or from the CI build).
-# Only non-empty VITE_* vars are written, mirroring the CI empty-drop loop
-# (dropped vars stay undefined on every lane). Written only into the upload
-# staging area, never into the repo working tree.
-RAILWAY_ENV_FILE="${stage_dir}/app/.env.production" node -e '
+# app/.railway-build-env for the Railway build (see app/Dockerfile.railway):
+# generated from buildRailwayBuildEnv() — the same single source of truth
+# railway-vars.cjs pushes to the host — so the file and the host contract
+# cannot drift from each other (or from the CI build). Only non-empty VITE_*
+# vars are written, mirroring the CI empty-drop loop (dropped vars stay
+# undefined on every lane). Written only into the upload staging area, never
+# into the repo working tree.
+RAILWAY_ENV_FILE="${stage_dir}/app/.railway-build-env" node -e '
   const fs = require("fs");
   const { buildRailwayBuildEnv } = require("./scripts/railway-release-env.cjs");
   const lines = Object.entries(buildRailwayBuildEnv())

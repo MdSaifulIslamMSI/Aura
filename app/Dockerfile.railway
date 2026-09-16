@@ -29,11 +29,17 @@ COPY shared/assistantCapabilities.json /shared/assistantCapabilities.json
 # even across releases with changed sources, baking a stale dist/ (built
 # without the release VITE_* vars) into new images. This per-release id is
 # written by deploy-railway.sh / rollback-railway.sh staging, so the layer
-# hash changes every release and the Vite build below always re-executes
-# with the pushed variables. The file itself is never bundled.
+# hash changes every release and the Vite build below always re-executes.
+# The file itself is never bundled.
 COPY app/.railway-build-id ./.railway-build-id
 
-RUN npm run build
+# Build env: `railway up` Docker builds do not receive service variables, so
+# the release contract is staged as app/.railway-build-env (a plain KEY=value
+# file — deliberately NOT a dotenv auto-load name, since those are gitignored
+# and would never reach the builder) and sourced here. Sourcing overwrites
+# same-named variables, but the file carries the exact contract pushed to the
+# host by the same builder, so either source yields equal bytes.
+RUN if [ -f ./.railway-build-env ]; then set -a; . ./.railway-build-env; set +a; fi; npm run build
 
 FROM caddy:2-alpine
 
