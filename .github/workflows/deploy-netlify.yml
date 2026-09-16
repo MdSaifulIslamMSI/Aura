@@ -1990,14 +1990,18 @@ jobs:
             ]
         run: |
           set -euo pipefail
+          # aura-release-commit bakes the SHORT sha (vite.config shortCommitSha);
+          # compare short-to-short, since a short value can never equal the
+          # full github.sha.
+          EXPECTED_SHORT="$(printf '%s' "${EXPECTED_COMMIT}" | cut -c1-8)"
           failures=0
           while IFS='|' read -r name url; do
             [ -n "${name}" ] || continue
             observed="$(curl --fail --silent --show-error --max-time 30 --header 'Cache-Control: no-cache' --header 'Pragma: no-cache' "${url}/?aura_alias_check=${EXPECTED_COMMIT}" 2>/dev/null | grep -oE 'aura-release-commit" content="[0-9a-f]+' | cut -d'"' -f3 || true)"
-            if [ "${observed}" = "${EXPECTED_COMMIT}" ]; then
+            if [ "${observed}" = "${EXPECTED_SHORT}" ]; then
               echo "${name}: public alias serves ${observed}."
             else
-              echo "${name}: public alias serves '${observed:-nothing}', expected ${EXPECTED_COMMIT}." >&2
+              echo "${name}: public alias serves '${observed:-nothing}', expected ${EXPECTED_SHORT}." >&2
               failures=$((failures + 1))
             fi
           done < <(jq -r '.[] | "\(.name)|\(.url)"' <<< "${PUBLIC_ALIASES}")
