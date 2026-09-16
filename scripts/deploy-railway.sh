@@ -158,13 +158,15 @@ if [ -n "${RAILWAY_PRODUCTION_URL:-}" ] && [ -n "${GITHUB_SHA:-}" ]; then
   short_sha="$(printf '%s' "${GITHUB_SHA}" | cut -c1-8)"
   serving_ok=""
   for serving_attempt in 1 2 3 4 5 6; do
-    served_commit="$(curl --silent --fail --show-error --location --max-time 20 "${RAILWAY_PRODUCTION_URL%/}/" 2>/dev/null | grep -Eo 'name="aura-release-commit" content="[^"]*"' | head -n 1 | sed -E 's/.*content="([^"]*)".*/\1/' || true)"
+    served_meta="$(curl --silent --fail --show-error --location --max-time 20 "${RAILWAY_PRODUCTION_URL%/}/" 2>/dev/null | grep -Eo 'name="aura-release-(commit|built-at)" content="[^"]*"' || true)"
+    served_commit="$(printf '%s' "${served_meta}" | grep -Eo 'name="aura-release-commit" content="[^"]*"' | head -n 1 | sed -E 's/.*content="([^"]*)".*/\1/' || true)"
+    served_built_at="$(printf '%s' "${served_meta}" | grep -Eo 'name="aura-release-built-at" content="[^"]*"' | head -n 1 | sed -E 's/.*content="([^"]*)".*/\1/' || true)"
     if [ -n "${served_commit}" ] && [ "${served_commit}" = "${short_sha}" ]; then
       echo "Railway public URL serves release commit ${served_commit}."
       serving_ok=true
       break
     fi
-    echo "Railway public URL serves commit '${served_commit:-<unknown>}' (want ${short_sha}; attempt ${serving_attempt}/6)." >&2
+    echo "Railway public URL serves commit '${served_commit:-<unknown>}' built-at '${served_built_at:-<unknown>}' (want ${short_sha}; attempt ${serving_attempt}/6)." >&2
     sleep 20
   done
   if [ -z "${serving_ok}" ]; then
