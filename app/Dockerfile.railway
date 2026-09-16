@@ -25,6 +25,14 @@ COPY app/ ./
 COPY config/desktopAuthLoopback.cjs /config/desktopAuthLoopback.cjs
 COPY shared/assistantCapabilities.json /shared/assistantCapabilities.json
 
+# Cache-buster: Railway's remote layer cache has reused `RUN npm run build`
+# even across releases with changed sources, baking a stale dist/ (built
+# without the release VITE_* vars) into new images. This per-release id is
+# written by deploy-railway.sh / rollback-railway.sh staging, so the layer
+# hash changes every release and the Vite build below always re-executes
+# with the pushed variables. The file itself is never bundled.
+COPY app/.railway-build-id ./.railway-build-id
+
 RUN npm run build
 
 FROM caddy:2-alpine

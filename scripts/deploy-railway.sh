@@ -60,6 +60,12 @@ cp shared/assistantCapabilities.json "${stage_dir}/shared/assistantCapabilities.
 cp app/railway.toml "${stage_dir}/railway.toml"
 cp .dockerignore "${stage_dir}/.dockerignore"
 
+# Per-release Docker cache-buster (see app/Dockerfile.railway): unique every
+# release so `RUN npm run build` re-executes with the pushed VITE_* vars
+# instead of reusing a stale cached dist/. Written only into the upload
+# staging area, never into the repo working tree.
+printf '%s' "${GITHUB_SHA:?}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
+
 # Track OUR deployment by id instead of blindly polling the latest one: when
 # another trigger (e.g. a GitHub-connected auto-deploy) creates deployments
 # concurrently, list[0] may be someone else's. The Build Logs URL carries ours.

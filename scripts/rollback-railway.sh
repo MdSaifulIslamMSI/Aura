@@ -122,6 +122,11 @@ if [[ "${rollback_ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
   cp app/railway.toml "${stage_dir}/railway.toml"
   cp .dockerignore "${stage_dir}/.dockerignore"
 
+  # Per-rollback Docker cache-buster (see app/Dockerfile.railway): unique per
+  # execution so the rebuild actually runs with the pushed contract instead
+  # of reusing a stale cached dist/.
+  printf '%s' "rollback-${rollback_ref}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
+
   railway up "${stage_dir}" --path-as-root \
     --environment "${RAILWAY_ENVIRONMENT_ID}" \
     --service "${RAILWAY_SERVICE_ID}" \
