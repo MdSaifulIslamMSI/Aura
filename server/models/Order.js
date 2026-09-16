@@ -3,6 +3,7 @@ const {
     hydrateOrderMinorUnits,
     minorUnitsField,
 } = require('../services/payments/moneyStorage');
+const { defineEncryptedField } = require('./utils/encryptedField');
 
 const orderSchema = mongoose.Schema({
     user: {
@@ -384,5 +385,9 @@ orderSchema.index({ user: 1, orderStatus: 1, createdAt: -1 });
 orderSchema.pre('validate', function hydrateMinorUnitMoneyFields() {
     hydrateOrderMinorUnits(this);
 });
+
+// PII at rest: the street line is encrypted; city/postalCode/country stay
+// plaintext for pricing, fraud, and courier serviceability checks.
+defineEncryptedField(orderSchema, 'shippingAddress.address');
 
 module.exports = mongoose.model('Order', orderSchema);

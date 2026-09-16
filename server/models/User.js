@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { defineEncryptedField } = require('./utils/encryptedField');
+
 const normalizeOptionalPhone = (value) => {
     if (value === undefined || value === null) return undefined;
     const normalized = String(value).trim();
@@ -305,5 +307,12 @@ userSchema.index({ accountState: 1, softDeleted: 1, 'moderation.suspendedUntil':
 
 // Support leaderboard/reward dashboards.
 userSchema.index({ 'loyalty.pointsBalance': -1, isVerified: 1 });
+
+// PII at rest: address book identity fields are encrypted (city/state/pincode stay
+// plaintext for serviceability queries). Pass the array subdoc schema directly.
+const addressSchema = userSchema.path('addresses').schema;
+defineEncryptedField(addressSchema, 'name');
+defineEncryptedField(addressSchema, 'phone');
+defineEncryptedField(addressSchema, 'address');
 
 module.exports = mongoose.model('User', userSchema);
