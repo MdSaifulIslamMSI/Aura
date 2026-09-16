@@ -126,27 +126,65 @@ describe('fieldEncryptionService', () => {
         expect(service.decrypt(parts.join('.'))).toBeNull();
     });
 
-    test('primes from KMS and caches the data key in process memory', async () => {
-        jest.mock('@aws-sdk/client-kms', () => {
-            const generated = Buffer.alloc(32, 7);
-            return {
-                __kmsCalls: 0,
-                GenerateDataKeyCommand: class {
-                    constructor(input) {
-                        this.input = input;
+    test('primes from KMS and persists the wrapped data key for later boots', async () => {
+        const generated = Buffer.alloc(32, 7);
+        let storedParameter = null;
+        jest.mock('@aws-sdk/client-kms', () => ({
+            __kmsCalls: { generate: 0, decrypt: 0 },
+            GenerateDataKeyCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            DecryptCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            KMSClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    // eslint-disable-next-line global-require
+                    const mod = require('@aws-sdk/client-kms');
+                    if (command.constructor.name === 'GenerateDataKeyCommand') {
+                        mod.__kmsCalls.generate += 1;
+                        return { Plaintext: generated, CiphertextBlob: Buffer.from('wrapped-kms-blob') };
                     }
-                },
-                KMSClient: class {
-                    // eslint-disable-next-line class-methods-use-this
-                    async send(command) {
-                        // eslint-disable-next-line global-require
-                        const mod = require('@aws-sdk/client-kms');
-                        mod.__kmsCalls += 1;
-                        return { Plaintext: generated };
+                    mod.__kmsCalls.decrypt += 1;
+                    return { Plaintext: generated };
+                }
+            },
+        }));
+        jest.mock('@aws-sdk/client-ssm', () => ({
+            __ssm: null,
+            GetParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            PutParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            SSMClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    // eslint-disable-next-line global-require
+                    const mod = require('@aws-sdk/client-ssm');
+                    if (command.constructor.name === 'GetParameterCommand') {
+                        if (!storedParameter) {
+                            const error = new Error('ParameterNotFound');
+                            error.name = 'ParameterNotFound';
+                            throw error;
+                        }
+                        return { Parameter: { Value: JSON.stringify(storedParameter) } };
                     }
-                },
-            };
-        });
+                    storedParameter = JSON.parse(command.input.Value);
+                    return { Version: 1 };
+                }
+            },
+        }));
 
         process.env.FIELD_ENCRYPTION_ENABLED = 'true';
         process.env.FIELD_ENCRYPTION_KMS_KEY_ID = 'alias/aura-field-encryption';
@@ -159,7 +197,126 @@ describe('fieldEncryptionService', () => {
         expect(service.decrypt(ciphertext)).toBe('kms protected value');
 
         const kmsModule = require('@aws-sdk/client-kms');
-        expect(kmsModule.__kmsCalls).toBe(1);
+        expect(kmsModule.__kmsCalls.generate).toBe(1);
+        expect(storedParameter).toBeTruthy();
+        expect(storedParameter.wrapped).toBeTruthy();
+        expect(JSON.stringify(storedParameter)).not.toMatch(Buffer.from(generated).toString('base64'));
+        jest.dontMock('@aws-sdk/client-ssm');
+        jest.dontMock('@aws-sdk/client-kms');
+    });
+
+    test('recovers the same data key after a restart (records stay readable)', async () => {
+        const generated = Buffer.alloc(32, 9);
+        let storedParameter = null;
+        let decryptCalls = 0;
+        jest.mock('@aws-sdk/client-kms', () => ({
+            GenerateDataKeyCommand: class {},
+            DecryptCommand: class {},
+            KMSClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    if (command.constructor.name === 'DecryptCommand') {
+                        decryptCalls += 1;
+                        return { Plaintext: generated };
+                    }
+                    return { Plaintext: generated, CiphertextBlob: Buffer.from('wrapped-v1') };
+                }
+            },
+        }));
+        jest.mock('@aws-sdk/client-ssm', () => ({
+            GetParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            PutParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            SSMClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    if (command.constructor.name === 'GetParameterCommand') {
+                        if (!storedParameter) {
+                            const error = new Error('ParameterNotFound');
+                            error.name = 'ParameterNotFound';
+                            throw error;
+                        }
+                        return { Parameter: { Value: JSON.stringify(storedParameter) } };
+                    }
+                    storedParameter = JSON.parse(command.input.Value);
+                    return { Version: 1 };
+                }
+            },
+        }));
+
+        process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+        process.env.FIELD_ENCRYPTION_KMS_KEY_ID = 'alias/aura-field-encryption';
+
+        const boot1 = loadService();
+        await boot1.primeFieldEncryption();
+        const boot1Ciphertext = boot1.encrypt('survives the restart');
+
+        // Fresh process (fresh kernel state): must recover the persisted DEK.
+        const boot2 = loadService();
+        await boot2.primeFieldEncryption();
+        expect(boot2.decrypt(boot1Ciphertext)).toBe('survives the restart');
+        expect(decryptCalls).toBe(1);
+        jest.dontMock('@aws-sdk/client-ssm');
+        jest.dontMock('@aws-sdk/client-kms');
+    });
+
+    test('adopts the stored wrapped DEK when losing the first-boot race', async () => {
+        const generated = Buffer.alloc(32, 5);
+        const storedParameter = { keyVersion: 'kwinner', wrapped: 'w' };
+        jest.mock('@aws-sdk/client-kms', () => ({
+            GenerateDataKeyCommand: class {},
+            DecryptCommand: class {},
+            KMSClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    if (command.constructor.name === 'DecryptCommand') {
+                        return { Plaintext: generated };
+                    }
+                    return { Plaintext: generated, CiphertextBlob: Buffer.from('wrapped-loser') };
+                }
+            },
+        }));
+        jest.mock('@aws-sdk/client-ssm', () => ({
+            GetParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            PutParameterCommand: class {
+                constructor(input) {
+                    this.input = input;
+                }
+            },
+            SSMClient: class {
+                // eslint-disable-next-line class-methods-use-this
+                async send(command) {
+                    if (command.constructor.name === 'GetParameterCommand') {
+                        if (storedParameter) return { Parameter: { Value: JSON.stringify(storedParameter) } };
+                        const error = new Error('ParameterNotFound');
+                        error.name = 'ParameterNotFound';
+                        throw error;
+                    }
+                    const error = new Error('parameter already exists');
+                    error.name = 'ParameterAlreadyExists';
+                    throw error;
+                }
+            },
+        }));
+
+        process.env.FIELD_ENCRYPTION_ENABLED = 'true';
+        process.env.FIELD_ENCRYPTION_KMS_KEY_ID = 'alias/aura-field-encryption';
+
+        const service = loadService();
+        const primed = await service.primeFieldEncryption();
+        expect(primed.keyVersion).toBe('kwinner');
+        jest.dontMock('@aws-sdk/client-ssm');
         jest.dontMock('@aws-sdk/client-kms');
     });
 });

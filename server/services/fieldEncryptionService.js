@@ -82,15 +82,85 @@ const assertEnablementContract = () => {
     throw new Error('FIELD_ENCRYPTION_ENABLED requires FIELD_ENCRYPTION_KMS_KEY_ID (or FIELD_ENCRYPTION_MASTER_KEY outside production)');
 };
 
+// The wrapped DEK is persisted (KMS-encrypted, never plaintext) so every boot
+// recovers the SAME data key. Without this, a fresh GenerateDataKey per boot
+// would make all previously-encrypted records unreadable after restarts.
+const wrappedDekParameterName = () => `${String(process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '/aura/prod').replace(/\/+$/, '')}/FIELD_ENCRYPTION_WRAPPED_DEK`;
+
+const readWrappedDekRecord = async () => {
+    try {
+        const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
+        const client = new SSMClient({});
+        const response = await client.send(new GetParameterCommand({
+            Name: wrappedDekParameterName(),
+            WithDecryption: true,
+        }));
+        const parsed = JSON.parse(String(response?.Parameter?.Value || '{}'));
+        if (!parsed?.wrapped || !parsed?.keyVersion) return null;
+        return { keyVersion: String(parsed.keyVersion), wrapped: String(parsed.wrapped) };
+    } catch (error) {
+        if (error?.name === 'ParameterNotFound' || /ParameterNotFound/.test(String(error?.message))) {
+            return null;
+        }
+        throw error;
+    }
+};
+
+const persistWrappedDekRecord = async (record) => {
+    const { SSMClient, PutParameterCommand } = require('@aws-sdk/client-ssm');
+    const client = new SSMClient({});
+    const value = JSON.stringify(record);
+    try {
+        // No --overwrite: a concurrent first boot must not clobber the winner's
+        // DEK (records encrypted by it would become unreadable).
+        await client.send(new PutParameterCommand({
+            Name: wrappedDekParameterName(),
+            Type: 'SecureString',
+            Value: value,
+            Overwrite: false,
+        }));
+    } catch (error) {
+        if (!/AlreadyExists/i.test(String(error?.message)) && error?.name !== 'ParameterAlreadyExists') {
+            throw error;
+        }
+        // Lost the first-boot race: adopt the stored DEK.
+        const stored = await readWrappedDekRecord();
+        if (!stored) throw new Error('FIELD_ENCRYPTION_WRAPPED_DEK race lost and parameter unreadable');
+        return stored;
+    }
+    return null;
+};
+
 const loadKmsDataKey = async () => {
     const keyId = resolveKmsKeyId();
-    const { KMSClient, GenerateDataKeyCommand } = require('@aws-sdk/client-kms');
+    const { KMSClient, GenerateDataKeyCommand, DecryptCommand } = require('@aws-sdk/client-kms');
     const client = new KMSClient({});
+
+    const stored = await readWrappedDekRecord();
+    if (stored) {
+        const decrypted = await client.send(new DecryptCommand({
+            CiphertextBlob: Buffer.from(stored.wrapped, 'base64url'),
+        }));
+        if (!decrypted?.Plaintext || decrypted.Plaintext.length !== DEK_BYTES) {
+            throw new Error('KMS Decrypt of the stored wrapped DEK returned unexpected key material');
+        }
+        return { key: Buffer.from(decrypted.Plaintext), keyVersion: stored.keyVersion };
+    }
+
     const response = await client.send(new GenerateDataKeyCommand({ KeyId: keyId, KeySpec: 'AES_256' }));
-    if (!response?.Plaintext || response.Plaintext.length !== DEK_BYTES) {
+    if (!response?.Plaintext || response.Plaintext.length !== DEK_BYTES || !response?.CiphertextBlob) {
         throw new Error('KMS GenerateDataKey returned unexpected key material');
     }
-    return Buffer.from(response.Plaintext);
+    const keyVersion = nextKeyVersion();
+    const record = { keyVersion, wrapped: Buffer.from(response.CiphertextBlob).toString('base64url') };
+    const adopted = await persistWrappedDekRecord(record);
+    if (adopted) {
+        const decrypted = await client.send(new DecryptCommand({
+            CiphertextBlob: Buffer.from(adopted.wrapped, 'base64url'),
+        }));
+        return { key: Buffer.from(decrypted.Plaintext), keyVersion: adopted.keyVersion };
+    }
+    return { key: Buffer.from(response.Plaintext), keyVersion };
 };
 
 const loadLocalDataKey = () => normalizeKeyMaterial(resolveLocalMasterKey());
@@ -107,13 +177,15 @@ const primeFieldEncryption = async () => {
     primingPromise = (async () => {
         previousKeys = buildPreviousKeys();
         let key;
-        let keyVersion = String(process.env.FIELD_ENCRYPTION_KEY_VERSION || '').trim();
+        let keyVersion;
         if (resolveKmsKeyId()) {
-            key = await loadKmsDataKey();
-            if (!keyVersion) keyVersion = nextKeyVersion();
+            // The data key (and its version) is recovered from the persisted
+            // wrapped DEK so records survive restarts; env FIELD_ENCRYPTION_KEY_VERSION
+            // only applies to local master-key mode.
+            ({ key, keyVersion } = await loadKmsDataKey());
         } else {
             key = loadLocalDataKey();
-            if (!keyVersion) keyVersion = 'local';
+            keyVersion = String(process.env.FIELD_ENCRYPTION_KEY_VERSION || '').trim() || 'local';
             if (keyVersion === 'local' && previousKeys.has('local')) previousKeys.delete('local');
         }
         kmsDataKey = { keyVersion, key };
