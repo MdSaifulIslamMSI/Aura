@@ -3,6 +3,7 @@ const AssistantActionAudit = require('../../models/AssistantActionAudit');
 const AssistantProductSnapshot = require('../../models/AssistantProductSnapshot');
 const AssistantThread = require('../../models/AssistantThread');
 const AssistantThreadMessage = require('../../models/AssistantThreadMessage');
+const { decryptValue } = require('../../models/utils/encryptedField');
 const logger = require('../../utils/logger');
 
 const DEFAULT_THREAD_TITLE = 'New chat';
@@ -80,7 +81,8 @@ const mapMessageToClient = (message = {}) => {
     return {
         id: safeString(message?._id || ''),
         role: safeString(message?.role || 'assistant'),
-        text: safeString(message?.content || assistantTurn?.response || ''),
+        // .lean() reads bypass the schema getter, so decrypt explicitly here.
+        text: safeString(decryptValue(message?.content) || assistantTurn?.response || ''),
         createdAt: message?.createdAt ? new Date(message.createdAt).getTime() : Date.now(),
         status: 'complete',
         isStreaming: false,

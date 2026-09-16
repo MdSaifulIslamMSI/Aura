@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { defineEncryptedField } = require('./utils/encryptedField');
+
 const assistantThreadMessageSchema = new mongoose.Schema({
     thread: {
         type: mongoose.Schema.Types.ObjectId,
@@ -67,5 +69,9 @@ const assistantThreadMessageSchema = new mongoose.Schema({
 
 assistantThreadMessageSchema.index({ sessionId: 1, createdAt: 1 });
 assistantThreadMessageSchema.index({ thread: 1, createdAt: 1 });
+
+// PII at rest: user free text is encrypted; assistant history reads decrypt via
+// getters or decryptValue() in .lean() paths.
+defineEncryptedField(assistantThreadMessageSchema, 'content');
 
 module.exports = mongoose.model('AssistantThreadMessage', assistantThreadMessageSchema);

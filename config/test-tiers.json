@@ -57,6 +57,8 @@
       "tests/emergencyControlController.test.js",
       "tests/envContractScripts.test.js",
       "tests/fraudDecisionController.test.js",
+      "tests/fieldEncryptionAtRest.test.js",
+      "tests/fieldEncryptionService.test.js",
       "tests/fraudDecisioningService.test.js",
       "tests/frontendLinks.test.js",
       "tests/geminiGatewayService.test.js",

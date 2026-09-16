@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const ClientDiagnostic = require('../models/ClientDiagnostic');
+const { decryptValue } = require('../models/utils/encryptedField');
 const logger = require('../utils/logger');
 const {
     hashLogIdentifier,
@@ -218,6 +219,12 @@ const listClientDiagnostics = async ({
             .sort({ ingestedAt: -1 })
             .limit(normalizedLimit)
             .lean();
+
+        // .lean() bypasses schema getters, so decrypt explicitly.
+        diagnostics.forEach((diagnostic) => {
+            diagnostic.clientIp = decryptValue(diagnostic.clientIp);
+            diagnostic.userAgent = decryptValue(diagnostic.userAgent);
+        });
 
         return {
             diagnostics,

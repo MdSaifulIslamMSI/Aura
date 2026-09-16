@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { defineEncryptedField } = require('./utils/encryptedField');
+
 const parseRetentionSeconds = () => {
     const parsed = Number(process.env.CLIENT_DIAGNOSTIC_RETENTION_SEC || 14 * 24 * 60 * 60);
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -25,8 +27,8 @@ const clientDiagnosticSchema = new mongoose.Schema({
     error: { type: mongoose.Schema.Types.Mixed, default: {} },
     context: { type: mongoose.Schema.Types.Mixed, default: {} },
     ingestionRequestId: { type: String, default: '', maxlength: 120, index: true },
-    clientIp: { type: String, default: '', maxlength: 120 },
-    userAgent: { type: String, default: '', maxlength: 260 },
+    clientIp: { type: String, default: '', maxlength: 240 },
+    userAgent: { type: String, default: '', maxlength: 640 },
     ingestedAt: {
         type: Date,
         default: Date.now,
@@ -39,5 +41,10 @@ clientDiagnosticSchema.index({ ingestedAt: -1, type: 1 });
 clientDiagnosticSchema.index({ sessionId: 1, ingestedAt: -1 });
 clientDiagnosticSchema.index({ requestId: 1, ingestedAt: -1 });
 clientDiagnosticSchema.index({ serverRequestId: 1, ingestedAt: -1 });
+
+// PII at rest: client network metadata is encrypted (maxlength raised for
+// base64url ciphertext expansion).
+defineEncryptedField(clientDiagnosticSchema, 'clientIp');
+defineEncryptedField(clientDiagnosticSchema, 'userAgent');
 
 module.exports = mongoose.model('ClientDiagnostic', clientDiagnosticSchema);

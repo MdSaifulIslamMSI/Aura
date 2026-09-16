@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { defineEncryptedField } = require('./utils/encryptedField');
+
 const otpSessionSchema = new mongoose.Schema({
     identityKey: {
         type: String,
@@ -54,5 +56,10 @@ const otpSessionSchema = new mongoose.Schema({
 otpSessionSchema.index({ identityKey: 1, purpose: 1 }, { unique: true });
 otpSessionSchema.index({ user: 1, purpose: 1 }, { unique: true });
 otpSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+// PII at rest: client network metadata is encrypted; hashes and opaque ids stay plaintext.
+defineEncryptedField(otpSessionSchema, 'requestMeta.ip');
+defineEncryptedField(otpSessionSchema, 'requestMeta.userAgent');
+defineEncryptedField(otpSessionSchema, 'requestMeta.location');
 
 module.exports = mongoose.model('OtpSession', otpSessionSchema);

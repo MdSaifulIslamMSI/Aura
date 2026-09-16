@@ -111,6 +111,11 @@ const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags 
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const { assertAuthVaultConfig } = require('./config/authVaultFlags');
+const {
+    primeFieldEncryption,
+    isFieldEncryptionEnabled,
+    assertFieldEncryptionConfig,
+} = require('./services/fieldEncryptionService');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
 const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
@@ -943,6 +948,7 @@ if (require.main === module) {
 assertProductionOtpSmsConfig();
 assertProductionRedisConfig();
     assertAuthVaultConfig();
+    assertFieldEncryptionConfig();
     assertAuthEnvironmentConfig();
     assertTrustedDeviceConfig();
     assertAdminSecurityConfig();
@@ -964,6 +970,7 @@ assertProductionRedisConfig();
 
             // Run intensive startup tasks asynchronously
             Promise.resolve()
+                .then(() => (isFieldEncryptionEnabled() ? primeFieldEncryption() : null))
                 .then(() => initRedis())
                 .then(() => attachSocketBackplane())
                 .then(() => ensureSystemState({ syncIndexes: true }))
