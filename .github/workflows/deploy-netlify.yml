@@ -1053,7 +1053,7 @@ jobs:
           # domain pinned to an older deployment. Assign it directly, then
           # verify the alias actually serves this release (fail closed).
           ALIAS_HOST="$(VERCEL_PRODUCTION_URL="${VERCEL_PRODUCTION_URL}" node -e 'process.stdout.write(new URL(process.env.VERCEL_PRODUCTION_URL).hostname)')"
-          npx vercel alias set "${DEPLOY_URL}" "${ALIAS_HOST}" --token "${SANITIZED_VERCEL_TOKEN}" --yes
+          npx vercel alias set "${DEPLOY_URL}" "${ALIAS_HOST}" --token "${SANITIZED_VERCEL_TOKEN}" --scope "${VERCEL_ORG_ID}"
           SHORT_SHA="$(printf '%s' "${GITHUB_SHA}" | cut -c1-8)"
           alias_ok=""
           for alias_attempt in 1 2 3 4 5 6; do
