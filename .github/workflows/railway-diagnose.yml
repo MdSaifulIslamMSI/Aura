@@ -46,6 +46,40 @@ jobs:
           railway status --json > "${RUNNER_TEMP}/railway-diag/status.json" 2>&1 || true
           cat "${RUNNER_TEMP}/railway-diag/status.json"
 
+          echo "=== deploy (runtime) logs: our bypassed c1cf12ba (who gets HTTP traffic?) ==="
+          railway logs c1cf12ba-a54d-4107-a34a-d24507b68381 \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            -d -n 60 --json > "${RUNNER_TEMP}/railway-diag/deploy-ours.json" 2>&1 || true
+          echo "=== deploy (runtime) logs: active rollback dep 775b4dc2 ==="
+          railway logs 775b4dc2-832e-4082-929d-1a0174f32e8b \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            -d -n 60 --json > "${RUNNER_TEMP}/railway-diag/deploy-active.json" 2>&1 || true
+          echo "=== full deployment objects (meta included, no secrets) ==="
+          railway deployment list \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT_ID}" \
+            --json > "${RUNNER_TEMP}/railway-diag/deployments-full.json" 2>&1 || true
+          DIAG_IN="${RUNNER_TEMP}/railway-diag/deployments-full.json" DIAG_OUT="${RUNNER_TEMP}/railway-diag/deployments-meta.json" node -e '
+            const fs = require("fs");
+            let items = [];
+            try {
+              const raw = JSON.parse(fs.readFileSync(process.env.DIAG_IN, "utf8"));
+              items = Array.isArray(raw) ? raw : raw.deployments || [];
+            } catch {}
+            const slim = items.slice(0, 8).map((d) => ({
+              id: d.id || null,
+              status: d.status || null,
+              createdAt: d.createdAt || d.created_at || null,
+              commit: (d.meta && (d.meta.commitHash || d.commit)) || null,
+              reason: (d.meta && d.meta.reason) || null,
+              branch: (d.meta && d.meta.branch) || null,
+            }));
+            fs.writeFileSync(process.env.DIAG_OUT, JSON.stringify(slim, null, 2));
+            console.log(JSON.stringify(slim, null, 2));
+          '
+
           echo "=== build logs: our bypassed SUCCESS deployment c1cf12ba ==="
           railway logs c1cf12ba-a54d-4107-a34a-d24507b68381 \
             --service "${RAILWAY_SERVICE_ID}" \
