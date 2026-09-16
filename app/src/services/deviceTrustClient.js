@@ -1,5 +1,4 @@
 import { getSafeEnv } from './runtimeApiConfig';
-import { isCapacitorNativeRuntime } from '../utils/nativeRuntime';
 
 const DEVICE_ID_STORAGE_KEY = 'aura_trusted_device_id_v1';
 const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
@@ -43,14 +42,17 @@ const isElectronDesktopRuntime = () => {
   return /\bElectron\//i.test(String(window.navigator?.userAgent || ''));
 };
 
+// Plaintext localStorage persistence of the bearer-capable session token is
+// retired: web and mobile keep it in sessionStorage, and desktop mirrors it to
+// OS-keychain storage (safeStorage) with hydrateTrustedDeviceSessionFromSecureStorage()
+// at boot. The env flag only re-enables the legacy mirror explicitly.
 const shouldPersistTrustedDeviceSession = () => {
   const configuredValue = getSafeEnv('VITE_PERSIST_TRUSTED_DEVICE_SESSION', '');
   if (String(configuredValue || '').trim() !== '') {
     return parseBooleanEnv(configuredValue, false);
   }
 
-  return isElectronDesktopRuntime()
-    || isCapacitorNativeRuntime();
+  return false;
 };
 
 const getPlatformPasskeyLabel = () => {
@@ -343,6 +345,18 @@ export const getTrustedDeviceSessionToken = () => {
   return sharedRecord.token;
 };
 
+const readSecureStorageBridge = () => (
+  hasWindow() && isElectronDesktopRuntime() && window.auraDesktop?.readSecureStorage
+    ? window.auraDesktop
+    : null
+);
+
+const mirrorSessionTokenToSecureStorage = (storageValue = '') => {
+  const bridge = readSecureStorageBridge();
+  if (!bridge?.writeSecureStorage) return;
+  Promise.resolve(bridge.writeSecureStorage(DEVICE_SESSION_STORAGE_KEY, storageValue)).catch(() => {});
+};
+
 export const cacheTrustedDeviceSessionToken = (token = '', expiresAt = '') => {
   const tabStorage = readStorage('sessionStorage');
   const sharedStorage = shouldPersistTrustedDeviceSession() ? readStorage('localStorage') : null;
@@ -352,15 +366,42 @@ export const cacheTrustedDeviceSessionToken = (token = '', expiresAt = '') => {
     if (!storageValue) {
       clearTrustedDeviceSessionStorage(tabStorage);
       clearTrustedDeviceSessionStorage(sharedStorage);
+      mirrorSessionTokenToSecureStorage('');
       return;
     }
     tabStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, storageValue);
     sharedStorage?.setItem(DEVICE_SESSION_STORAGE_KEY, storageValue);
+    mirrorSessionTokenToSecureStorage(storageValue);
     return;
   }
 
   clearTrustedDeviceSessionStorage(tabStorage);
   clearTrustedDeviceSessionStorage(sharedStorage);
+  mirrorSessionTokenToSecureStorage('');
+};
+
+// Desktop only: restore the session token from OS-keychain storage into
+// sessionStorage once at boot so the synchronous token reader keeps working.
+export const hydrateTrustedDeviceSessionFromSecureStorage = async () => {
+  const bridge = readSecureStorageBridge();
+  const tabStorage = readStorage('sessionStorage');
+  if (!bridge?.readSecureStorage || !tabStorage) return false;
+
+  if (readTrustedDeviceSessionRecord(tabStorage).token) return true;
+
+  try {
+    const rawValue = await Promise.resolve(bridge.readSecureStorage(DEVICE_SESSION_STORAGE_KEY));
+    const record = readTrustedDeviceSessionRecord({ getItem: () => String(rawValue || '') });
+    if (record.expired) {
+      await Promise.resolve(bridge.writeSecureStorage(DEVICE_SESSION_STORAGE_KEY, ''));
+      return false;
+    }
+    if (!record.token) return false;
+    tabStorage.setItem(DEVICE_SESSION_STORAGE_KEY, record.rawValue);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const adoptTrustedDeviceSession = ({
