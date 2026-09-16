@@ -27,29 +27,26 @@ const fail = (message) => {
     process.exit(1);
 };
 
-const readHeader = (filePath) => {
-    const fd = fs.openSync(filePath, 'r');
-    try {
-        const probe = Buffer.alloc(MAGIC_HEADER.length + 1);
-        fs.readSync(fd, probe, 0, probe.length, 0);
-        if (probe.toString('utf8').trim() !== MAGIC_HEADER) {
-            fail('input is not an encrypted Aura backup archive');
-        }
-        // Line 1: magic marker, line 2: header JSON. Scan for the JSON newline.
-        const stat = fs.fstatSync(fd);
-        const scanLength = Math.min(stat.size, 8192);
-        const buffer = Buffer.alloc(scanLength);
-        fs.readSync(fd, buffer, 0, scanLength, 0);
-        const magicEnd = buffer.indexOf('\n');
-        const jsonEnd = magicEnd < 0 ? -1 : buffer.indexOf('\n', magicEnd + 1);
-        if (magicEnd < 0 || jsonEnd < 0) fail('corrupt header: incomplete');
-        return {
-            headerLine: buffer.subarray(magicEnd + 1, jsonEnd).toString('utf8'),
-            bodyOffset: jsonEnd + 1,
-        };
-    } finally {
-        fs.closeSync(fd);
+// Reads magic + header JSON from an open descriptor so every later read
+// (size, tag, body) observes the SAME file state — no check-then-read race.
+const readHeaderFromFd = (fd) => {
+    const probe = Buffer.alloc(MAGIC_HEADER.length + 1);
+    fs.readSync(fd, probe, 0, probe.length, 0);
+    if (probe.toString('utf8').trim() !== MAGIC_HEADER) {
+        fail('input is not an encrypted Aura backup archive');
     }
+    // Line 1: magic marker, line 2: header JSON. Scan for the JSON newline.
+    const stat = fs.fstatSync(fd);
+    const scanLength = Math.min(stat.size, 8192);
+    const buffer = Buffer.alloc(scanLength);
+    fs.readSync(fd, buffer, 0, scanLength, 0);
+    const magicEnd = buffer.indexOf('\n');
+    const jsonEnd = magicEnd < 0 ? -1 : buffer.indexOf('\n', magicEnd + 1);
+    if (magicEnd < 0 || jsonEnd < 0) fail('corrupt header: incomplete');
+    return {
+        headerLine: buffer.subarray(magicEnd + 1, jsonEnd).toString('utf8'),
+        bodyOffset: jsonEnd + 1,
+    };
 };
 
 const deriveDekFromMasterKey = () => {
@@ -106,11 +103,15 @@ const commandEncrypt = (inputPath, outputPath) => {
 };
 
 const commandDecrypt = (inputPath, outputPath) => {
-    const { headerLine, bodyOffset } = readHeader(inputPath);
+    // Single descriptor for the whole operation: header, size, tag, and body
+    // are all read from one fd, so the archive cannot change between checks.
+    const fd = fs.openSync(inputPath, 'r');
+    const { headerLine, bodyOffset } = readHeaderFromFd(fd);
     let header;
     try {
         header = JSON.parse(headerLine);
     } catch {
+        fs.closeSync(fd);
         return fail('corrupt header: invalid JSON');
     }
 
@@ -118,27 +119,37 @@ const commandDecrypt = (inputPath, outputPath) => {
     if (header.kdf?.mode === 'scrypt') {
         dek = deriveDekFromMasterKey();
     } else {
-        if (!process.env.DEK_B64) fail('DEK_B64 is required to decrypt this archive (unwrap it with `aws kms decrypt`)');
+        if (!process.env.DEK_B64) {
+            fs.closeSync(fd);
+            return fail('DEK_B64 is required to decrypt this archive (unwrap it with `aws kms decrypt`)');
+        }
         dek = Buffer.from(process.env.DEK_B64, 'base64');
-        if (dek.length !== 32) fail('DEK_B64 must decode to 32 bytes');
+        if (dek.length !== 32) {
+            fs.closeSync(fd);
+            return fail('DEK_B64 must decode to 32 bytes');
+        }
     }
 
     const iv = Buffer.from(String(header.iv || ''), 'base64');
-    if (iv.length !== 12) fail('corrupt header: invalid iv');
+    if (iv.length !== 12) {
+        fs.closeSync(fd);
+        return fail('corrupt header: invalid iv');
+    }
 
-    const stat = fs.statSync(inputPath);
+    const stat = fs.fstatSync(fd);
     const tagOffset = stat.size - TAG_LENGTH;
-    if (tagOffset <= bodyOffset) fail('corrupt archive: missing body or tag');
+    if (tagOffset <= bodyOffset) {
+        fs.closeSync(fd);
+        return fail('corrupt archive: missing body or tag');
+    }
     const tag = Buffer.alloc(TAG_LENGTH);
-    const tagFd = fs.openSync(inputPath, 'r');
-    fs.readSync(tagFd, tag, 0, TAG_LENGTH, tagOffset);
-    fs.closeSync(tagFd);
+    fs.readSync(fd, tag, 0, TAG_LENGTH, tagOffset);
 
     const decipher = crypto.createDecipheriv('aes-256-gcm', dek, iv, { authTagLength: TAG_LENGTH });
     decipher.setAuthTag(tag);
 
     return new Promise((resolve, reject) => {
-        const input = fs.createReadStream(inputPath, { start: bodyOffset, end: tagOffset - 1 });
+        const input = fs.createReadStream(null, { fd, start: bodyOffset, end: tagOffset - 1, autoClose: false });
         const output = fs.createWriteStream(outputPath, { mode: 0o600 });
         input.on('error', reject);
         output.on('error', reject);
@@ -160,6 +171,8 @@ const commandDecrypt = (inputPath, outputPath) => {
                 reject(error);
             }
         });
+    }).finally(() => {
+        fs.closeSync(fd);
     });
 };
 
