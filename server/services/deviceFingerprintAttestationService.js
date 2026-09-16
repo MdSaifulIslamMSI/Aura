@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isSecureRequest } = require('./browserSessionService');
 
 // Phase 5B: server-issued device fingerprint attestation. The raw
 // x-device-fingerprint header is client-asserted and trivially rotated, which
@@ -91,9 +92,11 @@ const verifyDeviceFingerprintAttestation = ({
 };
 
 // Cookie options mirror the browser session cookie posture.
-const attestationCookieOptions = ({ isProduction = false } = {}) => ({
+// Cookie options mirror the browser session cookie posture, including the
+// request-derived secure flag behind trusted proxies.
+const attestationCookieOptions = ({ req = null } = {}) => ({
     httpOnly: true,
-    secure: isProduction,
+    secure: req ? isSecureRequest(req) : true,
     sameSite: 'lax',
     maxAge: ATTESTATION_TTL_MS,
     path: '/',

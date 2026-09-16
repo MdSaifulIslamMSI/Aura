@@ -61,7 +61,7 @@ describe('OTP Email Fail-Closed', () => {
 
         const saved = await User.findOne({ email: identity.email }).select('+otp +otpPurpose +otpExpiry');
         expect(saved).not.toBeNull();
-        expect(saved.otp).toMatch(/^\$2[ab]\$/);
+        expect(saved.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
         expect(saved.otpPurpose).toBe('signup');
         expect(saved.otpExpiry).toBeTruthy();
     });

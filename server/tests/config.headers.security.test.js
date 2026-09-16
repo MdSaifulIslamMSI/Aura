@@ -45,7 +45,8 @@ describe('security headers', () => {
             .includes("frame-ancestors 'none'");
         const xFrameOptionsProtected = Boolean(response.headers['x-frame-options']);
         expect(frameAncestorsProtected || xFrameOptionsProtected).toBe(true);
-        expect(response.headers['strict-transport-security']).toBeDefined();
+        // HSTS must be explicitly pinned (not helmet's implicit 180-day default).
+        expect(response.headers['strict-transport-security']).toBe('max-age=31536000; includeSubDomains');
 
         const connectSrc = getDirectiveSources(response.headers['content-security-policy'], 'connect-src');
         expect(connectSrc).toContain("'self'");

@@ -611,7 +611,7 @@ const establishSessionCookie = asyncHandler(async (req, res, next) => {
             res.cookie(
                 ATTESTATION_COOKIE_NAME,
                 attestation.attestation,
-                attestationCookieOptions({ isProduction: process.env.NODE_ENV === 'production' })
+                attestationCookieOptions({ req })
             );
         }
     } catch {

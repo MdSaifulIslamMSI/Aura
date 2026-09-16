@@ -8,13 +8,15 @@ const logger = require('../utils/logger');
 // sync). Login itself is Firebase-verified, so the server-side brute-force
 // targets are one-time proofs; repeated 401s on those routes are the signal.
 //
-// Rollout mirrors the login risk engine: AUTH_LOCKOUT_MODE=off (default) |
-// monitor (observe + log, never block) | enforce (locked accounts get 429).
+// Rollout mirrors the login risk engine: AUTH_LOCKOUT_MODE=off | monitor (observe
+// + log, never block) | enforce (locked accounts get 429). Production defaults to
+// monitor so repeated-failure signals are visible without user impact; off remains
+// available explicitly for non-production environments.
 // Failure: lockout evaluation fails open for availability (a Redis blip must
 // not brick every login); the distributed rate limiters remain the hard cap.
 
 const MODES = Object.freeze(['off', 'monitor', 'enforce']);
-const DEFAULT_MODE = 'off';
+const DEFAULT_MODE = process.env.NODE_ENV === 'production' ? 'monitor' : 'off';
 
 const FAILURE_WINDOW_MS = Number(process.env.AUTH_LOCKOUT_WINDOW_MS || 15 * 60 * 1000);
 const LOCKOUT_STEPS = Object.freeze([
