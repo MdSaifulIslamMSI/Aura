@@ -476,11 +476,11 @@ jobs:
           VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          # Only the rebuild lanes are checked (Render builds from source,
+          # Railway builds the Dockerfile): their host-side env is inlined
+          # into the bytes they serve. Netlify/Vercel/AWS/Cloudflare/Pages
+          # serve the shared artifact, so their host env cannot diverge
+          # bytes and is deliberately not gated here.
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ env.RENDER_SERVICE_ID }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
