@@ -132,3 +132,31 @@ done
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "site_url=${RAILWAY_PRODUCTION_URL:-}" >> "${GITHUB_OUTPUT}"
 fi
+
+# Serving check: a SUCCESS deployment status is not enough — confirm the
+# public URL actually serves this release. Guards stale routing (service
+# still pinned to an older deployment) and wrong service/environment wiring.
+if [ -n "${RAILWAY_PRODUCTION_URL:-}" ] && [ -n "${GITHUB_SHA:-}" ]; then
+  short_sha="$(printf '%s' "${GITHUB_SHA}" | cut -c1-8)"
+  serving_ok=""
+  for serving_attempt in 1 2 3 4 5 6; do
+    served_commit="$(curl --silent --fail --show-error --location --max-time 20 "${RAILWAY_PRODUCTION_URL%/}/" 2>/dev/null | grep -Eo 'name="aura-release-commit" content="[^"]*"' | head -n 1 | sed -E 's/.*content="([^"]*)".*/\1/' || true)"
+    if [ -n "${served_commit}" ] && [ "${served_commit}" = "${short_sha}" ]; then
+      echo "Railway public URL serves release commit ${served_commit}."
+      serving_ok=true
+      break
+    fi
+    echo "Railway public URL serves commit '${served_commit:-<unknown>}' (want ${short_sha}; attempt ${serving_attempt}/6)." >&2
+    sleep 20
+  done
+  if [ -z "${serving_ok}" ]; then
+    echo "Railway deployment ${our_deployment_id:-unknown} reports SUCCESS but the public URL does not serve release ${short_sha}." >&2
+    echo "Recent deployments (id/status/createdAt):" >&2
+    railway deployment list \
+      --service "${RAILWAY_SERVICE_ID}" \
+      --environment "${RAILWAY_ENVIRONMENT_ID}" \
+      --json 2>/dev/null | jq -c '[.[]? | {id: .id, status: .status, createdAt: (.createdAt // .created_at // null)}]' >&2 || true
+    echo "Check the Railway dashboard: the public domain may be bound to a different service/environment, or traffic is pinned to a stale deployment." >&2
+    exit 1
+  fi
+fi
