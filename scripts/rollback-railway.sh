@@ -128,14 +128,17 @@ if [[ "${rollback_ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
   printf '%s' "rollback-${rollback_ref}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
 
   # app/.env.production for the rebuild (same rationale as
-  # scripts/deploy-railway.sh): only non-empty vars, mirroring the CI
-  # empty-drop loop.
-  while IFS='=' read -r key value; do
-    [ -n "$key" ] || continue
-    if [ -n "$value" ]; then
-      printf '%s=%s\n' "$key" "$value" >> "${stage_dir}/app/.env.production"
-    fi
-  done < <(env | grep -E '^VITE_[A-Za-z0-9_]*=' || true)
+  # scripts/deploy-railway.sh): generated from the same contract builder
+  # railway-vars.cjs pushes, non-empty VITE_* only.
+  RAILWAY_ENV_FILE="${stage_dir}/app/.env.production" node -e '
+    const fs = require("fs");
+    const { buildRailwayBuildEnv } = require("./scripts/railway-release-env.cjs");
+    const lines = Object.entries(buildRailwayBuildEnv())
+      .filter(([key, value]) => key.startsWith("VITE_") && value !== "")
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([key, value]) => `${key}=${value}`);
+    fs.writeFileSync(process.env.RAILWAY_ENV_FILE, `${lines.join("\n")}\n`);
+  '
 
   railway up "${stage_dir}" --path-as-root \
     --environment "${RAILWAY_ENVIRONMENT_ID}" \

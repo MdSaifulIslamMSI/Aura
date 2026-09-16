@@ -68,15 +68,21 @@ printf '%s' "${GITHUB_SHA:?}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app
 
 # app/.env.production for the Railway build: Vite always loads it, so the
 # build inlines the CI contract even though `railway up` Docker builds do not
-# receive service variables. Only non-empty vars are written, mirroring the
-# CI empty-drop loop (dropped vars stay undefined on every lane). Values are
-# URLs/IDs/flags (dotenv-safe by construction).
-while IFS='=' read -r key value; do
-  [ -n "$key" ] || continue
-  if [ -n "$value" ]; then
-    printf '%s=%s\n' "$key" "$value" >> "${stage_dir}/app/.env.production"
-  fi
-done < <(env | grep -E '^VITE_[A-Za-z0-9_]*=' || true)
+# receive service variables. Generated from buildRailwayBuildEnv() — the same
+# single source of truth railway-vars.cjs pushes to the host — so the file
+# and the host contract cannot drift from each other (or from the CI build).
+# Only non-empty VITE_* vars are written, mirroring the CI empty-drop loop
+# (dropped vars stay undefined on every lane). Written only into the upload
+# staging area, never into the repo working tree.
+RAILWAY_ENV_FILE="${stage_dir}/app/.env.production" node -e '
+  const fs = require("fs");
+  const { buildRailwayBuildEnv } = require("./scripts/railway-release-env.cjs");
+  const lines = Object.entries(buildRailwayBuildEnv())
+    .filter(([key, value]) => key.startsWith("VITE_") && value !== "")
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, value]) => `${key}=${value}`);
+  fs.writeFileSync(process.env.RAILWAY_ENV_FILE, `${lines.join("\n")}\n`);
+'
 
 # Track OUR deployment by id instead of blindly polling the latest one: when
 # another trigger (e.g. a GitHub-connected auto-deploy) creates deployments
