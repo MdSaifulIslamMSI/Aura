@@ -113,6 +113,32 @@ test('unconfigured hosts and null states are skipped', () => {
   assert.ok(verdict.violations.every((v) => v.startsWith('render')));
 });
 
+test('backfill lanes ignore missing vars but still flag extras and valued empties', () => {
+  // Render/Railway push the full contract before building, so absence is
+  // self-healed; extras and proven value mismatches are the real risks.
+  const missingOk = checkParity(expected, {
+    render: { vars: [] },
+    railway: { vars: [] },
+  }, { ignoreMissing: ['render', 'railway'] });
+  assert.equal(missingOk.ok, true, JSON.stringify(missingOk.violations));
+
+  const extraFails = checkParity(expected, {
+    render: { vars: [{ key: 'VITE_STAGING_ONLY_FLAG', value: 'true' }] },
+  }, { ignoreMissing: ['render', 'railway'] });
+  assert.equal(extraFails.ok, false);
+  assert.ok(extraFails.violations.some((v) => v.includes('VITE_STAGING_ONLY_FLAG')));
+
+  const valuedEmptyFails = checkParity(expected, {
+    railway: { vars: [{ key: 'VITE_SENTRY_DSN', value: 'https://o11.ingest.sentry.io/1' }] },
+  }, { ignoreMissing: ['render', 'railway'] });
+  assert.equal(valuedEmptyFails.ok, false);
+  assert.ok(valuedEmptyFails.violations.some((v) => v.includes('VITE_SENTRY_DSN')));
+
+  // Without the flag, missing vars still fail (backwards compatible).
+  const missingFails = checkParity(expected, { render: { vars: [] } });
+  assert.equal(missingFails.ok, false);
+});
+
 test('railway follows the netlify rule: expected-empty vars must be empty, not absent', () => {
   // Railway allows empty values (`railway variable set KEY=`), so unlike
   // Render it must carry expected-empty vars as empty, not drop them.

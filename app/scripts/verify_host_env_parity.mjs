@@ -21,12 +21,17 @@ import { pathToFileURL } from 'node:url';
 /**
  * Pure parity checker (fixture-tested). Each host arg: {vars: [{key, value}]|null}
  * where value null means the API hides values (presence-only evidence).
+ * options.ignoreMissing: host names whose MISSING vars are not violations —
+ * for lanes that backfill the full contract before building (Render pushes
+ * every parity key, Railway pushes its contract), absence is self-healed, so
+ * only extras and proven value mismatches are real divergence risks there.
  */
-export function checkParity(expectedVars, hosts) {
+export function checkParity(expectedVars, hosts, options = {}) {
   const violations = [];
   const expected = new Map(expectedVars.map((v) => [v.name, v]));
   const expectedNonEmpty = expectedVars.filter((v) => !v.empty).map((v) => v.name);
   const expectedEmpty = expectedVars.filter((v) => v.empty).map((v) => v.name);
+  const ignoreMissing = new Set(options.ignoreMissing || []);
 
   for (const [host, state] of Object.entries(hosts)) {
     if (!state || !state.vars) continue; // host not configured for this check
@@ -35,6 +40,7 @@ export function checkParity(expectedVars, hosts) {
 
     for (const name of expectedNonEmpty) {
       if (!actualNames.has(name)) {
+        if (ignoreMissing.has(host)) continue;
         violations.push(`${host}: expected non-empty VITE_ var ${name} is not configured on the host`);
       }
     }
@@ -187,10 +193,14 @@ async function main() {
   };
   const expectedFile = flag('expected-file');
   if (!expectedFile) {
-    console.error('usage: verify_host_env_parity.mjs --expected-file <manifest.json>');
+    console.error('usage: verify_host_env_parity.mjs --expected-file <manifest.json> [--ignore-missing render,railway]');
     process.exit(1);
   }
   const expectedVars = parseExpectedFile(expectedFile);
+  const ignoreMissing = String(flag('ignore-missing') || '')
+    .split(',')
+    .map((host) => host.trim())
+    .filter(Boolean);
 
   const hosts = {};
   const errors = [];
@@ -232,7 +242,7 @@ async function main() {
     }
   }
 
-  const verdict = checkParity(expectedVars, hosts);
+  const verdict = checkParity(expectedVars, hosts, { ignoreMissing });
   const summary = {
     expectedVarCount: expectedVars.length,
     hostsChecked: Object.keys(hosts),

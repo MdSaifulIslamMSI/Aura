@@ -494,6 +494,10 @@ jobs:
           # unset before the build, so they are `empty: true` here. Hosts
           # without creds are skipped by the verifier; collection errors
           # fail closed so a blind release cannot ship.
+          # --ignore-missing: both gated lanes backfill the full contract
+          # before building (Render pushes parity keys, Railway pushes its
+          # contract), so absence is self-healed. Extras and proven value
+          # mismatches still fail: those would leak into the rebuild bytes.
           MANIFEST="${RUNNER_TEMP}/expected-vite-manifest.json"
           MANIFEST_PATH="${MANIFEST}" node -e '
             const vars = Object.keys(process.env)
@@ -504,7 +508,7 @@ jobs:
               JSON.stringify({ vars }, null, 2)
             );
           '
-          node ./app/scripts/verify_host_env_parity.mjs --expected-file "${MANIFEST}"
+          node ./app/scripts/verify_host_env_parity.mjs --expected-file "${MANIFEST}" --ignore-missing render,railway
 
       - name: Build shared frontend artifact
         env:
