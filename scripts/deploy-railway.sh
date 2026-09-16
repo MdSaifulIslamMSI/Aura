@@ -60,10 +60,25 @@ cp shared/assistantCapabilities.json "${stage_dir}/shared/assistantCapabilities.
 cp app/railway.toml "${stage_dir}/railway.toml"
 cp .dockerignore "${stage_dir}/.dockerignore"
 
+# Track OUR deployment by id instead of blindly polling the latest one: when
+# another trigger (e.g. a GitHub-connected auto-deploy) creates deployments
+# concurrently, list[0] may be someone else's. The Build Logs URL carries ours.
+up_log="$(mktemp)"
 railway up "${stage_dir}" --path-as-root \
   --environment "${RAILWAY_ENVIRONMENT_ID}" \
   --service "${RAILWAY_SERVICE_ID}" \
-  --ci --detach
+  --ci --detach >"${up_log}" 2>&1 || {
+  cat "${up_log}" >&2
+  echo "railway up failed to create a deployment." >&2
+  exit 1
+}
+cat "${up_log}" >&2
+our_deployment_id="$(grep -Eo '[?&]id=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "${up_log}" | head -n 1 | cut -d= -f2 || true)"
+if [ -z "${our_deployment_id}" ]; then
+  echo "warning: could not determine our Railway deployment id from 'railway up' output; polling the latest deployment." >&2
+else
+  echo "Polling our Railway deployment ${our_deployment_id}."
+fi
 
 attempts=60
 attempt=0
@@ -73,18 +88,36 @@ while [ "${attempt}" -lt "${attempts}" ]; do
     --service "${RAILWAY_SERVICE_ID}" \
     --environment "${RAILWAY_ENVIRONMENT_ID}" \
     --json 2>/dev/null || echo '[]')"
-  status="$(printf '%s' "${deployments}" | jq -r '[.[]?] | map(select(.status != null)) | .[0].status // empty' 2>/dev/null || true)"
+  if [ -n "${our_deployment_id:-}" ]; then
+    status="$(printf '%s' "${deployments}" | jq -r --arg id "${our_deployment_id}" '[.[]?] | map(select(.status != null)) | (map(select(.id == $id))[0] | .status // "NOT_FOUND")' 2>/dev/null || true)"
+    [ -n "${status}" ] || status="NOT_FOUND"
+  else
+    status="$(printf '%s' "${deployments}" | jq -r '[.[]?] | map(select(.status != null)) | .[0].status // empty' 2>/dev/null || true)"
+  fi
 
   if [ "${status}" = "SUCCESS" ]; then
-    echo "Railway deploy is live."
+    if [ -n "${our_deployment_id:-}" ]; then
+      echo "Railway deploy ${our_deployment_id} is live."
+    else
+      echo "Railway deploy is live."
+    fi
     break
+  fi
+  if [ "${status}" = "NOT_FOUND" ]; then
+    echo "Railway deploy status: our deployment ${our_deployment_id} is not listed yet (attempt ${attempt}/${attempts})." >&2
+    if [ "${attempt}" -ge "${attempts}" ]; then
+      echo "Railway deployment ${our_deployment_id} never appeared in the deployment list." >&2
+      exit 1
+    fi
+    sleep 15
+    continue
   fi
   if [ "${status}" = "FAILED" ] || [ "${status}" = "CRASHED" ] || [ "${status}" = "REMOVED" ]; then
     echo "Railway deploy ended in status '${status}'." >&2
     exit 1
   fi
   if [ "${status}" = "SKIPPED" ]; then
-    echo "Railway deploy was SKIPPED (terminal): the service ignored this CI upload." >&2
+    echo "Railway deploy ${our_deployment_id:-unknown} was SKIPPED (terminal): the service ignored this CI upload." >&2
     echo "Check the Railway dashboard for service ${RAILWAY_SERVICE_ID}: a GitHub-connected auto-deploy, a superseding deployment, or branch/environment rules may be skipping CLI uploads." >&2
     exit 1
   fi
