@@ -66,6 +66,18 @@ cp .dockerignore "${stage_dir}/.dockerignore"
 # staging area, never into the repo working tree.
 printf '%s' "${GITHUB_SHA:?}-$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${stage_dir}/app/.railway-build-id"
 
+# app/.env.production for the Railway build: Vite always loads it, so the
+# build inlines the CI contract even though `railway up` Docker builds do not
+# receive service variables. Only non-empty vars are written, mirroring the
+# CI empty-drop loop (dropped vars stay undefined on every lane). Values are
+# URLs/IDs/flags (dotenv-safe by construction).
+while IFS='=' read -r key value; do
+  [ -n "$key" ] || continue
+  if [ -n "$value" ]; then
+    printf '%s=%s\n' "$key" "$value" >> "${stage_dir}/app/.env.production"
+  fi
+done < <(env | grep -E '^VITE_[A-Za-z0-9_]*=' || true)
+
 # Track OUR deployment by id instead of blindly polling the latest one: when
 # another trigger (e.g. a GitHub-connected auto-deploy) creates deployments
 # concurrently, list[0] may be someone else's. The Build Logs URL carries ours.
