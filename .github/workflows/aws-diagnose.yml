@@ -1,0 +1,48 @@
+name: AWS Diagnose (temporary, read-only)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+# TEMPORARY diagnostic for the backend-not-updating incident. Strictly
+# read-only AWS API calls (no SSM sends, no mutations). Delete after use.
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+  AWS_INSTANCE_TAG_KEY: Name
+  AWS_INSTANCE_TAG_VALUE: aura-backend
+
+jobs:
+  diagnose:
+    name: Diagnose AWS backend topology
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure AWS credentials (read-only use)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-github-diagnose
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: List backend EC2 instances
+        run: |
+          set -euo pipefail
+          aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" \
+            --query "Reservations[].Instances[].[InstanceId,State.Name,LaunchTime,PublicDnsName,PrivateIpAddress,Placement.AvailabilityZone]" \
+            --output json
+
+      - name: Show CloudFront backend origins and cache behaviors
+        env:
+          DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || 'E34Z9POGIQYOCS' }}
+        run: |
+          set -euo pipefail
+          aws cloudfront get-distribution --id "${DISTRIBUTION_ID}" \
+            --query "Distribution.{Status:Status,Origins:Origins.Items[].{Id:Id,Domain:DomainName,Path:OriginPath,CustomHeaders:CustomHeaders.Items},DefaultBehavior:DistributionConfig.DefaultCacheBehavior.{Path:TargetOriginId,AllowedMethods:AllowedMethods.Items,CachePolicy:CachePolicyId,OriginRequestPolicy:OriginRequestPolicyId,ViewerProtocol:ViewerProtocolPolicy},Behaviors:DistributionConfig.CacheBehaviors.Items[].{Path:PathPattern,TargetOrigin:TargetOriginId,AllowedMethods:AllowedMethods.Items,CachedMethods:CachedMethods.Items,CachePolicy:CachePolicyId,OriginRequestPolicy:OriginRequestPolicyId,MinTTL:MinTTL,DefaultTTL:DefaultTTL,MaxTTL:MaxTTL}}" \
+            --output json
