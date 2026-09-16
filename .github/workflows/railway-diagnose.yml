@@ -47,7 +47,7 @@ jobs:
           cat "${RUNNER_TEMP}/railway-diag/status.json"
 
           echo "=== deploy (runtime) logs: our bypassed c1cf12ba (who gets HTTP traffic?) ==="
-          railway logs c1cf12ba-a54d-4107-a34a-d24507b68381 \
+          railway logs 81c83440-1303-4a8a-8e07-320a87560716 \
             --service "${RAILWAY_SERVICE_ID}" \
             --environment "${RAILWAY_ENVIRONMENT_ID}" \
             -d -n 60 --json > "${RUNNER_TEMP}/railway-diag/deploy-ours.json" 2>&1 || true
@@ -81,7 +81,7 @@ jobs:
           '
 
           echo "=== build logs: our bypassed SUCCESS deployment c1cf12ba ==="
-          railway logs c1cf12ba-a54d-4107-a34a-d24507b68381 \
+          railway logs 81c83440-1303-4a8a-8e07-320a87560716 \
             --service "${RAILWAY_SERVICE_ID}" \
             --environment "${RAILWAY_ENVIRONMENT_ID}" \
             -b -n 150 --json > "${RUNNER_TEMP}/railway-diag/build-ours.json" 2>&1 || true
