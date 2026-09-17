@@ -1,4 +1,5 @@
 const EmailDeliveryLog = require('../../models/EmailDeliveryLog');
+const { computeEmailBlindIndex } = require('../blindIndexService');
 const { flags: emailFlags } = require('../../config/emailFlags');
 const { flags: activityEmailFlags } = require('../../config/activityEmailFlags');
 const { sendTransactionalEmail } = require('./index');
@@ -20,7 +21,11 @@ const buildSearchQuery = (search) => {
         $or: [
             { eventType: { $regex: value, $options: 'i' } },
             { provider: { $regex: value, $options: 'i' } },
-            { recipientEmail: { $regex: value, $options: 'i' } },
+            // recipientEmail is encrypted at rest: exact addresses resolve
+            // through the HMAC blind index, partial searches match the mask
+            // (first-2-chars + domain) instead of the ciphertext.
+            { recipientEmailHash: computeEmailBlindIndex(value) },
+            { recipientMask: { $regex: value, $options: 'i' } },
             { requestId: { $regex: value, $options: 'i' } },
             { subject: { $regex: value, $options: 'i' } },
             { errorCode: { $regex: value, $options: 'i' } },
@@ -44,6 +49,9 @@ const buildDeliveryQuery = ({
     return query;
 };
 
+// Admin UI shows the mask; raw recipient values never leave the server.
+const toSafeDeliveryListItem = (item = {}) => ({ ...item, recipientEmail: item.recipientMask || '', recipientEmailHash: undefined });
+
 const getEmailOpsSummary = async () => {
     const since = new Date(Date.now() - (24 * 60 * 60 * 1000));
     const [queue, latestDeliveries, totalsByStatus, totalsByEventType, totalsByLifecycle, recentFailures] = await Promise.all([
@@ -51,7 +59,8 @@ const getEmailOpsSummary = async () => {
         EmailDeliveryLog.find({})
             .sort({ createdAt: -1 })
             .limit(8)
-            .lean(),
+            .lean()
+            .then((items) => items.map(toSafeDeliveryListItem)),
         EmailDeliveryLog.aggregate([
             { $match: { createdAt: { $gte: since } } },
             { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -69,7 +78,8 @@ const getEmailOpsSummary = async () => {
         EmailDeliveryLog.find({ status: 'failed' })
             .sort({ createdAt: -1 })
             .limit(6)
-            .lean(),
+            .lean()
+            .then((items) => items.map(toSafeDeliveryListItem)),
     ]);
 
     const statusCounts = {
@@ -134,7 +144,8 @@ const listEmailDeliveries = async ({
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(safeLimit)
-            .lean(),
+            .lean()
+            .then((items) => items.map(toSafeDeliveryListItem)),
         EmailDeliveryLog.countDocuments(query),
     ]);
 

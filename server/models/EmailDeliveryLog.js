@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
+const { defineEncryptedField } = require('./utils/encryptedField');
+const { computeEmailBlindIndex } = require('../services/blindIndexService');
+
 const webhookEventSchema = new mongoose.Schema({
     eventId: { type: String, default: '' },
     type: { type: String, default: '', index: true },
@@ -55,6 +58,12 @@ const emailDeliveryLogSchema = new mongoose.Schema({
     recipientEmail: {
         type: String,
         default: '',
+    },
+    // HMAC blind index over the normalized recipient email: keeps exact-match
+    // search working on the encrypted value (see emailOpsAdminService).
+    recipientEmailHash: {
+        type: String,
+        default: null,
         index: true,
     },
     recipientMask: {
@@ -121,5 +130,17 @@ emailDeliveryLogSchema.index({ eventType: 1, createdAt: -1 });
 emailDeliveryLogSchema.index({ provider: 1, createdAt: -1 });
 emailDeliveryLogSchema.index({ providerMessageId: 1, provider: 1 });
 emailDeliveryLogSchema.index({ lifecycleStatus: 1, createdAt: -1 });
+
+// PII at rest: the recipient email is encrypted; recipientEmailHash keeps exact
+// lookup, recipientMask keeps partial/domain search and display.
+defineEncryptedField(emailDeliveryLogSchema, 'recipientEmail');
+
+const syncRecipientHash = (doc) => {
+    doc.recipientEmailHash = computeEmailBlindIndex(doc.recipientEmail);
+};
+
+emailDeliveryLogSchema.pre('validate', function syncRecipientHashValidate() {
+    syncRecipientHash(this);
+});
 
 module.exports = mongoose.model('EmailDeliveryLog', emailDeliveryLogSchema);

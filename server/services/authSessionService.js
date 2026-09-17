@@ -2,6 +2,7 @@ const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { saveAuthProfileSnapshot } = require('./authProfileVault');
+const { decryptValue } = require('../models/utils/encryptedField');
 const { awardLoyaltyPoints, getRewardSnapshotFromUser } = require('./loyaltyService');
 const { normalizePhoneE164 } = require('./sms');
 const { inspectOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
@@ -273,7 +274,8 @@ const persistAuthSnapshot = async (user) => {
     await saveAuthProfileSnapshot({
         name: user.name,
         email: publicEmail,
-        phone: user.phone,
+        // .lean() reads carry encrypted phone; decryptValue is a no-op on hydrated docs.
+        phone: decryptValue(user.phone),
         avatar: user.avatar || '',
         gender: user.gender || '',
         dob: user.dob || null,
@@ -311,7 +313,7 @@ const toProfilePayload = (user = null, options = {}) => {
         _id: user._id,
         name: user.name,
         email: resolvePublicEmail(user.email),
-        phone: user.phone,
+        phone: decryptValue(user.phone),
         avatar: user.avatar || '',
         gender: user.gender || '',
         dob: user.dob || null,
