@@ -7,6 +7,8 @@ const OtpSession = require('../models/OtpSession');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms, normalizePhoneE164 } = require('../services/sms');
+const { computePhoneBlindIndex } = require('../services/blindIndexService');
+const { decryptValue } = require('../models/utils/encryptedField');
 const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../services/authProfileVault');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -140,6 +142,20 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
     }
 
     return Array.from(candidates).filter(Boolean);
+};
+
+// Phone is encrypted at rest with an HMAC blind index (User.phoneHash), so
+// equality lookups run against the hash. The plaintext branch keeps legacy
+// rows matchable until scripts/backfill-field-encryption.js has migrated
+// every user; it is removed together with the legacy phone indexes after.
+const buildPhoneMatchFilter = (candidates) => {
+    const list = (Array.isArray(candidates) ? candidates : [candidates]).filter(Boolean);
+    return {
+        $or: [
+            { phoneHash: { $in: list.map(computePhoneBlindIndex) } },
+            { phone: { $in: list } },
+        ],
+    };
 };
 
 const normalizePurpose = (value) => (
@@ -971,7 +987,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 isVerified: true,
                 $or: [
                     { email },
-                    { phone: { $in: signupPhoneCandidates } },
+                    buildPhoneMatchFilter(signupPhoneCandidates),
                 ],
             },
             'email phone'
@@ -1054,13 +1070,19 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                 isVerified: true,
                 $or: [
                     { email },
-                    { phone: canonicalPhone },
+                    buildPhoneMatchFilter(canonicalPhone),
                 ],
             },
             '_id email phone'
         )
             .limit(4)
             .lean();
+
+        // .lean() bypasses the schema getter, so decrypt explicitly before
+        // identity comparisons and masking.
+        verifiedCandidates.forEach((candidate) => {
+            candidate.phone = decryptValue(candidate.phone);
+        });
 
         const verifiedByEmail = verifiedCandidates.find(
             (candidate) => normalizeEmail(candidate?.email) === email
@@ -1153,11 +1175,17 @@ const sendOtp = asyncHandler(async (req, res, next) => {
                         {
                             $or: [
                                 { email, isVerified: true },
-                                { phone: canonicalPhone, isVerified: true },
+                                {
+                                    $and: [
+                                        buildPhoneMatchFilter(canonicalPhone),
+                                        { isVerified: true },
+                                    ],
+                                },
                             ],
                         },
                         '_id email phone'
                     ).lean();
+                    if (recovered) recovered.phone = decryptValue(recovered.phone);
 
                     if (recovered && normalizeEmail(recovered.email) === email && phoneIdentityMatches(recovered.phone, canonicalPhone)) {
                         targetUser = recovered;
@@ -2201,8 +2229,15 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     if (email) {
         const [verifiedByEmail, verifiedByPhone] = await Promise.all([
             User.findOne({ email, isVerified: true }, 'email phone').lean(),
-            User.findOne({ phone: canonicalPhone, isVerified: true }, 'email phone').lean(),
+            User.findOne({
+                $and: [
+                    buildPhoneMatchFilter(canonicalPhone),
+                    { isVerified: true },
+                ],
+            }, 'email phone').lean(),
         ]);
+        if (verifiedByEmail) verifiedByEmail.phone = decryptValue(verifiedByEmail.phone);
+        if (verifiedByPhone) verifiedByPhone.phone = decryptValue(verifiedByPhone.phone);
 
         if (verifiedByEmail && !phoneIdentityMatches(verifiedByEmail.phone, canonicalPhone)) {
             reason = 'phone_mismatch';
@@ -2213,7 +2248,12 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
             reason = userExists ? 'match' : 'not_found';
         }
     } else {
-        const user = await User.findOne({ phone: canonicalPhone, isVerified: true }, '_id').lean();
+        const user = await User.findOne({
+            $and: [
+                buildPhoneMatchFilter(canonicalPhone),
+                { isVerified: true },
+            ],
+        }, '_id').lean();
         userExists = !!user;
         reason = userExists ? 'match' : 'not_found';
     }

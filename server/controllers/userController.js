@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Listing = require('../models/Listing');
 const { saveAuthProfileSnapshot } = require('../services/authProfileVault');
+const { decryptValue } = require('../models/utils/encryptedField');
 const { awardLoyaltyPoints, getUserRewards, getRewardSnapshotFromUser } = require('../services/loyaltyService');
 const { toProfilePayload } = require('../services/authSessionService');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
@@ -412,7 +413,8 @@ const loadLiveProductById = async (productId) => {
 const getDuplicateField = (error) => {
     if (!error || error.code !== 11000) return null;
     if (error.keyPattern?.email) return 'email';
-    if (error.keyPattern?.phone) return 'phone';
+    // phoneHash is the blind-index uniqueness constraint on the encrypted phone.
+    if (error.keyPattern?.phone || error.keyPattern?.phoneHash) return 'phone';
     return null;
 };
 
@@ -504,7 +506,8 @@ const persistAuthSnapshot = async (user) => {
     await saveAuthProfileSnapshot({
         name: user.name,
         email: user.email,
-        phone: user.phone,
+        // .lean() reads carry encrypted phone; decryptValue is a no-op on hydrated docs.
+        phone: decryptValue(user.phone),
         avatar: user.avatar || '',
         gender: user.gender || '',
         dob: user.dob || null,
@@ -603,7 +606,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone,
+        phone: decryptValue(user.phone),
         isAdmin: user.isAdmin,
         adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
         isVerified: user.isVerified,
@@ -1503,7 +1506,7 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            phone: user.phone,
+            phone: decryptValue(user.phone),
             isAdmin: Boolean(user.isAdmin),
             adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
             isVerified: Boolean(user.isVerified),
@@ -1546,7 +1549,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                phone: user.phone,
+                phone: decryptValue(user.phone),
                 isAdmin: Boolean(user.isAdmin),
                 adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
                 isVerified: Boolean(user.isVerified),
@@ -1585,7 +1588,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            phone: user.phone,
+            phone: decryptValue(user.phone),
             isAdmin: Boolean(user.isAdmin),
             adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
             isVerified: Boolean(user.isVerified),

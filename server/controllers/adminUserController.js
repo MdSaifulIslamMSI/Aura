@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const { computePhoneBlindIndex } = require('../services/blindIndexService');
 const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Listing = require('../models/Listing');
@@ -286,6 +287,10 @@ const listAdminUsers = asyncHandler(async (req, res) => {
             { name: { $regex: escapedSearch, $options: 'i' } },
             { email: { $regex: escapedSearch, $options: 'i' } },
             { phone: { $regex: escapedSearch, $options: 'i' } },
+            // phone is encrypted at rest: full-value matches resolve through
+            // the HMAC blind index; partial phone searches fall back to the
+            // other fields.
+            { phoneHash: computePhoneBlindIndex(search) },
         ];
     }
 

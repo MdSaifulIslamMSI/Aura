@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const { defineEncryptedField } = require('./utils/encryptedField');
+const { computePhoneBlindIndex } = require('../services/blindIndexService');
 
 const normalizeOptionalPhone = (value) => {
     if (value === undefined || value === null) return undefined;
@@ -155,6 +156,9 @@ const userSchema = mongoose.Schema({
     email: { type: String, required: true, unique: true },
     authUid: { type: String, trim: true },
     phone: { type: String, required: false, set: normalizeOptionalPhone },
+    // HMAC blind index over the stored phone: equality lookups + uniqueness on
+    // the encrypted value. Maintained by the model hooks below, never client-set.
+    phoneHash: { type: String, required: false, default: null, select: false },
     avatar: { type: String, default: '' },           // Durable URL, with legacy data-URI read fallback during migration
     avatarMedia: {
         storageKey: { type: String, default: '' },
@@ -260,7 +264,9 @@ const userSchema = mongoose.Schema({
 // ── Indexes ──────────────────────────────────────────────────
 // NOTE: OTP lifecycle TTL is handled by OtpSession model, not User documents.
 
-// Unique phone only when a non-empty phone number is present.
+// Unique phone only when a non-empty phone number is present. Legacy plaintext
+// index: kept until the field-encryption backfill migrates values, then dropped
+// by scripts/backfill-field-encryption.js --drop-legacy-phone-indexes.
 userSchema.index(
     { phone: 1 },
     {
@@ -271,6 +277,24 @@ userSchema.index(
                 { phone: { $exists: true } },
                 { phone: { $type: 'string' } },
                 { phone: { $gt: '' } },
+            ],
+        },
+    }
+);
+
+// Equality-searchable identity for the encrypted phone: an HMAC blind index.
+// Deterministic, so uniqueness of the hash == uniqueness of the stored phone,
+// and `phoneHash: { $in: hashes }` mirrors `phone: { $in: values }` exactly.
+userSchema.index(
+    { phoneHash: 1 },
+    {
+        unique: true,
+        name: 'phoneHash_1_partial_unique_nonempty',
+        partialFilterExpression: {
+            $and: [
+                { phoneHash: { $exists: true } },
+                { phoneHash: { $type: 'string' } },
+                { phoneHash: { $gt: '' } },
             ],
         },
     }
@@ -293,8 +317,11 @@ userSchema.index(
 );
 
 // Compound index for the most frequent query pattern: phone + isVerified
-// Used by checkUserExists, sendOtp (login/forgot-password), verifyOtp
+// Used by checkUserExists, sendOtp (login/forgot-password), verifyOtp.
+// Legacy plaintext compound kept alongside the phoneHash variant until the
+// backfill completes; queries read phoneHash first with a phone fallback.
 userSchema.index({ phone: 1, isVerified: 1 });
+userSchema.index({ phoneHash: 1, isVerified: 1 });
 
 // Index for authMiddleware email lookup (most called path)
 userSchema.index({ email: 1, isVerified: 1 });
@@ -308,11 +335,53 @@ userSchema.index({ accountState: 1, softDeleted: 1, 'moderation.suspendedUntil':
 // Support leaderboard/reward dashboards.
 userSchema.index({ 'loyalty.pointsBalance': -1, isVerified: 1 });
 
-// PII at rest: address book identity fields are encrypted (city/state/pincode stay
-// plaintext for serviceability queries). Pass the array subdoc schema directly.
+// PII at rest: the address book identity fields and the account phone are
+// encrypted; phoneHash (HMAC blind index) keeps equality lookups and the
+// uniqueness constraint working on ciphertext.
 const addressSchema = userSchema.path('addresses').schema;
 defineEncryptedField(addressSchema, 'name');
 defineEncryptedField(addressSchema, 'phone');
 defineEncryptedField(addressSchema, 'address');
+defineEncryptedField(userSchema, 'phone');
+
+// Keep phoneHash in lockstep with phone on every write path. save() flows run
+// through validation; update flows (findOneAndUpdate/updateOne with $set or
+// $unset on phone) are patched here so call sites never maintain the hash.
+// Hash the POST-setter value so the index always matches what is stored.
+const syncPhoneHashFromPhone = (phone) => computePhoneBlindIndex(normalizeOptionalPhone(phone));
+
+userSchema.pre('validate', function syncPhoneHashValidate() {
+    this.phoneHash = syncPhoneHashFromPhone(this.phone);
+});
+
+const syncPhoneHashInUpdate = (query) => {
+    const update = query.getUpdate() || {};
+    // mongoose 9 casts timestamps into $set before hooks run, so the update can
+    // be MIXED (flat phone alongside a $set doc). Patch phoneHash in the same
+    // shape wherever the phone itself lives — in-place mutation survives.
+    if (Object.prototype.hasOwnProperty.call(update, 'phone')) {
+        update.phoneHash = syncPhoneHashFromPhone(update.phone);
+    }
+    if (update.$set && Object.prototype.hasOwnProperty.call(update.$set, 'phone')) {
+        update.$set.phoneHash = syncPhoneHashFromPhone(update.$set.phone);
+    }
+    if (update.$unset && Object.prototype.hasOwnProperty.call(update.$unset, 'phone')
+        && !Object.prototype.hasOwnProperty.call(update.$unset, 'phoneHash')) {
+        update.$unset.phoneHash = '';
+    }
+    return query;
+};
+
+userSchema.pre('findOneAndUpdate', function syncPhoneHashFindOneAndUpdate() {
+    syncPhoneHashInUpdate(this);
+});
+// Explicit query scoping: with default options mongoose 9 only binds these to
+// document middleware, so Model.updateOne()/updateMany() would skip the hook.
+userSchema.pre('updateOne', { document: false, query: true }, function syncPhoneHashUpdateOne() {
+    syncPhoneHashInUpdate(this);
+});
+userSchema.pre('updateMany', { document: false, query: true }, function syncPhoneHashUpdateMany() {
+    syncPhoneHashInUpdate(this);
+});
 
 module.exports = mongoose.model('User', userSchema);

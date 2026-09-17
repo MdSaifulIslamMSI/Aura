@@ -59,6 +59,7 @@
       "tests/fraudDecisionController.test.js",
       "tests/fieldEncryptionAtRest.test.js",
       "tests/backupArchiveCrypto.test.js",
+      "tests/blindIndexService.test.js",
       "tests/fieldEncryptionService.test.js",
       "tests/fraudDecisioningService.test.js",
       "tests/frontendLinks.test.js",
