@@ -275,10 +275,12 @@ jobs:
       - name: Fail if the newest backup is older than 26h
         run: |
           set -euo pipefail
+          # Encrypted archives (.enc) are the current format; legacy plaintext
+          # backups (mongo.archive.gz) still count during the transition.
           NEWEST_ISO="$(aws s3api list-objects-v2 \
             --bucket "${AURA_BACKUP_BUCKET}" \
             --prefix "production/mongo/" \
-            --query 'sort_by(Contents[?ends_with(Key, `/mongo.archive.gz`)], &LastModified)[-1].LastModified' \
+            --query 'sort_by(Contents[?ends_with(Key, `mongo.archive.gz.enc`) || ends_with(Key, `/mongo.archive.gz`)], &LastModified)[-1].LastModified' \
             --output text 2>/dev/null || true)"
           if [ -z "${NEWEST_ISO}" ] || [ "${NEWEST_ISO}" = "None" ]; then
             echo "No production Mongo backup object found under production/mongo/ — backups are NOT running."
