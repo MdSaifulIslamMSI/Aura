@@ -145,17 +145,13 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
 };
 
 // Phone is encrypted at rest with an HMAC blind index (User.phoneHash), so
-// equality lookups run against the hash. The plaintext branch keeps legacy
-// rows matchable until scripts/backfill-field-encryption.js has migrated
-// every user; it is removed together with the legacy phone indexes after.
+// equality lookups run against the hash only. The production backfill has
+// completed (every user row carries phoneHash) and the legacy plaintext
+// phone indexes are dropped, so a plaintext branch would be an unindexed
+// collection scan that can never match.
 const buildPhoneMatchFilter = (candidates) => {
     const list = (Array.isArray(candidates) ? candidates : [candidates]).filter(Boolean);
-    return {
-        $or: [
-            { phoneHash: { $in: list.map(computePhoneBlindIndex) } },
-            { phone: { $in: list } },
-        ],
-    };
+    return { phoneHash: { $in: list.map(computePhoneBlindIndex) } };
 };
 
 const normalizePurpose = (value) => (
