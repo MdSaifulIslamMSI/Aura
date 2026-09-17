@@ -1502,7 +1502,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     }
 
     const phoneLookupCandidates = buildPhoneLookupCandidates(phone, canonicalPhone);
-    const user = await User.findOne({ phone: { $in: phoneLookupCandidates } }).select('isVerified ' + OTP_FIELDS);
+    const user = await User.findOne(buildPhoneMatchFilter(phoneLookupCandidates)).select('isVerified ' + OTP_FIELDS);
 
     if (!user) {
         audit('VERIFY_404', { phone, purpose, ip: clientIp, requestId, success: false, reason: 'user not found' });
