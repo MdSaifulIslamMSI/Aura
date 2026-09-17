@@ -29,6 +29,7 @@ const buildRailwayBuildEnv = (env = process.env) => {
     'VITE_SENTRY_DSN',
     'VITE_DD_APPLICATION_ID',
     'VITE_DD_CLIENT_TOKEN',
+    'VITE_TURNSTILE_SITE_KEY',
     'VITE_FIREBASE_API_KEY',
     'VITE_FIREBASE_AUTH_DOMAIN',
     'VITE_FIREBASE_PROJECT_ID',
