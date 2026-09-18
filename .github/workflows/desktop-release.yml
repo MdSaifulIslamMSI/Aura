@@ -166,7 +166,17 @@ jobs:
           if [ -n "${VERSION_INPUT}" ]; then
             VERSION="${VERSION_INPUT}"
           else
-            VERSION="1.0.${GITHUB_RUN_NUMBER}"
+            # Auto-bump from the newest desktop-v* tag. Workflow run numbers no
+            # longer track the release counter (releases passed 1.0.190 while
+            # run numbers stayed under 1.0.100), so the old run-number fallback
+            # failed the version-floor assertion and silently broke every
+            # automated lane until an explicit version was passed.
+            VERSION="$(git ls-remote --tags origin 'refs/tags/desktop-v*' \
+              | awk '{print $2}' \
+              | sed -nE 's#.*refs/tags/desktop-v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -V | tail -n 1 \
+              | awk -F. -v OFS=. '{ $3 = $3 + 1; print }')"
+            VERSION="${VERSION:-1.0.1}"
           fi
 
           if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
