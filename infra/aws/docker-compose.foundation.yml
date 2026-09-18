@@ -28,8 +28,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 256m
     logging: *default-logging
-    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    # Rate-limit/session keys all carry TTLs, so volatile-lru only ever
+    # evicts expirable state, never anything written without a TTL.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000", "--maxmemory", "192mb", "--maxmemory-policy", "volatile-lru"]
     networks:
       - slot
     volumes:

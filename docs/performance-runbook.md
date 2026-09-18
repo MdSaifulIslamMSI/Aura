@@ -163,6 +163,55 @@ Grafana dashboard:
 
 The server exposes `/metrics`; production requires the existing metrics secret.
 
+## Production Host Checklist
+
+The production host is a single small shared instance. The containers cap
+their own memory (`mem_limit` + Node `--max-old-space-size` in
+`infra/aws/docker-compose.ec2.yml` / `infra/observability/docker-compose.ec2.yml`),
+and Prometheus retention is 5d. Apply compose edits on the next deploy.
+
+### Catalog performance indexes (run once per environment)
+
+The catalog listing sort keys and the Atlas Search index are declared in the
+repo but are NOT built at boot. Run, one at a time, off-peak:
+
+```sh
+npm --prefix server run indexes:search -- --execute
+```
+
+This is idempotent: it creates the `(isPublished, catalogVersion, <sortKey>, _id:-1)`
+compound indexes on `products` and the `products_search_v1` Atlas Search index
+(`CATALOG_SEARCH_INDEX_NAME` overrides the name). It skips the search step on
+non-Atlas URIs. Without the search index, keyword search falls back to regex
+collection scans (two per search). Verify results with the storage audit:
+
+```sh
+npm --prefix server run mongo:storage:audit
+```
+
+`$indexStats` from that audit is also the evidence source before removing any
+legacy index (see `docs/database-audit-2026-09-07.md`) — never prune on guesswork.
+
+### Dormant performance toggles
+
+- `PERFORMANCE_STACK_ENABLED=true` turns on `Server-Timing`, slow-request logs,
+  and public cache headers (`performance/middleware.js` defaults it to `false`).
+- `CACHE_ENABLED=true` + `CACHE_PROVIDER=redis` activates the deny-first public
+  response cache; add only verified-public prefixes via
+  `CACHE_ALLOWED_PATH_PREFIXES` (e.g. `/api/products,/api/status`).
+
+Both are off in production today; enabling them is an operator decision because
+they change observable response headers.
+
+### Sizing notes
+
+- Mongo pool defaults (`server/config/db.js`): maxPoolSize 25, minPoolSize 2
+  across the api + worker pair stays inside a shared M0 cluster's ~100-connection
+  budget. `MONGO_MAX_POOL_SIZE` / `MONGO_MIN_POOL_SIZE` override.
+- Atlas M0 is a shared free tier: query latency floors are outside our control.
+  The standing options remain index pruning (evidence via `mongo:storage:audit`)
+  or M10 (~$60/mo) — see the DB audit's residual-risk list.
+
 ## Rollback Plan
 
 1. Set `PERFORMANCE_STACK_ENABLED=false`.

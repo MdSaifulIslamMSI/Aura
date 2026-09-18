@@ -299,7 +299,31 @@ const collectRecommendationSignals = ({ cart = [], wishlist = [], recentlyViewed
     };
 };
 
-const queryRecommendationPools = async ({ rankedCategories, rankedBrands, recentQueries }) => {
+// Pool queries (top products per category/brand/keyword) are user-independent:
+// personalization happens afterwards via exclusion + merge. Caching them for a
+// bounded window collapses the up-to-4-parallel-query fan-out per request on
+// busy home pages. Keyed by active catalog version so a publish instantly
+// shifts to fresh keys without cross-module invalidation wiring.
+const RECOMMENDATION_POOL_CACHE_TTL_MS = 60 * 1000;
+const RECOMMENDATION_POOL_CACHE_MAX_ENTRIES = 100;
+const recommendationPoolCache = new Map();
+
+const invalidateRecommendationPoolCache = () => {
+    recommendationPoolCache.clear();
+};
+
+const buildRecommendationPoolCacheKey = async ({ rankedCategories, rankedBrands, recentQueries }) => {
+    const catalogVersion = await getActiveCatalogVersion();
+    return [
+        `v:${catalogVersion}`,
+        `c1:${rankedCategories[0] || ''}`,
+        `c2:${rankedCategories[1] || ''}`,
+        `b1:${rankedBrands[0] || ''}`,
+        `q1:${recentQueries[0] || ''}`,
+    ].join('|');
+};
+
+const requestRecommendationPools = async ({ rankedCategories, rankedBrands, recentQueries }) => {
     const requests = [];
 
     if (rankedCategories[0]) {
@@ -319,6 +343,36 @@ const queryRecommendationPools = async ({ rankedCategories, rankedBrands, recent
     }
 
     return Promise.allSettled(requests);
+};
+
+const queryRecommendationPools = async (signals) => {
+    // Tests mock queryProducts per case with stable catalog versions, so the
+    // cache would serve stale mocks across assertions (same bypass pattern as
+    // the distributed rate limiter).
+    if (process.env.NODE_ENV === 'test') {
+        return requestRecommendationPools(signals);
+    }
+
+    const cacheKey = await buildRecommendationPoolCacheKey(signals);
+    const cached = recommendationPoolCache.get(cacheKey);
+    if (cached) {
+        if (cached.expiresAt > Date.now()) {
+            return cached.promise;
+        }
+        recommendationPoolCache.delete(cacheKey);
+    }
+    if (recommendationPoolCache.size >= RECOMMENDATION_POOL_CACHE_MAX_ENTRIES) {
+        recommendationPoolCache.clear();
+    }
+
+    // Promise.allSettled inside never rejects, so the in-flight promise is
+    // safe to share across concurrent requests.
+    const promise = requestRecommendationPools(signals);
+    recommendationPoolCache.set(cacheKey, {
+        promise,
+        expiresAt: Date.now() + RECOMMENDATION_POOL_CACHE_TTL_MS,
+    });
+    return promise;
 };
 
 const mergeRecommendationProducts = ({ responses, excludeIds, limit }) => {
@@ -392,4 +446,5 @@ const buildProductRecommendations = async ({ userId = null, input = {} } = {}) =
 
 module.exports = {
     buildProductRecommendations,
+    invalidateRecommendationPoolCache,
 };

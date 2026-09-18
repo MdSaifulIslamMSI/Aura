@@ -35,8 +35,12 @@ describe('database runtime production contract', () => {
         const options = buildMongoConnectionOptions({ NODE_ENV: 'production' });
 
         expect(options).toMatchObject({
-            maxPoolSize: 10,
-            minPoolSize: 0,
+            // maxPoolSize × 2 processes stays inside a shared M0 cluster's
+            // ~100-connection budget; minPoolSize keeps warm sockets so sparse
+            // traffic avoids repeated Atlas TLS handshakes.
+            maxPoolSize: 25,
+            minPoolSize: 2,
+            maxIdleTimeMS: 300000,
             maxConnecting: 2,
             waitQueueTimeoutMS: 10000,
             autoIndex: false,
