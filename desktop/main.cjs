@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, screen, session, shell } = require('electron');
 
 // Guarded main-process error reporting (the renderer is covered by the web
 // SDK baked into app/dist). No-op without SENTRY_DSN; never blocks boot.
