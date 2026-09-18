@@ -52,7 +52,13 @@ const SEARCH_INDEX_FIELDS = {
     discountPercentage: { type: 'number' },
 };
 
-const isAtlasUri = (uri = '') => String(uri || '').trim().startsWith('mongodb+srv://');
+const isSearchUnsupportedError = (error = {}) => {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('unrecognized command')
+        || message.includes('command not found')
+        || message.includes('not supported')
+        || message.includes('search indexes require atlas');
+};
 
 const listSearchIndexes = async (collectionName) => {
     const response = await mongoose.connection.db.command({ listSearchIndexes: collectionName });
@@ -115,14 +121,18 @@ const run = async () => {
         }
     }
 
-    if (!isAtlasUri(process.env.MONGO_URI)) {
-        logger.warn('catalog_index.search_skipped_non_atlas', {
-            message: 'Search indexes require Atlas (mongodb+srv). Regular indexes were applied.',
-        });
-    } else {
-        try {
-            await ensureSearchIndex('products');
-        } catch (error) {
+    try {
+        await ensureSearchIndex('products');
+    } catch (error) {
+        // Capability probe, not URI sniffing: Atlas URIs come in both srv and
+        // non-srv forms, while local mongod simply doesn't know the search
+        // commands. Anything else is a real failure.
+        if (isSearchUnsupportedError(error)) {
+            logger.warn('catalog_index.search_skipped_non_atlas', {
+                message: 'This MongoDB does not support search indexes. Regular indexes were applied.',
+                error: error.message,
+            });
+        } else {
             failures.push({ step: 'createSearchIndexes', error: error.message });
             logger.error('catalog_index.search_failed', { error: error.message });
         }
