@@ -12,7 +12,7 @@ dismissed in the GitHub UI with the reasons recorded here.
 
 ## Dispositions by cluster
 
-### 1. PQC Semgrep policy flagging its own corpus (fixed in policy) — 71 alerts
+### 1. PQC Semgrep policy flagging its own corpus (fixed in policy) — 81 alerts
 
 The PQC semgrep lane (`post-quantum-security.yml` →
 `security/semgrep/pqc-crypto-policy.yml`) was reporting on the policy
@@ -53,7 +53,7 @@ mechanism; the in-code comments remain as documentation.
 
 Recorded in `docs/code-quality-baseline.md`.
 
-### 3. Real code findings (fixed) — 11 alerts
+### 3. Real code findings (fixed) — 10 alerts
 
 | Alert | Rule | Site | Fix |
 | --- | --- | --- | --- |
