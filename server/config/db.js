@@ -42,9 +42,13 @@ const buildMongoConnectionOptions = (env = process.env) => {
     const options = {
         serverSelectionTimeoutMS: parseNumber(env.MONGO_SERVER_SELECTION_TIMEOUT_MS, 30000, { min: 1000, max: 120000 }),
         socketTimeoutMS: parseNumber(env.MONGO_SOCKET_TIMEOUT_MS, 120000, { min: 5000, max: 300000 }),
-        maxPoolSize: parseNumber(env.MONGO_MAX_POOL_SIZE, 10, { min: 1, max: 100 }),
-        minPoolSize: parseNumber(env.MONGO_MIN_POOL_SIZE, 0, { min: 0, max: 20 }),
-        maxIdleTimeMS: parseNumber(env.MONGO_MAX_IDLE_TIME_MS, 60000, { min: 1000, max: 600000 }),
+        // Pool sized so a slow Atlas query wave doesn't serialize every request
+        // behind 10 connections; api + worker together stay well inside the
+        // ~100-connection budget of a shared M0 cluster. minPoolSize keeps warm
+        // sockets so sparse traffic doesn't pay repeated Atlas TLS handshakes.
+        maxPoolSize: parseNumber(env.MONGO_MAX_POOL_SIZE, 25, { min: 1, max: 100 }),
+        minPoolSize: parseNumber(env.MONGO_MIN_POOL_SIZE, 2, { min: 0, max: 20 }),
+        maxIdleTimeMS: parseNumber(env.MONGO_MAX_IDLE_TIME_MS, 300000, { min: 1000, max: 600000 }),
         maxConnecting: parseNumber(env.MONGO_MAX_CONNECTING, 2, { min: 1, max: 10 }),
         waitQueueTimeoutMS: parseNumber(env.MONGO_WAIT_QUEUE_TIMEOUT_MS, 10000, { min: 1000, max: 120000 }),
         autoIndex: parseBoolean(env.MONGO_AUTO_INDEX, !production),
