@@ -391,6 +391,7 @@
       "tests/pqcPolicyScripts.test.js",
       "tests/pqcRealTargetProof.test.js",
       "tests/productControllerVisualSearchValidation.test.js",
+      "tests/productCatalogSortIndexes.test.js",
       "tests/productRecommendationService.test.js",
       "tests/productReviewMediaSecurity.test.js",
       "tests/productRoutes.test.js",

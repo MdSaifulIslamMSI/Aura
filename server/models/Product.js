@@ -453,6 +453,19 @@ productSchema.index({
     brand: 1,
 });
 
+// Sort-covering compounds for catalog listings. Every catalog read already
+// filters on the (isPublished, catalogVersion) prefix, so pairing it with each
+// list-sort key lets MongoDB walk the index instead of running an in-memory
+// blocking sort over the whole published collection. The trailing _id:-1
+// matches resolveSort()'s tiebreaker exactly (and reverse-walks to serve
+// {price:1,_id:1} for price-asc). Kept out of boot-time sync: builds run via
+// scripts/ensure_atlas_search_index.cjs or the Atlas UI, one at a time.
+productSchema.index({ isPublished: 1, catalogVersion: 1, ratingCount: -1, _id: -1 });
+productSchema.index({ isPublished: 1, catalogVersion: 1, rating: -1, _id: -1 });
+productSchema.index({ isPublished: 1, catalogVersion: 1, discountPercentage: -1, _id: -1 });
+productSchema.index({ isPublished: 1, catalogVersion: 1, price: -1, _id: -1 });
+productSchema.index({ isPublished: 1, catalogVersion: 1, createdAt: -1, _id: -1 });
+
 productSchema.statics.normalizeTitleKey = normalizeTitleKey;
 productSchema.statics.normalizeImageKey = normalizeImageKey;
 
