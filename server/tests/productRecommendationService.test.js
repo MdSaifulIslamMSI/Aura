@@ -117,3 +117,92 @@ describe('productRecommendationService', () => {
         expect(queryProducts).toHaveBeenCalledWith({ sort: 'rating', limit: 8 });
     });
 });
+
+describe('recommendation pool memo cache', () => {
+    const {
+        invalidateRecommendationPoolCache,
+    } = require('../services/productRecommendationService');
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    const withCacheEnabled = async (run) => {
+        process.env.NODE_ENV = 'production';
+        invalidateRecommendationPoolCache();
+        try {
+            await run();
+        } finally {
+            process.env.NODE_ENV = originalNodeEnv;
+            invalidateRecommendationPoolCache();
+        }
+    };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        getActiveCatalogVersion.mockResolvedValue('legacy-v1');
+        queryProducts.mockResolvedValue({ products: [] });
+    });
+
+    test('serves repeated pool shapes from the memo when enabled', async () => {
+        await withCacheEnabled(async () => {
+            mockUserLookup({ wishlist: [] });
+            mockCartLookup(null);
+            mockProductLookup([]);
+            queryProducts.mockResolvedValue({ products: [{ id: 401, title: 'Pool Pick' }] });
+
+            const first = await buildProductRecommendations({ userId: null, input: {} });
+            const poolCallsAfterFirst = queryProducts.mock.calls.length;
+
+            const second = await buildProductRecommendations({ userId: null, input: {} });
+
+            expect(queryProducts).toHaveBeenCalledTimes(poolCallsAfterFirst);
+            expect(second.products.map((product) => product.id)).toEqual(first.products.map((product) => product.id));
+        });
+    });
+
+    test('a new active catalog version rebuilds the pools', async () => {
+        await withCacheEnabled(async () => {
+            mockUserLookup({ wishlist: [] });
+            mockCartLookup(null);
+            mockProductLookup([]);
+            queryProducts.mockResolvedValue({ products: [{ id: 402, title: 'Versioned Pick' }] });
+
+            await buildProductRecommendations({ userId: null, input: {} });
+            const poolCallsAfterFirst = queryProducts.mock.calls.length;
+
+            getActiveCatalogVersion.mockResolvedValue('next-catalog-v2');
+            await buildProductRecommendations({ userId: null, input: {} });
+
+            expect(queryProducts.mock.calls.length).toBeGreaterThan(poolCallsAfterFirst);
+            expect(queryProducts).toHaveBeenLastCalledWith({ sort: 'rating', limit: 8 });
+        });
+    });
+
+    test('stays bypassed in the test environment so per-case mocks stay fresh', async () => {
+        mockUserLookup({ wishlist: [] });
+        mockCartLookup(null);
+        mockProductLookup([]);
+        queryProducts.mockResolvedValue({ products: [{ id: 403, title: 'Fresh Pick' }] });
+
+        await buildProductRecommendations({ userId: null, input: {} });
+        const callsAfterFirst = queryProducts.mock.calls.length;
+        await buildProductRecommendations({ userId: null, input: {} });
+
+        expect(queryProducts.mock.calls.length).toBeGreaterThan(callsAfterFirst);
+    });
+
+    test('invalidation clears memoized pools', async () => {
+        await withCacheEnabled(async () => {
+            mockUserLookup({ wishlist: [] });
+            mockCartLookup(null);
+            mockProductLookup([]);
+            queryProducts.mockResolvedValue({ products: [{ id: 404, title: 'Invalidated Pick' }] });
+
+            await buildProductRecommendations({ userId: null, input: {} });
+            const poolCallsAfterFirst = queryProducts.mock.calls.length;
+
+            invalidateRecommendationPoolCache();
+            await buildProductRecommendations({ userId: null, input: {} });
+
+            expect(queryProducts.mock.calls.length).toBeGreaterThan(poolCallsAfterFirst);
+        });
+    });
+});
