@@ -8,6 +8,11 @@ services:
   api:
     image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
     restart: unless-stopped
+    # Single small host shared with worker/edge/redis/monitoring: cap each
+    # container so one memory-hungry process cannot starve the rest. The Node
+    # heap cap stays below the container cap so OOM kills happen in-process
+    # (restartable) rather than at the cgroup boundary.
+    mem_limit: 768m
     logging: *default-logging
     command: ["node", "scripts/start_api_runtime.js"]
     env_file:
@@ -17,6 +22,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
+      NODE_OPTIONS: --max-old-space-size=512
       SPLIT_RUNTIME_ENABLED: "true"
       WORKER_HEALTH_URL: http://worker:8080
       ORDER_EMAIL_PROVIDER: gmail
@@ -81,6 +87,7 @@ services:
   worker:
     image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
     restart: unless-stopped
+    mem_limit: 640m
     logging: *default-logging
     command: ["node", "scripts/start_worker_runtime.js"]
     env_file:
@@ -92,6 +99,7 @@ services:
       SPLIT_RUNTIME_ENABLED: "true"
       PORT: 8080
       WORKER_HEALTH_PORT: 8080
+      NODE_OPTIONS: --max-old-space-size=384
       ORDER_EMAIL_PROVIDER: gmail
       AI_MODEL_PROVIDER: disabled
       AI_MODEL_PROVIDER_FALLBACKS: ""
@@ -156,8 +164,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 256m
     logging: *default-logging
-    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    # Rate-limit/session keys all carry TTLs, so volatile-lru only ever
+    # evicts expirable state, never anything written without a TTL.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000", "--maxmemory", "192mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
       - aura-redis:/data
 
