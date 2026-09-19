@@ -153,20 +153,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 44,
-      "reason": "First t() argument is computed or interpolated and requires manual review."
-    },
-    {
-      "column": 43,
-      "defaultMessageSource": "message-id",
-      "fallback": "",
-      "file": "app/src/pages/Orders/index.jsx",
-      "icuDefaultMessage": "",
-      "id": "",
-      "interpolationTokens": [],
-      "kind": "dynamic-lookup",
-      "legacyEnglishTemplate": "",
-      "line": 153,
+      "line": 22,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -531,12 +518,12 @@
       "usesDynamicRuntimeTranslation": false
     },
     {
-      "dynamicLookupCount": 2,
+      "dynamicLookupCount": 1,
       "file": "app/src/pages/Orders/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 131,
+      "messageIdCount": 129,
       "messageIds": [
         "orders.actions.buyAgain",
         "orders.actions.buyAgainError",
@@ -645,11 +632,9 @@
         "orders.placed.dismiss",
         "orders.placed.subtitle",
         "orders.placed.title",
-        "orders.progress.latest",
         "orders.qty",
         "orders.refundId",
         "orders.startShopping",
-        "orders.status.cancelled",
         "orders.subtitle",
         "orders.summary.active.detail",
         "orders.summary.active.label",
@@ -671,7 +656,7 @@
         "orders.trustNote3"
       ],
       "risk": "high",
-      "stableLiteralCount": 134,
+      "stableLiteralCount": 132,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1995,6 +1980,36 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 16,
+      "messageIds": [
+        "checkout.almightySolver",
+        "checkout.delivery.express",
+        "checkout.delivery.expressEta",
+        "checkout.delivery.serviceability.checking",
+        "checkout.delivery.serviceability.error",
+        "checkout.delivery.serviceability.promisedBy",
+        "checkout.delivery.serviceability.serviceable",
+        "checkout.delivery.serviceability.title",
+        "checkout.delivery.serviceability.unavailable",
+        "checkout.delivery.standard",
+        "checkout.delivery.standardEta",
+        "checkout.deliveryInsight",
+        "checkout.liveShippingEta",
+        "checkout.optimized",
+        "checkout.selected",
+        "checkout.slotsLiveNote"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 16,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/Contact/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -2173,30 +2188,6 @@
         "common.jsx.text.controlled.commerce.intelligence.ac057065",
         "common.jsx.text.surface.35807d37",
         "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 10,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 10,
-      "messageIds": [
-        "checkout.almightySolver",
-        "checkout.delivery.express",
-        "checkout.delivery.expressEta",
-        "checkout.delivery.standard",
-        "checkout.delivery.standardEta",
-        "checkout.deliveryInsight",
-        "checkout.liveShippingEta",
-        "checkout.optimized",
-        "checkout.selected",
-        "checkout.slotsLiveNote"
       ],
       "risk": "high",
       "stableLiteralCount": 10,
@@ -6116,7 +6107,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-15T08:55:07.575Z",
+  "generatedAt": "2026-09-19T08:04:14.390Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6172,7 +6163,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 135,
+      "line": 136,
       "reason": ""
     },
     {
@@ -6185,7 +6176,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 136,
+      "line": 137,
       "reason": ""
     },
     {
@@ -6198,7 +6189,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 138,
+      "line": 139,
       "reason": ""
     },
     {
@@ -6211,7 +6202,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 273,
+      "line": 280,
       "reason": ""
     },
     {
@@ -27309,7 +27300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Standard",
-      "line": 33,
+      "line": 35,
       "reason": ""
     },
     {
@@ -27322,7 +27313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "3-5 business days",
-      "line": 34,
+      "line": 36,
       "reason": ""
     },
     {
@@ -27335,7 +27326,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Express",
-      "line": 38,
+      "line": 40,
       "reason": ""
     },
     {
@@ -27348,7 +27339,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "1-2 business days",
-      "line": 39,
+      "line": 41,
       "reason": ""
     },
     {
@@ -27361,7 +27352,85 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live shipping ETA",
-      "line": 76,
+      "line": 78,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Checking delivery availability for this PIN code...",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Checking delivery availability...",
+      "id": "checkout.delivery.serviceability.checking",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Checking delivery availability...",
+      "line": 86,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delivery promise",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Delivery promise",
+      "id": "checkout.delivery.serviceability.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delivery promise",
+      "line": 98,
+      "reason": ""
+    },
+    {
+      "column": 48,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Deliverable to this PIN code.",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Deliverable to this PIN code.",
+      "id": "checkout.delivery.serviceability.serviceable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Deliverable to this PIN code.",
+      "line": 102,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Promised by",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Promised by",
+      "id": "checkout.delivery.serviceability.promisedBy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Promised by",
+      "line": 112,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delivery is not available for this PIN code yet.",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Delivery is not available for this PIN code yet.",
+      "id": "checkout.delivery.serviceability.unavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delivery is not available for this PIN code yet.",
+      "line": 124,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delivery availability is unavailable right now — your order will still be validated at placement.",
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "icuDefaultMessage": "Delivery availability is unavailable right now.",
+      "id": "checkout.delivery.serviceability.error",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delivery availability is unavailable right now.",
+      "line": 131,
       "reason": ""
     },
     {
@@ -27374,7 +27443,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Density Insight",
-      "line": 124,
+      "line": 178,
       "reason": ""
     },
     {
@@ -27387,7 +27456,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Selected",
-      "line": 126,
+      "line": 180,
       "reason": ""
     },
     {
@@ -27400,7 +27469,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Almighty Solver",
-      "line": 131,
+      "line": 185,
       "reason": ""
     },
     {
@@ -27413,7 +27482,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "NP-Hard Optimized",
-      "line": 132,
+      "line": 186,
       "reason": ""
     },
     {
@@ -27426,7 +27495,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Slots are subject to live availability during order placement.",
-      "line": 145,
+      "line": 199,
       "reason": ""
     },
     {
@@ -29689,7 +29758,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to load profile for checkout",
-      "line": 425,
+      "line": 427,
       "reason": ""
     },
     {
@@ -29702,7 +29771,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Slot queued",
-      "line": 524,
+      "line": 526,
       "reason": ""
     },
     {
@@ -29715,7 +29784,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to fetch live pricing",
-      "line": 644,
+      "line": 646,
       "reason": ""
     },
     {
@@ -29728,7 +29797,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Digital payments are temporarily unavailable.",
-      "line": 711,
+      "line": 752,
       "reason": ""
     },
     {
@@ -29741,7 +29810,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to load supported netbanking banks right now",
-      "line": 731,
+      "line": 772,
       "reason": ""
     },
     {
@@ -29756,7 +29825,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "confidence {{value}}%",
-      "line": 861,
+      "line": 902,
       "reason": ""
     },
     {
@@ -29771,7 +29840,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{value}}m accuracy",
-      "line": 862,
+      "line": 903,
       "reason": ""
     },
     {
@@ -29786,7 +29855,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detected {{value}}",
-      "line": 865,
+      "line": 906,
       "reason": ""
     },
     {
@@ -29799,7 +29868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detected location",
-      "line": 865,
+      "line": 906,
       "reason": ""
     },
     {
@@ -29812,7 +29881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to detect your location",
-      "line": 870,
+      "line": 911,
       "reason": ""
     },
     {
@@ -29825,7 +29894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Address saved",
-      "line": 886,
+      "line": 927,
       "reason": ""
     },
     {
@@ -29838,7 +29907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to save address",
-      "line": 888,
+      "line": 929,
       "reason": ""
     },
     {
@@ -29851,7 +29920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a saved address before updating",
-      "line": 896,
+      "line": 937,
       "reason": ""
     },
     {
@@ -29864,7 +29933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Address updated",
-      "line": 905,
+      "line": 946,
       "reason": ""
     },
     {
@@ -29877,7 +29946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to update address",
-      "line": 907,
+      "line": 948,
       "reason": ""
     },
     {
@@ -29890,7 +29959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Contact name is required",
-      "line": 914,
+      "line": 955,
       "reason": ""
     },
     {
@@ -29903,7 +29972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter a valid phone number",
-      "line": 915,
+      "line": 956,
       "reason": ""
     },
     {
@@ -29916,7 +29985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete shipping address is required",
-      "line": 916,
+      "line": 957,
       "reason": ""
     },
     {
@@ -29931,7 +30000,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{label}} format is invalid for the selected market",
-      "line": 922,
+      "line": 963,
       "reason": ""
     },
     {
@@ -29944,7 +30013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a delivery date",
-      "line": 934,
+      "line": 975,
       "reason": ""
     },
     {
@@ -29957,7 +30026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a delivery window",
-      "line": 935,
+      "line": 976,
       "reason": ""
     },
     {
@@ -29970,7 +30039,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose a payment method",
-      "line": 940,
+      "line": 981,
       "reason": ""
     },
     {
@@ -29983,7 +30052,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Digital payments are temporarily unavailable.",
-      "line": 942,
+      "line": 983,
       "reason": ""
     },
     {
@@ -29996,7 +30065,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The selected payment method is not available in this market",
-      "line": 945,
+      "line": 986,
       "reason": ""
     },
     {
@@ -30009,7 +30078,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose a supported bank for NetBanking before continuing",
-      "line": 948,
+      "line": 989,
       "reason": ""
     },
     {
@@ -30022,7 +30091,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete secure digital payment before continuing",
-      "line": 951,
+      "line": 992,
       "reason": ""
     },
     {
@@ -30035,7 +30104,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorized successfully",
-      "line": 1137,
+      "line": 1178,
       "reason": ""
     },
     {
@@ -30048,7 +30117,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment method saved for faster checkout",
-      "line": 1139,
+      "line": 1180,
       "reason": ""
     },
     {
@@ -30061,7 +30130,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment checkout payload is missing. Please retry.",
-      "line": 1145,
+      "line": 1186,
       "reason": ""
     },
     {
@@ -30074,7 +30143,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment window closed before completion",
-      "line": 1172,
+      "line": 1213,
       "reason": ""
     },
     {
@@ -30087,7 +30156,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved card authorization failed. Choose another card or retry with a new card.",
-      "line": 1203,
+      "line": 1244,
       "reason": ""
     },
     {
@@ -30100,7 +30169,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorization failed",
-      "line": 1214,
+      "line": 1255,
       "reason": ""
     },
     {
@@ -30113,7 +30182,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment checkout payload is missing. Please retry.",
-      "line": 1229,
+      "line": 1270,
       "reason": ""
     },
     {
@@ -30126,7 +30195,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure card payment",
-      "line": 1239,
+      "line": 1280,
       "reason": ""
     },
     {
@@ -30139,7 +30208,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 1240,
+      "line": 1281,
       "reason": ""
     },
     {
@@ -30152,7 +30221,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pay Securely",
-      "line": 1241,
+      "line": 1282,
       "reason": ""
     },
     {
@@ -30165,7 +30234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment window closed before completion",
-      "line": 1279,
+      "line": 1320,
       "reason": ""
     },
     {
@@ -30178,7 +30247,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Processing...",
-      "line": 1285,
+      "line": 1326,
       "reason": ""
     },
     {
@@ -30191,7 +30260,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorization failed",
-      "line": 1296,
+      "line": 1337,
       "reason": ""
     },
     {
@@ -30204,7 +30273,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorization failed",
-      "line": 1307,
+      "line": 1348,
       "reason": ""
     },
     {
@@ -30217,7 +30286,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pay Securely",
-      "line": 1309,
+      "line": 1350,
       "reason": ""
     },
     {
@@ -30230,7 +30299,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Digital payments are temporarily unavailable.",
-      "line": 1332,
+      "line": 1373,
       "reason": ""
     },
     {
@@ -30243,7 +30312,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment is already authorized for this checkout session",
-      "line": 1352,
+      "line": 1393,
       "reason": ""
     },
     {
@@ -30256,7 +30325,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Additional OTP verification is required before payment confirmation",
-      "line": 1435,
+      "line": 1476,
       "reason": ""
     },
     {
@@ -30269,7 +30338,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorization failed",
-      "line": 1445,
+      "line": 1486,
       "reason": ""
     },
     {
@@ -30282,7 +30351,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create payment authorization first",
-      "line": 1453,
+      "line": 1494,
       "reason": ""
     },
     {
@@ -30295,7 +30364,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verification is temporarily unavailable. Please try again later.",
-      "line": 1457,
+      "line": 1498,
       "reason": ""
     },
     {
@@ -30308,7 +30377,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment challenge OTP sent",
-      "line": 1463,
+      "line": 1504,
       "reason": ""
     },
     {
@@ -30321,7 +30390,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to send challenge OTP",
-      "line": 1465,
+      "line": 1506,
       "reason": ""
     },
     {
@@ -30334,7 +30403,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create payment authorization first",
-      "line": 1473,
+      "line": 1514,
       "reason": ""
     },
     {
@@ -30347,7 +30416,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Challenge token missing after OTP verification",
-      "line": 1499,
+      "line": 1540,
       "reason": ""
     },
     {
@@ -30360,7 +30429,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Challenge verification complete. Opening secure checkout...",
-      "line": 1523,
+      "line": 1564,
       "reason": ""
     },
     {
@@ -30373,7 +30442,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP verification failed",
-      "line": 1531,
+      "line": 1572,
       "reason": ""
     },
     {
@@ -30386,7 +30455,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment challenge verification failed",
-      "line": 1532,
+      "line": 1573,
       "reason": ""
     },
     {
@@ -30399,7 +30468,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment intent is missing. Please retry payment.",
-      "line": 1540,
+      "line": 1581,
       "reason": ""
     },
     {
@@ -30412,7 +30481,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment authorization recovered from the server",
-      "line": 1560,
+      "line": 1601,
       "reason": ""
     },
     {
@@ -30425,7 +30494,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment status refreshed",
-      "line": 1562,
+      "line": 1603,
       "reason": ""
     },
     {
@@ -30438,7 +30507,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to refresh payment status",
-      "line": 1567,
+      "line": 1608,
       "reason": ""
     },
     {
@@ -30451,7 +30520,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Started a fresh payment authorization",
-      "line": 1582,
+      "line": 1623,
       "reason": ""
     },
     {
@@ -30464,7 +30533,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Switched to Cash on Delivery",
-      "line": 1596,
+      "line": 1637,
       "reason": ""
     },
     {
@@ -30477,7 +30546,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter a coupon code first",
-      "line": 1601,
+      "line": 1642,
       "reason": ""
     },
     {
@@ -30490,7 +30559,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order placement is temporarily unavailable.",
-      "line": 1622,
+      "line": 1663,
       "reason": ""
     },
     {
@@ -30503,7 +30572,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Accept the checkout terms before placing order",
-      "line": 1626,
+      "line": 1667,
       "reason": ""
     },
     {
@@ -30516,7 +30585,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Quote is stale. Recalculate before placing order.",
-      "line": 1630,
+      "line": 1671,
       "reason": ""
     },
     {
@@ -30529,7 +30598,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Digital payments are temporarily unavailable.",
-      "line": 1634,
+      "line": 1675,
       "reason": ""
     },
     {
@@ -30542,7 +30611,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Digital payment is not confirmed yet.",
-      "line": 1638,
+      "line": 1679,
       "reason": ""
     },
     {
@@ -30555,7 +30624,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment intent is missing. Please retry payment.",
-      "line": 1642,
+      "line": 1683,
       "reason": ""
     },
     {
@@ -30568,7 +30637,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order placed successfully",
-      "line": 1718,
+      "line": 1759,
       "reason": ""
     },
     {
@@ -30581,7 +30650,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order placement failed",
-      "line": 1723,
+      "line": 1764,
       "reason": ""
     },
     {
@@ -30594,7 +30663,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checkout Studio",
-      "line": 1733,
+      "line": 1774,
       "reason": ""
     },
     {
@@ -30607,7 +30676,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Nothing queued for checkout",
-      "line": 1734,
+      "line": 1775,
       "reason": ""
     },
     {
@@ -30620,7 +30689,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add products to your bag or jump back into the marketplace to build your next premium order.",
-      "line": 1735,
+      "line": 1776,
       "reason": ""
     },
     {
@@ -30633,7 +30702,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue Shopping",
-      "line": 1736,
+      "line": 1777,
       "reason": ""
     },
     {
@@ -30646,7 +30715,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Payment Rail",
-      "line": 1749,
+      "line": 1790,
       "reason": ""
     },
     {
@@ -30659,7 +30728,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Preparing a secure session",
-      "line": 1750,
+      "line": 1791,
       "reason": ""
     },
     {
@@ -30672,7 +30741,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading your profile, payment methods, delivery preferences, and quote context.",
-      "line": 1751,
+      "line": 1792,
       "reason": ""
     },
     {
@@ -30685,7 +30754,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back",
-      "line": 1770,
+      "line": 1811,
       "reason": ""
     },
     {
@@ -30698,7 +30767,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure checkout rail",
-      "line": 1774,
+      "line": 1815,
       "reason": ""
     },
     {
@@ -30711,7 +30780,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Secure Checkout",
-      "line": 1804,
+      "line": 1845,
       "reason": ""
     },
     {
@@ -30724,7 +30793,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finish with the same premium precision as the storefront.",
-      "line": 1805,
+      "line": 1846,
       "reason": ""
     },
     {
@@ -30737,7 +30806,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your delivery address, slot, payment challenge, and final quote stay synchronized in one protected checkout session.",
-      "line": 1807,
+      "line": 1848,
       "reason": ""
     },
     {
@@ -30752,7 +30821,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} line items",
-      "line": 1810,
+      "line": 1851,
       "reason": ""
     },
     {
@@ -30767,7 +30836,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} units",
-      "line": 1811,
+      "line": 1852,
       "reason": ""
     },
     {
@@ -30782,7 +30851,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step {{current}} of 4",
-      "line": 1812,
+      "line": 1853,
       "reason": ""
     },
     {
@@ -30797,7 +30866,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{method}} payment rail",
-      "line": 1813,
+      "line": 1854,
       "reason": ""
     },
     {
@@ -30810,7 +30879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current total",
-      "line": 1820,
+      "line": 1861,
       "reason": ""
     },
     {
@@ -30823,7 +30892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Quote locked",
-      "line": 1827,
+      "line": 1868,
       "reason": ""
     },
     {
@@ -30836,7 +30905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Quote pending",
-      "line": 1827,
+      "line": 1868,
       "reason": ""
     },
     {
@@ -30851,7 +30920,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Settles near {{amount}} after provider conversion.",
-      "line": 1832,
+      "line": 1873,
       "reason": ""
     },
     {
@@ -30864,7 +30933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backend validated before capture.",
-      "line": 1835,
+      "line": 1876,
       "reason": ""
     },
     {
@@ -30877,7 +30946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery mode",
-      "line": 1841,
+      "line": 1882,
       "reason": ""
     },
     {
@@ -30890,7 +30959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose your preferred window.",
-      "line": 1844,
+      "line": 1885,
       "reason": ""
     },
     {
@@ -30903,7 +30972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Session trust",
-      "line": 1849,
+      "line": 1890,
       "reason": ""
     },
     {
@@ -30918,7 +30987,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} stock review",
-      "line": 1853,
+      "line": 1894,
       "reason": ""
     },
     {
@@ -30931,7 +31000,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Protected order hold",
-      "line": 1855,
+      "line": 1896,
       "reason": ""
     },
     {
@@ -30944,7 +31013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Challenge-ready payment",
-      "line": 1856,
+      "line": 1897,
       "reason": ""
     },
     {
@@ -30957,7 +31026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fraud checks, quote locks, and OTP controls stay active.",
-      "line": 1858,
+      "line": 1899,
       "reason": ""
     },
     {
@@ -30970,7 +31039,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Placing your order...",
-      "line": 1992,
+      "line": 2035,
       "reason": ""
     },
     {
@@ -30983,7 +31052,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Validating stock and final pricing",
-      "line": 1993,
+      "line": 2036,
       "reason": ""
     },
     {
@@ -41474,7 +41543,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "processed",
-      "line": 51,
+      "line": 29,
       "reason": ""
     },
     {
@@ -41487,7 +41556,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "rejected",
-      "line": 53,
+      "line": 31,
       "reason": ""
     },
     {
@@ -41500,7 +41569,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "shipped",
-      "line": 55,
+      "line": 33,
       "reason": ""
     },
     {
@@ -41513,7 +41582,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "pending",
-      "line": 57,
+      "line": 35,
       "reason": ""
     },
     {
@@ -41526,33 +41595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "pending",
-      "line": 59,
-      "reason": ""
-    },
-    {
-      "column": 22,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Cancelled",
-      "file": "app/src/pages/Orders/index.jsx",
-      "icuDefaultMessage": "Cancelled",
-      "id": "orders.status.cancelled",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Cancelled",
-      "line": 114,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Latest update received",
-      "file": "app/src/pages/Orders/index.jsx",
-      "icuDefaultMessage": "Latest update received",
-      "id": "orders.progress.latest",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 172,
+      "line": 37,
       "reason": ""
     },
     {
@@ -41565,7 +41608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to load orders",
-      "line": 315,
+      "line": 212,
       "reason": ""
     },
     {
@@ -41578,7 +41621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active Orders Loaded",
-      "line": 345,
+      "line": 242,
       "reason": ""
     },
     {
@@ -41591,7 +41634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active orders in the currently loaded results.",
-      "line": 347,
+      "line": 244,
       "reason": ""
     },
     {
@@ -41604,7 +41647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivered Loaded",
-      "line": 352,
+      "line": 249,
       "reason": ""
     },
     {
@@ -41617,7 +41660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivered orders in the currently loaded results.",
-      "line": 354,
+      "line": 251,
       "reason": ""
     },
     {
@@ -41630,7 +41673,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Paid Orders Loaded",
-      "line": 359,
+      "line": 256,
       "reason": ""
     },
     {
@@ -41643,7 +41686,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loaded orders marked paid by the backend payment state.",
-      "line": 361,
+      "line": 258,
       "reason": ""
     },
     {
@@ -41656,7 +41699,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loaded Spend",
-      "line": 366,
+      "line": 263,
       "reason": ""
     },
     {
@@ -41669,7 +41712,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order value from the currently loaded results, not a lifetime total.",
-      "line": 368,
+      "line": 265,
       "reason": ""
     },
     {
@@ -41682,7 +41725,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authentication Required",
-      "line": 395,
+      "line": 292,
       "reason": ""
     },
     {
@@ -41695,7 +41738,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in to view your order history.",
-      "line": 396,
+      "line": 293,
       "reason": ""
     },
     {
@@ -41708,7 +41751,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading Orders...",
-      "line": 413,
+      "line": 310,
       "reason": ""
     },
     {
@@ -41721,7 +41764,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No Orders Yet",
-      "line": 446,
+      "line": 343,
       "reason": ""
     },
     {
@@ -41734,7 +41777,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You haven't placed any orders yet.",
-      "line": 447,
+      "line": 344,
       "reason": ""
     },
     {
@@ -41747,7 +41790,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start Shopping",
-      "line": 449,
+      "line": 346,
       "reason": ""
     },
     {
@@ -41760,7 +41803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order History",
-      "line": 465,
+      "line": 362,
       "reason": ""
     },
     {
@@ -41773,7 +41816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Track delivery, payment, refund, replacement, and support actions from one persistent surface.",
-      "line": 466,
+      "line": 363,
       "reason": ""
     },
     {
@@ -41786,7 +41829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 483,
+      "line": 380,
       "reason": ""
     },
     {
@@ -41799,7 +41842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 486,
+      "line": 383,
       "reason": ""
     },
     {
@@ -41812,7 +41855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 495,
+      "line": 392,
       "reason": ""
     },
     {
@@ -41825,7 +41868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Filter Order History",
-      "line": 528,
+      "line": 425,
       "reason": ""
     },
     {
@@ -41838,7 +41881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order or payment ID",
-      "line": 532,
+      "line": 429,
       "reason": ""
     },
     {
@@ -41851,7 +41894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Status",
-      "line": 542,
+      "line": 439,
       "reason": ""
     },
     {
@@ -41864,7 +41907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All statuses",
-      "line": 548,
+      "line": 445,
       "reason": ""
     },
     {
@@ -41877,7 +41920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Placed",
-      "line": 549,
+      "line": 446,
       "reason": ""
     },
     {
@@ -41890,7 +41933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Processing",
-      "line": 550,
+      "line": 447,
       "reason": ""
     },
     {
@@ -41903,7 +41946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shipped",
-      "line": 551,
+      "line": 448,
       "reason": ""
     },
     {
@@ -41916,7 +41959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivered",
-      "line": 552,
+      "line": 449,
       "reason": ""
     },
     {
@@ -41929,7 +41972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelled",
-      "line": 553,
+      "line": 450,
       "reason": ""
     },
     {
@@ -41942,7 +41985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "From date",
-      "line": 557,
+      "line": 454,
       "reason": ""
     },
     {
@@ -41955,7 +41998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "To date",
-      "line": 566,
+      "line": 463,
       "reason": ""
     },
     {
@@ -41968,7 +42011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Apply Filters",
-      "line": 577,
+      "line": 474,
       "reason": ""
     },
     {
@@ -41981,7 +42024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Clear Filters",
-      "line": 592,
+      "line": 489,
       "reason": ""
     },
     {
@@ -41994,7 +42037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 601,
+      "line": 498,
       "reason": ""
     },
     {
@@ -42007,7 +42050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Post-Purchase Trust Layer",
-      "line": 625,
+      "line": 522,
       "reason": ""
     },
     {
@@ -42020,7 +42063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order status, payment state, and command-center actions are read from backend order records.",
-      "line": 630,
+      "line": 527,
       "reason": ""
     },
     {
@@ -42033,7 +42076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund, replacement, warranty, and support requests remain attached to the originating order.",
-      "line": 634,
+      "line": 531,
       "reason": ""
     },
     {
@@ -42046,7 +42089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Each order card exposes trust timeline events before you trigger a disruptive action.",
-      "line": 638,
+      "line": 535,
       "reason": ""
     },
     {
@@ -42059,7 +42102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No orders match these filters.",
-      "line": 647,
+      "line": 544,
       "reason": ""
     },
     {
@@ -42072,7 +42115,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading more orders...",
-      "line": 666,
+      "line": 563,
       "reason": ""
     },
     {
@@ -42085,7 +42128,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Load More Orders",
-      "line": 667,
+      "line": 564,
       "reason": ""
     },
     {
@@ -42098,7 +42141,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to load trust timeline",
-      "line": 740,
+      "line": 637,
       "reason": ""
     },
     {
@@ -42111,7 +42154,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to refresh command center",
-      "line": 757,
+      "line": 654,
       "reason": ""
     },
     {
@@ -42124,7 +42167,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown",
-      "line": 772,
+      "line": 669,
       "reason": ""
     },
     {
@@ -42137,7 +42180,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown",
-      "line": 812,
+      "line": 709,
       "reason": ""
     },
     {
@@ -42150,7 +42193,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Method Selected",
-      "line": 841,
+      "line": 738,
       "reason": ""
     },
     {
@@ -42163,7 +42206,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown method",
-      "line": 843,
+      "line": 740,
       "reason": ""
     },
     {
@@ -42176,7 +42219,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment Request",
-      "line": 851,
+      "line": 748,
       "reason": ""
     },
     {
@@ -42189,7 +42232,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Intent",
-      "line": 853,
+      "line": 750,
       "reason": ""
     },
     {
@@ -42202,7 +42245,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No digital intent required for COD",
-      "line": 854,
+      "line": 751,
       "reason": ""
     },
     {
@@ -42215,7 +42258,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security Challenge",
-      "line": 863,
+      "line": 760,
       "reason": ""
     },
     {
@@ -42228,7 +42271,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Additional payment verification was requested.",
-      "line": 864,
+      "line": 761,
       "reason": ""
     },
     {
@@ -42241,7 +42284,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authorization",
-      "line": 872,
+      "line": 769,
       "reason": ""
     },
     {
@@ -42254,7 +42297,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provider authorization accepted",
-      "line": 876,
+      "line": 773,
       "reason": ""
     },
     {
@@ -42267,7 +42310,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Awaiting provider authorization",
-      "line": 877,
+      "line": 774,
       "reason": ""
     },
     {
@@ -42280,7 +42323,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Capture and Settlement",
-      "line": 884,
+      "line": 781,
       "reason": ""
     },
     {
@@ -42293,7 +42336,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Capture stopped because payment did not authorize",
-      "line": 886,
+      "line": 783,
       "reason": ""
     },
     {
@@ -42306,7 +42349,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Capture is pending in the backend queue",
-      "line": 890,
+      "line": 787,
       "reason": ""
     },
     {
@@ -42319,7 +42362,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Waiting for authorization first",
-      "line": 891,
+      "line": 788,
       "reason": ""
     },
     {
@@ -42332,7 +42375,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund",
-      "line": 900,
+      "line": 797,
       "reason": ""
     },
     {
@@ -42345,7 +42388,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelled by customer",
-      "line": 955,
+      "line": 852,
       "reason": ""
     },
     {
@@ -42358,7 +42401,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Customer refund request",
-      "line": 970,
+      "line": 867,
       "reason": ""
     },
     {
@@ -42371,7 +42414,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product issue reported",
-      "line": 980,
+      "line": 877,
       "reason": ""
     },
     {
@@ -42384,7 +42427,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Need help with this order.",
-      "line": 990,
+      "line": 887,
       "reason": ""
     },
     {
@@ -42397,7 +42440,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty support needed",
-      "line": 996,
+      "line": 893,
       "reason": ""
     },
     {
@@ -42410,7 +42453,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Command center action failed",
-      "line": 1004,
+      "line": 901,
       "reason": ""
     },
     {
@@ -42423,7 +42466,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Receipt downloaded.",
-      "line": 1025,
+      "line": 922,
       "reason": ""
     },
     {
@@ -42436,7 +42479,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to download receipt.",
-      "line": 1027,
+      "line": 924,
       "reason": ""
     },
     {
@@ -42449,7 +42492,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Available items were added to your cart.",
-      "line": 1042,
+      "line": 939,
       "reason": ""
     },
     {
@@ -42462,7 +42505,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to add this order to your cart.",
-      "line": 1045,
+      "line": 942,
       "reason": ""
     },
     {
@@ -42475,7 +42518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1061,
+      "line": 958,
       "reason": ""
     },
     {
@@ -42488,7 +42531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order ID",
-      "line": 1076,
+      "line": 973,
       "reason": ""
     },
     {
@@ -42501,7 +42544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Date",
-      "line": 1083,
+      "line": 980,
       "reason": ""
     },
     {
@@ -42514,7 +42557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Items in Order",
-      "line": 1110,
+      "line": 1007,
       "reason": ""
     },
     {
@@ -42527,7 +42570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Qty",
-      "line": 1118,
+      "line": 1015,
       "reason": ""
     },
     {
@@ -42540,7 +42583,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Target Coordinates",
-      "line": 1129,
+      "line": 1026,
       "reason": ""
     },
     {
@@ -42553,7 +42596,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment Details",
-      "line": 1140,
+      "line": 1037,
       "reason": ""
     },
     {
@@ -42566,7 +42609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Method",
-      "line": 1143,
+      "line": 1040,
       "reason": ""
     },
     {
@@ -42579,7 +42622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verification",
-      "line": 1147,
+      "line": 1044,
       "reason": ""
     },
     {
@@ -42592,7 +42635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Paid",
-      "line": 1153,
+      "line": 1050,
       "reason": ""
     },
     {
@@ -42605,7 +42648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pending",
-      "line": 1153,
+      "line": 1050,
       "reason": ""
     },
     {
@@ -42618,7 +42661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Download Receipt",
-      "line": 1170,
+      "line": 1067,
       "reason": ""
     },
     {
@@ -42631,7 +42674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1178,
+      "line": 1075,
       "reason": ""
     },
     {
@@ -42644,7 +42687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buy Again",
-      "line": 1189,
+      "line": 1086,
       "reason": ""
     },
     {
@@ -42657,7 +42700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment Timeline",
-      "line": 1208,
+      "line": 1105,
       "reason": ""
     },
     {
@@ -42670,7 +42713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust Timeline",
-      "line": 1247,
+      "line": 1144,
       "reason": ""
     },
     {
@@ -42683,7 +42726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading trust events...",
-      "line": 1253,
+      "line": 1150,
       "reason": ""
     },
     {
@@ -42696,7 +42739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No timeline events available yet.",
-      "line": 1265,
+      "line": 1162,
       "reason": ""
     },
     {
@@ -42709,7 +42752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Post-Purchase Command Center",
-      "line": 1296,
+      "line": 1193,
       "reason": ""
     },
     {
@@ -42722,7 +42765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refresh",
-      "line": 1304,
+      "line": 1201,
       "reason": ""
     },
     {
@@ -42735,7 +42778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading command center...",
-      "line": 1311,
+      "line": 1208,
       "reason": ""
     },
     {
@@ -42748,7 +42791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund Requests",
-      "line": 1326,
+      "line": 1223,
       "reason": ""
     },
     {
@@ -42761,7 +42804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacements",
-      "line": 1330,
+      "line": 1227,
       "reason": ""
     },
     {
@@ -42774,7 +42817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support Messages",
-      "line": 1334,
+      "line": 1231,
       "reason": ""
     },
     {
@@ -42787,7 +42830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty Claims",
-      "line": 1338,
+      "line": 1235,
       "reason": ""
     },
     {
@@ -42800,7 +42843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel Order",
-      "line": 1347,
+      "line": 1244,
       "reason": ""
     },
     {
@@ -42813,7 +42856,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancellation reason",
-      "line": 1351,
+      "line": 1248,
       "reason": ""
     },
     {
@@ -42826,7 +42869,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Already Cancelled",
-      "line": 1363,
+      "line": 1260,
       "reason": ""
     },
     {
@@ -42839,7 +42882,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelling...",
-      "line": 1365,
+      "line": 1262,
       "reason": ""
     },
     {
@@ -42852,7 +42895,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel Order",
-      "line": 1366,
+      "line": 1263,
       "reason": ""
     },
     {
@@ -42865,7 +42908,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund",
-      "line": 1373,
+      "line": 1270,
       "reason": ""
     },
     {
@@ -42878,7 +42921,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reason",
-      "line": 1377,
+      "line": 1274,
       "reason": ""
     },
     {
@@ -42891,7 +42934,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Amount (optional)",
-      "line": 1384,
+      "line": 1281,
       "reason": ""
     },
     {
@@ -42904,7 +42947,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submitting...",
-      "line": 1395,
+      "line": 1292,
       "reason": ""
     },
     {
@@ -42917,7 +42960,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Request Refund",
-      "line": 1395,
+      "line": 1292,
       "reason": ""
     },
     {
@@ -42930,7 +42973,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacement",
-      "line": 1402,
+      "line": 1299,
       "reason": ""
     },
     {
@@ -42943,7 +42986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacement reason",
-      "line": 1406,
+      "line": 1303,
       "reason": ""
     },
     {
@@ -42956,7 +42999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submitting...",
-      "line": 1417,
+      "line": 1314,
       "reason": ""
     },
     {
@@ -42969,7 +43012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Request Replacement",
-      "line": 1417,
+      "line": 1314,
       "reason": ""
     },
     {
@@ -42982,7 +43025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support Chat",
-      "line": 1424,
+      "line": 1321,
       "reason": ""
     },
     {
@@ -42995,7 +43038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ask support team",
-      "line": 1427,
+      "line": 1324,
       "reason": ""
     },
     {
@@ -43008,7 +43051,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sending...",
-      "line": 1439,
+      "line": 1336,
       "reason": ""
     },
     {
@@ -43021,7 +43064,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Send Message",
-      "line": 1439,
+      "line": 1336,
       "reason": ""
     },
     {
@@ -43034,7 +43077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty Claim",
-      "line": 1446,
+      "line": 1343,
       "reason": ""
     },
     {
@@ -43047,7 +43090,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Describe warranty issue",
-      "line": 1449,
+      "line": 1346,
       "reason": ""
     },
     {
@@ -43060,7 +43103,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submitting...",
-      "line": 1461,
+      "line": 1358,
       "reason": ""
     },
     {
@@ -43073,7 +43116,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Claim",
-      "line": 1461,
+      "line": 1358,
       "reason": ""
     },
     {
@@ -43086,7 +43129,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund Operations",
-      "line": 1468,
+      "line": 1365,
       "reason": ""
     },
     {
@@ -43099,7 +43142,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No refund operations yet.",
-      "line": 1470,
+      "line": 1367,
       "reason": ""
     },
     {
@@ -43112,7 +43155,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund request",
-      "line": 1488,
+      "line": 1385,
       "reason": ""
     },
     {
@@ -43125,7 +43168,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Amount",
-      "line": 1489,
+      "line": 1386,
       "reason": ""
     },
     {
@@ -43138,7 +43181,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund ID",
-      "line": 1491,
+      "line": 1388,
       "reason": ""
     },
     {
@@ -43151,7 +43194,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacement Operations",
-      "line": 1503,
+      "line": 1400,
       "reason": ""
     },
     {
@@ -43164,7 +43207,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No replacements yet.",
-      "line": 1505,
+      "line": 1402,
       "reason": ""
     },
     {
@@ -43177,7 +43220,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Item",
-      "line": 1523,
+      "line": 1420,
       "reason": ""
     },
     {
@@ -43190,7 +43233,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Qty",
-      "line": 1524,
+      "line": 1421,
       "reason": ""
     },
     {
@@ -43203,7 +43246,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tracking",
-      "line": 1526,
+      "line": 1423,
       "reason": ""
     },
     {
@@ -60403,18 +60446,18 @@
     "app/src/services/runtimeTranslation.test.js"
   ],
   "summary": {
-    "dynamicLookupReferences": 16,
+    "dynamicLookupReferences": 15,
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 99,
-    "productionStableReferences": 4111,
+    "productionStableReferences": 4115,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 523,
+    "sourceFilesScanned": 527,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 152,
-    "uniqueProductionStableIds": 3712,
+    "uniqueProductionStableIds": 3716,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -61572,6 +61615,12 @@
     "checkout.delivery",
     "checkout.delivery.express",
     "checkout.delivery.expressEta",
+    "checkout.delivery.serviceability.checking",
+    "checkout.delivery.serviceability.error",
+    "checkout.delivery.serviceability.promisedBy",
+    "checkout.delivery.serviceability.serviceable",
+    "checkout.delivery.serviceability.title",
+    "checkout.delivery.serviceability.unavailable",
     "checkout.delivery.standard",
     "checkout.delivery.standardEta",
     "checkout.deliveryInsight",
@@ -63033,11 +63082,9 @@
     "orders.placed.dismiss",
     "orders.placed.subtitle",
     "orders.placed.title",
-    "orders.progress.latest",
     "orders.qty",
     "orders.refundId",
     "orders.startShopping",
-    "orders.status.cancelled",
     "orders.subtitle",
     "orders.summary.active.detail",
     "orders.summary.active.label",

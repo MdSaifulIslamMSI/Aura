@@ -55,4 +55,44 @@ describe('StepDelivery', () => {
         expect(onDeliverySlotChange).toHaveBeenCalledWith('date', '2026-06-05');
         expect(onDeliverySlotChange).toHaveBeenCalledWith('window', '12:00-15:00');
     });
+
+    it('renders the delivery promise when the PIN code is serviceable', () => {
+        renderStepDelivery({
+            serviceabilityStatus: 'ready',
+            serviceability: {
+                serviceable: true,
+                estimateText: 'Estimated delivery in 2 days',
+                zone: 'metro',
+                promisedDate: '2026-09-25T12:00:00.000Z',
+            },
+        });
+
+        expect(screen.getByText('Delivery promise')).toBeInTheDocument();
+        expect(screen.getByText(/Estimated delivery in 2 days/)).toBeInTheDocument();
+        expect(screen.getByText(/metro/)).toBeInTheDocument();
+        expect(screen.getByText('Promised by')).toBeInTheDocument();
+    });
+
+    it('renders an unavailable alert when the PIN code is not serviceable', () => {
+        renderStepDelivery({
+            serviceabilityStatus: 'ready',
+            serviceability: { serviceable: false },
+        });
+
+        expect(screen.getByText('Delivery is not available for this PIN code yet.')).toBeInTheDocument();
+        expect(screen.queryByText('Delivery promise')).not.toBeInTheDocument();
+    });
+
+    it('announces the availability check while it is running', () => {
+        renderStepDelivery({ serviceabilityStatus: 'checking' });
+
+        expect(screen.getByRole('status')).toHaveTextContent(/Checking delivery availability/i);
+    });
+
+    it('renders no serviceability surface while idle', () => {
+        renderStepDelivery();
+
+        expect(screen.queryByText('Delivery promise')).not.toBeInTheDocument();
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
 });

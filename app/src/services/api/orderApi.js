@@ -32,6 +32,15 @@ export const orderApi = {
         });
         return data;
     },
+    checkServiceability: async (payload) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/orders/serviceability', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data;
+    },
     createOrder: async (orderData) => {
         const headers = await getAuthHeader();
         const idempotencyKey = orderData?.idempotencyKey || createIdempotencyKey('order');

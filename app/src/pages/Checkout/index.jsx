@@ -344,6 +344,8 @@ const Checkout = () => {
     const [quoteError, setQuoteError] = useState('');
     const [lastQuoteSignature, setLastQuoteSignature] = useState('');
     const [lastQuoteAt, setLastQuoteAt] = useState(0);
+    const [serviceability, setServiceability] = useState(null);
+    const [serviceabilityStatus, setServiceabilityStatus] = useState('idle');
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
     const [isRefreshingPayment, setIsRefreshingPayment] = useState(false);
@@ -656,6 +658,45 @@ const Checkout = () => {
 
         return () => clearTimeout(timeout);
     }, [canQuote, isHydrated, quotePayload, quoteSignature]);
+
+    // Out-of-order serviceability responses must never shadow a newer PIN
+    // code: the request ref below drops responses a newer check superseded.
+    const latestServiceabilityRequestRef = useRef('');
+
+    useEffect(() => {
+        const postalCode = String(draft.shippingAddress.postalCode || '').trim();
+        if (!/^[0-9]{5,6}$/.test(postalCode)) {
+            latestServiceabilityRequestRef.current = '';
+            setServiceability(null);
+            setServiceabilityStatus('idle');
+            return;
+        }
+
+        const timeout = setTimeout(async () => {
+            const requestSignature = `${postalCode}|${draft.deliveryOption || 'standard'}`;
+            latestServiceabilityRequestRef.current = requestSignature;
+            setServiceabilityStatus('checking');
+            try {
+                const response = await orderApi.checkServiceability({
+                    postalCode,
+                    deliveryOption: draft.deliveryOption || 'standard',
+                });
+                if (latestServiceabilityRequestRef.current !== requestSignature) {
+                    return;
+                }
+                setServiceability(response?.serviceability || null);
+                setServiceabilityStatus('ready');
+            } catch {
+                if (latestServiceabilityRequestRef.current !== requestSignature) {
+                    return;
+                }
+                setServiceability(null);
+                setServiceabilityStatus('error');
+            }
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [draft.shippingAddress.postalCode, draft.deliveryOption]);
 
     useEffect(() => {
         const availableMethodIds = new Set(compatibleSavedMethods.map((method) => method._id));
@@ -1894,6 +1935,8 @@ const Checkout = () => {
                         deliverySlot={draft.deliverySlot}
                         shippingOptions={checkoutConfig?.shippingOptions || []}
                         optimizedSlots={quote?.pricing?.optimizedSlots || []}
+                        serviceability={serviceability}
+                        serviceabilityStatus={serviceabilityStatus}
                         deliveryError={stepErrors.delivery}
                         onSetActive={() => draft.step > 1 && gotoStep(2)}
                         onDeliveryOptionChange={(option) => setDraft((prev) => ({ ...prev, deliveryOption: option }))}

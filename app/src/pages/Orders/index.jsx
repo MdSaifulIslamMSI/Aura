@@ -11,30 +11,8 @@ import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import { useSocketDemand } from '@/context/SocketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
-
-const ORDER_FLOW_STAGES = ['placed', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
-const SHIPMENT_STATUS_RANK = { pending: 1, packed: 2, shipped: 3, out_for_delivery: 4, delivered: 5 };
-const STAGE_LABEL_FALLBACKS = {
-    placed: 'Order Confirmed',
-    packed: 'Packed',
-    shipped: 'Shipped',
-    out_for_delivery: 'Out for Delivery',
-    delivered: 'Delivered',
-    cancelled: 'Cancelled',
-};
-
-const getShipmentStage = (orderMeta = {}) => {
-    if (orderMeta.orderStatus === 'cancelled' || orderMeta.cancelledAt) return 'cancelled';
-    if (orderMeta.isDelivered || orderMeta.orderStatus === 'delivered') return 'delivered';
-    const shipments = Array.isArray(orderMeta.shipments) ? orderMeta.shipments : [];
-    // 'processing' stays on the confirmed stage until a real packed/shipped
-    // checkpoint exists — the legacy admin status alone never claimed packing.
-    let rank = orderMeta.orderStatus === 'shipped' ? 3 : 1;
-    for (const shipment of shipments) {
-        rank = Math.max(rank, SHIPMENT_STATUS_RANK[String(shipment?.status || '')] || 0);
-    }
-    return ORDER_FLOW_STAGES[Math.min(Math.max(rank, 1), 5) - 1];
-};
+import { getShipmentStage, STAGE_LABEL_FALLBACKS } from '@/components/features/orders/orderProgress';
+import OrderProgressStepper from '@/components/features/orders/OrderProgressStepper';
 
 const getOrderStatusLabel = (orderMeta, t, intl) => {
     const stage = getShipmentStage(orderMeta);
@@ -99,87 +77,6 @@ const getPaymentStepIcon = (state) => {
     if (state === 'complete') return CheckCircle;
     if (state === 'failed') return AlertTriangle;
     return Clock;
-};
-
-// Progress tracker: placed → packed → shipped → out for delivery → delivered.
-// Stage is derived from the order status plus any shipment checkpoints the
-// lifecycle engine has recorded; legacy orders without shipments still land
-// on placed/processing correctly.
-const OrderProgressStepper = ({ orderMeta, t, intl }) => {
-    const stage = getShipmentStage(orderMeta);
-    if (stage === 'cancelled') {
-        return (
-            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200">
-                    {t('orders.status.cancelled', {}, 'Cancelled')}
-                </p>
-            </div>
-        );
-    }
-
-    const activeIndex = ORDER_FLOW_STAGES.indexOf(stage);
-    const shipments = Array.isArray(orderMeta.shipments) ? orderMeta.shipments : [];
-    const latestShipment = shipments.length > 0 ? shipments[shipments.length - 1] : null;
-    const latestCheckpoint = latestShipment && Array.isArray(latestShipment.checkpoints)
-        ? latestShipment.checkpoints[latestShipment.checkpoints.length - 1]
-        : null;
-
-    return (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-            <div className="flex items-center justify-between">
-                {ORDER_FLOW_STAGES.map((stageKey, index) => {
-                    const done = index < activeIndex;
-                    const active = index === activeIndex;
-                    return (
-                        <div key={stageKey} className="flex flex-1 items-center last:flex-none">
-                            <div className="flex flex-col items-center gap-2">
-                                <div
-                                    className={cn(
-                                        'h-3 w-3 rounded-full border transition-all duration-300',
-                                        done && 'border-neo-cyan bg-neo-cyan shadow-[0_0_8px_rgba(6,182,212,0.7)]',
-                                        active && 'h-4 w-4 border-neo-fuchsia bg-neo-fuchsia shadow-[0_0_12px_rgba(217,70,239,0.8)]',
-                                        !done && !active && 'border-white/20 bg-zinc-950'
-                                    )}
-                                    aria-hidden="true"
-                                />
-                                <span
-                                    className={cn(
-                                        'whitespace-nowrap text-[9px] font-black uppercase tracking-wider sm:text-[10px]',
-                                        active ? 'text-neo-fuchsia' : done ? 'text-neo-cyan' : 'text-slate-500'
-                                    )}
-                                >
-                                    {stageKey === 'placed'
-                                        ? intl.formatMessage(criticalMessages.orderConfirmed)
-                                        : t(`orders.status.${stageKey}`, {}, STAGE_LABEL_FALLBACKS[stageKey])}
-                                </span>
-                            </div>
-                            {index < ORDER_FLOW_STAGES.length - 1 && (
-                                <div
-                                    className={cn(
-                                        'mx-1 h-[2px] flex-1 rounded sm:mx-2',
-                                        index < activeIndex ? 'bg-neo-cyan/70' : 'bg-white/10'
-                                    )}
-                                    aria-hidden="true"
-                                />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-            {latestCheckpoint && (
-                <p className="mt-3 text-center text-[11px] font-medium text-slate-400">
-                    {latestCheckpoint.message
-                        || t('orders.progress.latest', {}, 'Latest update received')}
-                    {latestShipment?.courier
-                        ? ` · ${latestShipment.courier}`
-                        : ''}
-                    {latestShipment?.trackingId
-                        ? ` · ${latestShipment.trackingId}`
-                        : ''}
-                </p>
-            )}
-        </div>
-    );
 };
 
 const EMPTY_ORDER_FILTERS = Object.freeze({

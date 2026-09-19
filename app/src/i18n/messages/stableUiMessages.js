@@ -4713,6 +4713,36 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "1-2 business days",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "checkout.delivery.serviceability.checking": {
+        id: "checkout.delivery.serviceability.checking",
+        defaultMessage: "Checking delivery availability...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.serviceability.error": {
+        id: "checkout.delivery.serviceability.error",
+        defaultMessage: "Delivery availability is unavailable right now.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.serviceability.promisedBy": {
+        id: "checkout.delivery.serviceability.promisedBy",
+        defaultMessage: "Promised by",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.serviceability.serviceable": {
+        id: "checkout.delivery.serviceability.serviceable",
+        defaultMessage: "Deliverable to this PIN code.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.serviceability.title": {
+        id: "checkout.delivery.serviceability.title",
+        defaultMessage: "Delivery promise",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.serviceability.unavailable": {
+        id: "checkout.delivery.serviceability.unavailable",
+        defaultMessage: "Delivery is not available for this PIN code yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "checkout.delivery.standard": {
         id: "checkout.delivery.standard",
         defaultMessage: "Standard",

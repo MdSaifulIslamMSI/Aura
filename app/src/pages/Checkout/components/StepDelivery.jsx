@@ -1,4 +1,4 @@
-import { CalendarClock, CheckCircle2, Truck } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Loader2, MapPin, Truck } from 'lucide-react';
 import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
@@ -15,6 +15,8 @@ const StepDelivery = ({
     deliverySlot,
     optimizedSlots = [],
     shippingOptions = [],
+    serviceability = null,
+    serviceabilityStatus = 'idle',
     deliveryError,
     onSetActive,
     onDeliveryOptionChange,
@@ -77,6 +79,58 @@ const StepDelivery = ({
                             </button>
                         ))}
                     </div>
+
+                    {serviceabilityStatus === 'checking' ? (
+                        <div role="status" className="checkout-premium-note text-xs">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            {t('checkout.delivery.serviceability.checking', {}, 'Checking delivery availability for this PIN code...')}
+                        </div>
+                    ) : null}
+
+                    {serviceabilityStatus === 'ready' && serviceability?.serviceable ? (
+                        <div className="bg-neo-cyan/5 border border-neo-cyan/20 rounded-2xl p-4 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-neo-cyan/10 flex items-center justify-center">
+                                    <MapPin className="w-5 h-5 text-neo-cyan" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
+                                        {t('checkout.delivery.serviceability.title', {}, 'Delivery promise')}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        {serviceability.estimateText
+                                            || t('checkout.delivery.serviceability.serviceable', {}, 'Deliverable to this PIN code.')}
+                                        {serviceability.zone ? (
+                                            <span className="text-slate-500"> · {serviceability.zone}</span>
+                                        ) : null}
+                                    </p>
+                                </div>
+                            </div>
+                            {serviceability.promisedDate && !Number.isNaN(Date.parse(serviceability.promisedDate)) ? (
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                                        {t('checkout.delivery.serviceability.promisedBy', {}, 'Promised by')}
+                                    </p>
+                                    <p className="text-sm font-black text-white">
+                                        {intl.formatDate(serviceability.promisedDate, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    {serviceabilityStatus === 'ready' && serviceability && !serviceability.serviceable ? (
+                        <div className="checkout-premium-alert border-rose-500/30 bg-rose-500/10 text-rose-200">
+                            {t('checkout.delivery.serviceability.unavailable', {}, 'Delivery is not available for this PIN code yet.')}
+                        </div>
+                    ) : null}
+
+                    {serviceabilityStatus === 'error' ? (
+                        <div className="checkout-premium-note text-xs">
+                            <Truck className="w-4 h-4" />
+                            {t('checkout.delivery.serviceability.error', {}, 'Delivery availability is unavailable right now — your order will still be validated at placement.')}
+                        </div>
+                    ) : null}
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <label className="space-y-2">

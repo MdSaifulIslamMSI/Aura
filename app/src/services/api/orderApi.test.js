@@ -28,6 +28,15 @@ describe('orderApi', () => {
         expect(options.body).toBe(JSON.stringify({ items: [] }));
     });
 
+    it('checks serviceability via POST /orders/serviceability', async () => {
+        await orderApi.checkServiceability({ postalCode: '560001', deliveryOption: 'express' });
+        const [path, options] = lastCall();
+        expect(path).toBe('/orders/serviceability');
+        expect(options.method).toBe('POST');
+        expect(options.headers.Authorization).toBe('Bearer token-1');
+        expect(options.body).toBe(JSON.stringify({ postalCode: '560001', deliveryOption: 'express' }));
+    });
+
     it('creates orders with the caller-supplied idempotency key', async () => {
         await orderApi.createOrder({ items: [], idempotencyKey: 'client-key-1' });
         const [path, options] = lastCall();
