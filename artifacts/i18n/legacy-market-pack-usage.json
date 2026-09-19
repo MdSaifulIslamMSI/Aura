@@ -1,23 +1,23 @@
 {
-  "generatedAt": "2026-09-15T08:55:13.187Z",
+  "generatedAt": "2026-09-19T08:11:50.876Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {
       "high": 0,
       "medium": 18,
-      "low": 140
+      "low": 141
     },
-    "computedTranslatorLookupFiles": 38,
+    "computedTranslatorLookupFiles": 39,
     "delegatedStableIcuFiles": 10,
     "dynamicRuntimeFiles": 18,
     "legacyPackImportFiles": 40,
-    "migratedStableIcuMessageIds": 3466,
+    "migratedStableIcuMessageIds": 3472,
     "productionLegacyStableFiles": 0,
     "residualLegacyMessageIds": 0,
     "runtimeEnumCompatibilityFiles": 0,
-    "stableIcuHookFiles": 97,
+    "stableIcuHookFiles": 98,
     "testHarnessLegacyMessageIds": 4,
-    "totalFiles": 158
+    "totalFiles": 159
   },
   "records": [
     {
@@ -1587,7 +1587,7 @@
       "file": "app/src/pages/Orders/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
-      "migratedStableIcuIdCount": 131,
+      "migratedStableIcuIdCount": 129,
       "migratedStableIcuIds": [
         "orders.actions.buyAgain",
         "orders.actions.buyAgainError",
@@ -1696,11 +1696,9 @@
         "orders.placed.dismiss",
         "orders.placed.subtitle",
         "orders.placed.title",
-        "orders.progress.latest",
         "orders.qty",
         "orders.refundId",
         "orders.startShopping",
-        "orders.status.cancelled",
         "orders.subtitle",
         "orders.summary.active.detail",
         "orders.summary.active.label",
@@ -4490,6 +4488,41 @@
       "usesStableIcuHook": true
     },
     {
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "migratedStableIcuIdCount": 16,
+      "migratedStableIcuIds": [
+        "checkout.almightySolver",
+        "checkout.delivery.express",
+        "checkout.delivery.expressEta",
+        "checkout.delivery.serviceability.checking",
+        "checkout.delivery.serviceability.error",
+        "checkout.delivery.serviceability.promisedBy",
+        "checkout.delivery.serviceability.serviceable",
+        "checkout.delivery.serviceability.title",
+        "checkout.delivery.serviceability.unavailable",
+        "checkout.delivery.standard",
+        "checkout.delivery.standardEta",
+        "checkout.deliveryInsight",
+        "checkout.liveShippingEta",
+        "checkout.optimized",
+        "checkout.selected",
+        "checkout.slotsLiveNote"
+      ],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": false,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": true,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
+    },
+    {
       "file": "app/src/components/layout/Footer/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -4905,35 +4938,6 @@
       "usesStableIcuHook": true
     },
     {
-      "file": "app/src/pages/Checkout/components/StepDelivery.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "migratedStableIcuIdCount": 10,
-      "migratedStableIcuIds": [
-        "checkout.almightySolver",
-        "checkout.delivery.express",
-        "checkout.delivery.expressEta",
-        "checkout.delivery.standard",
-        "checkout.delivery.standardEta",
-        "checkout.deliveryInsight",
-        "checkout.liveShippingEta",
-        "checkout.optimized",
-        "checkout.selected",
-        "checkout.slotsLiveNote"
-      ],
-      "residualLegacyIdCount": 0,
-      "residualLegacyIds": [],
-      "risk": "low",
-      "testHarnessLegacyIdCount": 0,
-      "testHarnessLegacyIds": [],
-      "usesComputedTranslatorLookup": false,
-      "usesDelegatedStableIcuTranslator": false,
-      "usesDynamicRuntimeTranslation": false,
-      "usesMarketContext": true,
-      "usesRuntimeEnumCompatibility": false,
-      "usesStableIcuHook": true
-    },
-    {
       "file": "app/src/pages/Wishlist/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -5127,6 +5131,27 @@
       "usesMarketContext": false,
       "usesRuntimeEnumCompatibility": false,
       "usesStableIcuHook": false
+    },
+    {
+      "file": "app/src/components/features/orders/OrderProgressStepper.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "migratedStableIcuIdCount": 2,
+      "migratedStableIcuIds": [
+        "orders.progress.latest",
+        "orders.status.cancelled"
+      ],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": true,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": true,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
     },
     {
       "file": "app/src/pages/Profile/components/ProfileShared.jsx",
