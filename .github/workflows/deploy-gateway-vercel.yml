@@ -54,6 +54,18 @@ env:
   VERCEL_GATEWAY_ALIAS: aura-gateway.vercel.app
 
 jobs:
+  guard-dispatch-inputs:
+    # gh CLI ignores YAML input defaults: dispatching without -f target=...
+    # used to skip every lane and end the run green without shipping anything.
+    if: github.event_name == 'workflow_dispatch' && inputs.target == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Reject empty target on dispatch
+        run: |
+          echo "workflow_dispatch requires -f target=preview|production — gh CLI ignores YAML input defaults." >&2
+          exit 1
+
   deploy-preview:
     if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview'
     runs-on: ubuntu-latest

@@ -252,7 +252,7 @@ jobs:
         run: |
           set -euo pipefail
           DEPLOY_SHA="$(git rev-parse HEAD)"
-          DEPLOY_INPUTS="$(node -e "console.log(JSON.stringify({ git_ref: process.argv[1], skip_healthcheck: false }))" "${DEPLOY_SHA}")"
+          DEPLOY_INPUTS="$(node -e "console.log(JSON.stringify({ git_ref: process.argv[1], deploy_strategy: 'swap', skip_healthcheck: false }))" "${DEPLOY_SHA}")"
 
           node scripts/github/dispatch-workflow-and-watch.mjs \
             --workflow deploy-backend-aws.yml \

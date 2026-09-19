@@ -118,7 +118,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           DEPLOY_REF_NAME: ${{ github.ref_name }}
           DEPLOY_SHA: ${{ github.sha }}
-          DEPLOY_INPUTS: '{"git_ref":"${{ github.sha }}","skip_healthcheck":false}'
+          DEPLOY_INPUTS: '{"git_ref":"${{ github.sha }}","deploy_strategy":"swap","skip_healthcheck":false}'
         run: >-
           node scripts/github/dispatch-workflow-and-watch.mjs
           --workflow deploy-backend-aws.yml

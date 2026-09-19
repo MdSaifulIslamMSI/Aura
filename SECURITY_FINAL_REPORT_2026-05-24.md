@@ -40,7 +40,7 @@ Note: one interrupted/dirty `security:all` run produced a transient MongoMemoryS
 | Remote media naming | Gemini remote media used remote URL metadata during validation. | Remote media filenames are reduced to safe basenames before the central pipeline sees them. | `server/services/ai/geminiGatewayService.js`, `server/tests/geminiGatewayService.test.js` |
 | Local ZAP target | Vite dev server did not emit the full defensive header set and loaded live Google fonts. | Local scan target now emits CSP, frame, MIME, referrer, COOP/COEP/CORP, permissions, and no-store headers, and no longer loads Google fonts from the SPA shell. | `app/vite.config.js`, `app/index.html`, `app/src/index.css`, ZAP localhost run |
 | Docker runtime | API image used a production runtime but still carried npm in final image. | API image upgrades Alpine packages, removes final-runtime npm/npx, runs as `node`, and includes a healthcheck. | `server/Dockerfile`, Trivy image scan |
-| Free scanner UX | Existing `security:free-scanners` and project-specific gates existed. | Added direct Docker-backed Gitleaks, Semgrep, Trivy, ZAP, and Hadolint scripts plus CI security workflow. | `scripts/security/*`, `.github/workflows/security.yml` |
+| Free scanner UX | Existing `security:free-scanners` and project-specific gates existed. | Added direct Docker-backed Gitleaks, Semgrep, Trivy, ZAP, and Hadolint scripts plus CI security workflow. | `scripts/security/*`, `.github/workflows/security-gates.yml` (renamed from `security.yml`) |
 | Security evidence | Auth/upload inventory existed. | Added remaining gap report, final proof report, and historical secret rotation note. | `SECURITY_REMAINING_GAPS_2026-05-24.md`, `ROTATE_SECRETS_REQUIRED.md`, this file |
 
 ## 4. Authorization Proof
