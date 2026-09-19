@@ -14,6 +14,10 @@ const config: CapacitorConfig = {
     allowNavigation: [
       'aurapilot.vercel.app',
       'aurapilot.netlify.app',
+      'aura-storefront.onrender.com',
+      'aura-storefront.pages.dev',
+      'mdsaifulislammsi.github.io',
+      'dbtrhsolhec1s.cloudfront.net',
       '*.up.railway.app',
       'aura-gateway.vercel.app',
       'accounts.google.com',

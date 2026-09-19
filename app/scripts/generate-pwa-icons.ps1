@@ -71,6 +71,7 @@ $assetsDir = Join-Path $publicRoot 'assets'
 
 New-AuraIcon -Path (Join-Path $assetsDir 'icon-192.png') -Size 192
 New-AuraIcon -Path (Join-Path $assetsDir 'icon-512.png') -Size 512
-New-AuraIcon -Path (Join-Path $assetsDir 'favicon-source.png') -Size 64
-Copy-Item (Join-Path $assetsDir 'favicon-source.png') (Join-Path $publicRoot 'favicon.ico') -Force
-Remove-Item (Join-Path $assetsDir 'favicon-source.png') -Force
+
+# favicon.ico is a real multi-size ICO committed to public/ and is NOT
+# regenerated here: this pipeline renders PNG only, and copying PNG bytes
+# over favicon.ico would silently replace the ICO with a mislabeled PNG.

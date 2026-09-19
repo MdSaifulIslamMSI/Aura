@@ -63,8 +63,8 @@ export default {
           "gray-light": "#a1a1aa",
           muted: "#18181b",
         },
-        // Legacy flipkart aliases mapping to new dark theme
-        flipkart: {
+        // Legacy brand aliases mapping to the new dark theme
+        brand: {
           blue: "#06b6d4", // mapped to cyan
           "blue-dark": "#0891b2",
           yellow: "#eab308",
