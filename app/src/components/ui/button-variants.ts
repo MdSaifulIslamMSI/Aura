@@ -15,7 +15,7 @@ export const buttonVariants = cva(
                 ghost:
                     "hover:bg-accent hover:text-accent-foreground transition-colors duration-200",
                 link: "text-primary underline-offset-4 hover:underline transition-colors",
-                "flipkart-yellow": "bg-flipkart-yellow text-flipkart-black font-semibold shadow-md hover:bg-[#ffdb1b] hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
+                "brand-yellow": "bg-brand-yellow text-brand-black font-semibold shadow-md hover:bg-[#ffdb1b] hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
             },
             size: {
                 default: "h-9 px-4 py-2 has-[>svg]:px-3",

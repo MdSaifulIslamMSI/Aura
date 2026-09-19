@@ -3703,7 +3703,7 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     display: none;
   }
 
-  .container-flipkart {
+  .container-legacy {
     @apply max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8;
   }
 
