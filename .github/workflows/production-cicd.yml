@@ -1632,6 +1632,9 @@ jobs:
           VERCEL_STOREFRONT_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}
           AWS_FRONTEND_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}
           RENDER_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}
+          RAILWAY_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.railway_rollback_ref }}
+          CLOUDFLARE_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.cloudflare_pages_rollback_ref }}
+          GITHUB_PAGES_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.github_pages_rollback_ref }}
           GATEWAY_ROLLBACK_REF: ${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}
         run: |
           set -euo pipefail
@@ -1642,6 +1645,9 @@ jobs:
             "vercel-storefront": "${VERCEL_STOREFRONT_ROLLBACK_REF}",
             "aws-frontend": "${AWS_FRONTEND_ROLLBACK_REF}",
             "render": "${RENDER_ROLLBACK_REF}",
+            "railway": "${RAILWAY_ROLLBACK_REF}",
+            "cloudflare": "${CLOUDFLARE_ROLLBACK_REF}",
+            "github-pages": "${GITHUB_PAGES_ROLLBACK_REF}",
             "gateway": "${GATEWAY_ROLLBACK_REF}"
           }
           JSON
