@@ -157,6 +157,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Reject dispatch runs with an empty release_mode
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          test -n "${{ inputs.release_mode }}" || { echo "workflow_dispatch requires -f release_mode=fast|full — gh CLI ignores YAML input defaults, and the empty value silently degrades the release matrix." >&2; exit 1; }
+
       - name: Resolve desktop version
         id: version
         env:
