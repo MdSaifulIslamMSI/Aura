@@ -186,6 +186,7 @@
       "tests/uploadSignatureService.test.js",
       "tests/userNotificationController.integration.test.js",
       "tests/userProfileEncryptedPhone.test.js",
+      "tests/paymentIntentSignalHash.test.js",
       "tests/userValidators.test.js",
       "tests/paymentCaptureRace.test.js",
       "tests/loyaltyAtomicAward.test.js",

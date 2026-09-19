@@ -1,4 +1,5 @@
 const PaymentIntent = require('../../models/PaymentIntent');
+const { hashSignalValue } = require('../../utils/signalHash');
 
 const buildRiskDecision = (score) => {
     if (score >= 70) return 'block';
@@ -28,7 +29,7 @@ const evaluateRisk = async ({
         }),
         requestMeta.ip
             ? PaymentIntent.countDocuments({
-                'metadata.ip': requestMeta.ip,
+                'metadata.ipHash': hashSignalValue(requestMeta.ip),
                 createdAt: { $gte: new Date(now - (60 * 60 * 1000)) },
             })
             : 0,
