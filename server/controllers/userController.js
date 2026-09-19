@@ -90,7 +90,8 @@ const requireFreshPhoneProofForProfileChange = async ({ req = {}, nextPhone = ''
     if (!safeEmail || !normalizedNextPhone) return;
 
     const currentUser = await User.findOne({ email: safeEmail }, 'phone').lean();
-    const currentPhone = canonicalizePhone(currentUser?.phone || '');
+    // .lean() bypasses the encrypted-field getter; decryptValue is a no-op on plaintext.
+    const currentPhone = canonicalizePhone(decryptValue(currentUser?.phone) || '');
     if (currentPhone && currentPhone === canonicalNextPhone) {
         return;
     }
