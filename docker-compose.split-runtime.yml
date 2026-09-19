@@ -75,7 +75,7 @@ services:
       REDIS_REQUIRED: "true"
       SPLIT_RUNTIME_ENABLED: "true"
       REDIS_URL: redis://redis:6379
-      PAYMENT_PROVIDER: simulated
+      PAYMENT_PROVIDER: mock
       FIREBASE_SERVICE_ACCOUNT_FILE: ""
       GOOGLE_APPLICATION_CREDENTIALS: ""
       ORDER_EMAILS_ENABLED: "false"
@@ -126,7 +126,7 @@ services:
       REDIS_REQUIRED: "true"
       SPLIT_RUNTIME_ENABLED: "true"
       REDIS_URL: redis://redis:6379
-      PAYMENT_PROVIDER: simulated
+      PAYMENT_PROVIDER: mock
       FIREBASE_SERVICE_ACCOUNT_FILE: ""
       GOOGLE_APPLICATION_CREDENTIALS: ""
       ORDER_EMAILS_ENABLED: "false"
