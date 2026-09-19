@@ -3,10 +3,6 @@
   "maxMonthlyUsd": 30,
   "requiredBudgets": [
     {
-      "name": "aura-staging-monthly-budget",
-      "maxMonthlyUsd": 30
-    },
-    {
       "name": "aura-backend-monthly-guardrail",
       "maxMonthlyUsd": 90
     }
@@ -21,7 +17,7 @@
   "maxRunningEc2": 2,
   "allowedInstanceTypes": ["t2.micro", "t3.micro", "t4g.small"],
   "requiredSsmPrefixes": ["/aura/staging", "/aura/prod"],
-  "requiredBuckets": ["aura-staging-uploads-942679464475-ap-south-1-v2"],
+  "requiredBuckets": ["aura-backend-deployments-517353742644-ap-south-1"],
   "maxCloudWatchAlarms": 5,
   "maxCloudWatchDashboards": 2,
   "noisyLogStoredBytesWarn": 262144000
