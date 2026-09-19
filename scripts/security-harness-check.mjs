@@ -345,7 +345,7 @@ addCheck(
 addCheck(
   'staging ops watch action refs are immutable',
   includesAll(stagingOpsWatchWorkflow, [
-    'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd',
+    'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
     'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
     'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
   ]) && includesAll(supplyChainPinCheck, [
