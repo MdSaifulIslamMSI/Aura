@@ -75,6 +75,10 @@ paymentIntentSchema.index({ provider: 1, providerPaymentId: 1 });
 paymentIntentSchema.index({ user: 1, status: 1, expiresAt: 1 });
 paymentIntentSchema.index({ user: 1, order: 1, 'orderClaim.state': 1 });
 paymentIntentSchema.index({ marketCountryCode: 1, marketCurrency: 1, status: 1 });
+// Risk/fraud lookups count intents per client IP hash over 1h/24h windows.
+// Sparse: intents created before the ipHash cutover (and intents without a
+// client IP) have no metadata.ipHash at all.
+paymentIntentSchema.index({ 'metadata.ipHash': 1, createdAt: -1 }, { sparse: true, name: 'metadata_ipHash_1_createdAt_-1' });
 
 paymentIntentSchema.pre('validate', function hydrateMinorUnitMoneyFields() {
     hydratePaymentIntentMinorUnits(this);
