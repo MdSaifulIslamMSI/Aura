@@ -5,6 +5,7 @@ const PaymentIntent = require('../models/PaymentIntent');
 const Order = require('../models/Order');
 const ProductReview = require('../models/ProductReview');
 const { flags } = require('../config/fraudDecisioningFlags');
+const { hashSignalValue } = require('../utils/signalHash');
 const { evaluateRisk: evaluatePaymentRisk } = require('./payments/riskEngine');
 const { evaluateLoginRisk } = require('./authRiskEngineService');
 const { getIntegrityIssue } = require('./marketplaceIntegrityService');
@@ -45,12 +46,6 @@ const normalizeMode = (mode, fallback = flags.fraudDecisioningMode) => {
 };
 
 const makeDecisionId = () => `frd_${Date.now().toString(36)}_${crypto.randomBytes(8).toString('hex')}`;
-
-const hashSignalValue = (value) => {
-    const clean = safeString(value);
-    if (!clean) return '';
-    return crypto.createHash('sha256').update(clean).digest('hex').slice(0, 24);
-};
 
 const sanitizeRequestMeta = (requestMeta = {}) => ({
     ipHash: hashSignalValue(requestMeta.ip),
@@ -280,8 +275,8 @@ const collectPaymentGraphSignals = async ({ userId, deviceContext = {}, requestM
     try {
         if (ip) {
             const [ipIntentCount, ipUsers] = await Promise.all([
-                PaymentIntent.countDocuments({ 'metadata.ip': ip, createdAt: { $gte: since24h } }),
-                PaymentIntent.distinct('user', { 'metadata.ip': ip, createdAt: { $gte: since24h } }),
+                PaymentIntent.countDocuments({ 'metadata.ipHash': hashSignalValue(ip), createdAt: { $gte: since24h } }),
+                PaymentIntent.distinct('user', { 'metadata.ipHash': hashSignalValue(ip), createdAt: { $gte: since24h } }),
             ]);
             if (ipIntentCount >= 25 || ipUsers.length >= 6) {
                 addSignal(signals, {

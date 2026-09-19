@@ -11,6 +11,7 @@ const {
 } = require('../orderPricingService');
 const { getPaymentProvider } = require('./providerFactory');
 const { assessFraudDecision } = require('../fraudDecisioningService');
+const { hashSignalValue } = require('../../utils/signalHash');
 const {
     DIGITAL_METHODS,
     INTENT_EXPIRY_MINUTES,
@@ -802,8 +803,11 @@ const createPaymentIntent = async ({
             deliverySlot: quote.normalized.deliverySlot,
             couponCode: quote.normalized.couponCode,
             checkoutSource: quote.normalized.checkoutSource,
-            ip: requestMeta.ip || '',
-            userAgent: requestMeta.userAgent || '',
+            // Raw request signals stay out of the money collection: only the
+            // truncated hashes used by risk/fraud lookups are persisted
+            // (same representation as FraudDecision.requestMeta).
+            ipHash: hashSignalValue(requestMeta.ip),
+            userAgentHash: hashSignalValue(requestMeta.userAgent),
             deviceContext,
             savedMethodId: savedMethodId || '',
             paymentContext: finalPaymentContext,
