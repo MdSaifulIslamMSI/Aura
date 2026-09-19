@@ -617,6 +617,10 @@ jobs:
         if: matrix.shard == 1
         run: npm run bundle:budget
 
+      - name: Verify storefront routing contract is in sync
+        if: matrix.shard == 1
+        run: npm run vercel:routing:check
+
   frontend-e2e:
     needs:
       - changes
