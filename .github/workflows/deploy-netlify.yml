@@ -219,6 +219,11 @@ jobs:
         working-directory: ./app
 
     steps:
+      - name: Reject dispatch runs with an empty target
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          test -n "${{ inputs.target }}" || { echo "workflow_dispatch requires -f target=preview|production — gh CLI ignores YAML input defaults, and the empty value skips every deploy lane while the run looks green." >&2; exit 1; }
+
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
@@ -785,10 +790,53 @@ jobs:
             --id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
             > /dev/null
 
+  preflight-github-pages-pat:
+    needs: build-frontend
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Fail before ANY host deploys: a GH Pages auth failure after the other
+      # lanes landed would skip the coherence gate and trigger fleet-wide
+      # auto-rollback instead of a cheap preflight rejection.
+      - name: Probe GH_PAGES_TOKEN write access
+        env:
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          GITHUB_PAGES_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          GH_PAGES_TOKEN="$(printf '%s' "${GH_PAGES_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test -n "${GH_PAGES_TOKEN}" || { echo "GitHub secret GH_PAGES_TOKEN is empty." >&2; exit 1; }
+          echo "::add-mask::${GH_PAGES_TOKEN}"
+          repo="${GITHUB_PAGES_OWNER}/${GITHUB_PAGES_REPO}"
+          status="$(curl -s --max-time 20 -o /tmp/probe.json -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer ${GH_PAGES_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${repo}/contents/.pat-write-probe" \
+            -d "{\"message\":\"write probe\",\"content\":\"$(printf probe | base64)\"}")"
+          echo "Write probe: HTTP ${status}"
+          if [ "${status}" = "201" ]; then
+            sha="$(jq -r '.content.sha' /tmp/probe.json)"
+            curl -s --max-time 20 -o /dev/null -X DELETE \
+              -H "Authorization: Bearer ${GH_PAGES_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${repo}/contents/.pat-write-probe" \
+              -d "{\"message\":\"remove write probe\",\"sha\":\"${sha}\"}"
+            echo "PROBE PASS: GH_PAGES_TOKEN has Contents write on ${repo}."
+          else
+            cat /tmp/probe.json >&2 || true
+            echo "PROBE FAIL: GH_PAGES_TOKEN cannot write to ${repo}. Check Repository access + Contents: Read and write on the PAT." >&2
+            exit 1
+          fi
+
   deploy-production:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -981,6 +1029,7 @@ jobs:
       - build-frontend
       - package-vercel-prebuilt
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: needs.build-frontend.outputs.backend_origin != '' && inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1093,6 +1142,7 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1304,6 +1354,7 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -1376,6 +1427,7 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1499,6 +1551,7 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1601,6 +1654,7 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
+      - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 30
