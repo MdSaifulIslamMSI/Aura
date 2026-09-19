@@ -221,8 +221,10 @@ jobs:
     steps:
       - name: Reject dispatch runs with an empty target
         if: github.event_name == 'workflow_dispatch'
+        env:
+          DISPATCH_TARGET: ${{ inputs.target }}
         run: |
-          test -n "${{ inputs.target }}" || { echo "workflow_dispatch requires -f target=preview|production — gh CLI ignores YAML input defaults, and the empty value skips every deploy lane while the run looks green." >&2; exit 1; }
+          test -n "${DISPATCH_TARGET}" || { echo "workflow_dispatch requires -f target=preview|production — gh CLI ignores YAML input defaults, and the empty value skips every deploy lane while the run looks green." >&2; exit 1; }
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -835,7 +837,6 @@ jobs:
     needs:
       - build-frontend
       - validate-aws-production-access
-      - preflight-github-pages-pat
       - preflight-github-pages-pat
     if: inputs.target == 'production'
     runs-on: ubuntu-latest

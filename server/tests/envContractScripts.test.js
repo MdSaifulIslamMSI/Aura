@@ -2105,8 +2105,10 @@ describe('repo environment contract scripts', () => {
         expect(costGuard).toContain("emitEvidence('blocked')");
         expect(costGuard).toContain("'budgets', 'describe-budget'");
         expect(costGuard).toContain('forecast is unavailable');
+        // Staging is off by choice and its budget was never recreated in the
+        // new AWS account (517353742644), so the guard asserts only the
+        // backend guardrail.
         expect(costGuardConfig.requiredBudgets).toEqual(expect.arrayContaining([
-            expect.objectContaining({ name: 'aura-staging-monthly-budget', maxMonthlyUsd: 30 }),
             expect.objectContaining({ name: 'aura-backend-monthly-guardrail', maxMonthlyUsd: 90 }),
         ]));
         expect(observabilityGuard).toContain("emitEvidence('blocked')");
@@ -2193,9 +2195,11 @@ describe('repo environment contract scripts', () => {
 
         expect(guard.region).toBe('ap-south-1');
         expect(guard.maxMonthlyUsd).toBeLessThanOrEqual(30);
+        // Staging is off by choice and its budget was never recreated in the
+        // new AWS account; the guard asserts only the backend guardrail.
         expect(guard.requiredBudgets).toContainEqual({
-            name: 'aura-staging-monthly-budget',
-            maxMonthlyUsd: 30,
+            name: 'aura-backend-monthly-guardrail',
+            maxMonthlyUsd: 90,
         });
         expect(guard.allowNatGateway).toBe(false);
         expect(guard.allowLoadBalancer).toBe(false);
