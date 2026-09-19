@@ -54,6 +54,7 @@
     "migrate:user-phone-sparse": "node scripts/migrate_user_phone_sparse_index.js",
     "migrate:product-id-unique": "node scripts/migrate_product_id_unique.js",
     "migrate:payment-intent-signal-hash": "node scripts/migrate_payment_intent_signal_hash.js",
+    "auth:verify-firebase-admin": "node scripts/verify_firebase_admin_credentials.js",
     "db:prune-candidates": "node scripts/prune_products_indexes.js",
     "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
     "migrate:purge-legacy-cart": "node scripts/purge_legacy_user_cart.js",
