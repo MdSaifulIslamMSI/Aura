@@ -16,7 +16,11 @@ const flags = {
     nodeEnv,
     isProduction,
     paymentsEnabled: parseBoolean(process.env.PAYMENTS_ENABLED, true),
-    paymentProvider: asLower(process.env.PAYMENT_PROVIDER, 'razorpay'),
+    // Unset envs fail toward mock outside production (the foundation module's
+    // default) so non-prod runtimes never drift into real razorpay-intent mode.
+    // Production keeps razorpay: the EC2 base.env relies on this default and
+    // assertProductionPaymentConfig still requires live creds at boot.
+    paymentProvider: asLower(process.env.PAYMENT_PROVIDER, isProduction ? 'razorpay' : 'mock'),
     paymentRiskMode: asLower(process.env.PAYMENT_RISK_MODE, 'shadow'),
     paymentCaptureMode: asLower(process.env.PAYMENT_CAPTURE_MODE, 'post_order_auth_capture'),
     paymentSavedMethodsEnabled: parseBoolean(process.env.PAYMENT_SAVED_METHODS_ENABLED, true),
@@ -28,6 +32,8 @@ const flags = {
 
 const assertWebhookConfig = () => {
     if (!flags.paymentsEnabled || !flags.paymentWebhooksEnabled) return;
+    // The mock gateway has no external webhook contract to verify.
+    if (flags.paymentProvider === 'mock') return;
     const stripeRoutingEnabled = flags.paymentDynamicRoutingEnabled
         && parseBoolean(process.env.PAYMENT_STRIPE_ROUTING_ENABLED, false);
 

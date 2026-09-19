@@ -20,6 +20,9 @@ const REQUIRED_UNIQUE_INDEXES = [
     ['carts', { user: 1 }, 'one cart per user'],
     ['users', { email: 1 }, 'account email identity'],
     ['otpsessions', { identityKey: 1, purpose: 1 }, 'OTP session identity'],
+    // Created by scripts/migrate_product_id_unique.js (manual, outside the
+    // registry) — a fresh or restored database can silently miss it.
+    ['products', { id: 1 }, 'numeric product id identity (id-less rows exempt)', { id: { $type: 'number' } }],
 ];
 
 // Retention TTLs mirror the registry entries in server/migrations/index.js.
@@ -33,6 +36,7 @@ const REQUIRED_TTL_INDEXES = [
     ['productgovernancelogs', 'createdAt', 365],
     ['usergovernancelogs', 'createdAt', 365],
     ['paymentevents', 'createdAt', 365],
+    ['statuschecks', 'checkedAt', 7],
 ];
 
 const keyMatches = (indexKey, expectedKey) => {
@@ -52,13 +56,15 @@ const run = async () => {
 
     const problems = [];
 
-    for (const [collection, expectedKey, purpose] of REQUIRED_UNIQUE_INDEXES) {
+    for (const [collection, expectedKey, purpose, expectedPartial] of REQUIRED_UNIQUE_INDEXES) {
         const indexes = await mongoose.connection.collection(collection).indexes();
         const found = findIndex(indexes, expectedKey);
         if (!found) {
             problems.push(`MISSING unique index on ${collection} ${JSON.stringify(expectedKey)} (${purpose})`);
         } else if (!found.unique) {
             problems.push(`Index on ${collection} ${JSON.stringify(expectedKey)} exists but is not unique (${purpose})`);
+        } else if (expectedPartial && JSON.stringify(found.partialFilterExpression ?? null) !== JSON.stringify(expectedPartial)) {
+            problems.push(`Index on ${collection} ${JSON.stringify(expectedKey)} has partialFilterExpression=${JSON.stringify(found.partialFilterExpression ?? null)}, expected ${JSON.stringify(expectedPartial)} (${purpose})`);
         }
     }
 

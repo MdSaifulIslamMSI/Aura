@@ -59,6 +59,9 @@ const commonRequired = [
   'APP_BASE_URL',
   'API_BASE_URL',
   'DATABASE_URL',
+  // The server boots through server/config/db.js, which requires MONGO_URI —
+  // an env file without it passes every other check and still kills the API.
+  'MONGO_URI',
   'REDIS_URL',
   'OBJECT_STORAGE_BUCKET',
   'OTEL_SERVICE_NAME',

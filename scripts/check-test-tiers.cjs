@@ -16,6 +16,8 @@
  *   6. Ratchet: "$untriaged" is no longer a parking lot — it must stay
  *      empty. Every suite belongs in regression (every PR), nightly
  *      (scheduled full lane), or quarantine (report-only flake pool).
+ *   7. Duplicate entries within a tier (a duplicate runs the suite twice
+ *      per tier run and double-counts shard minutes).
  *
  * Usage: node scripts/check-test-tiers.cjs
  * Exit 0 = manifest healthy; exit 1 = problems listed.
@@ -97,7 +99,12 @@ for (const surface of TIER_SURFACES) {
             continue;
         }
         if (noDbTierNames.has(tier)) {
+            const seenBases = new Set();
             for (const base of files) {
+                if (seenBases.has(base)) {
+                    problems.push(`${surface}/${tier}: duplicate entry: ${base}`);
+                }
+                seenBases.add(base);
                 if (!basenames.has(base)) {
                     problems.push(`${surface}/noDbFiles: no test file named "${base}"`);
                 }
@@ -109,7 +116,12 @@ for (const surface of TIER_SURFACES) {
             problems.push(`${surface}/${tier}: tier is empty`);
             continue;
         }
+        const seenEntries = new Set();
         for (const f of files) {
+            if (seenEntries.has(f)) {
+                problems.push(`${surface}/${tier}: duplicate entry: ${f}`);
+            }
+            seenEntries.add(f);
             if (!f.startsWith('tests/')) {
                 problems.push(`${surface}/${tier}: entry outside tests/: ${f}`);
             } else if (!fs.existsSync(path.join(serverDir, f))) {
