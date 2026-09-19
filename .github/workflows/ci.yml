@@ -619,6 +619,8 @@ jobs:
 
       - name: Verify storefront routing contract is in sync
         if: matrix.shard == 1
+        # The job defaults to ./app; the routing contract lives at repo root.
+        working-directory: ${{ github.workspace }}
         run: npm run vercel:routing:check
 
   frontend-e2e:
