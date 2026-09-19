@@ -460,7 +460,7 @@
   "ViewerCertificate": {
     "CloudFrontDefaultCertificate": true,
     "SSLSupportMethod": "vip",
-    "MinimumProtocolVersion": "TLSv1",
+    "MinimumProtocolVersion": "TLSv1.2_2021",
     "CertificateSource": "cloudfront"
   },
   "Restrictions": {
