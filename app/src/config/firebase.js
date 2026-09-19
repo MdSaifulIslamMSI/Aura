@@ -12,6 +12,10 @@ import {
 } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { isCapacitorNativeRuntime } from "../utils/nativeRuntime";
+import {
+    HOSTED_DEPLOYMENT_HOST_SUFFIXES,
+    PLANNED_CUSTOM_FRONTEND_HOSTS,
+} from "../../config/hostedFrontendHosts.mjs";
 
 const sanitizeFirebaseValue = (value) => {
     if (typeof value !== 'string') return value;
@@ -52,11 +56,8 @@ const deriveDefaultAuthDomain = (projectId) => {
 
 const isHostedDeploymentHost = (host = '') => {
     const normalizedHost = String(host || '').trim().toLowerCase();
-    return normalizedHost === 'aurapilot.aws.app'
-        || normalizedHost.endsWith('.vercel.app')
-        || normalizedHost.endsWith('.netlify.app')
-        || normalizedHost.endsWith('.cloudfront.net')
-        || normalizedHost.endsWith('.onrender.com');
+    return PLANNED_CUSTOM_FRONTEND_HOSTS.includes(normalizedHost)
+        || HOSTED_DEPLOYMENT_HOST_SUFFIXES.some((suffix) => normalizedHost.endsWith(suffix));
 };
 
 const sanitizeHostValue = (value) => {

@@ -21,7 +21,9 @@ const isSupportedApiBaseUrl = (value = '') => {
     return isAbsoluteHttpUrl(normalized) || normalized.startsWith('/');
 };
 
-const HOSTED_FRONTEND_EXACT_HOSTS = new Set(['aurapilot.aws.app']);
+import { PLANNED_CUSTOM_FRONTEND_HOSTS } from '../../config/hostedFrontendHosts.mjs';
+
+const HOSTED_FRONTEND_EXACT_HOSTS = new Set(PLANNED_CUSTOM_FRONTEND_HOSTS);
 
 // Suffixes for frontend hosts that proxy /api (and /health, /uploads,
 // /socket.io) same-origin to the backend edge (Netlify/Vercel rewrites,
