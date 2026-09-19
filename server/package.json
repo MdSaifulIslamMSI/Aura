@@ -53,11 +53,8 @@
     "migrate:drop-user-otp-ttl": "node scripts/drop_user_otp_ttl_index.js",
     "migrate:user-phone-sparse": "node scripts/migrate_user_phone_sparse_index.js",
     "migrate:product-id-unique": "node scripts/migrate_product_id_unique.js",
-<<<<<<< HEAD
-    "db:prune-candidates": "node scripts/prune_products_indexes.js",
-=======
     "migrate:payment-intent-signal-hash": "node scripts/migrate_payment_intent_signal_hash.js",
->>>>>>> origin/main
+    "db:prune-candidates": "node scripts/prune_products_indexes.js",
     "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
     "migrate:purge-legacy-cart": "node scripts/purge_legacy_user_cart.js",
     "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
