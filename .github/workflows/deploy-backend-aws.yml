@@ -7,6 +7,11 @@ on:
         description: Git ref to deploy
         required: false
         default: main
+      deploy_strategy:
+        description: Activation strategy, swap (recreate, brief downtime) or blue-green (zero-downtime slot switch)
+        required: false
+        default: swap
+        type: string
       skip_healthcheck:
         description: Skip the final readiness probe
         required: false
@@ -317,7 +322,7 @@ jobs:
           INFRA_BUNDLE_SHA256: ${{ steps.package.outputs.infra_sha256 }}
           IMAGE_BUNDLE_SHA256: ${{ steps.package.outputs.image_sha256 }}
           INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
-          DEPLOY_STRATEGY: ${{ inputs.deploy_strategy }}
+          DEPLOY_STRATEGY: ${{ inputs.deploy_strategy || 'swap' }}
         run: |
           set -euo pipefail
           test -n "${INFRA_BUNDLE_SHA256}" || { echo "Missing infra bundle SHA-256"; exit 1; }
