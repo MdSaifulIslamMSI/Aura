@@ -74,7 +74,7 @@ jobs:
       release_sha: ${{ steps.release.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.git_ref || github.sha }}
@@ -122,7 +122,7 @@ jobs:
         run: node server/scripts/audit_parameter_store_secret_contract.js
 
       - name: Configure AWS credentials for preflight
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
@@ -157,7 +157,7 @@ jobs:
       rollback_ref: ${{ steps.current_release.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.preflight.outputs.release_sha }}
@@ -187,10 +187,10 @@ jobs:
 
       - name: Set up QEMU
         if: runner.arch != 'ARM64'
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Build backend container image
         run: |
@@ -216,7 +216,7 @@ jobs:
       # Acquire the deploy session after the potentially long image build so
       # the full SSM polling window remains inside the OIDC role lifetime.
       - name: Configure fresh AWS credentials for deployment
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
@@ -412,7 +412,7 @@ jobs:
       - name: Refresh AWS credentials for failure restoration
         id: rollback_credentials
         if: failure() && steps.wait_ssm.outcome == 'success' && steps.current_release.outputs.sha != ''
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
