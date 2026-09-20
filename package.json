@@ -268,16 +268,16 @@
     "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"
   },
   "dependencies": {
-    "@sentry/electron": "^7.18.0",
+    "@sentry/electron": "^7.19.0",
     "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "http-proxy-middleware": "^4.2.0"
   },
   "devDependencies": {
-    "electron": "^44.3.0",
+    "electron": "^44.4.1",
     "electron-builder": "^26.15.3",
-    "knip": "^6.35.1"
+    "knip": "^6.36.0"
   },
   "overrides": {
     "@electron/asar": "^4.2.0",
