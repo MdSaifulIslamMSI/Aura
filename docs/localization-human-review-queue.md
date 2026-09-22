@@ -10,8 +10,8 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 - Actionable affected locale-message pairs: 29428
 - Native-review audit grouped entries: 3053
 - Native-review audit affected locale-message pairs: 63869
-- High-risk actionable entries: 944 (16471 affected pairs)
-- Medium-risk actionable entries: 309 (4790 affected pairs)
+- High-risk actionable entries: 945 (16490 affected pairs)
+- Medium-risk actionable entries: 308 (4771 affected pairs)
 - Low-risk actionable entries: 503 (8167 affected pairs)
 
 ## Actionable Queue By Locale
