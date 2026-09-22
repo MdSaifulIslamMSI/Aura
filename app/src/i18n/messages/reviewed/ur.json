@@ -3205,6 +3205,7 @@
   "nav.login": "لاگ ان",
   "nav.loginSignup": "لاگ ان / سائن اپ کریں۔",
   "nav.logout": "لاگ آؤٹ",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "مین نیویگیشن ریل کو پریشان کیے بغیر براؤزنگ کو ٹیون کریں۔",
   "nav.marketPanelDialog": "مارکیٹ کی ترجیحات",
   "nav.marketPanelTitle": "ملک، زبان، اور کرنسی کنٹرولز۔",

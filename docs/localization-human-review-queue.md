@@ -4,42 +4,42 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## Summary
 
-- Stable ICU message IDs: 3718
-- Former raw review rows: 93278
-- Actionable grouped queue entries: 1755
-- Actionable affected locale-message pairs: 29409
+- Stable ICU message IDs: 3719
+- Former raw review rows: 93297
+- Actionable grouped queue entries: 1756
+- Actionable affected locale-message pairs: 29428
 - Native-review audit grouped entries: 3053
 - Native-review audit affected locale-message pairs: 63869
 - High-risk actionable entries: 944 (16471 affected pairs)
-- Medium-risk actionable entries: 308 (4771 affected pairs)
+- Medium-risk actionable entries: 309 (4790 affected pairs)
 - Low-risk actionable entries: 503 (8167 affected pairs)
 
 ## Actionable Queue By Locale
 
-- `bn`: 1453 grouped entries / 1491 affected pairs
-- `hi`: 1401 grouped entries / 1437 affected pairs
-- `te`: 1530 grouped entries / 1571 affected pairs
-- `mr`: 1524 grouped entries / 1565 affected pairs
-- `ur`: 1514 grouped entries / 1554 affected pairs
-- `gu`: 1555 grouped entries / 1600 affected pairs
-- `pa`: 1542 grouped entries / 1586 affected pairs
-- `ml`: 1534 grouped entries / 1574 affected pairs
-- `kn`: 1527 grouped entries / 1568 affected pairs
-- `or`: 1565 grouped entries / 1610 affected pairs
-- `as`: 1512 grouped entries / 1553 affected pairs
-- `sa`: 1541 grouped entries / 1583 affected pairs
-- `es`: 1517 grouped entries / 1559 affected pairs
-- `fr`: 1527 grouped entries / 1578 affected pairs
-- `de`: 1532 grouped entries / 1579 affected pairs
-- `ar`: 1434 grouped entries / 1472 affected pairs
-- `ja`: 1450 grouped entries / 1491 affected pairs
-- `pt`: 1514 grouped entries / 1553 affected pairs
-- `zh`: 1446 grouped entries / 1485 affected pairs
+- `bn`: 1454 grouped entries / 1492 affected pairs
+- `hi`: 1402 grouped entries / 1438 affected pairs
+- `te`: 1531 grouped entries / 1572 affected pairs
+- `mr`: 1525 grouped entries / 1566 affected pairs
+- `ur`: 1515 grouped entries / 1555 affected pairs
+- `gu`: 1556 grouped entries / 1601 affected pairs
+- `pa`: 1543 grouped entries / 1587 affected pairs
+- `ml`: 1535 grouped entries / 1575 affected pairs
+- `kn`: 1528 grouped entries / 1569 affected pairs
+- `or`: 1566 grouped entries / 1611 affected pairs
+- `as`: 1513 grouped entries / 1554 affected pairs
+- `sa`: 1542 grouped entries / 1584 affected pairs
+- `es`: 1518 grouped entries / 1560 affected pairs
+- `fr`: 1528 grouped entries / 1579 affected pairs
+- `de`: 1533 grouped entries / 1580 affected pairs
+- `ar`: 1435 grouped entries / 1473 affected pairs
+- `ja`: 1451 grouped entries / 1492 affected pairs
+- `pt`: 1515 grouped entries / 1554 affected pairs
+- `zh`: 1447 grouped entries / 1486 affected pairs
 
 ## Actionable Queue By Reason
 
 - `brand-term-corruption-uses-english-fallback`: 74 grouped entries / 749 affected pairs
-- `exact-english-fallback-needs-human-review`: 162 grouped entries / 1397 affected pairs
+- `exact-english-fallback-needs-human-review`: 163 grouped entries / 1416 affected pairs
 - `forbidden-transliteration-uses-english-fallback`: 3 grouped entries / 4 affected pairs
 - `foundation-placeholder-mismatch-uses-english-fallback`: 2 grouped entries / 30 affected pairs
 - `invalid-legacy-icu-uses-english-fallback`: 1 grouped entries / 18 affected pairs

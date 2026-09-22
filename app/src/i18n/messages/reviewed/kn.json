@@ -3205,6 +3205,7 @@
   "nav.login": "ಲಾಗಿನ್ ಮಾಡಿ",
   "nav.loginSignup": "ಲಾಗಿನ್ / ಸೈನ್ ಅಪ್ ಮಾಡಿ",
   "nav.logout": "ಲಾಗ್ಔಟ್",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "ಮುಖ್ಯ ನ್ಯಾವಿಗೇಷನ್ ರೈಲಿಗೆ ತೊಂದರೆಯಾಗದಂತೆ ಬ್ರೌಸಿಂಗ್ ಟ್ಯೂನ್ ಮಾಡಿ.",
   "nav.marketPanelDialog": "ಮಾರುಕಟ್ಟೆ ಆದ್ಯತೆಗಳು",
   "nav.marketPanelTitle": "ದೇಶ, ಭಾಷೆ ಮತ್ತು ಕರೆನ್ಸಿ ನಿಯಂತ್ರಣಗಳು.",
