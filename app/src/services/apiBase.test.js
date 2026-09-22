@@ -307,3 +307,82 @@ describe('apiFetch DPoP resilience', () => {
         }
     });
 });
+
+describe('apiFetch backend error-shape tolerance', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    const rejectWithBody = (body, status) => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify(body), {
+                status,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        );
+        return apiFetch('/auth/session', { method: 'GET', retries: 0 }).catch((caught) => caught);
+    };
+
+    it('preserves limiter messages that omit the status key', async () => {
+        const error = await rejectWithBody({
+            success: false,
+            code: 'ACCOUNT_TEMPORARILY_LOCKED',
+            message: 'Too many failed attempts. This account is temporarily locked. Try again later.',
+        }, 429);
+
+        expect(error).toMatchObject({
+            status: 429,
+            code: 'ACCOUNT_TEMPORARILY_LOCKED',
+            message: 'Too many failed attempts. This account is temporarily locked. Try again later.',
+        });
+    });
+
+    it('preserves CSRF plain-object messages without a status key', async () => {
+        const error = await rejectWithBody({
+            statusCode: 403,
+            message: 'CSRF token is invalid or expired',
+            code: 'CSRF_TOKEN_INVALID',
+        }, 403);
+
+        expect(error).toMatchObject({
+            status: 403,
+            code: 'CSRF_TOKEN_INVALID',
+            message: 'CSRF token is invalid or expired',
+        });
+    });
+
+    it('preserves message-only validation failures without status or code keys', async () => {
+        const error = await rejectWithBody({
+            message: 'Internal Server Error during validation',
+        }, 500);
+
+        expect(error).toMatchObject({
+            status: 500,
+            message: 'Internal Server Error during validation',
+        });
+    });
+
+    it('preserves cloaked admin 404 messages', async () => {
+        const error = await rejectWithBody({
+            status: 'error',
+            message: 'Not found',
+            requestId: 'req-cloak-1',
+        }, 404);
+
+        expect(error).toMatchObject({ status: 404, message: 'Not found' });
+    });
+
+    it('preserves object-shaped rate-limit messages', async () => {
+        const error = await rejectWithBody({
+            success: false,
+            code: 'ADMIN_RECOVERY_RATE_LIMITED',
+            message: 'Too many recovery attempts. Wait before trying again.',
+        }, 429);
+
+        expect(error).toMatchObject({
+            status: 429,
+            code: 'ADMIN_RECOVERY_RATE_LIMITED',
+            message: 'Too many recovery attempts. Wait before trying again.',
+        });
+    });
+});

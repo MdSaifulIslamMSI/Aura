@@ -428,6 +428,16 @@ const buildAuthValue = (overrides = {}) => ({
   ...overrides,
 });
 
+const SessionExpiredSeedProbe = () => {
+  const { authError } = useLoginController();
+  return (
+    <>
+      <div data-testid="session-seed-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="session-seed-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
+};
+
 const buildDesktopCookieSessionPayload = ({
   email = 'duo@example.com',
   isAdmin = false,
@@ -544,6 +554,70 @@ describe('useLoginController', () => {
     vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValue({
       status: 'handoff_ready',
       handoffReady: true,
+    });
+  });
+
+  it('surfaces an expired signed-out session as a Session Expired banner on login', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'signed_out',
+          sessionError: { message: 'Your sign-in expired. Please sign in again.' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('Session Expired');
+      expect(screen.getByTestId('session-seed-error-hint')).toHaveTextContent('Sign in again to refresh your secure session.');
+    });
+  });
+
+  it('maps a backend session-expired message to the Session Expired banner', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'signed_out',
+          sessionError: { message: 'Not authorized, session expired' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('Session Expired');
+    });
+  });
+
+  it('does not seed a session error unless the session is signed out', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'recoverable_error',
+          sessionError: { message: 'Session refresh failed. Using the last verified profile for now.' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('none');
     });
   });
 

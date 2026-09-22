@@ -32,7 +32,7 @@ const formatAuthProviderLabel = (provider = '') => {
         case 'apple.com':
             return 'Apple';
         default:
-            return provider || 'Social';
+            return normalized || 'Social';
     }
 };
 
@@ -56,7 +56,8 @@ const buildSocialInvalidCredentialError = (rawError, t) => {
         detail: formatAuthMessage(t, 'auth.error.socialInvalidCredentialProvider.detail', { provider }, 'We couldn\'t complete {provider} authentication for this app.', `We couldn't complete ${provider} authentication for this app.`),
         hint: formatAuthMessage(t, 'auth.error.socialInvalidCredentialProvider.hint', { provider }, 'Re-save the {provider} provider keys in Firebase, confirm the callback URL uses your Firebase auth handler, and make sure {provider} can return an email address for this account.', `Re-save the ${provider} provider keys in Firebase, confirm the callback URL uses your Firebase auth handler, and make sure ${provider} can return an email address for this account.`),
         action: null,
-        actionLabel: null
+        actionLabel: null,
+        icon: 'shield'
     };
 };
 
@@ -71,7 +72,8 @@ const buildAccountExistsWithDifferentCredentialError = (rawError, t) => {
             : formatAuthMessage(t, 'auth.error.accountExistsWithDifferentCredentialProvider.detail', {}, 'This email is already linked to a different sign-in method.'),
         hint: formatAuthMessage(t, 'auth.error.accountExistsWithDifferentCredentialProvider.hint', { provider }, 'Sign in using the existing provider for this account first, then link {provider} after login.', `Sign in using the existing provider for this account first, then link ${provider} after login.`),
         action: 'signin',
-        actionLabel: formatAuthMessage(t, 'auth.error.accountExistsWithDifferentCredentialProvider.actionLabel', {}, 'Sign in with existing method')
+        actionLabel: formatAuthMessage(t, 'auth.error.accountExistsWithDifferentCredentialProvider.actionLabel', {}, 'Sign in with existing method'),
+        icon: 'shield'
     };
 };
 
@@ -83,7 +85,8 @@ const buildSocialMissingEmailError = (rawError, t) => {
         detail: formatAuthMessage(t, 'auth.error.socialMissingEmailProvider.detail', { provider }, '{provider} did not return an email address for this account.', `${provider} did not return an email address for this account.`),
         hint: formatAuthMessage(t, 'auth.error.socialMissingEmailProvider.hint', { provider }, 'This app needs an email from {provider} to attach your profile. Use an account with email access enabled, or continue with email and OTP sign-in.', `This app needs an email from ${provider} to attach your profile. Use an account with email access enabled, or continue with email and OTP sign-in.`),
         action: null,
-        actionLabel: null
+        actionLabel: null,
+        icon: 'user'
     };
 };
 
@@ -103,7 +106,8 @@ const buildSocialSessionSyncError = (rawError, t) => {
             ? formatAuthMessage(t, 'auth.error.socialSessionSyncProvider.hintWithRequestId', { requestId }, 'Try again once. If it repeats, use email and OTP sign-in while support checks session sync reference {requestId}.', `Try again once. If it repeats, use email and OTP sign-in while support checks session sync reference ${requestId}.`)
             : formatAuthMessage(t, 'auth.error.socialSessionSyncProvider.hint', {}, 'Try again once. If it repeats, use email and OTP sign-in while support checks the session sync service.'),
         action: null,
-        actionLabel: null
+        actionLabel: null,
+        icon: 'clock'
     };
 };
 
@@ -132,7 +136,8 @@ const buildUnauthorizedDomainError = (rawError, t) => {
             ? formatAuthMessage(t, 'auth.error.unauthorizedDomain.ipHint', { host }, 'Authorize {host} in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Redirect flow can work on that host only after Firebase authorizes it.', `Authorize ${host} in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Redirect flow can work on that host only after Firebase authorizes it.`)
             : formatAuthMessage(t, 'auth.error.unauthorizedDomain.hint', {}, 'Add the active site domain in Firebase Authentication > Settings > Authorized domains, then retry social sign-in. Email and OTP sign-in remain available immediately.'),
         action: null,
-        actionLabel: null
+        actionLabel: null,
+        icon: 'shield'
     };
 };
 
@@ -146,7 +151,8 @@ const buildIllegalIframeError = (rawError, t) => {
             ? formatAuthMessage(t, 'auth.error.illegalIframe.ipHint', { host }, 'Authorize {host} in Firebase Authentication settings, or switch to localhost for local popup testing. Email and OTP sign-in remain available immediately.', `Authorize ${host} in Firebase Authentication settings, or switch to localhost for local popup testing. Email and OTP sign-in remain available immediately.`)
             : formatAuthMessage(t, 'auth.error.illegalIframe.hint', {}, 'Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in.'),
         action: null,
-        actionLabel: null
+        actionLabel: null,
+        icon: 'shield'
     };
 };
 
@@ -638,6 +644,13 @@ export const AUTH_ERRORS = {
         action: 'signin',
         actionLabel: 'Try sign-in again'
     },
+    'dpop validation failed': {
+        title: 'Secure Sign-In Needs Retry',
+        detail: 'Aura could not verify the browser proof for this sign-in attempt.',
+        hint: 'Refresh the page once and sign in again. If it repeats, clear this site session and retry.',
+        action: 'signin',
+        actionLabel: 'Try sign-in again'
+    },
     'google sign-in failed': {
         title: 'Google Sign-In Failed',
         detail: 'We couldn\'t complete Google authentication.',
@@ -688,6 +701,48 @@ export const AUTH_ERRORS = {
         actionLabel: 'Sign in again'
     },
     'not authorized, token failed': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'your sign-in expired': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, session expired': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, session revoked': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, no session': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, no token': {
+        title: 'Session Expired',
+        detail: 'Your sign-in token is no longer valid for secure account access.',
+        hint: 'Sign in again to refresh your secure session.',
+        action: 'signin',
+        actionLabel: 'Sign in again'
+    },
+    'not authorized, session failed': {
         title: 'Session Expired',
         detail: 'Your sign-in token is no longer valid for secure account access.',
         hint: 'Sign in again to refresh your secure session.',
@@ -2151,7 +2206,7 @@ const formatAuthMessage = (t, id, values, defaultMessage, fallbackMessage = defa
     return formatted;
 };
 
-const localizeStaticAuthError = (key, fallback, t) => {
+const localizeStaticAuthErrorText = (key, fallback, t) => {
     if (typeof t !== 'function' || !fallback) return fallback;
 
     switch (key) {
@@ -2630,6 +2685,7 @@ const localizeStaticAuthError = (key, fallback, t) => {
                 actionLabel: formatAuthMessage(t, "auth.error.dpopJtiReplayDetected.actionLabel", {}, "Try sign-in again"),
             };
         case "dpop verification failed":
+        case "dpop validation failed":
             return {
                 ...fallback,
                 title: formatAuthMessage(t, "auth.error.dpopVerificationFailed.title", {}, "Secure Sign-In Needs Retry"),
@@ -2689,6 +2745,12 @@ const localizeStaticAuthError = (key, fallback, t) => {
                 actionLabel: formatAuthMessage(t, "auth.error.csrfTokenFetchFailedForAuthSyncHttp401.actionLabel", {}, "Sign in again"),
             };
         case "not authorized, token failed":
+        case "your sign-in expired":
+        case "not authorized, session expired":
+        case "not authorized, session revoked":
+        case "not authorized, no session":
+        case "not authorized, no token":
+        case "not authorized, session failed":
             return {
                 ...fallback,
                 title: formatAuthMessage(t, "auth.error.notAuthorizedTokenFailed.title", {}, "Session Expired"),
@@ -2707,6 +2769,28 @@ const localizeStaticAuthError = (key, fallback, t) => {
             return fallback;
     }
 };
+
+/**
+ * Stable icon hint for an auth error, derived from the untranslated catalog
+ * key — never from the localized title, so icons stay correct in every locale.
+ * Vocabulary matches AuthFeedback's icon prop: clock|lock|user|wifi|shield|alert.
+ */
+const iconForAuthErrorKey = (key = '') => {
+    const normalized = String(key).toLowerCase();
+    if (/expir/.test(normalized)) return 'clock';
+    if (/mismatch|dpop|proof|verificat/.test(normalized)) return 'shield';
+    if (/session|token/.test(normalized)) return 'clock';
+    if (/lock|attempt|too-many|too many|throttl|budget|quota|suspend/.test(normalized)) return 'lock';
+    if (/not found|no account|no verified|user-not-found|missing|not registered/.test(normalized)) return 'user';
+    if (/network|connect/.test(normalized)) return 'wifi';
+    if (/invalid|social|desktop|unauthori|iframe|domain|exist|already/.test(normalized)) return 'shield';
+    return 'alert';
+};
+
+const localizeStaticAuthError = (key, fallback, t) => ({
+    ...localizeStaticAuthErrorText(key, fallback, t),
+    icon: iconForAuthErrorKey(key),
+});
 
 const localizeStaticAuthSuccess = (key, fallback, t) => {
     if (typeof t !== 'function' || !fallback) return fallback;
@@ -2801,7 +2885,9 @@ const extractAuthErrorDetail = (value) => {
 /**
  * Resolve a raw error (code or message string) into a structured AUTH_ERROR object.
  * @param {string} rawError — Firebase error code OR backend message string
- * @returns {object} — { title, detail, hint, action, actionLabel }
+ * @returns {object} — { title, detail, hint, action, actionLabel, icon }
+ *   icon is a stable hint (clock|lock|user|wifi|shield|alert) derived from the
+ *   untranslated catalog key, safe to render in any locale.
  */
 export const resolveAuthError = (rawError, t) => {
     if (!rawError) return localizeStaticAuthError('default', AUTH_ERRORS['default'], t);
@@ -2873,11 +2959,26 @@ export const resolveAuthError = (rawError, t) => {
         return localizeStaticAuthError(rawError.code, AUTH_ERRORS[rawError.code], t);
     }
 
-    // Try substring match against message
-    for (const [key, value] of Object.entries(AUTH_ERRORS)) {
-        if (key === 'default') continue;
-        if (errorStr.includes(key)) return localizeStaticAuthError(key, value, t);
-    }
+    const matchCatalogKey = (haystack) => {
+        if (!haystack) return null;
+        for (const [key, value] of Object.entries(AUTH_ERRORS)) {
+            if (key === 'default') continue;
+            if (haystack.includes(key)) return { key, value };
+        }
+        return null;
+    };
+
+    // Try substring match against the code-first value, then fall back to the
+    // message payload: code-shaped errors (e.g. ACCOUNT_TEMPORARILY_LOCKED)
+    // must not hide a matchable backend message behind an opaque code.
+    const codeMatch = matchCatalogKey(errorStr);
+    if (codeMatch) return localizeStaticAuthError(codeMatch.key, codeMatch.value, t);
+
+    const messageStr = String(rawError?.message ?? rawError?.data?.message ?? '').toLowerCase();
+    const messageMatch = messageStr && messageStr !== errorStr
+        ? matchCatalogKey(messageStr)
+        : null;
+    if (messageMatch) return localizeStaticAuthError(messageMatch.key, messageMatch.value, t);
 
     const fallbackDetail = (
         extractAuthErrorDetail(rawError?.message)

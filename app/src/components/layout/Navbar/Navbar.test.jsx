@@ -9,6 +9,7 @@ import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
 import { LocaleProvider } from '@/i18n/LocaleProvider';
+import { toast } from 'sonner';
 
 const { getRewardsMock } = vi.hoisted(() => ({
     getRewardsMock: vi.fn().mockResolvedValue({
@@ -49,6 +50,16 @@ vi.mock('@/context/NotificationContext', () => ({
 
 vi.mock('@/components/shared/GlobalSearchBar', () => ({
     default: ({ className = '' }) => <div data-testid="global-search-bar" className={className}>Search</div>,
+}));
+
+vi.mock('sonner', () => ({
+    toast: {
+        error: vi.fn(),
+        success: vi.fn(),
+        info: vi.fn(),
+        warning: vi.fn(),
+    },
+    Toaster: () => null,
 }));
 
 beforeEach(() => {
@@ -266,5 +277,31 @@ describe('Navbar Component', () => {
         const mobileRuntimeLinks = screen.getAllByRole('link', { name: /Open /i });
         expect(mobileRuntimeLinks.length).toBeGreaterThanOrEqual(2);
         expect(screen.getByRole('link', { name: 'Open Gateway' })).toHaveAttribute('href', 'https://aura-gateway.vercel.app');
+    });
+
+    it('announces logout failures instead of failing silently', async () => {
+        const logout = vi.fn().mockRejectedValue(new Error('logout failed'));
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' }, logout });
+
+        fireEvent.click(screen.getByText('John Doe'));
+        fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
+
+        await waitFor(() => {
+            expect(logout).toHaveBeenCalledTimes(1);
+            expect(toast.error).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('stays silent when logout succeeds', async () => {
+        const logout = vi.fn().mockResolvedValue({ success: true });
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' }, logout });
+
+        fireEvent.click(screen.getByText('John Doe'));
+        fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
+
+        await waitFor(() => {
+            expect(logout).toHaveBeenCalledTimes(1);
+        });
+        expect(toast.error).not.toHaveBeenCalled();
     });
 });
