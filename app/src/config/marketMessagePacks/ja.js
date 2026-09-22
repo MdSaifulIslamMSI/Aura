@@ -2233,6 +2233,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "ログイン",
   "nav.loginSignup": "ログイン/サインアップ",
   "nav.logout": "ログアウト",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "メインのナビゲーション レールを妨げずにブラウジングを調整します。",
   "nav.marketPanelDialog": "市場の好み",
   "nav.marketPanelTitle": "国、言語、通貨の管理。",

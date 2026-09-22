@@ -2233,6 +2233,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "登录",
   "nav.loginSignup": "登录/注册",
   "nav.logout": "退出",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "在不干扰主导航栏的情况下调整浏览。",
   "nav.marketPanelDialog": "市场偏好",
   "nav.marketPanelTitle": "国家、语言和货币控制。",

@@ -2233,6 +2233,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "Connexion",
   "nav.loginSignup": "Connexion / Inscription",
   "nav.logout": "Deconnexion",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "Ajustez la navigation sans perturber le rail de navigation principal.",
   "nav.marketPanelDialog": "Préférences du marché",
   "nav.marketPanelTitle": "Contrôles des pays, des langues et des devises.",
