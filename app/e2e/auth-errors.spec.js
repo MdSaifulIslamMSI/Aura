@@ -47,6 +47,18 @@ async function disableFirebasePhoneDelivery(page) {
     await page.route('**/gstatic.com/recaptcha/**', (route) => route.abort('failed'));
 }
 
+// The credential-check flow requires a Firebase-configured build. Environments
+// without the public VITE_FIREBASE_* variables render the "Authentication Not
+// Configured" fallback instead of the sign-in form — skip rather than fail.
+async function skipUnlessFirebaseAuthConfigured(page, test) {
+    const unconfiguredNotice = page.getByText(
+        'Firebase authentication is not configured correctly',
+    );
+    if (await unconfiguredNotice.count()) {
+        test.skip(true, 'Firebase web config is unavailable in this environment');
+    }
+}
+
 test.describe('Auth error messages', () => {
     test('wrong password shows the Invalid Credentials banner, not a generic error', async ({ page }) => {
         await disableFirebasePhoneDelivery(page);
@@ -58,6 +70,7 @@ test.describe('Auth error messages', () => {
         });
 
         await gotoLogin(page);
+        await skipUnlessFirebaseAuthConfigured(page, test);
         await page.locator('input[type="email"]').fill('e2e-user@example.com');
         await page.locator('input[type="password"]').fill('WrongPassword!123');
         await page.getByLabel('Phone number').fill('9876543210');
@@ -90,6 +103,7 @@ test.describe('Auth error messages', () => {
         });
 
         await gotoLogin(page);
+        await skipUnlessFirebaseAuthConfigured(page, test);
         await page.locator('input[type="email"]').fill('e2e-user@example.com');
         await page.locator('input[type="password"]').fill('WrongPassword!123');
         await page.getByLabel('Phone number').fill('9876543210');
