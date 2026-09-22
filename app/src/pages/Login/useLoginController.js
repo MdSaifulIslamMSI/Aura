@@ -538,6 +538,7 @@ export const useLoginController = () => {
     reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
     logout,
+    sessionError,
   } = useContext(AuthContext);
 
   const [mode, setMode] = useState(launchMode);
@@ -589,6 +590,16 @@ export const useLoginController = () => {
   const desktopBrowserHandoffPreflightAttemptRef = useRef('');
   const desktopBrowserAbortControllerRef = useRef(null);
   const resetPasswordRequestInFlightRef = useRef(false);
+  const sessionExpiredSeedRef = useRef(false);
+
+  useEffect(() => {
+    if (sessionExpiredSeedRef.current) return;
+    if (!sessionError?.message || sessionStatus !== 'signed_out') return;
+    sessionExpiredSeedRef.current = true;
+    // A specific in-flight banner (e.g. a provider sign-in failure) must not be
+    // downgraded to the generic session-expired copy by this one-shot seed.
+    setAuthError((prev) => prev ?? resolveAuthError({ message: sessionError.message }, t));
+  }, [sessionError, sessionStatus, t]);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),

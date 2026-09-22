@@ -3205,6 +3205,7 @@
   "nav.login": "Login",
   "nav.loginSignup": "Login / Sign up",
   "nav.logout": "Logout",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "Tune browsing without disturbing the main navigation rail.",
   "nav.marketPanelDialog": "Market preferences",
   "nav.marketPanelTitle": "Country, language, and currency controls.",

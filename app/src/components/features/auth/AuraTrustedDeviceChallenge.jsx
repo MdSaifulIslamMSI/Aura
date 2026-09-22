@@ -316,7 +316,11 @@ const AuraTrustedDeviceChallenge = ({
       await onExit();
       return;
     }
-    await logout?.();
+    try {
+      await logout?.();
+    } catch {
+      toast.error(t('nav.logoutFailed', {}, 'Logout failed. Please try again.'));
+    }
     navigate('/', { replace: true });
   };
 

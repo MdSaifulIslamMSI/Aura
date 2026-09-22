@@ -2,9 +2,25 @@ import { AlertCircle, CheckCircle2, ArrowRight, WifiOff, Lock, UserX, Clock, Shi
 import { cn } from '@/lib/utils';
 
 /**
- * Picks an icon based on error title/type
+ * Picks an icon based on an explicit stable hint first, falling back to
+ * error-title heuristics for callers that don't provide one. The hint
+ * vocabulary (clock|lock|user|wifi|shield|alert) is locale-independent,
+ * unlike title-substring matching.
  */
-const getErrorIcon = (title = '') => {
+const AUTH_ERROR_ICONS = {
+    clock: Clock,
+    lock: Lock,
+    user: UserX,
+    wifi: WifiOff,
+    shield: ShieldX,
+    alert: AlertCircle,
+};
+
+const getErrorIcon = (title = '', iconHint = '') => {
+    if (iconHint && AUTH_ERROR_ICONS[iconHint]) {
+        const HintedIcon = AUTH_ERROR_ICONS[iconHint];
+        return <HintedIcon className="w-5 h-5 flex-shrink-0" />;
+    }
     const t = title.toLowerCase();
     if (t.includes('expired') || t.includes('time')) return <Clock className="w-5 h-5 flex-shrink-0" />;
     if (t.includes('locked') || t.includes('attempts')) return <Lock className="w-5 h-5 flex-shrink-0" />;
@@ -24,6 +40,8 @@ const getErrorIcon = (title = '') => {
  *   hint: string (optional)
  *   actionLabel: string (optional — button text)
  *   onAction: () => void (optional — button callback)
+ *   icon: string (optional — stable hint clock|lock|user|wifi|shield|alert
+ *     from resolveAuthError; title heuristics apply when omitted)
  *   compact: bool — smaller version for modals
  */
 export const AuthFeedback = ({
@@ -33,6 +51,7 @@ export const AuthFeedback = ({
     hint,
     actionLabel,
     onAction,
+    icon = '',
     compact = false,
 }) => {
     const isError = type === 'error';
@@ -53,7 +72,7 @@ export const AuthFeedback = ({
             {/* Top row: icon + title */}
             <div className="flex items-start gap-3">
                 <span className={isError ? 'text-rose-400 mt-0.5' : 'text-emerald-400 mt-0.5'}>
-                    {isError ? getErrorIcon(safeTitle) : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
+                    {isError ? getErrorIcon(safeTitle, icon) : <CheckCircle2 className="w-5 h-5 flex-shrink-0" />}
                 </span>
                 <div className="flex-1 min-w-0">
                     <p className={cn(

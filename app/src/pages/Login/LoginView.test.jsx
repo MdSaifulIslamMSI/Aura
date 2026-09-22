@@ -243,6 +243,21 @@ describe('LoginView ordinary-user sign-in', () => {
     expect(screen.getByText('Your secure sign-in is complete.')).toBeInTheDocument();
   });
 
+  it('renders the locale-independent icon hint threaded through the auth error', () => {
+    const view = renderView(buildProps({
+      canUseDesktopBrowserSignIn: false,
+      authError: {
+        title: 'Google Sign-In Needs Retry',
+        detail: 'could not finish opening your marketplace session',
+        icon: 'clock',
+      },
+    }));
+
+    const feedbackIcon = view.container.querySelector('.login-feedback--error svg');
+    expect(feedbackIcon).not.toBeNull();
+    expect(feedbackIcon.getAttribute('class')).toContain('lucide-clock');
+  });
+
   it('holds the route on a focused device checkpoint instead of showing the form again', () => {
     renderView(buildProps({
       canUseDesktopBrowserSignIn: false,

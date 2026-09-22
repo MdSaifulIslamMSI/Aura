@@ -598,10 +598,12 @@ describe('POST /api/otp/verify', () => {
         expect(res.statusCode).toBe(400);
     });
 
-    test('55. 404 for non-existent phone', async () => {
+    test('55. signup verification does not reveal non-existent phone (masked)', async () => {
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: '0000000000', otp: '123456', purpose: 'signup' });
-        expect(res.statusCode).toBe(404);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.message).not.toMatch(/no account|not found|phone/i);
     });
 
     test('56. 401 for wrong OTP (bcrypt comparison)', async () => {
@@ -611,13 +613,14 @@ describe('POST /api/otp/verify', () => {
         expect(res.statusCode).toBe(401);
     });
 
-    test('57. 410 for expired OTP', async () => {
+    test('57. signup verification masks expired OTP (masked)', async () => {
         const { user } = await seedPending({
             otp: '555555', otpExpiry: new Date(Date.now() - 60000), otpPurpose: 'signup'
         });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '555555', purpose: 'signup' });
-        expect(res.statusCode).toBe(410);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
     });
 
     test('58. 401 for masked purpose mismatch during login verification', async () => {
@@ -677,7 +680,7 @@ describe('POST /api/otp/verify', () => {
         expect(updated.otpAttempts).toBe(0);
     });
 
-    test('59b. preserves identity checks after resolving mixed phone format records', async () => {
+    test('59b. signup verification masks identity mismatch (masked)', async () => {
         const localPhone = '9123456789';
         const canonicalPhone = '+919123456789';
         const { user } = await seedPending({ phone: localPhone, otp: '121212', otpPurpose: 'signup' });
@@ -685,7 +688,8 @@ describe('POST /api/otp/verify', () => {
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: canonicalPhone, email: 'wrong@test.com', otp: '121212', purpose: 'signup' });
 
-        expect(res.statusCode).toBe(403);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
 
         const unchanged = await User.findById(user._id).select('+otp +otpPurpose');
         expect(unchanged.otp).toBeTruthy();
@@ -751,19 +755,20 @@ describe('POST /api/otp/verify', () => {
         expect(u.otpAttempts).toBe(1);
     });
 
-    test('67. shows remaining attempts in error message', async () => {
+    test('67. signup wrong-OTP response is masked (no attempt count leak)', async () => {
         const { user } = await seedPending({ otp: '111111' });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '000000', purpose: 'signup' });
-        expect(res.body.message).toMatch(/attempt/i);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
     });
 
-    test('68. LOCKS account after 5 wrong attempts (HTTP 423)', async () => {
+    test('68. signup lockout response is masked (still locks server-side)', async () => {
         const { user } = await seedPending({ otp: '999999', otpAttempts: 4 });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '000000', purpose: 'signup' });
-        expect(res.statusCode).toBe(423);
-        expect(res.body.message).toMatch(/locked/i);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
     });
 
     test('69. sets otpLockedUntil on lockout', async () => {
@@ -783,24 +788,26 @@ describe('POST /api/otp/verify', () => {
         expect(u.otp).toBeNull();
     });
 
-    test('71. returns 423 when account is locked', async () => {
+    test('71. locked signup account returns masked response', async () => {
         const { user } = await seedPending({
             otp: '111111',
             otpLockedUntil: new Date(Date.now() + 900000) // locked for 15 min
         });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '111111', purpose: 'signup' });
-        expect(res.statusCode).toBe(423);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
     });
 
-    test('72. locked message includes minutes remaining', async () => {
+    test('72. locked signup response reveals no lockout timing', async () => {
         const { user } = await seedPending({
             otp: '111111',
             otpLockedUntil: new Date(Date.now() + 900000)
         });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '111111', purpose: 'signup' });
-        expect(res.body.message).toMatch(/minute/i);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.message).not.toMatch(/minute|locked|attempt/i);
     });
 
     test('73. rejects alphabetic OTP', async () => {
@@ -902,6 +909,15 @@ describe('POST /api/otp/verify', () => {
         expect(updated.loginOtpVerifiedAt).toBeNull();
         expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
         expect(updated.resetOtpVerifiedAt).toBeNull();
+    });
+
+    test('75c2. payment-challenge verification does not reveal non-existent phone (masked)', async () => {
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: '0000000000', otp: '123456', purpose: 'payment-challenge', intentId: 'intent_abc123' });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.message).not.toMatch(/no account|not found|phone/i);
     });
 
     test('75d. verification masks email identity mismatch linkage during login', async () => {
@@ -1094,31 +1110,33 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
         expect(u.otp).toMatch(/^hmac-sha256:[0-9a-f]{64}$/); // Confirm it's hashed
     });
 
-    test('93. progressive lockout: 1st wrong → 2nd wrong → ... → 5th = LOCKED', async () => {
+    test('93. progressive signup failures stay masked through lockout', async () => {
         const { user } = await seedPending({ otp: '999999' });
         let lastRes;
         for (let i = 0; i < 5; i++) {
             lastRes = await request(app).post('/api/otp/verify')
                 .send({ phone: user.phone, otp: String(100000 + i), purpose: 'signup' });
         }
-        // 5th attempt should lock
-        expect(lastRes.statusCode).toBe(423);
-        expect(lastRes.body.message).toMatch(/locked/i);
+        // 5th attempt locks server-side but the public response stays masked
+        expect(lastRes.statusCode).toBe(401);
+        expect(lastRes.body.message).toBe('If account details are valid, verification will proceed.');
 
-        // 6th attempt should also be locked
+        // 6th attempt is also locked server-side, response stays masked
         const locked = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '999999', purpose: 'signup' });
-        expect(locked.statusCode).toBe(423);
+        expect(locked.statusCode).toBe(401);
     });
 
-    test('94. lockout prevents correct OTP from working', async () => {
+    test('94. lockout still blocks correct signup OTP (masked response)', async () => {
         const { user, otpPlain } = await seedPending({
             otp: '888888',
             otpLockedUntil: new Date(Date.now() + 900000)
         });
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: otpPlain, purpose: 'signup' });
-        expect(res.statusCode).toBe(423);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toBe('If account details are valid, verification will proceed.');
+        expect(res.body.verified).not.toBe(true);
     });
 
     test('95. new OTP send clears lockout (user can retry)', async () => {

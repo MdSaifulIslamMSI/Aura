@@ -40,4 +40,12 @@ describe('OtpChallengeModal', () => {
 
         expect(onSubmit).toHaveBeenCalledWith('123456');
     });
+
+    it('announces verification errors via an alert role', () => {
+        renderOtpModal({ error: 'Bad code' });
+
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent('Bad code');
+        expect(alert).toHaveAttribute('aria-live', 'assertive');
+    });
 });

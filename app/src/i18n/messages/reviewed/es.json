@@ -3205,6 +3205,7 @@
   "nav.login": "Iniciar sesion",
   "nav.loginSignup": "Entrar / Crear cuenta",
   "nav.logout": "Cerrar sesion",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "Sintonice la navegación sin alterar la ruta de navegación principal.",
   "nav.marketPanelDialog": "Preferencias del mercado",
   "nav.marketPanelTitle": "Controles de país, idioma y moneda.",

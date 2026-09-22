@@ -3205,6 +3205,7 @@
   "nav.login": "ଲଗଇନ୍ କରନ୍ତୁ |",
   "nav.loginSignup": "ଲଗଇନ୍ / ସାଇନ୍ ଅପ୍ କରନ୍ତୁ |",
   "nav.logout": "ଲଗଆଉଟ୍ |",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "ମୁଖ୍ୟ ନାଭିଗେସନ୍ ରେଳକୁ ବ୍ୟାଘାତ ନକରି ବ୍ରାଉଜିଙ୍ଗ୍ ଟ୍ୟୁନ୍ କରନ୍ତୁ |",
   "nav.marketPanelDialog": "ବଜାର ପସନ୍ଦ",
   "nav.marketPanelTitle": "ଦେଶ, ଭାଷା ଏବଂ ମୁଦ୍ରା ନିୟନ୍ତ୍ରଣ |",

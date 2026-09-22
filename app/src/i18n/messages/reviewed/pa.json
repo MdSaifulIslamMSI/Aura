@@ -3205,6 +3205,7 @@
   "nav.login": "ਲਾਗਿਨ",
   "nav.loginSignup": "ਲੌਗਇਨ / ਸਾਈਨ ਅੱਪ ਕਰੋ",
   "nav.logout": "ਲਾਗਆਉਟ",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "ਮੁੱਖ ਨੇਵੀਗੇਸ਼ਨ ਰੇਲ ਨੂੰ ਪਰੇਸ਼ਾਨ ਕੀਤੇ ਬਿਨਾਂ ਬ੍ਰਾਊਜ਼ਿੰਗ ਨੂੰ ਟਿਊਨ ਕਰੋ।",
   "nav.marketPanelDialog": "ਮਾਰਕੀਟ ਤਰਜੀਹਾਂ",
   "nav.marketPanelTitle": "ਦੇਸ਼, ਭਾਸ਼ਾ ਅਤੇ ਮੁਦਰਾ ਨਿਯੰਤਰਣ।",

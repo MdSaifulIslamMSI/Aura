@@ -34,6 +34,7 @@ import NotificationDropdown from './NotificationDropdown';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
+import { toast } from 'sonner';
 const NavbarSearchFallback = ({
   mobile = false,
   className,
@@ -890,7 +891,9 @@ const Navbar = () => {
                           <div className="my-1 border-t border-white/10" />
                           <button
                             onClick={() => {
-                              logout();
+                              Promise.resolve(logout()).catch(() => {
+                                toast.error(t('nav.logoutFailed', {}, 'Logout failed. Please try again.'));
+                              });
                               handleCloseUserMenu();
                             }}
                             className="block w-full px-4 py-2.5 text-left text-sm text-neo-rose transition-colors hover:bg-neo-rose/10"

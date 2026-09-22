@@ -246,6 +246,7 @@ const LoginView = ({
               hint={authError.hint}
               actionLabel={authError.actionLabel}
               onAction={authError.action ? handleFeedbackAction : undefined}
+              icon={authError.icon}
             />
           </div>
         )}

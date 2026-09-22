@@ -2236,6 +2236,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "ലോഗിൻ",
   "nav.loginSignup": "ലോഗിൻ / സൈൻ അപ്പ് ചെയ്യുക",
   "nav.logout": "പുറത്തുകടക്കുക",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "പ്രധാന നാവിഗേഷൻ റെയിലിനെ ശല്യപ്പെടുത്താതെ ബ്രൗസിംഗ് ട്യൂൺ ചെയ്യുക.",
   "nav.marketPanelDialog": "വിപണി മുൻഗണനകൾ",
   "nav.marketPanelTitle": "രാജ്യം, ഭാഷ, കറൻസി നിയന്ത്രണങ്ങൾ.",

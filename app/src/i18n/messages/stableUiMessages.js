@@ -11293,6 +11293,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Logout",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "nav.logoutFailed": {
+        id: "nav.logoutFailed",
+        defaultMessage: "Logout failed. Please try again.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "nav.marketPanelBody": {
         id: "nav.marketPanelBody",
         defaultMessage: "Tune browsing without disturbing the main navigation rail.",

@@ -176,7 +176,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
 
                     {/* Error */}
                     {error && (
-                        <p className="mb-3 text-center text-sm text-red-400 font-semibold">
+                        <p role="alert" aria-live="assertive" className="mb-3 text-center text-sm text-red-400 font-semibold">
                             {error}
                         </p>
                     )}

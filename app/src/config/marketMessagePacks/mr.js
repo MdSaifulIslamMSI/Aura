@@ -2236,6 +2236,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "लॉगिन करा",
   "nav.loginSignup": "लॉगिन / साइन अप करा",
   "nav.logout": "लॉगआउट करा",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "मुख्य नेव्हिगेशन रेल्वेला अडथळा न आणता ब्राउझिंग ट्यून करा.",
   "nav.marketPanelDialog": "बाजार प्राधान्ये",
   "nav.marketPanelTitle": "देश, भाषा आणि चलन नियंत्रणे.",

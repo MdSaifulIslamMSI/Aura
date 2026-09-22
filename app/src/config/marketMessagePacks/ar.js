@@ -2233,6 +2233,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "تسجيل الدخول",
   "nav.loginSignup": "تسجيل الدخول / الاشتراك",
   "nav.logout": "تسجيل الخروج",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "قم بضبط التصفح دون إزعاج شريط التنقل الرئيسي.",
   "nav.marketPanelDialog": "تفضيلات السوق",
   "nav.marketPanelTitle": "ضوابط البلد واللغة والعملة.",

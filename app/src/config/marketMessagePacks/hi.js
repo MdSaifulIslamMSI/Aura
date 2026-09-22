@@ -2233,6 +2233,7 @@ export const MARKET_MESSAGE_PACK = {
   "nav.login": "लॉग इन करें",
   "nav.loginSignup": "लॉगइन साइनअप",
   "nav.logout": "लॉग आउट",
+  "nav.logoutFailed": "Logout failed. Please try again.",
   "nav.marketPanelBody": "मुख्य नेविगेशन रेल को परेशान किए बिना ब्राउज़िंग को ट्यून करें।",
   "nav.marketPanelDialog": "बाज़ार की प्राथमिकताएँ",
   "nav.marketPanelTitle": "देश, भाषा और मुद्रा नियंत्रण।",

@@ -163,7 +163,7 @@ const normalizeOtpFactor = (value) => (
 );
 
 const shouldMaskOtpVerificationFailure = (purpose = '') => (
-    purpose === 'login' || purpose === 'forgot-password'
+    purpose === 'login' || purpose === 'forgot-password' || purpose === 'signup' || purpose === 'payment-challenge'
 );
 
 const otpVerificationError = (purpose, message, statusCode) => (

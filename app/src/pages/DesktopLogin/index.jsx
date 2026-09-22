@@ -173,6 +173,7 @@ const ConsentView = ({ controller, t }) => {
             hint={controller.authError.hint}
             actionLabel={controller.authError.actionLabel}
             onAction={controller.authError.action ? controller.handleFeedbackAction : undefined}
+            icon={controller.authError.icon}
           />
         </div>
       ) : null}
@@ -400,6 +401,7 @@ const DesktopLogin = () => {
                   hint={controller.authError.hint}
                   actionLabel={controller.authError.actionLabel}
                   onAction={controller.authError.action ? controller.handleFeedbackAction : undefined}
+                  icon={controller.authError.icon}
                 />
               </div>
             ) : null}

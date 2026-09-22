@@ -428,6 +428,16 @@ const buildAuthValue = (overrides = {}) => ({
   ...overrides,
 });
 
+const SessionExpiredSeedProbe = () => {
+  const { authError } = useLoginController();
+  return (
+    <>
+      <div data-testid="session-seed-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="session-seed-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
+};
+
 const buildDesktopCookieSessionPayload = ({
   email = 'duo@example.com',
   isAdmin = false,
@@ -523,6 +533,60 @@ const renderLoginController = (authValue, initialEntry) => render(
   </MarketProvider>
 );
 
+const SocialRollbackSeedProbe = () => {
+  const { authError, handleSocialSignIn, signInWithGoogle } = useLoginController();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          handleSocialSignIn(signInWithGoogle, 'Google').catch(() => {});
+        }}
+      >
+        start google sign-in
+      </button>
+      <div data-testid="seed-race-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="seed-race-error-hint">{authError?.hint || 'none'}</div>
+    </>
+  );
+};
+
+const SocialRollbackSeedRaceHarness = () => {
+  const [authState, setAuthState] = React.useState(() => ({
+    currentUser: null,
+    isAuthenticated: false,
+    loading: false,
+    status: 'signed_out',
+    sessionError: null,
+  }));
+  const signInWithGoogle = React.useCallback(async () => {
+    // AuthContext's rollback pipeline commits sessionError after the specific
+    // failure banner has already been painted, so the seed effect sees both.
+    setTimeout(() => setAuthState((current) => ({
+      ...current,
+      sessionError: { message: 'Provider sign-in could not be completed.' },
+    })), 0);
+    throw Object.assign(new Error('Something went wrong!'), {
+      status: 500,
+      url: '/api/auth/sync',
+      serverRequestId: 'req-seed-race',
+    });
+  }, []);
+
+  return (
+    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+      <AuthContext.Provider value={buildAuthValue({ ...authState, signInWithGoogle })}>
+        <MemoryRouter initialEntries={['/login']}>
+          <div data-testid="rollback-session-error">{String(Boolean(authState.sessionError))}</div>
+          <Routes>
+            <Route path="/login" element={<SocialRollbackSeedProbe />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    </MarketProvider>
+  );
+};
+
 describe('useLoginController', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -544,6 +608,70 @@ describe('useLoginController', () => {
     vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValue({
       status: 'handoff_ready',
       handoffReady: true,
+    });
+  });
+
+  it('surfaces an expired signed-out session as a Session Expired banner on login', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'signed_out',
+          sessionError: { message: 'Your sign-in expired. Please sign in again.' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('Session Expired');
+      expect(screen.getByTestId('session-seed-error-hint')).toHaveTextContent('Sign in again to refresh your secure session.');
+    });
+  });
+
+  it('maps a backend session-expired message to the Session Expired banner', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'signed_out',
+          sessionError: { message: 'Not authorized, session expired' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('Session Expired');
+    });
+  });
+
+  it('does not seed a session error unless the session is signed out', async () => {
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          status: 'recoverable_error',
+          sessionError: { message: 'Session refresh failed. Using the last verified profile for now.' },
+        })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SessionExpiredSeedProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-seed-error-title')).toHaveTextContent('none');
     });
   });
 
@@ -855,6 +983,32 @@ describe('useLoginController', () => {
     });
 
     expect(signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('keeps the specific social sign-in banner when a late session error seed arrives', async () => {
+    render(<SocialRollbackSeedRaceHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'start google sign-in' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('seed-race-error-title')).toHaveTextContent('Google Sign-In Needs Retry');
+      expect(screen.getByTestId('seed-race-error-hint')).toHaveTextContent('req-seed-race');
+    });
+
+    // The rollback state (with sessionError) lands after the specific banner is up.
+    await waitFor(() => {
+      expect(screen.getByTestId('rollback-session-error')).toHaveTextContent('true');
+    });
+
+    // The one-shot seed effect runs as a passive effect after that commit;
+    // flush it so the assertion below observes its outcome either way.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByTestId('seed-race-error-title')).toHaveTextContent('Google Sign-In Needs Retry');
+    expect(screen.getByTestId('seed-race-error-title')).not.toHaveTextContent('Session Expired');
+    expect(screen.getByTestId('seed-race-error-title')).not.toHaveTextContent('Something Went Wrong');
   });
 
   it('keeps Microsoft account collision copy provider-specific', async () => {

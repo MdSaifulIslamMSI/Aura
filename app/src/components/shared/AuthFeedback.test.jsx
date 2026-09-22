@@ -27,6 +27,21 @@ describe('AuthFeedback', () => {
     }
   });
 
+  it('prefers the explicit locale-independent icon hint over title heuristics', () => {
+    const { container } = render(<AuthFeedback title="Login failed" detail="x" icon="clock" />);
+    expect(container.querySelector('svg').getAttribute('class')).toContain('lucide-clock');
+  });
+
+  it('falls back to title heuristics for unknown icon hints', () => {
+    const { container } = render(<AuthFeedback title="Session expired, login again" detail="x" icon="bogus" />);
+    expect(container.querySelector('svg').getAttribute('class')).toContain('lucide-clock');
+  });
+
+  it('keeps title heuristics when no icon hint is given', () => {
+    const { container } = render(<AuthFeedback title="Account locked after attempts" detail="x" />);
+    expect(container.querySelector('svg').getAttribute('class')).toContain('lucide-lock');
+  });
+
   it('stringifies object-shaped errors safely', () => {
     render(<AuthFeedback title={{ message: 'Object title' }} detail={{ message: 'Object detail' }} />);
     expect(screen.getByText('Object title')).toBeInTheDocument();
