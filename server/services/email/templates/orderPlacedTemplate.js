@@ -4,19 +4,24 @@ const {
     toReadableDateTime,
     compactAddress,
 } = require('../templateUtils');
+const {
+    renderShell,
+    renderCta,
+    renderCallout,
+} = require('./designSystem');
 const { flags } = require('../../../config/emailFlags');
 
 const renderOrderItemsHtml = (items = []) => {
     if (!Array.isArray(items) || items.length === 0) {
-        return '<tr><td style="padding:10px;color:#666">No items</td></tr>';
+        return '<tr><td colspan="2" style="padding:12px 16px;color:#94a3b8;font-size:13px;">No items</td></tr>';
     }
 
     return items.map((item) => `
         <tr>
-            <td style="padding:8px 0;color:#222;font-size:14px;">
-                ${escapeHtml(item.title)} x ${Number(item.quantity || 0)}
+            <td style="padding:10px 16px;border-bottom:1px solid #eef1f6;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#111827;">
+                ${escapeHtml(item.title)} <span style="color:#94a3b8;">&times; ${Number(item.quantity || 0)}</span>
             </td>
-            <td style="padding:8px 0;color:#111;font-size:14px;text-align:right;">
+            <td style="padding:10px 16px;border-bottom:1px solid #eef1f6;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#111827;text-align:right;white-space:nowrap;">
                 ${toCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
             </td>
         </tr>
@@ -38,6 +43,7 @@ const renderOrderPlacedTemplate = (payload = {}) => {
     const paymentState = escapeHtml(payload.paymentState || 'pending');
     const viewOrdersLink = `${flags.appPublicUrl.replace(/\/$/, '')}/orders`;
 
+    const paid = paymentState.toLowerCase() === 'paid';
     const summaryRows = [
         ['Items', toCurrency(payload.itemsPrice)],
         ['Shipping', toCurrency(payload.shippingPrice)],
@@ -48,61 +54,80 @@ const renderOrderPlacedTemplate = (payload = {}) => {
 
     const summaryHtml = summaryRows.map(([label, value]) => `
         <tr>
-            <td style="padding:4px 0;color:#666;font-size:13px;">${escapeHtml(label)}</td>
-            <td style="padding:4px 0;color:#222;font-size:13px;text-align:right;">${escapeHtml(value)}</td>
+            <td style="padding:5px 16px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#64748b;">${escapeHtml(label)}</td>
+            <td style="padding:5px 16px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#111827;text-align:right;">${escapeHtml(value)}</td>
         </tr>
     `).join('');
 
     const subject = `Aura Order Confirmed #${shortOrderId}`;
-    const html = `
-<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,sans-serif;color:#111;">
-    <div style="max-width:640px;margin:24px auto;background:#ffffff;border:1px solid #e6e8ee;border-radius:12px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#0f172a,#111827);padding:20px;color:#fff;">
-            <h1 style="margin:0;font-size:20px;">Order Confirmed</h1>
-            <p style="margin:8px 0 0;font-size:13px;color:#cbd5e1;">Thank you, ${customerName}. Your order has been placed.</p>
-        </div>
-        <div style="padding:20px;">
-            <p style="margin:0 0 8px;font-size:14px;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
-            <p style="margin:0 0 16px;font-size:14px;"><strong>Placed At:</strong> ${escapeHtml(createdAt)}</p>
+    const preheader = `Thanks ${payload.customerName || 'Customer'} — order #${shortOrderId} is confirmed.`;
 
-            <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-                <thead>
-                    <tr>
-                        <th style="text-align:left;font-size:13px;color:#555;border-bottom:1px solid #eee;padding-bottom:8px;">Items</th>
-                        <th style="text-align:right;font-size:13px;color:#555;border-bottom:1px solid #eee;padding-bottom:8px;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${renderOrderItemsHtml(payload.orderItems)}
-                </tbody>
-            </table>
+    const bodyHtml = `
+  <p style="margin:0 0 4px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:800;line-height:1.25;color:#111827;">Order Confirmed</p>
+  <p style="margin:0 0 18px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#64748b;">Thank you, ${customerName}. Your order has been placed and is being prepared.</p>
 
-            <table style="width:100%;border-collapse:collapse;margin:12px 0 20px;">
-                ${summaryHtml}
-                <tr>
-                    <td style="padding-top:8px;border-top:1px solid #eee;font-weight:bold;">Total</td>
-                    <td style="padding-top:8px;border-top:1px solid #eee;text-align:right;font-weight:bold;">${toCurrency(payload.totalPrice)}</td>
-                </tr>
-            </table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e4e8f1;border-radius:12px;">
+    <tr>
+      <td style="padding:12px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748b;padding:2px 0;">Order ID</td>
+            <td align="right" style="font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:700;color:#111827;padding:2px 0;">${escapeHtml(orderId)}</td>
+          </tr>
+          <tr>
+            <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748b;padding:2px 0;">Placed At</td>
+            <td align="right" style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#111827;padding:2px 0;">${escapeHtml(createdAt)}</td>
+          </tr>
+          <tr>
+            <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748b;padding:2px 0;">Payment</td>
+            <td align="right" style="padding:2px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right"><tr>
+                <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:#111827;">${paymentMethod}</td>
+                <td style="padding-left:8px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                    <td bgcolor="${paid ? '#ecfdf5' : '#fffbeb'}" style="border:1px solid ${paid ? '#a7f3d0' : '#fde68a'};border-radius:999px;padding:2px 10px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${paid ? '#047857' : '#b45309'};">${paymentState}</td>
+                  </tr></table>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 
-            <p style="margin:0 0 8px;font-size:14px;"><strong>Delivery Address:</strong> ${address}</p>
-            <p style="margin:0 0 4px;font-size:14px;"><strong>Payment Method:</strong> ${paymentMethod}</p>
-            <p style="margin:0 0 20px;font-size:14px;"><strong>Payment State:</strong> ${paymentState}</p>
+  <p style="margin:20px 0 10px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2563eb;">Items</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border:1px solid #e4e8f1;border-radius:12px;overflow:hidden;">
+    ${renderOrderItemsHtml(payload.orderItems)}
+  </table>
 
-            <a href="${escapeHtml(viewOrdersLink)}" style="display:inline-block;padding:10px 16px;background:#111827;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:bold;">
-                View Orders
-            </a>
-        </div>
-    </div>
-</body>
-</html>`;
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;background-color:#f8fafc;border:1px solid #e4e8f1;border-radius:12px;">
+    ${summaryHtml}
+    <tr>
+      <td style="padding:11px 16px;border-top:1px solid #e4e8f1;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:800;color:#111827;">Total</td>
+      <td style="padding:11px 16px;border-top:1px solid #e4e8f1;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:800;color:#111827;text-align:right;">${toCurrency(payload.totalPrice)}</td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 10px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2563eb;">Delivery</p>
+  ${renderCallout({ tone: 'neutral', text: `<strong>${address}</strong><br/><span style="color:#64748b;">We will email you as the order moves — shipped, out for delivery, and delivered.</span>` })}
+
+  ${renderCta({ url: escapeHtml(viewOrdersLink), label: 'View Orders', accent: 'login' })}`;
+
+    const html = renderShell({
+        subject,
+        preheader,
+        eyebrow: 'Order Confirmation',
+        accent: 'login',
+        bodyHtml,
+        footerNote: 'You are receiving this email because you placed an order with Aura.',
+    });
 
     const text = [
         'Order Confirmed',
         `Order ID: ${orderId}`,
         `Placed At: ${createdAt}`,
+        `Payment: ${payload.paymentMethod || 'COD'} (${payload.paymentState || 'pending'})`,
         '',
         'Items:',
         renderOrderItemsText(payload.orderItems),
@@ -115,13 +140,11 @@ const renderOrderPlacedTemplate = (payload = {}) => {
         `Total: ${toCurrency(payload.totalPrice)}`,
         '',
         `Delivery Address: ${compactAddress(payload.shippingAddress || {})}`,
-        `Payment Method: ${payload.paymentMethod || 'COD'}`,
-        `Payment State: ${payload.paymentState || 'pending'}`,
         '',
         `View Orders: ${viewOrdersLink}`,
     ].join('\n');
 
-    return { subject, html, text };
+    return { subject, html, text, preheader };
 };
 
 module.exports = {
