@@ -290,6 +290,7 @@ describe('Navbar Component', () => {
             expect(logout).toHaveBeenCalledTimes(1);
             expect(toast.error).toHaveBeenCalledTimes(1);
         });
+        expect(toast.error).toHaveBeenCalledWith('Logout failed. Please try again.');
     });
 
     it('stays silent when logout succeeds', async () => {

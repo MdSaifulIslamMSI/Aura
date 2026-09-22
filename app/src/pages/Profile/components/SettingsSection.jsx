@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, RefreshCw, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import ActiveSessionsPanel from './ActiveSessionsPanel';
@@ -920,7 +921,11 @@ export default function SettingsSection({
                         {t('profile.settings.safety.contactSupport', {}, 'Contact Support')}
                     </Link>
                     <button
-                        onClick={logout}
+                        onClick={() => {
+                            Promise.resolve(logout()).catch(() => {
+                                toast.error(t('nav.logoutFailed', {}, 'Logout failed. Please try again.'));
+                            });
+                        }}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/12 px-4 py-3 text-sm font-black text-rose-100 hover:bg-rose-500/20"
                     >
                         <LogOut className="h-4 w-4" />

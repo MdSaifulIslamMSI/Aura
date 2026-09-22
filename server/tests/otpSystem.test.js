@@ -895,7 +895,8 @@ describe('POST /api/otp/verify', () => {
         expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
     });
 
-    test('75c. payment-challenge verification issues token without account escalation', async () => {        const user = await seedVerified({ otp: '515151', otpPurpose: 'payment-challenge' });
+    test('75c. payment-challenge verification issues token without account escalation', async () => {
+        const user = await seedVerified({ otp: '515151', otpPurpose: 'payment-challenge' });
 
         const res = await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '515151', purpose: 'payment-challenge', intentId: 'intent_abc123' });
