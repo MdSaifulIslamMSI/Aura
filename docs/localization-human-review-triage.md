@@ -4,7 +4,7 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Machine Certification
 
-- Stable UI candidates discovered: 418
+- Stable UI candidates discovered: 425
 - Uncovered stable UI candidates: 0
 - Locale key coverage: 100% (103971/103971 required locale/message pairs)
 - Required locales: 21
