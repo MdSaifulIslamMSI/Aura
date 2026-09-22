@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 418
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (103950/103950 required locale/message pairs)
+- Locale key coverage: 100% (103971/103971 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4950
+- Source message keys: 4951
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 93278
-- Unique review locale/id pairs: 93278
-- Actionable grouped queue entries: 1755
-- Actionable affected locale/message pairs: 29409
+- Total tracked review pairs preserved: 93297
+- Unique review locale/id pairs: 93297
+- Actionable grouped queue entries: 1756
+- Actionable affected locale/message pairs: 29428
 - Native-review audit grouped entries: 3053
 - Native-review audit affected locale/message pairs: 63869
 
@@ -31,7 +31,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | --- | ---: | ---: | --- |
 | critical | 898 | 16254 | bn 803, hi 787, te 865, mr 866, ur 850, gu 879, pa 870, ml 864, kn 865, or 877, as 862, sa 869, es 864, fr 885, de 883, ar 801, ja 850, pt 869, zh 845 |
 | high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
-| medium | 765 | 12822 | bn 676, hi 628, te 680, mr 682, ur 680, gu 704, pa 695, ml 682, kn 677, or 695, as 681, sa 697, es 684, fr 668, de 673, ar 669, ja 638, pt 674, zh 639 |
+| medium | 766 | 12841 | bn 677, hi 629, te 681, mr 683, ur 681, gu 705, pa 696, ml 683, kn 678, or 696, as 682, sa 698, es 685, fr 669, de 674, ar 670, ja 639, pt 675, zh 640 |
 | low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |
 
 ## Examples
