@@ -4,6 +4,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     getAdminEmailOpsSummary,
     listAdminEmailDeliveries,
@@ -25,6 +26,8 @@ const testSendLimiter = createDistributedRateLimit({
     name: 'admin_email_ops_test_send',
     windowMs: 10 * 60 * 1000,
     max: 10,
+    securityCritical: true,
+    keyGenerator: (req) => buildRateLimitKey('admin_email_ops_test_send', req),
     message: {
         success: false,
         code: 'ADMIN_EMAIL_TEST_RATE_LIMITED',

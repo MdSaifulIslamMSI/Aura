@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     addTemporaryDeny,
     getMemoryDenylistSnapshot,
@@ -17,6 +18,8 @@ const denylistWriteLimiter = createDistributedRateLimit({
     name: 'admin_abuse_denylist_write',
     windowMs: 5 * 60 * 1000,
     max: 30,
+    securityCritical: true,
+    keyGenerator: (req) => buildRateLimitKey('admin_abuse_denylist_write', req),
     message: {
         success: false,
         code: 'ADMIN_DENYLIST_RATE_LIMITED',

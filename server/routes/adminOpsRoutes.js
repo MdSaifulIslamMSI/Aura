@@ -3,6 +3,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     getAdminClientDiagnostics,
     getAdminAwsControl,
@@ -26,6 +27,8 @@ const awsControlActionLimiter = createDistributedRateLimit({
     name: 'admin_ops_aws_control_action',
     windowMs: 5 * 60 * 1000,
     max: 20,
+    securityCritical: true,
+    keyGenerator: (req) => buildRateLimitKey('admin_ops_aws_control_action', req),
     message: {
         success: false,
         code: 'ADMIN_AWS_CONTROL_RATE_LIMITED',
