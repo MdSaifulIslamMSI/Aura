@@ -216,10 +216,15 @@ export default function AdminEmailOps() {
     };
 
     const sendTestEmail = async () => {
+        const trimmedRecipient = testRecipient.trim();
+        if (trimmedRecipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedRecipient)) {
+            toast.error(t('admin.email.error.invalidRecipient', {}, 'Enter a valid email address or leave the field empty'));
+            return;
+        }
         try {
             setTestSending(true);
             const response = await adminApi.sendEmailOpsTest({
-                recipientEmail: testRecipient.trim() || undefined,
+                recipientEmail: trimmedRecipient || undefined,
             });
             toast.success(t('admin.email.success.testSent', { recipient: response?.delivery?.recipientEmail || t('admin.email.designatedInbox', {}, 'designated inbox') }, `Test email queued to ${response?.delivery?.recipientEmail || 'designated inbox'}`));
             await Promise.all([loadSummary(), loadDeliveries()]);

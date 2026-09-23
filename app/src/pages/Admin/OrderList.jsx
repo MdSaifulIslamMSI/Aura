@@ -251,12 +251,21 @@ const OrderList = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {orders.map((order) => {
+                            {orders.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                                        {t('admin.orders.empty.noOrders', {}, 'No orders found')}
+                                    </td>
+                                </tr>
+                            ) : null}
+                            {orders.map((order, index) => {
                                 const refunds = order.commandCenter?.refunds || [];
                                 const replacements = order.commandCenter?.replacements || [];
                                 const warrantyClaims = order.commandCenter?.warrantyClaims || [];
                                 const latestRefund = refunds.length ? refunds[refunds.length - 1] : null;
                                 const latestReplacement = replacements.length ? replacements[replacements.length - 1] : null;
+                                const pendingRefundCount = refunds.filter((entry) => ['pending', 'approved'].includes(String(entry?.status || '').toLowerCase())).length;
+                                const pendingReplacementCount = replacements.filter((entry) => ['pending', 'approved'].includes(String(entry?.status || '').toLowerCase())).length;
                                 const latestWarranty = warrantyClaims.length ? warrantyClaims[warrantyClaims.length - 1] : null;
                                 const currentStatus = order.orderStatus || (order.isDelivered ? 'delivered' : 'placed');
                                 const isBusy = Boolean(statusSubmitting[order._id]);
@@ -267,9 +276,9 @@ const OrderList = () => {
                                 const isSupportBusy = Boolean(supportSubmitting[order._id]);
 
                                 return (
-                                    <tr key={order._id}>
+                                    <tr key={order._id || order.id || `order-${index}`}>
                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
-                                            {order._id.slice(-8)}
+                                            {String(order._id || order.id || '').slice(-8) || '-'}
                                         </td>
                                         <td className="px-4 py-4 text-sm text-gray-900">
                                             {order.user ? order.user.name : t('admin.orders.userFallback', {}, 'Unknown User')}
@@ -310,6 +319,11 @@ const OrderList = () => {
                                                         {latestRefund.status}
                                                     </div>
                                                     <div>{latestRefund.message || latestRefund.reason || '-'}</div>
+                                                    {pendingRefundCount > 1 ? (
+                                                        <div className="text-[10px] font-bold text-amber-700">
+                                                            {t('admin.orders.pendingMore', { count: pendingRefundCount - 1 }, `+${pendingRefundCount - 1} more pending`)}
+                                                        </div>
+                                                    ) : null}
                                                     {latestRefund.refundId && <div className="font-mono text-[10px]"><FormattedMessage id="order.jsx.text.id" defaultMessage="ID:" />{' '}{latestRefund.refundId}</div>}
                                                     {['pending', 'approved'].includes(String(latestRefund.status || '').toLowerCase()) ? (
                                                         <div className="flex gap-1 pt-1">
@@ -350,6 +364,11 @@ const OrderList = () => {
                                                         {latestReplacement.status}
                                                     </div>
                                                     <div>{latestReplacement.itemTitle || <FormattedMessage id="order.jsx.expression.item" defaultMessage="Item" />}</div>
+                                                    {pendingReplacementCount > 1 ? (
+                                                        <div className="text-[10px] font-bold text-amber-700">
+                                                            {t('admin.orders.pendingMore', { count: pendingReplacementCount - 1 }, `+${pendingReplacementCount - 1} more pending`)}
+                                                        </div>
+                                                    ) : null}
                                                     {latestReplacement.trackingId && <div className="font-mono text-[10px]"><FormattedMessage id="order.jsx.text.trk" defaultMessage="TRK:" />{' '}{latestReplacement.trackingId}</div>}
                                                     {['pending', 'approved'].includes(String(latestReplacement.status || '').toLowerCase()) ? (
                                                         <>

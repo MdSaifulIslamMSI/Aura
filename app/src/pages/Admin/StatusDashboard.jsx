@@ -308,7 +308,7 @@ export default function AdminStatusDashboard() {
                   <p className="text-sm text-slate-500"><FormattedMessage id="admin.jsx.text.public.labels.stay.separate.from.monitor.internals" defaultMessage="Public labels stay separate from monitor internals." /></p>
                 </div>
                 {!import.meta.env.PROD ? (
-                  <button type="button" onClick={() => runAction('seed', () => adminStatusApi.seedDefaults({ includeDemoMetrics: true }), 'Default status data seeded')} className="admin-premium-button px-3 py-2 text-sm font-black"><FormattedMessage id="admin.jsx.text.seed.defaults" defaultMessage="Seed defaults" /></button>
+                  <button type="button" onClick={() => { if (window.confirm('Seed default status data? This writes demo components/incidents.')) { void runAction('seed', () => adminStatusApi.seedDefaults({ includeDemoMetrics: true }), 'Default status data seeded'); } }} className="admin-premium-button px-3 py-2 text-sm font-black"><FormattedMessage id="admin.jsx.text.seed.defaults" defaultMessage="Seed defaults" /></button>
                 ) : null}
               </div>
               <form onSubmit={submitComponent} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -301,12 +301,12 @@ export default function AdminRefundLedger() {
                                             </td>
                                             <td className="px-3 py-3 text-xs text-gray-700">
                                                 <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeClass(RECON_BADGE, row.reconciliation)}`}>
-                                                    {row.reconciliation.startsWith('provider_')
+                                                    {String(row.reconciliation || '').startsWith('provider_')
                                                         ? <ShieldCheck className="h-3 w-3" />
                                                         : row.reconciliation === 'manual_reference_missing'
                                                             ? <ShieldAlert className="h-3 w-3" />
                                                             : null}
-                                                    {row.reconciliation}
+                                                    {row.reconciliation || '-'}
                                                 </span>
                                                 <div className="mt-2 text-[11px]">
                                                     {t('admin.refunds.providerVerification', {}, 'Provider verification')}: <span className="font-semibold">{row.providerVerification}</span>

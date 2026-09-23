@@ -449,14 +449,14 @@ const ProductEdit = () => {
                                 <div key={`spec-${index}`} className="grid grid-cols-1 gap-2 md:grid-cols-12">
                                     <input
                                         type="text"
-                                        className="input md:col-span-4"
+                                        className="admin-premium-control md:col-span-4"
                                         placeholder={t('admin.productEdit.placeholders.specKey', {}, 'Key (e.g. Processor)')}
                                         value={entry.key}
                                         onChange={(event) => updateSpecification(index, 'key', event.target.value)}
                                     />
                                     <input
                                         type="text"
-                                        className="input md:col-span-7"
+                                        className="admin-premium-control md:col-span-7"
                                         placeholder={t('admin.productEdit.placeholders.specValue', {}, 'Value (e.g. Snapdragon 8 Gen 3)')}
                                         value={entry.value}
                                         onChange={(event) => updateSpecification(index, 'value', event.target.value)}

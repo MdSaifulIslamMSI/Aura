@@ -21,10 +21,11 @@ router.get('/state', (req, res) => res.json({
 
 router.post('/denylist', sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.body?.identity || '');
-    const ttlSeconds = Math.min(Math.max(Number(req.body?.ttlSeconds || 900), 60), 86400);
+    const parsedTtl = Number(req.body?.ttlSeconds || 900);
+    const ttlSeconds = Math.min(Math.max(Number.isFinite(parsedTtl) ? parsedTtl : 900, 60), 86400);
     const reason = String(req.body?.reason || 'manual').replace(/[^A-Za-z0-9:._-]/g, '').slice(0, 80) || 'manual';
     if (!identity) {
-        return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY' });
+        return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY', message: 'A valid denylist identity is required' });
     }
     await addTemporaryDeny({ identity, ttlSeconds, reason });
     return res.status(201).json({ success: true, identity, ttlSeconds });
@@ -33,7 +34,7 @@ router.post('/denylist', sensitiveActions.adminSecurityConfigChange, async (req,
 router.delete('/denylist/:identity', sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.params.identity || '');
     if (!identity) {
-        return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY' });
+        return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY', message: 'A valid denylist identity is required' });
     }
     await removeTemporaryDeny(identity);
     return res.json({ success: true, identity });

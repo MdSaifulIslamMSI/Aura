@@ -1232,7 +1232,17 @@ export default function AdminSupport() {
                                 </div>
                             )}
                         </>
-                    ) : null}
+                    ) : (
+                        <div className="support-chat-thread flex flex-1 flex-col items-center justify-center px-6 text-center text-slate-300">
+                            <h4 className="mt-5 text-xl font-black text-white">{t('admin.support.filteredOut', {}, 'Selected ticket is hidden by the current filter')}</h4>
+                            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300">
+                                {t('admin.support.filteredOutBody', {}, 'The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.')}
+                            </p>
+                            <button type="button" onClick={() => setActiveTicketId(null)} className="admin-premium-button mt-5 px-4 py-2 text-sm font-bold">
+                                {t('admin.support.clearSelection', {}, 'Clear selection')}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
             </div>
