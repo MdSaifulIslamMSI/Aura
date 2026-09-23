@@ -358,6 +358,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Portal Session",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.dashboard.powerBiBlocked": {
+        id: "admin.dashboard.powerBiBlocked",
+        defaultMessage: "Power BI dashboard blocked: URL must use HTTPS.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.dashboard.powerBiFrame": {
         id: "admin.dashboard.powerBiFrame",
         defaultMessage: "Power BI Dashboard",
@@ -878,6 +883,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "enabled",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.email.error.invalidRecipient": {
+        id: "admin.email.error.invalidRecipient",
+        defaultMessage: "Enter a valid email address or leave the field empty",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.email.error.loadDeliveries": {
         id: "admin.email.error.loadDeliveries",
         defaultMessage: "Failed to load delivery logs",
@@ -1333,6 +1343,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.orders.empty.noOrders": {
+        id: "admin.orders.empty.noOrders",
+        defaultMessage: "No orders found",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.orders.empty.refunds": {
         id: "admin.orders.empty.refunds",
         defaultMessage: "No refunds",
@@ -1446,6 +1461,11 @@ export const stableUiMessages = defineMessages({
     "admin.orders.payment.state": {
         id: "admin.orders.payment.state",
         defaultMessage: "State",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.orders.pendingMore": {
+        id: "admin.orders.pendingMore",
+        defaultMessage: "+{count} more pending",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.orders.stats.awaitingCapture": {
@@ -3243,6 +3263,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Aura Support",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.support.clearSelection": {
+        id: "admin.support.clearSelection",
+        defaultMessage: "Clear selection",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.support.closed": {
         id: "admin.support.closed",
         defaultMessage: "Closed",
@@ -3306,6 +3331,16 @@ export const stableUiMessages = defineMessages({
     "admin.support.eyebrow": {
         id: "admin.support.eyebrow",
         defaultMessage: "Customer Service",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.support.filteredOut": {
+        id: "admin.support.filteredOut",
+        defaultMessage: "Selected ticket is hidden by the current filter",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.support.filteredOutBody": {
+        id: "admin.support.filteredOutBody",
+        defaultMessage: "The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.support.joinCall": {
