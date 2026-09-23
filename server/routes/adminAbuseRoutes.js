@@ -1,6 +1,7 @@
 const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     addTemporaryDeny,
     getMemoryDenylistSnapshot,
@@ -12,6 +13,17 @@ const router = express.Router();
 
 router.use(protect, admin);
 
+const denylistWriteLimiter = createDistributedRateLimit({
+    name: 'admin_abuse_denylist_write',
+    windowMs: 5 * 60 * 1000,
+    max: 30,
+    message: {
+        success: false,
+        code: 'ADMIN_DENYLIST_RATE_LIMITED',
+        message: 'Too many denylist changes. Wait before trying again.',
+    },
+});
+
 router.get('/state', (req, res) => res.json({
     success: true,
     trafficFortressEnabled: String(process.env.TRAFFIC_FORTRESS_ENABLED || 'true').trim().toLowerCase() !== 'false',
@@ -19,7 +31,7 @@ router.get('/state', (req, res) => res.json({
     denylist: getMemoryDenylistSnapshot(),
 }));
 
-router.post('/denylist', sensitiveActions.adminSecurityConfigChange, async (req, res) => {
+router.post('/denylist', denylistWriteLimiter, sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.body?.identity || '');
     const parsedTtl = Number(req.body?.ttlSeconds || 900);
     const ttlSeconds = Math.min(Math.max(Number.isFinite(parsedTtl) ? parsedTtl : 900, 60), 86400);
@@ -31,7 +43,7 @@ router.post('/denylist', sensitiveActions.adminSecurityConfigChange, async (req,
     return res.status(201).json({ success: true, identity, ttlSeconds });
 });
 
-router.delete('/denylist/:identity', sensitiveActions.adminSecurityConfigChange, async (req, res) => {
+router.delete('/denylist/:identity', denylistWriteLimiter, sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.params.identity || '');
     if (!identity) {
         return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY', message: 'A valid denylist identity is required' });

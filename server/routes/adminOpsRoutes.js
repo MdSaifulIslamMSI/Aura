@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     getAdminClientDiagnostics,
     getAdminAwsControl,
@@ -21,11 +22,22 @@ const {
 
 const router = express.Router();
 
+const awsControlActionLimiter = createDistributedRateLimit({
+    name: 'admin_ops_aws_control_action',
+    windowMs: 5 * 60 * 1000,
+    max: 20,
+    message: {
+        success: false,
+        code: 'ADMIN_AWS_CONTROL_RATE_LIMITED',
+        message: 'Too many AWS control actions. Wait before trying again.',
+    },
+});
+
 router.get('/readiness', protect, admin, validate(adminOpsReadinessSchema), getAdminOpsReadiness);
 router.get('/client-diagnostics', protect, admin, validate(adminClientDiagnosticsSchema), getAdminClientDiagnostics);
 router.get('/aws-control', protect, admin, validate(adminOpsAwsControlSchema), getAdminAwsControl);
 router.post('/smoke', protect, admin, validate(adminOpsSmokeSchema), sensitiveActions.adminSecurityConfigChange, runAdminOpsSmoke);
 router.post('/maintenance', protect, admin, validate(adminOpsMaintenanceSchema), sensitiveActions.adminSecurityConfigChange, runAdminOpsMaintenance);
-router.post('/aws-control/actions', protect, admin, validate(adminOpsAwsControlActionSchema), sensitiveActions.adminSecurityConfigChange, runAdminAwsControlAction);
+router.post('/aws-control/actions', protect, admin, awsControlActionLimiter, validate(adminOpsAwsControlActionSchema), sensitiveActions.adminSecurityConfigChange, runAdminAwsControlAction);
 
 module.exports = router;

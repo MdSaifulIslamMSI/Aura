@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     getAdminEmailOpsSummary,
     listAdminEmailDeliveries,
@@ -20,11 +21,22 @@ const {
     adminEmailOpsTestSendSchema,
 } = require('../validators/emailOpsValidators');
 
+const testSendLimiter = createDistributedRateLimit({
+    name: 'admin_email_ops_test_send',
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    message: {
+        success: false,
+        code: 'ADMIN_EMAIL_TEST_RATE_LIMITED',
+        message: 'Too many test emails. Wait before sending again.',
+    },
+});
+
 router.get('/summary', protect, admin, validate(adminEmailOpsSummarySchema), getAdminEmailOpsSummary);
 router.get('/deliveries', protect, admin, validate(adminEmailOpsDeliveryListSchema), listAdminEmailDeliveries);
 router.get('/order-queue', protect, admin, validate(adminEmailOpsQueueListSchema), listAdminEmailQueue);
 router.get('/order-queue/:notificationId', protect, admin, validate(adminEmailOpsQueueDetailSchema), getAdminEmailQueueItem);
 router.post('/order-queue/:notificationId/retry', protect, admin, validate(adminEmailOpsQueueRetrySchema), sensitiveActions.adminEmailOperation, retryAdminEmailQueueItem);
-router.post('/test-send', protect, admin, validate(adminEmailOpsTestSendSchema), sensitiveActions.adminEmailOperation, sendAdminEmailOpsTest);
+router.post('/test-send', protect, admin, testSendLimiter, validate(adminEmailOpsTestSendSchema), sensitiveActions.adminEmailOperation, sendAdminEmailOpsTest);
 
 module.exports = router;

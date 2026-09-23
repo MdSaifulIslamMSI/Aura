@@ -703,6 +703,53 @@ const createRefund = asyncHandler(async (req, res, next) => {
     }
 });
 
+// @desc    Create refund for payment intent (admin path, no OTP-assurance user policy)
+// @route   POST /api/admin/payments/:intentId/refunds
+// @access  Private/Admin
+const createAdminRefund = asyncHandler(async (req, res, next) => {
+    try {
+        const idempotencyKey = getRequiredIdempotencyKey(req);
+        const userKey = getStableUserKey(req);
+
+        const result = await withIdempotency({
+            key: idempotencyKey,
+            userKey,
+            route: `admin:create_refund:${req.params.intentId}`,
+            requestPayload: req.body,
+            handler: async () => {
+                const response = await createRefundForIntent({
+                    actorUserId: req.user._id,
+                    isAdmin: true,
+                    intentId: req.params.intentId,
+                    amount: req.body.amount,
+                    amountMode: req.body.amountMode,
+                    reason: req.body.reason,
+                });
+                return { statusCode: 200, response };
+            },
+        });
+
+        await notifyPaymentOwnerAdminAction({
+            req,
+            intentId: req.params.intentId,
+            actionKey: 'admin.payment.refund',
+            actionTitle: 'Refund Issued by Admin',
+            actionSummary: 'An administrator initiated a refund against your payment.',
+            highlights: [
+                `Refund ID: ${result.response?.refundId || 'pending'}`,
+                `Refund status: ${result.response?.status || 'processed'}`,
+                `Refund amount: ${result.response?.amount || req.body.amount || 'full'} ${result.response?.currency || 'INR'}`,
+                `Reason: ${String(req.body?.reason || 'admin_refund').trim() || 'admin_refund'}`,
+            ],
+        });
+
+        return res.status(result.statusCode).json(result.response);
+    } catch (error) {
+        if (error instanceof AppError) return next(error);
+        return next(new AppError(error.message || 'Failed to create admin refund', 500));
+    }
+});
+
 // @desc    Razorpay webhook receiver
 // @route   POST /api/payments/webhooks/razorpay
 // @access  Public
@@ -1082,6 +1129,7 @@ module.exports = {
     updateAdminRefundLedgerReference,
     captureAdminPayment,
     retryAdminCapture,
+    createAdminRefund,
     getAdminPaymentOpsOverview,
     expireAdminStalePaymentIntents,
 };

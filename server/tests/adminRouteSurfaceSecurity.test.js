@@ -77,6 +77,7 @@ describe('Admin Route Surface Security Matrix', () => {
         ['GET', '/api/admin/payments/pi_test'],
         ['POST', '/api/admin/payments/pi_test/capture'],
         ['POST', '/api/admin/payments/pi_test/retry-capture'],
+        ['POST', '/api/admin/payments/pi_test/refunds'],
 
         ['GET', '/api/admin/ops/readiness'],
         ['GET', '/api/admin/ops/client-diagnostics'],
