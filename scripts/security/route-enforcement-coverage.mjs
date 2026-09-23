@@ -56,6 +56,7 @@ const coverage = [
     ['POST', '/api/admin/payments/ops/expire-stale', 'PAYMENT_PAYOUT_CHANGE', ['sensitiveActions.paymentPayoutChange']],
     ['PATCH', '/api/admin/payments/refunds/ledger/:orderId/:requestId/reference', 'PAYMENT_REFUND', ['sensitiveActions.paymentRefund']],
     ['POST', '/api/admin/payments/:intentId/capture', 'PAYMENT_PAYOUT_CHANGE', ['sensitiveActions.paymentPayoutChange']],
+    ['POST', '/api/admin/payments/:intentId/refunds', 'PAYMENT_REFUND', ['sensitiveActions.paymentRefund']],
     ['POST', '/api/admin/payments/:intentId/retry-capture', 'PAYMENT_PAYOUT_CHANGE', ['sensitiveActions.paymentPayoutChange']],
     ['POST', '/api/admin/products', 'ADMIN_STATE_CHANGE', ['sensitiveActions.adminProductChange']],
     ['PATCH', '/api/admin/products/:id/core', 'ADMIN_STATE_CHANGE', ['sensitiveActions.adminProductChange']],
