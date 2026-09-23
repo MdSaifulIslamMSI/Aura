@@ -219,9 +219,9 @@ const ProductList = () => {
                                 <tr>
                                     <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">{t('admin.products.empty', {}, 'No products found for current filters.')}</td>
                                 </tr>
-                            ) : products.map((product) => {
+                            ) : products.map((product, index) => {
                                 const productRef = resolveProductRef(product);
-                                const key = String(product._id || product.id || product.externalId || '');
+                                const key = String(productRef || `product-${index}`);
                                 return (
                                     <tr key={key}>
                                         <td>

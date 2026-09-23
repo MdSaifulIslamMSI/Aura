@@ -236,6 +236,17 @@ const adminRefundLedgerUpdateSchema = z.object({
     }),
 });
 
+const adminRefundCreateSchema = z.object({
+    params: z.object({
+        intentId: z.string().min(6),
+    }),
+    body: z.object({
+        amount: z.coerce.number().positive().optional(),
+        amountMode: z.enum(['settlement', 'charge']).optional(),
+        reason: z.string().trim().min(2).max(140).optional(),
+    }),
+});
+
 module.exports = {
     createIntentSchema,
     completeChallengeSchema,
@@ -252,4 +263,5 @@ module.exports = {
     adminExpireStaleIntentsSchema,
     adminRefundLedgerListSchema,
     adminRefundLedgerUpdateSchema,
+    adminRefundCreateSchema,
 };

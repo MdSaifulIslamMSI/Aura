@@ -43,6 +43,7 @@ const EmergencyControls = () => {
     const adminRoles = roles?.adminRoles || dbUser?.adminRoles || [];
     const hasEmergencyRole = Boolean(dbUser?.isAdmin || roles?.isAdmin)
         && adminRoles.some((role) => role === 'SUPER_ADMIN' || role === 'SECURITY_ADMIN');
+    const emergencyRoleRequiredTitle = intl.formatMessage({ id: 'admin.jsx.text.requires.emergency.role', defaultMessage: 'Requires SUPER_ADMIN or SECURITY_ADMIN (server enforced)' });
 
     const activeFlags = useMemo(() => flags.filter((flag) => flag.active), [flags]);
     const selectedFlag = useMemo(
@@ -210,11 +211,11 @@ const EmergencyControls = () => {
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
                         <input type="checkbox" checked={noExpiryConfirmed} onChange={(event) => setNoExpiryConfirmed(event.target.checked)} /><FormattedMessage id="admin.jsx.text.confirm.no.expiry" defaultMessage="Confirm no expiry" /></label>
                     <div className="grid gap-2">
-                        <button type="button" onClick={() => runAction('activate')} disabled={busy} className="admin-premium-button admin-premium-button-danger">
+                        <button type="button" onClick={() => runAction('activate')} disabled={busy || !hasEmergencyRole} title={!hasEmergencyRole ? emergencyRoleRequiredTitle : undefined} className="admin-premium-button admin-premium-button-danger">
                             <Power className="h-4 w-4" /><FormattedMessage id="admin.jsx.text.activate" defaultMessage="Activate" /></button>
-                        <button type="button" onClick={() => runAction('deactivate')} disabled={busy} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.deactivate" defaultMessage="Deactivate" /></button>
-                        <button type="button" onClick={() => runAction('extend')} disabled={busy || noExpiryConfirmed} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.extend.expiry" defaultMessage="Extend expiry" /></button>
-                        <button type="button" onClick={() => runAction('message')} disabled={busy} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.update.message" defaultMessage="Update message" /></button>
+                        <button type="button" onClick={() => runAction('deactivate')} disabled={busy || !hasEmergencyRole} title={!hasEmergencyRole ? emergencyRoleRequiredTitle : undefined} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.deactivate" defaultMessage="Deactivate" /></button>
+                        <button type="button" onClick={() => runAction('extend')} disabled={busy || noExpiryConfirmed || !hasEmergencyRole} title={!hasEmergencyRole ? emergencyRoleRequiredTitle : undefined} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.extend.expiry" defaultMessage="Extend expiry" /></button>
+                        <button type="button" onClick={() => runAction('message')} disabled={busy || !hasEmergencyRole} title={!hasEmergencyRole ? emergencyRoleRequiredTitle : undefined} className="admin-premium-button"><FormattedMessage id="admin.jsx.text.update.message" defaultMessage="Update message" /></button>
                     </div>
                 </AdminPremiumPanel>
             </div>

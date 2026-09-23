@@ -690,7 +690,11 @@ export default function AdminDashboard() {
                         <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">{t('admin.dashboard.mode', { mode: biConfig.mode }, `Mode: ${biConfig.mode}`)}</span>
                     </div>
                     <div className="admin-premium-table-shell mt-3 overflow-hidden">
-                        <iframe src={biConfig.powerBi.dashboardUrl} title={t('admin.dashboard.powerBiFrame', {}, 'Power BI Dashboard')} className="h-[520px] w-full" loading="lazy" />
+                        {String(biConfig.powerBi.dashboardUrl || '').startsWith('https://') ? (
+                            <iframe src={biConfig.powerBi.dashboardUrl} title={t('admin.dashboard.powerBiFrame', {}, 'Power BI Dashboard')} className="h-[520px] w-full" loading="lazy" sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" />
+                        ) : (
+                            <p className="p-4 text-sm text-amber-700">{t('admin.dashboard.powerBiBlocked', {}, 'Power BI dashboard blocked: URL must use HTTPS.')}</p>
+                        )}
                     </div>
                 </div>
             ) : null}

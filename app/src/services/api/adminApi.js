@@ -197,20 +197,22 @@ export const adminApi = {
         const { data } = await apiFetch('/admin/ops/client-diagnostics', { headers, params });
         return data;
     },
-    dismissUserWarning: async (userId) => {
+    dismissUserWarning: async (userId, payload = {}) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/admin/users/${userId}/dismiss-warning`, {
             method: 'POST',
             headers,
+            body: JSON.stringify(payload),
         });
         return data;
     },
     // Alias for backward compatibility — Admin/Users.jsx calls adminApi.dismissWarning
-    dismissWarning: async (userId) => {
+    dismissWarning: async (userId, payload = {}) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/admin/users/${userId}/dismiss-warning`, {
             method: 'POST',
             headers,
+            body: JSON.stringify(payload),
         });
         return data;
     },

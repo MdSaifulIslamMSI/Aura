@@ -161,5 +161,17 @@ export const paymentApi = {
             body: JSON.stringify(payload),
         });
         return data;
+    },
+    createAdminRefund: async (intentId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/admin/payments/${intentId}/refunds`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('admin-refund'),
+            },
+            body: JSON.stringify(payload),
+        });
+        return data;
     }
 };

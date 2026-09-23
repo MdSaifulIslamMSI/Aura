@@ -100,6 +100,7 @@ const {
     listAdminPaymentIntents,
     captureIntentNow,
     scheduleCaptureTask,
+    createRefundForIntent,
 } = require('../services/payments/paymentService');
 const {
     getPaymentOpsOverview,
@@ -471,5 +472,51 @@ describe('Admin payment routes integration', () => {
         expect(res.body.message).toBe('Validation Error');
         expect(scheduleCaptureTask).not.toHaveBeenCalled();
         expect(notifyAdminActionToUser).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/admin/payments/:intentId/refunds creates an admin refund and notifies the owner', async () => {
+        createRefundForIntent.mockResolvedValue({
+            refundId: 'rfnd_admin_1',
+            status: 'processed',
+            amount: 499,
+            currency: 'INR',
+        });
+
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/refunds')
+            .set('Idempotency-Key', 'admin-refund-12345')
+            .send({ amount: 499, amountMode: 'charge', reason: 'Damaged item' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({ refundId: 'rfnd_admin_1', status: 'processed' });
+        expect(createRefundForIntent).toHaveBeenCalledWith(expect.objectContaining({
+            isAdmin: true,
+            intentId: 'pi_admin_1',
+            amount: 499,
+        }));
+        expect(notifyAdminActionToUser).toHaveBeenCalledWith(expect.objectContaining({
+            actionKey: 'admin.payment.refund',
+        }));
+    });
+
+    test('POST /api/admin/payments/:intentId/refunds requires Idempotency-Key', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/refunds')
+            .send({ amount: 499, reason: 'Damaged item' });
+
+        expect(res.statusCode).toBe(400);
+        expect(createRefundForIntent).not.toHaveBeenCalled();
+        expect(notifyAdminActionToUser).not.toHaveBeenCalled();
+    });
+
+    test('POST /api/admin/payments/:intentId/refunds rejects an invalid amount', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/refunds')
+            .set('Idempotency-Key', 'admin-refund-bad-amount')
+            .send({ amount: -5, reason: 'Damaged item' });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Validation Error');
+        expect(createRefundForIntent).not.toHaveBeenCalled();
     });
 });

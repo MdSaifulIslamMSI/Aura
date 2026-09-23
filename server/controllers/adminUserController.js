@@ -480,7 +480,7 @@ const warnAdminUser = asyncHandler(async (req, res, next) => {
                 subject: 'Appeal account warning',
             })),
         });
-    } catch (e) { }
+    } catch (notifyError) { logger.warn('admin_user_governance_notify_failed', { error: notifyError?.message }); }
 
     res.json({
         success: true,
@@ -507,7 +507,8 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
     }
 
     const reason = sanitizeReason(req.body.reason, 'Policy suspension');
-    const durationHours = Math.max(Number(req.body.durationHours || 72), 1);
+    const parsedDuration = Number(req.body.durationHours || 72);
+    const durationHours = Math.min(Math.max(Number.isFinite(parsedDuration) ? parsedDuration : 72, 1), 8760);
     const now = new Date();
     const suspendedUntil = new Date(now.getTime() + (durationHours * 60 * 60 * 1000));
 
@@ -589,7 +590,7 @@ const suspendAdminUser = asyncHandler(async (req, res, next) => {
                 subject: 'Appeal account suspension',
             })),
         });
-    } catch (e) { }
+    } catch (notifyError) { logger.warn('admin_user_governance_notify_failed', { error: notifyError?.message }); }
 
     res.json({
         success: true,
@@ -679,7 +680,7 @@ const dismissAdminUserWarning = asyncHandler(async (req, res, next) => {
                 actionLabel: 'Review update',
             }),
         });
-    } catch (e) { }
+    } catch (notifyError) { logger.warn('admin_user_governance_notify_failed', { error: notifyError?.message }); }
 
     res.json({
         success: true,
@@ -771,7 +772,7 @@ const reactivateAdminUser = asyncHandler(async (req, res, next) => {
                 actionLabel: 'Review update',
             }),
         });
-    } catch (e) { }
+    } catch (notifyError) { logger.warn('admin_user_governance_notify_failed', { error: notifyError?.message }); }
 
     res.json({
         success: true,
@@ -912,7 +913,7 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
             },
             ...(recoveryAction || {}),
         });
-    } catch (e) { }
+    } catch (notifyError) { logger.warn('admin_user_governance_notify_failed', { error: notifyError?.message }); }
 
     logger.warn('admin.user_soft_deleted', {
         requestId: req.requestId || '',

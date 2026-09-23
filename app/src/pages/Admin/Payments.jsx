@@ -179,7 +179,7 @@ export default function AdminPayments() {
 
         try {
             setActionBusy(true);
-            await paymentApi.createRefund(selectedDetail.intentId, {
+            await paymentApi.createAdminRefund(selectedDetail.intentId, {
                 amount,
                 amountMode: refundForm.amountMode,
                 reason: refundForm.reason || undefined,

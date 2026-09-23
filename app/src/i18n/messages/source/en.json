@@ -589,6 +589,10 @@
     "defaultMessage": "Portal Session",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "admin.dashboard.powerBiBlocked": {
+    "defaultMessage": "Power BI dashboard blocked: URL must use HTTPS.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "admin.dashboard.powerBiFrame": {
     "defaultMessage": "Power BI Dashboard",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -1003,6 +1007,10 @@
   },
   "admin.email.enabled": {
     "defaultMessage": "enabled",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.email.error.invalidRecipient": {
+    "defaultMessage": "Enter a valid email address or leave the field empty",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.email.error.loadDeliveries": {
@@ -1545,6 +1553,9 @@
   "admin.jsx.text.refresh": {
     "defaultMessage": "Refresh"
   },
+  "admin.jsx.text.requires.emergency.role": {
+    "defaultMessage": "Requires SUPER_ADMIN or SECURITY_ADMIN (server enforced)"
+  },
   "admin.jsx.text.resend": {
     "defaultMessage": "Resend"
   },
@@ -1559,6 +1570,9 @@
   },
   "admin.jsx.text.seed.defaults": {
     "defaultMessage": "Seed defaults"
+  },
+  "admin.jsx.text.seed.defaults.confirm": {
+    "defaultMessage": "Seed default status data? This writes demo components/incidents."
   },
   "admin.jsx.text.sentry": {
     "defaultMessage": "Sentry"
@@ -1651,6 +1665,10 @@
     "defaultMessage": "Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "admin.orders.empty.noOrders": {
+    "defaultMessage": "No orders found",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "admin.orders.empty.refunds": {
     "defaultMessage": "No refunds",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -1741,6 +1759,10 @@
   },
   "admin.orders.payment.state": {
     "defaultMessage": "State",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.orders.pendingMore": {
+    "defaultMessage": "+{count} more pending",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.orders.stats.awaitingCapture": {
@@ -3251,6 +3273,10 @@
     "defaultMessage": "Aura Support",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "admin.support.clearSelection": {
+    "defaultMessage": "Clear selection",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "admin.support.closed": {
     "defaultMessage": "Closed",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -3301,6 +3327,14 @@
   },
   "admin.support.eyebrow": {
     "defaultMessage": "Customer Service",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.support.filteredOut": {
+    "defaultMessage": "Selected ticket is hidden by the current filter",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.support.filteredOutBody": {
+    "defaultMessage": "The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.support.joinCall": {
@@ -6296,6 +6330,30 @@
   "checkout.delivery.selectSlot": {
     "defaultMessage": "Select slot",
     "description": "Placeholder option for choosing a checkout delivery slot."
+  },
+  "checkout.delivery.serviceability.checking": {
+    "defaultMessage": "Checking delivery availability...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.delivery.serviceability.error": {
+    "defaultMessage": "Delivery availability is unavailable right now.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.delivery.serviceability.promisedBy": {
+    "defaultMessage": "Promised by",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.delivery.serviceability.serviceable": {
+    "defaultMessage": "Deliverable to this PIN code.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.delivery.serviceability.title": {
+    "defaultMessage": "Delivery promise",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.delivery.serviceability.unavailable": {
+    "defaultMessage": "Delivery is not available for this PIN code yet.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "checkout.delivery.standard": {
     "defaultMessage": "Standard",
@@ -12260,6 +12318,10 @@
   },
   "nav.logout": {
     "defaultMessage": "Logout",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "nav.logoutFailed": {
+    "defaultMessage": "Logout failed. Please try again.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "nav.marketPanelBody": {

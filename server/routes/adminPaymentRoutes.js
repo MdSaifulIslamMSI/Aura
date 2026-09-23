@@ -10,6 +10,7 @@ const {
     updateAdminRefundLedgerReference,
     captureAdminPayment,
     retryAdminCapture,
+    createAdminRefund,
     getAdminPaymentOpsOverview,
     expireAdminStalePaymentIntents,
 } = require('../controllers/paymentController');
@@ -21,6 +22,7 @@ const {
     adminExpireStaleIntentsSchema,
     adminRefundLedgerListSchema,
     adminRefundLedgerUpdateSchema,
+    adminRefundCreateSchema,
 } = require('../validators/paymentValidators');
 
 // CRITICAL: All payment admin routes require authentication
@@ -39,5 +41,6 @@ router.patch(
 router.get('/:intentId', protect, admin, validate(adminPaymentDetailSchema), getAdminPaymentById);
 router.post('/:intentId/capture', protect, admin, validate(adminPaymentActionSchema), sensitiveActions.paymentPayoutChange, captureAdminPayment);
 router.post('/:intentId/retry-capture', protect, admin, validate(adminPaymentActionSchema), sensitiveActions.paymentPayoutChange, retryAdminCapture);
+router.post('/:intentId/refunds', protect, admin, validate(adminRefundCreateSchema), sensitiveActions.paymentRefund, createAdminRefund);
 
 module.exports = router;
