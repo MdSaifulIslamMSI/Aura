@@ -404,12 +404,15 @@ $userData = Get-Content -LiteralPath $userDataTemplatePath -Raw
 $userData = $userData.Replace("AWS_REGION=ap-south-1", "AWS_REGION=$AwsRegion")
 $userData = $userData.Replace("AWS_PARAMETER_STORE_PATH_PREFIX=/aura/prod", "AWS_PARAMETER_STORE_PATH_PREFIX=$ParameterStorePathPrefix")
 $userData = $userData.Replace("AWS_S3_REVIEW_BUCKET=replace-with-your-media-bucket", "AWS_S3_REVIEW_BUCKET=$MediaBucketName")
-$frontendOrigins = @($FrontendOrigin, $SecondaryFrontendOrigin, $AwsFrontendOrigin) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+# Strict CORS: keep every canonical hosted lane from the template and merge in
+# the deployment-specific origins supplied as parameters.
+$templateCorsLine = ($userData | Select-String -Pattern '^CORS_ORIGIN=(.+)$').Matches[0].Groups[1].Value
+$frontendOrigins = @(
+    ($templateCorsLine -split ','),
+    @($FrontendOrigin, $SecondaryFrontendOrigin, $AwsFrontendOrigin)
+) | ForEach-Object { $_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 $frontendOriginList = [string]::Join(',', $frontendOrigins)
-$userData = $userData.Replace(
-    "CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://aura-mdsaifulislammsiss-projects.vercel.app",
-    "CORS_ORIGIN=$frontendOriginList"
-)
+$userData = $userData -replace '(?m)^CORS_ORIGIN=.+$', "CORS_ORIGIN=$frontendOriginList"
 $userData = $userData.Replace("APP_PUBLIC_URL=https://your-vercel-project.vercel.app", "APP_PUBLIC_URL=$FrontendOrigin")
 $userDataFile = Join-Path $env:TEMP "$StackPrefix-backend-user-data.sh"
 $userData | Set-Content -LiteralPath $userDataFile -Encoding ascii

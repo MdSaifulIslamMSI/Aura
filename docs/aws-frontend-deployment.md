@@ -58,7 +58,25 @@ After production deploys, the workflow fetches the Netlify, Vercel, and AWS URLs
 
 ## Backend CORS
 
-Add the S3 website URL to backend runtime config so browser calls from the AWS frontend are allowed:
+The backend no longer ships a hardcoded hosted-origin allowlist (`server/config/corsFlags.js`
+resolves production origins exclusively from env), so every production storefront lane must be
+present in the backend runtime config. `infra/aws/bootstrap-instance-user-data.sh` seeds
+`/opt/aura/shared/base.env` with the full lane list under `CORS_ORIGIN`; keep it in sync when
+adding a lane:
+
+```text
+CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://dbtrhsolhec1s.cloudfront.net,https://aura-storefront.onrender.com,https://aurapilot.aws.app,https://aura-storefront.pages.dev,https://mdsaifulislammsi.github.io,https://aura-storefront-production.up.railway.app,https://aura-mdsaifulislammsiss-projects.vercel.app
+```
+
+Existing instances do not re-run bootstrap: update `/opt/aura/shared/base.env` on the host and
+restart the stack (or fold the update into the next `deploy-release.sh` run) **before** deploying
+a backend built from this change, otherwise direct-call lanes lose CORS. If the resolved
+allowlist would be empty, `assertProductionCorsConfig()` fails the boot instead of silently
+breaking origins.
+
+Additional per-lane variables (`AWS_FRONTEND_URL`, `RAILWAY_FRONTEND_URL`, `NETLIFY_FRONTEND_URL`,
+`VERCEL_FRONTEND_URL`) are still collected by `corsFlags.js` and can extend the allowlist without
+touching `CORS_ORIGIN`:
 
 ```text
 AWS_FRONTEND_URL=http://aura-frontend-<account-id>-ap-south-1.s3-website.ap-south-1.amazonaws.com
