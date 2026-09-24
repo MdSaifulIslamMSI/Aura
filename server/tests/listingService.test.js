@@ -13,6 +13,7 @@ const PaymentEvent = require('../models/PaymentEvent');
 const {
   appendEscrowPaymentEvent,
   assertEscrowEligibility,
+  assertEscrowPaymentIntentUsable,
   buildEscrowCheckoutPayload,
   SELLER_PRIVATE_THREAD,
   SELLER_PUBLIC_STRICT,
@@ -48,6 +49,26 @@ describe('listingService.assertEscrowEligibility', () => {
       listing: { ...eligible, escrow: { state: 'held' } },
       userId: 'buyer-1',
       allowHeld: true,
+    })).not.toThrow();
+  });
+});
+
+describe('listingService.assertEscrowPaymentIntentUsable', () => {
+  test.each(['expired', 'failed', 'refunded'])('rejects terminal intent state %s', (status) => {
+    expect(() => assertEscrowPaymentIntentUsable({ intent: { status } })).toThrow(/terminal/i);
+  });
+
+  test('rejects a state that is not allowed for the requested transition', () => {
+    expect(() => assertEscrowPaymentIntentUsable({
+      intent: { status: 'created' },
+      allowedStatuses: ['authorized', 'captured'],
+    })).toThrow(/cannot transition/i);
+  });
+
+  test('accepts an allowed active intent', () => {
+    expect(() => assertEscrowPaymentIntentUsable({
+      intent: { status: 'authorized' },
+      allowedStatuses: ['authorized', 'captured'],
     })).not.toThrow();
   });
 });

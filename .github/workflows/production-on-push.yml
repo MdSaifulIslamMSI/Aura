@@ -61,9 +61,39 @@ jobs:
           npm run security:webhooks
           node scripts/run-test-tier.cjs server money-minor --forceExit
 
+  canonical-quality-gates:
+    name: Canonical quality gates
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  canonical-security-gates:
+    name: Canonical security gates
+    uses: ./.github/workflows/security-gates.yml
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+
+  canonical-release-safety-gates:
+    name: Canonical release safety gates
+    uses: ./.github/workflows/giant-release-gates.yml
+    with:
+      staging_off_acknowledged: false
+    permissions:
+      contents: read
+      id-token: write
+    secrets:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
+
   staging-promotion-gate:
     name: Staging promotion gate
-    needs: production-preflight
+    needs:
+      - production-preflight
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
@@ -95,8 +125,12 @@ jobs:
 
   deploy-backend:
     name: Dispatch backend production deploy
-    needs: staging-promotion-gate
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
+    needs:
+      - staging-promotion-gate
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
@@ -130,8 +164,12 @@ jobs:
 
   deploy-storefront:
     name: Dispatch storefront production deploy
-    needs: staging-promotion-gate
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
+    needs:
+      - staging-promotion-gate
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -165,8 +203,12 @@ jobs:
 
   deploy-gateway:
     name: Dispatch gateway production deploy
-    needs: staging-promotion-gate
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
+    needs:
+      - staging-promotion-gate
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -204,7 +246,11 @@ jobs:
       - deploy-backend
       - deploy-storefront
       - deploy-gateway
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
+      - staging-promotion-gate
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
@@ -242,7 +288,11 @@ jobs:
       - deploy-backend
       - deploy-storefront
       - deploy-gateway
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
+      - staging-promotion-gate
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
@@ -279,6 +329,9 @@ jobs:
     if: always()
     needs:
       - production-preflight
+      - canonical-quality-gates
+      - canonical-security-gates
+      - canonical-release-safety-gates
       - staging-promotion-gate
       - deploy-backend
       - deploy-storefront
@@ -294,6 +347,9 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
           PREFLIGHT_RESULT: ${{ needs.production-preflight.result }}
+          QUALITY_RESULT: ${{ needs.canonical-quality-gates.result }}
+          SECURITY_RESULT: ${{ needs.canonical-security-gates.result }}
+          RELEASE_SAFETY_RESULT: ${{ needs.canonical-release-safety-gates.result }}
           STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}
           BACKEND_RESULT: ${{ needs.deploy-backend.result }}
           STOREFRONT_RESULT: ${{ needs.deploy-storefront.result }}
@@ -306,8 +362,11 @@ jobs:
             echo
             echo "| Lane | Result |"
             echo "|---|---|"
-            echo "| Preflight: CI/auth contracts | ${PREFLIGHT_RESULT} |"
-            echo "| Staging: same-commit promotion gate | ${STAGING_RESULT} |"
+             echo "| Preflight: CI/auth contracts | ${PREFLIGHT_RESULT} |"
+             echo "| Canonical quality gates | ${QUALITY_RESULT} |"
+             echo "| Canonical security gates | ${SECURITY_RESULT} |"
+             echo "| Canonical release safety gates | ${RELEASE_SAFETY_RESULT} |"
+             echo "| Staging: same-commit promotion gate | ${STAGING_RESULT} |"
             echo "| Backend: AWS production deploy | ${BACKEND_RESULT} |"
             echo "| Storefront: multi-host platforms production deploy | ${STOREFRONT_RESULT} |"
             echo "| Gateway: Vercel production deploy | ${GATEWAY_RESULT} |"

@@ -26,6 +26,11 @@ jest.mock('../models/User', () => ({
     findById: jest.fn(),
 }));
 
+jest.mock('../utils/dpop', () => {
+    const verifyDpopProof = jest.fn();
+    return { verifyDpopProof, __verifyDpopProof: verifyDpopProof };
+});
+
 jest.mock('../services/browserSessionService', () => ({
     getBrowserSession: jest.fn(),
     getGlobalSessionRevokedAfter: jest.fn().mockResolvedValue(0),
@@ -63,6 +68,7 @@ const {
 const firebaseAdmin = require('../config/firebase');
 const User = require('../models/User');
 const browserSessionService = require('../services/browserSessionService');
+const dpopVerifier = require('../utils/dpop');
 const { deleteSupportRoom } = require('../services/livekitService');
 const { markSupportTicketLiveCallEnded } = require('../services/supportVideoService');
 
@@ -175,6 +181,7 @@ describe('socketService authentication lifecycle', () => {
     const decodedToken = {
         uid: 'firebase-user-1',
         email: 'socket-user@example.com',
+        email_verified: true,
         auth_time: nowSeconds - 30,
         iat: nowSeconds - 30,
         exp: nowSeconds + 3600,
@@ -190,6 +197,7 @@ describe('socketService authentication lifecycle', () => {
         jest.clearAllMocks();
         resetSocketStateForTests();
         firebaseAdmin.__verifyIdToken.mockResolvedValue(decodedToken);
+        dpopVerifier.__verifyDpopProof.mockResolvedValue({ success: true, jwk: {} });
         User.findOne.mockReturnValue(buildQuery(primaryUser));
         User.findById.mockReturnValue(buildQuery(primaryUser));
         browserSessionService.getGlobalSessionRevokedAfter.mockResolvedValue(0);
@@ -200,6 +208,31 @@ describe('socketService authentication lifecycle', () => {
 
     afterEach(() => {
         resetSocketStateForTests();
+    });
+
+    test('rejects a bound browser session without a DPoP proof', async () => {
+        const session = {
+            sessionId: 'bound-session',
+            userId: primaryUser._id,
+            firebaseUid: primaryUser.authUid,
+            email: primaryUser.email,
+            dpopJwk: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+            issuedAtSeconds: nowSeconds - 30,
+            authTimeSeconds: nowSeconds - 30,
+            idleExpiresAt: new Date(Date.now() + 3600000).toISOString(),
+            absoluteExpiresAt: new Date(Date.now() + 7200000).toISOString(),
+        };
+        browserSessionService.getBrowserSession.mockResolvedValue(session);
+        dpopVerifier.__verifyDpopProof.mockResolvedValueOnce({
+            success: false,
+            reason: 'DPoP header is required',
+        });
+
+        await expect(resolveSocketAuthentication({
+            cookieHeader: 'aura_sid=bound-session',
+            handshake: { headers: {}, method: 'GET', url: '/socket.io/' },
+        })).rejects.toMatchObject({ code: 'SOCKET_AUTH_REJECTED' });
+        expect(dpopVerifier.__verifyDpopProof).toHaveBeenCalled();
     });
 
     test('uses a fresh bearer when an attached browser-session cookie is expired', async () => {

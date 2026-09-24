@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const mongoose = require('mongoose');
 const { runMigrations } = require('../migrations/runner');
 const { registry } = require('../migrations');
@@ -16,6 +18,25 @@ describe('critical index integrity sync', () => {
         expect(result.failures).toEqual([]);
         expect(result.synced).toHaveLength(CRITICAL_INDEX_MODELS.length);
         expect(result.synced).toContain('CouponRedemption');
+    });
+
+    test('covers payment, webhook, outbox, and idempotency uniqueness indexes', () => {
+        const modelNames = CRITICAL_INDEX_MODELS.map(([name]) => name);
+
+        expect(modelNames).toEqual(expect.arrayContaining([
+            'PaymentEvent',
+            'PaymentOutboxTask',
+            'PaymentMethod',
+            'IdempotencyRecord',
+            'OrderEmailNotification',
+        ]));
+    });
+
+    test('worker startup cannot clear a critical index failure and become ready', () => {
+        const workerSource = fs.readFileSync(path.join(__dirname, '..', 'workerProcess.js'), 'utf8');
+
+        expect(workerSource).toMatch(/if \(indexSync\.failures\.length\)[\s\S]*const error = new Error[\s\S]*throw error/);
+        expect(workerSource).not.toMatch(/workerRuntimeState\.startupError = '';[\s\S]*workerRuntimeState\.ready = true/);
     });
 
     test('reports failures instead of throwing when a unique index cannot build', async () => {

@@ -1,11 +1,14 @@
 const crypto = require('crypto');
 const express = require('express');
 const request = require('supertest');
+const mongoose = require('mongoose');
 
 const EmergencyAuditLog = require('../models/EmergencyAuditLog');
 const EmergencyControl = require('../models/EmergencyControl');
 const PaymentEvent = require('../models/PaymentEvent');
 const PaymentIntent = require('../models/PaymentIntent');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
+const Order = require('../models/Order');
 const { requestId } = require('../middleware/requestId');
 const { errorHandler } = require('../middleware/errorMiddleware');
 const {
@@ -237,5 +240,156 @@ describe('emergency control middleware', () => {
         });
         expect(reloadedIntent.status).toBe('created');
         expect(reloadedIntent.providerPaymentId).toBe('');
+    });
+
+    test('suppressed payment webhook can be replayed after the emergency flag clears', async () => {
+        process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = 'rzp_test_secret';
+        process.env.RAZORPAY_WEBHOOK_SECRET = 'test_webhook_secret';
+
+        const { processRazorpayWebhook } = require('../services/payments/paymentService');
+        await activateDbFlag('DISABLE_PAYMENT', { scope: 'payment', userMessage: 'Payments paused.' });
+        const intent = await PaymentIntent.create({
+            intentId: 'pi_webhook_replay',
+            user: '507f1f77bcf86cd799439014',
+            provider: 'razorpay',
+            providerOrderId: 'order_replay_1',
+            amount: 1200,
+            currency: 'INR',
+            method: 'UPI',
+            status: 'created',
+            expiresAt: new Date(Date.now() + 60_000),
+        });
+        const rawBody = JSON.stringify({
+            id: 'evt_webhook_replay_1',
+            event: 'payment.authorized',
+            payload: {
+                payment: {
+                    entity: {
+                        id: 'pay_replay_1',
+                        order_id: 'order_replay_1',
+                        status: 'authorized',
+                        amount: 120000,
+                    },
+                },
+            },
+        });
+        const signature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+            .update(rawBody)
+            .digest('hex');
+
+        const suppressed = await processRazorpayWebhook({ signature, rawBody });
+        expect(suppressed).toMatchObject({ suppressed: true, intentId: intent.intentId });
+
+        await EmergencyControl.updateOne({ key: 'DISABLE_PAYMENT' }, { $set: { enabled: false } });
+        clearEmergencyCache();
+
+        const replayed = await processRazorpayWebhook({ signature, rawBody });
+        expect(replayed).toMatchObject({
+            received: true,
+            deduped: false,
+            replayed: true,
+            intentId: intent.intentId,
+        });
+        await expect(PaymentIntent.findOne({ intentId: intent.intentId }).lean()).resolves.toMatchObject({
+            status: 'authorized',
+            providerPaymentId: 'pay_replay_1',
+        });
+        const event = await PaymentEvent.findOne({ eventId: 'evt_webhook_replay_1' }).lean();
+        expect(event.processingState).toBe('processed');
+        expect(event.payload.processingMeta).toMatchObject({ suppressed: false });
+    });
+
+    test('suppressed capture replay after cancellation compensates without duplicate event', async () => {
+        process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = 'rzp_test_secret';
+        process.env.RAZORPAY_WEBHOOK_SECRET = 'test_webhook_secret';
+
+        const { processRazorpayWebhook } = require('../services/payments/paymentService');
+        const userId = new mongoose.Types.ObjectId();
+        const order = await Order.create({
+            user: userId,
+            orderItems: [{
+                title: 'Suppressed capture product',
+                quantity: 1,
+                image: 'https://example.com/product.jpg',
+                price: 1200,
+                product: new mongoose.Types.ObjectId(),
+            }],
+            shippingAddress: {
+                address: '221B Baker Street',
+                city: 'London',
+                postalCode: '10001',
+                country: 'India',
+            },
+            paymentMethod: 'CARD',
+            itemsPrice: 1200,
+            taxPrice: 0,
+            shippingPrice: 0,
+            totalPrice: 1200,
+            paymentState: 'authorized',
+            orderStatus: 'cancelled',
+            cancelledAt: new Date(),
+        });
+        const intent = await PaymentIntent.create({
+            intentId: 'pi_suppressed_capture_cancel',
+            user: userId,
+            order: order._id,
+            provider: 'razorpay',
+            providerOrderId: 'order_suppressed_capture_cancel',
+            providerPaymentId: 'pay_suppressed_capture_cancel',
+            amount: 1200,
+            currency: 'INR',
+            method: 'CARD',
+            status: 'authorized',
+            expiresAt: new Date(Date.now() + 60_000),
+        });
+        await activateDbFlag('DISABLE_PAYMENT', { scope: 'payment', userMessage: 'Payments paused.' });
+        const rawBody = JSON.stringify({
+            id: 'evt_suppressed_capture_cancel',
+            event: 'payment.captured',
+            payload: {
+                payment: {
+                    entity: {
+                        id: 'pay_suppressed_capture_cancel',
+                        order_id: 'order_suppressed_capture_cancel',
+                        status: 'captured',
+                        amount: 120000,
+                    },
+                },
+            },
+        });
+        const signature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+            .update(rawBody)
+            .digest('hex');
+
+        const suppressed = await processRazorpayWebhook({ signature, rawBody });
+        expect(suppressed).toMatchObject({ suppressed: true, intentId: intent.intentId });
+
+        await EmergencyControl.updateOne({ key: 'DISABLE_PAYMENT' }, { $set: { enabled: false } });
+        clearEmergencyCache();
+
+        const replayed = await processRazorpayWebhook({ signature, rawBody });
+        expect(replayed).toMatchObject({
+            received: true,
+            replayed: true,
+            compensated: true,
+            intentId: intent.intentId,
+        });
+        await expect(PaymentIntent.findById(intent._id).lean()).resolves.toMatchObject({
+            status: 'captured',
+        });
+        await expect(Order.findById(order._id).lean()).resolves.toMatchObject({
+            orderStatus: 'cancelled',
+            isPaid: false,
+            paymentState: 'captured',
+        });
+        await expect(PaymentOutboxTask.findOne({
+            taskType: 'refund',
+            intentId: intent.intentId,
+        }).lean()).resolves.toBeTruthy();
+        await expect(PaymentEvent.countDocuments({ eventId: 'evt_suppressed_capture_cancel' })).resolves.toBe(1);
     });
 });

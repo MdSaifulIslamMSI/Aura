@@ -618,9 +618,10 @@ const createVoiceSessionConfig = ({
     const identity = sanitizedUserId
         ? `aura-${sanitizedUserId}-${sessionId.slice(-8)}`
         : `aura-${sessionId.slice(-12)}`;
+    const roomName = `${LIVEKIT_ROOM_NAME}-${sessionId}`;
     const realtime = createLiveKitToken({
         identity,
-        roomName: LIVEKIT_ROOM_NAME,
+        roomName,
         locale: resolvedLocale,
     });
     const capabilities = getCapabilitySnapshot();
@@ -636,7 +637,7 @@ const createVoiceSessionConfig = ({
         speakEndpoint: '/api/ai/voice/speak',
         realtimeEnabled: Boolean(realtime?.enabled),
         serverUrl: safeString(realtime?.serverUrl || ''),
-        roomName: safeString(realtime?.roomName || LIVEKIT_ROOM_NAME),
+        roomName: safeString(realtime?.roomName || roomName),
         identity: safeString(realtime?.identity || identity),
         token: safeString(realtime?.token || ''),
         expiresAt: safeString(

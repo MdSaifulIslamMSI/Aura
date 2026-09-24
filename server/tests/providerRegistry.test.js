@@ -34,5 +34,11 @@ describe('providerRegistry voice session contract', () => {
         expect(session.sessionId).toMatch(/^voice_/);
         expect(Array.isArray(session.capabilities.speechToText.languageHints)).toBe(true);
         expect(typeof session.realtimeEnabled).toBe('boolean');
+
+        const secondSession = createVoiceSessionConfig({
+            userId: 'user-123',
+            locale: 'en-IN',
+        });
+        expect(session.roomName).not.toBe(secondSession.roomName);
     });
 });

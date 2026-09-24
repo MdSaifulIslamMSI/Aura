@@ -3,6 +3,10 @@ const { PAYMENT_METHODS } = require('../services/payments/constants');
 
 const productIdentifier = z.union([z.number(), z.string()]).optional();
 const quantityField = z.coerce.number().int().positive().optional();
+const restockItemSchema = z.object({
+    productId: z.string().trim().min(1).max(120),
+    quantity: z.coerce.number().int().positive(),
+});
 
 const orderItemSchema = z
     .object({
@@ -257,9 +261,17 @@ const adminCommandRefundDecisionSchema = z.object({
         note: z.string().trim().max(300).optional(),
         amount: z.coerce.number().positive().optional(),
         externalReference: z.string().trim().max(120).optional(),
-        // Returned units re-enter inventory when the admin confirms receipt.
         restock: z.coerce.boolean().optional(),
+        restockItems: z.array(restockItemSchema).optional(),
     }),
+}).superRefine((value, ctx) => {
+    if (value.body?.restock === true && (!Array.isArray(value.body.restockItems) || value.body.restockItems.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'restockItems must contain at least one item when restock is true',
+            path: ['body', 'restockItems'],
+        });
+    }
 });
 
 const adminCommandReplacementDecisionSchema = z.object({

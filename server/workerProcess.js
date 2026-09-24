@@ -133,7 +133,9 @@ const startup = async () => {
     if (indexSync.failures.length) {
         // Fail closed: the worker stays not-ready so the API's split-runtime
         // probe reports the gap instead of running without integrity indexes.
-        workerRuntimeState.startupError = `index_integrity_failed: ${indexSync.failures.map((f) => f.model).join(',')}`;
+        const error = new Error(`index_integrity_failed: ${indexSync.failures.map((f) => f.model).join(',')}`);
+        workerRuntimeState.startupError = error.message;
+        throw error;
     }
     await enforceCatalogStartupCheck();
 
@@ -149,7 +151,6 @@ const startup = async () => {
     IntelligenceTaskMonitor();
     startOtpSignupMaintenanceWorker();
     workerRuntimeState.ready = true;
-    workerRuntimeState.startupError = '';
     workerRuntimeState.readyAt = new Date().toISOString();
 
     logger.info('worker_process.all_workers_started');

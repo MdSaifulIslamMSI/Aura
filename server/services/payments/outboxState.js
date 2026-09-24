@@ -83,24 +83,40 @@ const scheduleRefundTask = async ({
         actorUserId: actorUserId ? String(actorUserId) : '',
     };
 
-    const existingQuery = PaymentOutboxTask.findOne({
-        taskType: 'refund',
-        intentId,
-        'payload.requestId': payload.requestId,
-        status: { $in: ['pending', 'processing'] },
-    });
-    const existing = session ? await existingQuery.session(session) : await existingQuery;
-    if (existing) return existing;
+    const query = PaymentOutboxTask.findOneAndUpdate(
+        {
+            taskType: 'refund',
+            intentId,
+            'payload.requestId': payload.requestId,
+        },
+        {
+            $setOnInsert: {
+                taskType: 'refund',
+                intentId,
+                payload,
+                status: 'pending',
+                retryCount: 0,
+                nextRunAt: new Date(Date.now() + 20 * 1000),
+            },
+        },
+        {
+            upsert: true,
+            returnDocument: 'after',
+            setDefaultsOnInsert: true,
+        }
+    );
 
-    const task = new PaymentOutboxTask({
-        taskType: 'refund',
-        intentId,
-        payload,
-        status: 'pending',
-        retryCount: 0,
-        nextRunAt: new Date(Date.now() + 20 * 1000),
-    });
-    return session ? task.save({ session }) : task.save();
+    try {
+        return session ? await query.session(session) : await query;
+    } catch (error) {
+        if (error?.code !== 11000) throw error;
+        const existingQuery = PaymentOutboxTask.findOne({
+            taskType: 'refund',
+            intentId,
+            'payload.requestId': payload.requestId,
+        });
+        return session ? existingQuery.session(session) : existingQuery;
+    }
 };
 
 const updateOrderCommandRefundEntry = async ({

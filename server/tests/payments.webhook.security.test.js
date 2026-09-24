@@ -291,7 +291,7 @@ describe('payment webhook security', () => {
         await expect(PaymentEvent.countDocuments({ eventId: 'evt_unknown_refund_id' })).resolves.toBe(0);
     });
 
-    test('payment success after local cancellation is discarded without reviving the order', async () => {
+    test('payment success after local cancellation compensates without reviving the order', async () => {
         const { order, intent } = await seedAuthorizedIntentWithOrder({
             providerOrderId: 'order_late_success_after_cancel',
             amount: 1999,
@@ -306,8 +306,6 @@ describe('payment webhook security', () => {
                 },
             }
         );
-        const beforeOrder = await Order.findById(order._id).lean();
-        const beforeIntent = await PaymentIntent.findById(intent._id).lean();
         const beforeOutboxCount = await PaymentOutboxTask.countDocuments();
         const event = createFakeWebhookEvent({
             eventId: 'evt_late_success_after_cancel',
@@ -322,21 +320,140 @@ describe('payment webhook security', () => {
             received: true,
             deduped: false,
             intentId: intent.intentId,
-            discarded: true,
-            reason: 'order_cancelled',
+            compensated: true,
         });
-        await expectDocumentUnchanged(Order, order._id, beforeOrder);
-        await expectDocumentUnchanged(PaymentIntent, intent._id, beforeIntent);
-        await expect(PaymentOutboxTask.countDocuments()).resolves.toBe(beforeOutboxCount);
+        await expect(PaymentIntent.findById(intent._id).lean()).resolves.toMatchObject({
+            status: PAYMENT_STATUSES.CAPTURED,
+        });
+        await expect(Order.findById(order._id).lean()).resolves.toMatchObject({
+            orderStatus: 'cancelled',
+            isPaid: false,
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+        });
+        await expect(PaymentOutboxTask.countDocuments()).resolves.toBe(beforeOutboxCount + 1);
 
         const savedEvent = await PaymentEvent.findOne({ eventId: 'evt_late_success_after_cancel' }).lean();
-        expect(savedEvent).toBeTruthy();
+        expect(savedEvent).toMatchObject({ processingState: 'processed' });
         expect(savedEvent.payload.processingMeta).toMatchObject({
-            discarded: true,
-            reason: 'order_cancelled',
+            compensated: true,
+            reason: 'order_cancelled_after_capture',
             currentOrderStatus: 'cancelled',
-            targetStatus: PAYMENT_STATUSES.CAPTURED,
         });
+    });
+
+    test('failed order repair keeps a capture webhook retryable', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_retry_after_repair_failure',
+            amount: 1999,
+        });
+        const event = createFakeWebhookEvent({
+            eventId: 'evt_retry_after_repair_failure',
+            providerOrderId: intent.providerOrderId,
+            amount: intent.amount,
+        });
+        const updateOne = jest.spyOn(Order, 'updateOne').mockRejectedValueOnce(new Error('order write failed'));
+
+        try {
+            const failed = await postRazorpayWebhook(app, event);
+            expect(failed.statusCode).toBe(500);
+            await expect(PaymentEvent.countDocuments({ eventId: event.id })).resolves.toBe(0);
+        } finally {
+            updateOne.mockRestore();
+        }
+
+        const retried = await postRazorpayWebhook(app, event);
+        expect(retried.statusCode).toBe(200);
+        await expect(PaymentEvent.countDocuments({ eventId: event.id })).resolves.toBe(1);
+        await expect(Order.findById(order._id).lean()).resolves.toMatchObject({
+            isPaid: true,
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+        });
+    });
+
+    test('refund processed webhook settles a pending refund entry exactly once', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_refund_pending',
+            providerPaymentId: 'pay_refund_pending',
+            amount: 1999,
+        });
+        const pendingRefund = {
+            refundId: 'rfnd_pending_1',
+            amount: 500,
+            amountMinor: 50000,
+            currency: 'INR',
+            settlementAmount: 500,
+            settlementAmountMinor: 50000,
+            settlementCurrency: 'INR',
+            presentmentAmount: 500,
+            presentmentAmountMinor: 50000,
+            presentmentCurrency: 'INR',
+            reason: 'damage',
+            status: 'pending',
+            createdAt: new Date('2026-06-14T00:00:00.000Z'),
+        };
+        await Order.updateOne({ _id: order._id }, {
+            $set: {
+                isPaid: true,
+                paidAt: new Date('2026-06-14T00:00:00.000Z'),
+                paymentState: PAYMENT_STATUSES.CAPTURED,
+                refundSummary: {
+                    totalRefunded: 0,
+                    totalRefundedMinor: 0,
+                    settlementCurrency: 'INR',
+                    presentmentCurrency: 'INR',
+                    presentmentTotalRefunded: 0,
+                    presentmentTotalRefundedMinor: 0,
+                    fullyRefunded: false,
+                    refunds: [pendingRefund],
+                },
+                commandCenter: {
+                    refunds: [{
+                        requestId: 'refund_pending_1',
+                        refundId: 'rfnd_pending_1',
+                        status: 'pending',
+                        amount: 500,
+                        message: '',
+                    }],
+                },
+            },
+        });
+        await PaymentIntent.updateOne({ _id: intent._id }, {
+            $set: { status: PAYMENT_STATUSES.CAPTURED, capturedAt: new Date() },
+        });
+        const event = {
+            id: 'evt_refund_pending_processed',
+            event: 'refund.processed',
+            payload: {
+                refund: {
+                    entity: {
+                        id: 'rfnd_pending_1',
+                        payment_id: intent.providerPaymentId,
+                        amount: 50000,
+                    },
+                },
+            },
+        };
+
+        const first = await postRazorpayWebhook(app, event);
+        expect(first.statusCode).toBe(200);
+        expect(first.body).toMatchObject({ received: true, deduped: false });
+
+        const refreshedOrder = await Order.findById(order._id).lean();
+        expect(refreshedOrder.paymentState).toBe(PAYMENT_STATUSES.PARTIALLY_REFUNDED);
+        expect(refreshedOrder.refundSummary.totalRefunded).toBe(500);
+        expect(refreshedOrder.refundSummary.refunds).toHaveLength(1);
+        expect(refreshedOrder.refundSummary.refunds[0].status).toBe('processed');
+        expect(refreshedOrder.commandCenter.refunds[0]).toMatchObject({
+            status: 'processed',
+            refundId: 'rfnd_pending_1',
+        });
+
+        const second = await postRazorpayWebhook(app, event);
+        expect(second.statusCode).toBe(200);
+        expect(second.body).toMatchObject({ received: true, deduped: true });
+        const finalOrder = await Order.findById(order._id).lean();
+        expect(finalOrder.refundSummary.totalRefunded).toBe(500);
+        expect(finalOrder.refundSummary.refunds).toHaveLength(1);
     });
 
     test('replayed webhook event id is deduped without a second mutation', async () => {

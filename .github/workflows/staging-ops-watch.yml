@@ -37,9 +37,11 @@ jobs:
       SMOKE_REQUIRE_SCANNER_READY: "true"
       SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: "true"
     steps:
-      - name: Staging infra paused - skip live checks
+      - name: Staging infra paused - fail closed
         if: vars.STAGING_INFRA_PAUSED == 'true'
-        run: echo "::warning::staging infra is paused (repo variable STAGING_INFRA_PAUSED=true) - live staging smoke/DAST checks skipped; unset the variable to restore them"
+        run: |
+          echo "::error::staging infrastructure is paused (STAGING_INFRA_PAUSED=true); refusing to report a successful promotion gate"
+          exit 1
 
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

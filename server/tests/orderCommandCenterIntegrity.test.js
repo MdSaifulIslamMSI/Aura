@@ -80,6 +80,7 @@ const {
 const { reverseLoyaltyPoints } = require('../services/loyaltyService');
 const {
     buildBearer,
+    createAdminUser,
     createFakeOrder,
     createFakeProduct,
     createTestUser,
@@ -327,6 +328,223 @@ describe('order command center integrity', () => {
 
             expect(response.status).toBe(201);
             expect(response.body.commandCenter.refunds[0].amount).toBe(1799);
+        });
+    });
+
+    describeWithTransactions('admin refund inventory disposition', () => {
+        test('restocks only requested quantities and persists a completed disposition', async () => {
+            const owner = await createTestUser({ name: 'Restock Owner' });
+            const admin = await createAdminUser({ name: 'Restock Admin' });
+            register('token-admin-restock-1', admin);
+            const firstProduct = await createFakeProduct({ stock: 10 });
+            const secondProduct = await createFakeProduct({ stock: 20 });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                product: firstProduct,
+                orderStatus: 'shipped',
+                isPaid: true,
+                paymentMethod: 'COD',
+                overrides: {
+                    commandCenter: {
+                        refunds: [{
+                            requestId: 'rfnd-restock-1',
+                            amount: 1999,
+                            status: 'pending',
+                            createdAt: new Date(),
+                        }],
+                    },
+                },
+            });
+            await Order.updateOne(
+                { _id: order._id },
+                { $set: { 'orderItems.0.quantity': 2 } }
+            );
+            await Order.updateOne(
+                { _id: order._id },
+                {
+                    $push: {
+                        orderItems: {
+                            title: secondProduct.title,
+                            quantity: 3,
+                            image: secondProduct.image,
+                            price: secondProduct.price,
+                            product: secondProduct._id,
+                        },
+                    },
+                }
+            );
+
+            const body = {
+                status: 'processed',
+                restock: true,
+                restockItems: [{ productId: String(firstProduct._id), quantity: 1 }],
+            };
+            const response = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-1/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-1'))
+                .send(body);
+
+            expect(response.status).toBe(200);
+            expect(mockCreateRefundForIntent).not.toHaveBeenCalled();
+            expect((await Product.findById(firstProduct._id).select('stock').lean()).stock).toBe(11);
+            expect((await Product.findById(secondProduct._id).select('stock').lean()).stock).toBe(20);
+
+            const orderAfter = await Order.findById(order._id).lean();
+            const entry = orderAfter.commandCenter.refunds.find((refund) => refund.requestId === 'rfnd-restock-1');
+            expect(entry.status).toBe('processed');
+            expect(entry.inventoryDisposition.status).toBe('completed');
+            expect(entry.inventoryDisposition.items).toEqual([
+                { productId: String(firstProduct._id), quantity: 1 },
+            ]);
+            expect(entry.inventoryDisposition.claimId).toEqual(expect.any(String));
+
+            const retry = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-1/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-1'))
+                .send(body);
+
+            expect(retry.status).toBe(409);
+            expect((await Product.findById(firstProduct._id).select('stock').lean()).stock).toBe(11);
+        });
+
+        test('rejects restock without a valid non-empty item list before changing inventory', async () => {
+            const owner = await createTestUser({ name: 'Restock Validation Owner' });
+            const admin = await createAdminUser({ name: 'Restock Validation Admin' });
+            register('token-admin-restock-2', admin);
+            const product = await createFakeProduct({ stock: 4 });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                product,
+                orderStatus: 'shipped',
+                isPaid: true,
+                paymentMethod: 'COD',
+                overrides: {
+                    commandCenter: {
+                        refunds: [{
+                            requestId: 'rfnd-restock-2',
+                            amount: 1999,
+                            status: 'pending',
+                            createdAt: new Date(),
+                        }],
+                    },
+                },
+            });
+
+            const missingItems = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-2/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-2'))
+                .send({ status: 'processed', restock: true });
+
+            expect(missingItems.status).toBe(400);
+            expect((await Product.findById(product._id).select('stock').lean()).stock).toBe(4);
+
+            const excessiveQuantity = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-2/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-2'))
+                .send({
+                    status: 'processed',
+                    restock: true,
+                    restockItems: [{ productId: String(product._id), quantity: 2 }],
+                });
+
+            expect(excessiveQuantity.status).toBe(400);
+            expect((await Product.findById(product._id).select('stock').lean()).stock).toBe(4);
+            expect(mockCreateRefundForIntent).not.toHaveBeenCalled();
+        });
+
+        test('rolls back a partial restock when a claimed product is unavailable', async () => {
+            const owner = await createTestUser({ name: 'Restock Rollback Owner' });
+            const admin = await createAdminUser({ name: 'Restock Rollback Admin' });
+            register('token-admin-restock-4', admin);
+            const firstProduct = await createFakeProduct({ stock: 10 });
+            const missingProduct = await createFakeProduct({ stock: 6 });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                product: firstProduct,
+                orderStatus: 'shipped',
+                isPaid: true,
+                paymentMethod: 'COD',
+                overrides: {
+                    commandCenter: {
+                        refunds: [{
+                            requestId: 'rfnd-restock-4',
+                            amount: 1999,
+                            status: 'pending',
+                            createdAt: new Date(),
+                        }],
+                    },
+                },
+            });
+            await Order.updateOne(
+                { _id: order._id },
+                {
+                    $push: {
+                        orderItems: {
+                            title: missingProduct.title,
+                            quantity: 1,
+                            image: missingProduct.image,
+                            price: missingProduct.price,
+                            product: missingProduct._id,
+                        },
+                    },
+                }
+            );
+            await Product.deleteOne({ _id: missingProduct._id });
+
+            const response = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-4/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-4'))
+                .send({
+                    status: 'processed',
+                    restock: true,
+                    restockItems: [
+                        { productId: String(firstProduct._id), quantity: 1 },
+                        { productId: String(missingProduct._id), quantity: 1 },
+                    ],
+                });
+
+            expect(response.status).toBe(409);
+            expect((await Product.findById(firstProduct._id).select('stock').lean()).stock).toBe(10);
+            const orderAfter = await Order.findById(order._id).lean();
+            const entry = orderAfter.commandCenter.refunds.find((refund) => refund.requestId === 'rfnd-restock-4');
+            expect(entry.status).toBe('pending');
+            expect(entry.inventoryDisposition).toBeUndefined();
+        });
+
+        test('preserves restock false behavior', async () => {
+            const owner = await createTestUser({ name: 'No Restock Owner' });
+            const admin = await createAdminUser({ name: 'No Restock Admin' });
+            register('token-admin-restock-3', admin);
+            const product = await createFakeProduct({ stock: 7 });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                product,
+                orderStatus: 'shipped',
+                isPaid: true,
+                paymentMethod: 'COD',
+                overrides: {
+                    commandCenter: {
+                        refunds: [{
+                            requestId: 'rfnd-restock-3',
+                            amount: 1999,
+                            status: 'pending',
+                            createdAt: new Date(),
+                        }],
+                    },
+                },
+            });
+
+            const response = await request(app)
+                .patch(`/api/orders/${order._id}/command-center/refund/rfnd-restock-3/admin`)
+                .set('Authorization', buildBearer('token-admin-restock-3'))
+                .send({ status: 'processed', restock: false });
+
+            expect(response.status).toBe(200);
+            expect((await Product.findById(product._id).select('stock').lean()).stock).toBe(7);
+            const orderAfter = await Order.findById(order._id).lean();
+            const entry = orderAfter.commandCenter.refunds.find((refund) => refund.requestId === 'rfnd-restock-3');
+            expect(entry.status).toBe('processed');
+            expect(entry.inventoryDisposition).toBeUndefined();
         });
     });
 

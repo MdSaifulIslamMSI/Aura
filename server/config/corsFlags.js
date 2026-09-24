@@ -26,20 +26,6 @@ const isProduction = nodeEnv === 'production';
 const isStagingRuntime = String(process.env.APP_ENV || '').trim().toLowerCase() === 'staging'
     && String(process.env.STAGING_SSM_PREFIX || '').trim() === '/aura/staging';
 const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-const hostedProductionOrigins = [
-    'https://aurapilot.vercel.app',
-    'https://aurapilot.netlify.app',
-    'https://dbtrhsolhec1s.cloudfront.net',
-    'https://aura-storefront.onrender.com',
-    'https://aurapilot.aws.app',
-    // Direct-call lanes without a same-origin /api proxy: the bundle calls
-    // the backend edge cross-origin, so these must be allowlisted by default
-    // (explicit CORS_ORIGIN / *_FRONTEND_URL env still adds more).
-    'https://aura-storefront.pages.dev',
-    'https://mdsaifulislammsi.github.io',
-    'https://aura-storefront-production.up.railway.app',
-];
-
 const collectConfiguredOrigins = () => {
     const configuredOrigins = [
         ...parseOrigins(process.env.CORS_ORIGIN),
@@ -59,9 +45,7 @@ const collectConfiguredOrigins = () => {
         normalizeOrigin(process.env.S3_FRONTEND_URL),
     ].filter(Boolean);
 
-    const fallbackOrigins = isProduction
-        ? (isStagingRuntime ? [] : hostedProductionOrigins)
-        : defaultDevOrigins;
+    const fallbackOrigins = isProduction ? [] : defaultDevOrigins;
     return Array.from(new Set([
         ...configuredOrigins,
         ...fallbackOrigins.map((origin) => normalizeOrigin(origin)).filter(Boolean),

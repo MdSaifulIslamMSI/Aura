@@ -30,6 +30,7 @@ const {
     resolveRefundAmounts,
     buildRefundEntry,
     buildRefundMutation,
+    getRefundCommandStatus,
 } = require('../services/payments/refundState');
 const {
     toStoredMinorUnits,
@@ -264,6 +265,165 @@ const isOrderFullyRefunded = (order) => (
 const touchCommandCenter = (order) => {
     order.commandCenter = order.commandCenter || {};
     order.commandCenter.lastUpdatedAt = new Date();
+};
+
+const buildRestockPlan = (order, restockItems) => {
+    const availableByProduct = new Map();
+    const productRefs = new Map();
+    for (const item of Array.isArray(order?.orderItems) ? order.orderItems : []) {
+        const productRef = item?.product ?? item?.productId;
+        const productId = String(productRef ?? '').trim();
+        const quantity = Number(item?.quantity);
+        if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) continue;
+        availableByProduct.set(productId, (availableByProduct.get(productId) || 0) + quantity);
+        if (!productRefs.has(productId)) productRefs.set(productId, productRef);
+    }
+
+    const requestedByProduct = new Map();
+    for (const item of Array.isArray(restockItems) ? restockItems : []) {
+        const productId = String(item?.productId ?? '').trim();
+        const quantity = Number(item?.quantity);
+        if (!productId || !Number.isSafeInteger(quantity) || quantity <= 0) {
+            throw new AppError('Each restock item must include a product id and positive quantity', 400);
+        }
+        const requestedQuantity = (requestedByProduct.get(productId) || 0) + quantity;
+        if (requestedQuantity > (availableByProduct.get(productId) || 0)) {
+            throw new AppError(`Restock quantity exceeds order quantity for product ${productId}`, 400);
+        }
+        requestedByProduct.set(productId, requestedQuantity);
+    }
+
+    if (requestedByProduct.size === 0) {
+        throw new AppError('restockItems must contain at least one item', 400);
+    }
+
+    return Array.from(requestedByProduct, ([productId, quantity]) => ({
+        productId,
+        productRef: productRefs.get(productId),
+        quantity,
+    }));
+};
+
+const isRetryableInventoryTransactionError = (error) => (
+    (Array.isArray(error?.errorLabels) && error.errorLabels.includes('TransientTransactionError'))
+    || /unable to acquire ix lock|transienttransactionerror|write conflict|lock timeout/i.test(String(error?.message || ''))
+);
+
+const persistRefundDecisionWithRestock = async ({
+    orderId,
+    requestId,
+    finalStatus,
+    amount,
+    finalMessage,
+    finalRefundId,
+    note,
+    processedAt,
+    refundMutation,
+    restockItems,
+}) => {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const txOrder = await Order.findById(orderId).session(session);
+            if (!txOrder) {
+                throw new AppError('Order not found', 404);
+            }
+
+            const txRefunds = getCommandCenterArray(txOrder, 'refunds');
+            const txRefund = txRefunds.find((entry) => String(entry?.requestId || '') === String(requestId));
+            if (!txRefund) {
+                throw new AppError('Refund request not found', 404);
+            }
+
+            const currentStatus = String(txRefund.status || 'pending').toLowerCase();
+            if (['processed', 'rejected'].includes(currentStatus)) {
+                throw new AppError(`Refund request already ${currentStatus}`, 409);
+            }
+
+            const dispositionStatus = String(txRefund.inventoryDisposition?.status || '').toLowerCase();
+            if (['claimed', 'completed'].includes(dispositionStatus)) {
+                throw new AppError('Inventory restock already claimed for this refund request', 409);
+            }
+
+            const restockPlan = buildRestockPlan(txOrder, restockItems);
+            const shouldRestock = finalStatus === 'processed' && txOrder.orderStatus !== 'cancelled';
+            const now = new Date();
+            let restocked = 0;
+
+            if (shouldRestock) {
+                txRefund.inventoryDisposition = {
+                    status: 'claimed',
+                    claimId: createCommandId('inv'),
+                    items: restockPlan.map(({ productId, quantity }) => ({ productId, quantity })),
+                    claimedAt: now,
+                    completedAt: null,
+                };
+
+                for (const item of restockPlan) {
+                    const result = await Product.updateOne(
+                        { _id: item.productRef },
+                        { $inc: { stock: item.quantity } },
+                        { session }
+                    );
+                    const matchedCount = Number(result?.matchedCount ?? result?.modifiedCount ?? 0);
+                    if (matchedCount !== 1) {
+                        throw new AppError('Inventory product not found for refund restock', 409);
+                    }
+                    restocked += 1;
+                }
+
+                txRefund.inventoryDisposition.status = 'completed';
+                txRefund.inventoryDisposition.completedAt = new Date();
+            } else {
+                txRefund.inventoryDisposition = {
+                    status: 'skipped',
+                    claimId: '',
+                    items: restockPlan.map(({ productId, quantity }) => ({ productId, quantity })),
+                    claimedAt: null,
+                    completedAt: now,
+                };
+            }
+
+            txRefund.status = finalStatus;
+            txRefund.amount = amount;
+            txRefund.message = finalMessage;
+            txRefund.refundId = finalRefundId;
+            txRefund.adminNote = note;
+            txRefund.updatedAt = new Date();
+            if (processedAt) {
+                txRefund.processedAt = processedAt;
+            }
+
+            if (refundMutation) {
+                txOrder.refundSummary = refundMutation.refundSummary;
+                txOrder.paymentState = refundMutation.paymentState;
+            }
+
+            touchCommandCenter(txOrder);
+            appendOrderStatusEvent(txOrder, {
+                status: txOrder.orderStatus || 'placed',
+                message: restocked > 0
+                    ? `Admin set refund request ${requestId} to ${finalStatus} (${restocked} item(s) restocked)`
+                    : `Admin set refund request ${requestId} to ${finalStatus}`,
+                actor: 'admin',
+            });
+            txOrder.markModified('commandCenter');
+            await txOrder.save({ session });
+            await session.commitTransaction();
+
+            return { order: txOrder, restocked };
+        } catch (error) {
+            await session.abortTransaction().catch(() => {});
+            if (attempt < 3 && isRetryableInventoryTransactionError(error)) {
+                await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+                continue;
+            }
+            throw error;
+        } finally {
+            session.endSession();
+        }
+    }
 };
 
 // @desc    Quote order pricing
@@ -756,21 +916,27 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
                 intentId: order.paymentIntentId,
                 amount,
                 reason,
+                requestId,
             });
 
+            const refundStatus = getRefundCommandStatus(refundResult.status);
             await Order.updateOne(
                 { _id: order._id, user: req.user._id, 'commandCenter.refunds.requestId': requestId },
                 {
                     $set: {
-                        'commandCenter.refunds.$.status': 'processed',
-                        'commandCenter.refunds.$.message': `Refund processed (${refundResult.status})`,
+                        'commandCenter.refunds.$.status': refundStatus,
+                        'commandCenter.refunds.$.message': refundStatus === 'processed'
+                            ? `Refund processed (${refundResult.status})`
+                            : `Refund ${refundStatus} (${refundResult.status})`,
                         'commandCenter.refunds.$.refundId': refundResult.refundId || '',
-                        'commandCenter.refunds.$.processedAt': new Date(),
+                        'commandCenter.refunds.$.processedAt': refundStatus === 'processed' ? new Date() : null,
                         'commandCenter.lastUpdatedAt': new Date(),
                     },
                 }
             );
-            message = 'Refund processed successfully';
+            message = refundStatus === 'processed'
+                ? 'Refund processed successfully'
+                : `Refund ${refundStatus}`;
         } catch (error) {
             const isTransient = Number(error?.statusCode || 500) >= 500;
             if (isTransient) {
@@ -835,7 +1001,7 @@ const createOrderReplacementRequest = asyncHandler(async (req, res, next) => {
         ));
     }
 
-    const targetOrderItem = resolveOrderItemForCommand(order, req.body);
+    const targetOrderItem = resolveOrderItemForCommand(order, req.body, { strict: true });
     if (!targetOrderItem) {
         return next(new AppError('No order item found for replacement', 400));
     }
@@ -1001,6 +1167,15 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         return next(new AppError('Invalid refund amount', 400));
     }
 
+    if (req.body.restock === true) {
+        try {
+            buildRestockPlan(order, req.body.restockItems);
+        } catch (error) {
+            return next(error);
+        }
+    }
+
+    let refundMutation = null;
     let finalStatus;
     let finalMessage;
     let finalRefundId = String(refund.refundId || externalReference || '');
@@ -1019,6 +1194,7 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
                 intentId: order.paymentIntentId,
                 amount,
                 reason: reasonForProvider,
+                requestId,
             });
 
             finalStatus = 'processed';
@@ -1067,10 +1243,11 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
                 },
                 refundAmounts,
                 reason: reasonForProvider,
+                requestId,
                 fallbackRefundId: finalRefundId || createCommandId('manual-rfnd'),
                 createdAt: processedAt,
             });
-            const refundMutation = buildRefundMutation({
+            refundMutation = buildRefundMutation({
                 order,
                 refundEntry,
             });
@@ -1079,43 +1256,50 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         }
     }
 
-    refund.status = finalStatus;
-    refund.amount = amount;
-    refund.message = finalMessage;
-    refund.refundId = finalRefundId;
-    refund.adminNote = note;
-    refund.updatedAt = new Date();
-    if (processedAt) {
-        refund.processedAt = processedAt;
-    }
-
-    touchCommandCenter(order);
-
-    // Return receipt: processed refunds on shipped/delivered orders may put
-    // the units back into inventory (opt-in per admin decision).
+    let persistedOrder = order;
     let restocked = 0;
-    if (finalStatus === 'processed' && req.body.restock === true && order.orderStatus !== 'cancelled') {
-        for (const item of order.orderItems || []) {
-            const result = await Product.updateOne(
-                { _id: item.product },
-                { $inc: { stock: Number(item.quantity || 0) } }
-            );
-            restocked += result.modifiedCount || 0;
+    if (req.body.restock === true) {
+        const result = await persistRefundDecisionWithRestock({
+            orderId: order._id,
+            requestId,
+            finalStatus,
+            amount,
+            finalMessage,
+            finalRefundId,
+            note,
+            processedAt,
+            refundMutation,
+            restockItems: req.body.restockItems,
+        });
+        persistedOrder = result.order;
+        restocked = result.restocked;
+    } else {
+        refund.status = finalStatus;
+        refund.amount = amount;
+        refund.message = finalMessage;
+        refund.refundId = finalRefundId;
+        refund.adminNote = note;
+        refund.updatedAt = new Date();
+        if (processedAt) {
+            refund.processedAt = processedAt;
         }
-    }
+        if (refundMutation) {
+            order.refundSummary = refundMutation.refundSummary;
+            order.paymentState = refundMutation.paymentState;
+        }
 
-    appendOrderStatusEvent(order, {
-        status: order.orderStatus || 'placed',
-        message: restocked > 0
-            ? `Admin set refund request ${requestId} to ${finalStatus} (${restocked} item(s) restocked)`
-            : `Admin set refund request ${requestId} to ${finalStatus}`,
-        actor: 'admin',
-    });
-    order.markModified('commandCenter');
-    await order.save();
+        touchCommandCenter(order);
+        appendOrderStatusEvent(order, {
+            status: order.orderStatus || 'placed',
+            message: `Admin set refund request ${requestId} to ${finalStatus}`,
+            actor: 'admin',
+        });
+        order.markModified('commandCenter');
+        await order.save();
+    }
 
     await notifyOrderOwnerAdminAction({
-        order,
+        order: persistedOrder,
         req,
         actionKey: 'admin.order.refund_request',
         actionTitle: 'Refund Request Updated by Admin',
@@ -1134,8 +1318,8 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
     return res.json({
         success: true,
         message: finalMessage,
-        commandCenter: normalizeCommandCenter(order),
-        refundSummary: order.refundSummary || null,
+        commandCenter: normalizeCommandCenter(persistedOrder),
+        refundSummary: persistedOrder.refundSummary || null,
     });
 });
 

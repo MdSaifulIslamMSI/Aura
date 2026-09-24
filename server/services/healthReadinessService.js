@@ -46,7 +46,7 @@ const buildStartupReadinessFailure = ({
         };
     }
 
-    if (runtimeStartupState.indexSyncFailures?.length && !isWithinGracePeriod) {
+    if (runtimeStartupState.indexSyncFailures?.length) {
         return {
             ready: false,
             reason: 'index_integrity_failed',

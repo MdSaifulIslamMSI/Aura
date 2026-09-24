@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { isHostedFrontendRuntimeHost, resolveServiceOrigin } from '../services/runtimeApiConfig';
 import { addNativeAppResumeListener } from '../services/nativeAppExperience';
+import { createDpopProof } from '../services/apiBase';
 
 const SocketContext = createContext(null);
 const SOCKET_RUNTIME_FLAG = String(import.meta.env.VITE_ENABLE_REALTIME_SOCKET || '').trim().toLowerCase();
@@ -130,7 +131,12 @@ export const SocketProvider = ({ children }) => {
             }
 
             const token = String(await currentUser.getIdToken(forceRefresh) || '').trim();
-            return token ? { token } : {};
+            const dpopProof = typeof window !== 'undefined'
+                ? await createDpopProof('GET', `${window.location.origin}/socket.io/`)
+                : null;
+            return token
+                ? { token, ...(dpopProof ? { dpopProof } : {}) }
+                : {};
         };
 
         const syncSocketAuth = async (forceRefresh = false) => {

@@ -26,25 +26,12 @@ const loadCorsFlags = ({ nodeEnv = 'production', env = {} } = {}) => {
 };
 
 describe('corsFlags', () => {
-    test('allows all hosted production frontend origins by default', () => {
+    test('requires explicit production origins instead of trusting hosted fallbacks', () => {
         const { allowedOrigins, isOriginAllowed } = loadCorsFlags();
 
-        expect(allowedOrigins).toEqual(expect.arrayContaining([
-            'https://aurapilot.vercel.app',
-            'https://aurapilot.netlify.app',
-            'https://dbtrhsolhec1s.cloudfront.net',
-            'https://aurapilot.aws.app',
-            'https://aura-storefront.pages.dev',
-            'https://mdsaifulislammsi.github.io',
-            'https://aura-storefront-production.up.railway.app',
-        ]));
-        expect(isOriginAllowed('https://aurapilot.vercel.app')).toBe(true);
-        expect(isOriginAllowed('https://aurapilot.netlify.app')).toBe(true);
-        expect(isOriginAllowed('https://dbtrhsolhec1s.cloudfront.net')).toBe(true);
-        expect(isOriginAllowed('https://aurapilot.aws.app')).toBe(true);
-        expect(isOriginAllowed('https://aura-storefront.pages.dev')).toBe(true);
-        expect(isOriginAllowed('https://mdsaifulislammsi.github.io')).toBe(true);
-        expect(isOriginAllowed('https://aura-storefront-production.up.railway.app')).toBe(true);
+        expect(allowedOrigins).toEqual([]);
+        expect(isOriginAllowed('https://aurapilot.vercel.app')).toBe(false);
+        expect(isOriginAllowed('https://mdsaifulislammsi.github.io')).toBe(false);
     });
 
     test('still rejects unrelated production origins', () => {

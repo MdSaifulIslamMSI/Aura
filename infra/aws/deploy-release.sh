@@ -923,6 +923,14 @@ case "${deploy_strategy}" in
 esac
 
 if [[ "${deploy_strategy}" == "blue-green" ]]; then
+  blue_green_enabled="${AURA_BLUE_GREEN_ENABLED:-}"
+  if [[ -z "${blue_green_enabled}" ]]; then
+    blue_green_enabled="$(resolve_env_value "AURA_BLUE_GREEN_ENABLED" "${staged_base_env}" "${staged_runtime_env}" "${shared_dir}/release.env")"
+  fi
+  if ! is_truthy "${blue_green_enabled}"; then
+    echo "Refusing deploy: blue-green activation is disabled until the staging drill is explicitly enabled." >&2
+    exit 1
+  fi
   validate_caddyfile "${staged_current_dir}/infra/aws/Caddyfile"
   ensure_aura_networks
   mkdir -p "${deploy_root}/foundation"

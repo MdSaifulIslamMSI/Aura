@@ -5,6 +5,12 @@ const paymentEventSchema = new mongoose.Schema({
     intentId: { type: String, required: true, index: true },
     source: { type: String, enum: ['api', 'webhook', 'system'], required: true },
     type: { type: String, required: true },
+    processingState: {
+        type: String,
+        enum: ['received', 'suppressed', 'processed', 'discarded'],
+        default: 'processed',
+        index: true,
+    },
     payloadHash: { type: String, required: true },
     payload: { type: mongoose.Schema.Types.Mixed, default: {} },
     receivedAt: { type: Date, required: true, default: Date.now },

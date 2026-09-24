@@ -5,6 +5,23 @@ const {
 } = require('../services/payments/moneyStorage');
 const { defineEncryptedField } = require('./utils/encryptedField');
 
+const inventoryDispositionItemSchema = new mongoose.Schema({
+    productId: { type: String, required: true },
+    quantity: { type: Number, required: true, min: 1 },
+}, { _id: false });
+
+const inventoryDispositionSchema = new mongoose.Schema({
+    status: {
+        type: String,
+        enum: ['claimed', 'completed', 'skipped'],
+        default: 'claimed',
+    },
+    claimId: { type: String, default: '' },
+    items: { type: [inventoryDispositionItemSchema], default: [] },
+    claimedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+}, { _id: false });
+
 const orderSchema = mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
@@ -14,7 +31,7 @@ const orderSchema = mongoose.Schema({
     orderItems: [
         {
             title: { type: String, required: true },
-            quantity: { type: Number, required: true },
+            quantity: { type: Number, required: true, min: 1 },
             image: { type: String, required: true },
             price: { type: Number, required: true },
             priceMinor: minorUnitsField(),
@@ -82,6 +99,12 @@ const orderSchema = mongoose.Schema({
         default: '',
         index: true
     },
+    idempotencyKey: {
+        type: String,
+        default: '',
+        index: true,
+        select: false,
+    },
     paymentProvider: {
         type: String,
         default: ''
@@ -110,9 +133,10 @@ const orderSchema = mongoose.Schema({
         presentmentTotalRefunded: { type: Number, default: 0 },
         presentmentTotalRefundedMinor: minorUnitsField(),
         fullyRefunded: { type: Boolean, default: false },
-        refunds: [{
-            refundId: { type: String },
-            amount: { type: Number, default: 0 },
+         refunds: [{
+             refundId: { type: String },
+             requestId: { type: String, default: '' },
+             amount: { type: Number, default: 0 },
             amountMinor: minorUnitsField(),
             currency: { type: String, default: 'INR' },
             settlementAmount: { type: Number, default: 0 },
@@ -147,6 +171,7 @@ const orderSchema = mongoose.Schema({
             createdAt: { type: Date, default: Date.now },
             processedAt: { type: Date, default: null },
             updatedAt: { type: Date, default: null },
+            inventoryDisposition: { type: inventoryDispositionSchema },
         }],
         replacements: [{
             requestId: { type: String, default: '' },
@@ -374,6 +399,11 @@ orderSchema.add({
     shipments: { type: [shipmentSchema], default: [] },
 });
 
+orderSchema.index({ user: 1, idempotencyKey: 1 }, {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $gt: '' } },
+    name: 'user_idempotency_key_unique',
+});
 orderSchema.index({ user: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ createdAt: -1, _id: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1, _id: -1 });

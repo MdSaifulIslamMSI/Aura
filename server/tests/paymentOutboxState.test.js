@@ -80,6 +80,10 @@ const makeOrder = async ({ userId } = {}) => Order.create({
 });
 
 describe('Payment outbox state helpers', () => {
+    beforeAll(async () => {
+        await PaymentOutboxTask.syncIndexes();
+    });
+
     test('scheduleRefundTask is idempotent per requestId and intentId', async () => {
         const user = await makeUser();
         const intent = await makeIntent({ userId: user._id });
@@ -111,6 +115,38 @@ describe('Payment outbox state helpers', () => {
         });
         expect(persistedTasks).toHaveLength(1);
         expect(persistedTasks[0].payload.requestId).toBe('refund_req_1');
+    });
+
+    test('concurrent refund scheduling creates one deterministic task', async () => {
+        const user = await makeUser();
+        const intent = await makeIntent({ userId: user._id });
+        const order = await makeOrder({ userId: user._id });
+
+        const [firstTask, secondTask] = await Promise.all([
+            scheduleRefundTask({
+                intentId: intent.intentId,
+                amount: 499,
+                reason: 'damage',
+                orderId: order._id,
+                requestId: 'refund_req_concurrent',
+                actorUserId: user._id,
+            }),
+            scheduleRefundTask({
+                intentId: intent.intentId,
+                amount: 499,
+                reason: 'damage',
+                orderId: order._id,
+                requestId: 'refund_req_concurrent',
+                actorUserId: user._id,
+            }),
+        ]);
+
+        expect(String(firstTask._id)).toBe(String(secondTask._id));
+        await expect(PaymentOutboxTask.find({
+            taskType: 'refund',
+            intentId: intent.intentId,
+            'payload.requestId': 'refund_req_concurrent',
+        })).resolves.toHaveLength(1);
     });
 
     test('updateOrderCommandRefundEntry updates command center refund status and metadata', async () => {
