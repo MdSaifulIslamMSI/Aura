@@ -124,6 +124,7 @@ const listAdminFraudDecisions = asyncHandler(async (req, res) => {
     ]);
 
     res.json({
+        success: true,
         page,
         limit,
         total,
@@ -134,7 +135,7 @@ const listAdminFraudDecisions = asyncHandler(async (req, res) => {
 const resolveAdminFraudDecision = asyncHandler(async (req, res, next) => {
     const decision = await FraudDecision.findById(req.params.decisionId);
     if (!decision) {
-        return next(new AppError('Fraud decision not found', 404));
+        return next(new AppError('Fraud decision not found', 404, 'ADMIN_FRAUD_DECISION_NOT_FOUND'));
     }
 
     const resolution = String(req.body.resolution || '').trim();
@@ -160,6 +161,7 @@ const resolveAdminFraudDecision = asyncHandler(async (req, res, next) => {
     await decision.save();
 
     res.json({
+        success: true,
         message: 'Fraud decision resolved',
         item: serializeDecision(decision.toObject()),
         domainResolution,

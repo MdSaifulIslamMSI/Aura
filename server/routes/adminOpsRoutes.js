@@ -3,6 +3,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     getAdminClientDiagnostics,
@@ -39,8 +40,8 @@ const awsControlActionLimiter = createDistributedRateLimit({
 router.get('/readiness', protect, admin, validate(adminOpsReadinessSchema), getAdminOpsReadiness);
 router.get('/client-diagnostics', protect, admin, validate(adminClientDiagnosticsSchema), getAdminClientDiagnostics);
 router.get('/aws-control', protect, admin, validate(adminOpsAwsControlSchema), getAdminAwsControl);
-router.post('/smoke', protect, admin, validate(adminOpsSmokeSchema), sensitiveActions.adminSecurityConfigChange, runAdminOpsSmoke);
-router.post('/maintenance', protect, admin, validate(adminOpsMaintenanceSchema), sensitiveActions.adminSecurityConfigChange, runAdminOpsMaintenance);
-router.post('/aws-control/actions', protect, admin, awsControlActionLimiter, validate(adminOpsAwsControlActionSchema), sensitiveActions.adminSecurityConfigChange, runAdminAwsControlAction);
+router.post('/smoke', protect, admin, validate(adminOpsSmokeSchema), requireTrustDecision('admin.ops.write'), sensitiveActions.adminSecurityConfigChange, runAdminOpsSmoke);
+router.post('/maintenance', protect, admin, validate(adminOpsMaintenanceSchema), requireTrustDecision('admin.ops.write'), sensitiveActions.adminSecurityConfigChange, runAdminOpsMaintenance);
+router.post('/aws-control/actions', protect, admin, awsControlActionLimiter, validate(adminOpsAwsControlActionSchema), requireTrustDecision('admin.ops.write'), sensitiveActions.adminSecurityConfigChange, runAdminAwsControlAction);
 
 module.exports = router;

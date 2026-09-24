@@ -78,6 +78,11 @@ describe('Admin Route Surface Security Matrix', () => {
         ['POST', '/api/admin/payments/pi_test/capture'],
         ['POST', '/api/admin/payments/pi_test/retry-capture'],
         ['POST', '/api/admin/payments/pi_test/refunds'],
+        ['GET', '/api/admin/privileged-access/grants'],
+        ['POST', '/api/admin/privileged-access/grants'],
+        ['POST', '/api/admin/privileged-access/grants/jit_1/approve'],
+        ['POST', '/api/admin/privileged-access/grants/jit_1/deny'],
+        ['POST', '/api/admin/privileged-access/grants/jit_1/revoke'],
 
         ['GET', '/api/admin/ops/readiness'],
         ['GET', '/api/admin/ops/client-diagnostics'],

@@ -425,6 +425,7 @@ const getAdminRefundLedger = asyncHandler(async (req, res, next) => {
         }
 
         return res.json({
+            success: true,
             page,
             limit,
             total,
@@ -433,7 +434,7 @@ const getAdminRefundLedger = asyncHandler(async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch refund ledger', 500));
+        return next(new AppError(error.message || 'Failed to fetch refund ledger', 500, 'ADMIN_REFUND_LEDGER_FETCH_FAILED'));
     }
 });
 
@@ -443,14 +444,14 @@ const getAdminRefundLedger = asyncHandler(async (req, res, next) => {
 const updateAdminRefundLedgerReference = asyncHandler(async (req, res, next) => {
     const order = await Order.findById(req.params.orderId);
     if (!order) {
-        return next(new AppError('Order not found', 404));
+        return next(new AppError('Order not found', 404, 'ADMIN_REFUND_LEDGER_ORDER_NOT_FOUND'));
     }
 
     const refunds = Array.isArray(order?.commandCenter?.refunds) ? order.commandCenter.refunds : [];
     const requestId = String(req.params.requestId || '').trim();
     const refundIndex = refunds.findIndex((entry) => String(entry?.requestId || '') === requestId);
     if (refundIndex < 0) {
-        return next(new AppError('Refund request not found', 404));
+        return next(new AppError('Refund request not found', 404, 'ADMIN_REFUND_LEDGER_REQUEST_NOT_FOUND'));
     }
 
     const refund = refunds[refundIndex];
@@ -497,7 +498,7 @@ const updateAdminRefundLedgerReference = asyncHandler(async (req, res, next) => 
     } else if (previousStatus === 'processed') {
         refund.message = note || refund.message || 'Refund reference updated by admin';
     } else {
-        return next(new AppError('Reference update allowed only for approved/processed refund requests', 409));
+        return next(new AppError('Reference update allowed only for approved/processed refund requests', 409, 'ADMIN_REFUND_LEDGER_INVALID_STATE'));
     }
 
     order.commandCenter = order.commandCenter || {};
@@ -743,10 +744,10 @@ const createAdminRefund = asyncHandler(async (req, res, next) => {
             ],
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to create admin refund', 500));
+        return next(new AppError(error.message || 'Failed to create admin refund', 500, 'ADMIN_REFUND_CREATE_FAILED'));
     }
 });
 
@@ -946,6 +947,7 @@ const getAdminPayments = asyncHandler(async (req, res, next) => {
             method: req.query.method,
         });
         return res.json({
+            success: true,
             page,
             limit,
             total: result.total,
@@ -953,7 +955,7 @@ const getAdminPayments = asyncHandler(async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch admin payments', 500));
+        return next(new AppError(error.message || 'Failed to fetch admin payments', 500, 'ADMIN_PAYMENT_LIST_FAILED'));
     }
 });
 
@@ -967,10 +969,10 @@ const getAdminPaymentById = asyncHandler(async (req, res, next) => {
             userId: req.user._id,
             allowAdmin: true,
         });
-        return res.json(intent);
+        return res.json({ success: true, ...intent });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch payment detail', 500));
+        return next(new AppError(error.message || 'Failed to fetch payment detail', 500, 'ADMIN_PAYMENT_DETAIL_FAILED'));
     }
 });
 
@@ -1013,10 +1015,10 @@ const captureAdminPayment = asyncHandler(async (req, res, next) => {
             ],
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to capture payment', 500));
+        return next(new AppError(error.message || 'Failed to capture payment', 500, 'ADMIN_PAYMENT_CAPTURE_FAILED'));
     }
 });
 
@@ -1059,10 +1061,10 @@ const retryAdminCapture = asyncHandler(async (req, res, next) => {
             ],
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to requeue capture', 500));
+        return next(new AppError(error.message || 'Failed to requeue capture', 500, 'ADMIN_PAYMENT_REQUEUE_CAPTURE_FAILED'));
     }
 });
 
@@ -1072,10 +1074,10 @@ const retryAdminCapture = asyncHandler(async (req, res, next) => {
 const getAdminPaymentOpsOverview = asyncHandler(async (req, res, next) => {
     try {
         const overview = await getPaymentOpsOverview();
-        return res.json(overview);
+        return res.json({ success: true, ...overview });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch payment operations overview', 500));
+        return next(new AppError(error.message || 'Failed to fetch payment operations overview', 500, 'ADMIN_PAYMENT_OPS_OVERVIEW_FAILED'));
     }
 });
 
@@ -1101,10 +1103,10 @@ const expireAdminStalePaymentIntents = asyncHandler(async (req, res, next) => {
             },
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to expire stale payment intents', 500));
+        return next(new AppError(error.message || 'Failed to expire stale payment intents', 500, 'ADMIN_PAYMENT_EXPIRE_STALE_FAILED'));
     }
 });
 

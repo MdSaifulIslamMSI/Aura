@@ -22,6 +22,8 @@ const {
 } = require('../services/trustedDeviceChallengeService');
 const browserSessionService = require('../services/browserSessionService');
 const { verifyDpopProof } = require('../utils/dpop');
+const { getPrivilegedAccessPolicy } = require('../config/privilegedAccessPolicy');
+const { getActiveGrantsForUser } = require('../services/auth/privilegedAccessGrantService');
 const {
     getBrowserSessionFromRequest,
     resolveSessionIdFromRequest,
@@ -386,16 +388,44 @@ const recordAdminBlock = (req, reason, statusCode = 403) => {
     });
 };
 
-const enforceAdminAuthorizationPolicy = (req, user) => {
+const enforceAdminAuthorizationPolicy = async (req, user) => {
+    let authSession = req.authSession || null;
+    if (getPrivilegedAccessPolicy().jitAccessEnabled) {
+        try {
+            const activeGrants = await getActiveGrantsForUser(user?._id);
+            // Only override the session when the store yields grants so the
+            // user-embedded fallback in evaluateAuthorization still applies.
+            if (activeGrants.length > 0) {
+                authSession = { ...(authSession || {}), privilegedGrants: activeGrants };
+            }
+        } catch (hydrationError) {
+            // Fail-closed posture: with JIT enabled, hydration failure simply
+            // means no grants are visible, so approval-required routes deny.
+            logger.warn('admin_access.jit_grant_hydration_failed', {
+                requestId: req.requestId || '',
+                error: hydrationError?.message || 'unknown error',
+            });
+        }
+    }
+
     const decision = evaluateAuthorization({
         user,
         method: req.method,
         path: req.originalUrl || req.path || req.url || '',
-        authSession: req.authSession || null,
+        authSession,
     });
     req.authzDecision = decision;
 
     if (decision.allowed) {
+        if (decision.reason === 'jit_grant_satisfied') {
+            logger.info('privileged_action.executed', {
+                requestId: req.requestId || '',
+                actorUser: String(user?._id || ''),
+                path: req.originalUrl,
+                grantId: decision.grantId || '',
+                permission: decision.permission || '',
+            });
+        }
         return decision;
     }
 
@@ -1750,7 +1780,7 @@ const admin = asyncHandler(async (req, res, next) => {
         throw new AppError('Not authorized as an admin', 403);
     }
 
-    enforceAdminAuthorizationPolicy(req, effectiveUser);
+    await enforceAdminAuthorizationPolicy(req, effectiveUser);
 
     if (!ADMIN_STRICT_ACCESS_ENABLED) {
         return next();
