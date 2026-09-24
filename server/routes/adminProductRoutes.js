@@ -33,11 +33,11 @@ router.use((req, res, next) => {
 });
 
 router.get('/', protect, admin, validate(adminProductListSchema), listAdminProducts);
-router.post('/', protect, admin, validate(adminCreateProductSchema), sensitiveActions.adminProductChange, createAdminProduct);
+router.post('/', protect, admin, validate(adminCreateProductSchema), requireTrustDecision('admin.product.write', loadProductResource), sensitiveActions.adminProductChange, createAdminProduct);
 router.get('/:id/logs', protect, admin, validate(adminProductDetailSchema), getAdminProductLogs);
 router.get('/:id', protect, admin, validate(adminProductDetailSchema), getAdminProductById);
-router.patch('/:id/core', protect, admin, validate(adminUpdateProductCoreSchema), sensitiveActions.adminProductChange, updateAdminProductCore);
-router.patch('/:id/pricing', protect, admin, validate(adminUpdateProductPricingSchema), sensitiveActions.adminProductChange, updateAdminProductPricing);
+router.patch('/:id/core', protect, admin, validate(adminUpdateProductCoreSchema), requireTrustDecision('admin.product.write', loadProductResource), sensitiveActions.adminProductChange, updateAdminProductCore);
+router.patch('/:id/pricing', protect, admin, validate(adminUpdateProductPricingSchema), requireTrustDecision('admin.product.write', loadProductResource), sensitiveActions.adminProductChange, updateAdminProductPricing);
 router.delete('/:id', protect, admin, validate(adminDeleteProductSchema), requireTrustDecision('admin.product.delete', loadProductResource), sensitiveActions.adminProductChange, deleteAdminProduct);
 
 module.exports = router;

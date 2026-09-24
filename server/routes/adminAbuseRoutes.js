@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     addTemporaryDeny,
@@ -34,7 +35,7 @@ router.get('/state', (req, res) => res.json({
     denylist: getMemoryDenylistSnapshot(),
 }));
 
-router.post('/denylist', denylistWriteLimiter, sensitiveActions.adminSecurityConfigChange, async (req, res) => {
+router.post('/denylist', denylistWriteLimiter, requireTrustDecision('admin.abuse.write'), sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.body?.identity || '');
     const parsedTtl = Number(req.body?.ttlSeconds || 900);
     const ttlSeconds = Math.min(Math.max(Number.isFinite(parsedTtl) ? parsedTtl : 900, 60), 86400);
@@ -46,7 +47,7 @@ router.post('/denylist', denylistWriteLimiter, sensitiveActions.adminSecurityCon
     return res.status(201).json({ success: true, identity, ttlSeconds });
 });
 
-router.delete('/denylist/:identity', denylistWriteLimiter, sensitiveActions.adminSecurityConfigChange, async (req, res) => {
+router.delete('/denylist/:identity', denylistWriteLimiter, requireTrustDecision('admin.abuse.write'), sensitiveActions.adminSecurityConfigChange, async (req, res) => {
     const identity = normalizeIdentity(req.params.identity || '');
     if (!identity) {
         return res.status(400).json({ success: false, code: 'INVALID_DENYLIST_IDENTITY', message: 'A valid denylist identity is required' });

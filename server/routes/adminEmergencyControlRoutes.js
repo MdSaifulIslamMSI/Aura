@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const {
     requireEmergencyControlRole,
     requireEmergencySecondFactor,
@@ -28,9 +29,9 @@ router.use(protect, admin, requireEmergencyControlRole);
 
 router.get('/', listEmergencyControls);
 router.get('/audit', validate(listEmergencyAuditSchema), listEmergencyAuditLogs);
-router.post('/:key/activate', requireEmergencySecondFactor, validate(activateEmergencyFlagSchema), sensitiveActions.adminSecurityConfigChange, activateEmergencyControl);
-router.post('/:key/deactivate', requireEmergencySecondFactor, validate(deactivateEmergencyFlagSchema), sensitiveActions.adminSecurityConfigChange, deactivateEmergencyControl);
-router.post('/:key/extend', requireEmergencySecondFactor, validate(extendEmergencyFlagSchema), sensitiveActions.adminSecurityConfigChange, extendEmergencyControl);
-router.patch('/:key/message', requireEmergencySecondFactor, validate(updateEmergencyMessageSchema), sensitiveActions.adminSecurityConfigChange, updateEmergencyControlMessage);
+router.post('/:key/activate', requireEmergencySecondFactor, validate(activateEmergencyFlagSchema), requireTrustDecision('admin.emergency.write'), sensitiveActions.adminSecurityConfigChange, activateEmergencyControl);
+router.post('/:key/deactivate', requireEmergencySecondFactor, validate(deactivateEmergencyFlagSchema), requireTrustDecision('admin.emergency.write'), sensitiveActions.adminSecurityConfigChange, deactivateEmergencyControl);
+router.post('/:key/extend', requireEmergencySecondFactor, validate(extendEmergencyFlagSchema), requireTrustDecision('admin.emergency.write'), sensitiveActions.adminSecurityConfigChange, extendEmergencyControl);
+router.patch('/:key/message', requireEmergencySecondFactor, validate(updateEmergencyMessageSchema), requireTrustDecision('admin.emergency.write'), sensitiveActions.adminSecurityConfigChange, updateEmergencyControlMessage);
 
 module.exports = router;

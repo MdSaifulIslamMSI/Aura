@@ -4,6 +4,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const { buildRateLimitKey } = require('../services/adminRecoveryGrantService');
 const {
     getAdminEmailOpsSummary,
@@ -39,7 +40,7 @@ router.get('/summary', protect, admin, validate(adminEmailOpsSummarySchema), get
 router.get('/deliveries', protect, admin, validate(adminEmailOpsDeliveryListSchema), listAdminEmailDeliveries);
 router.get('/order-queue', protect, admin, validate(adminEmailOpsQueueListSchema), listAdminEmailQueue);
 router.get('/order-queue/:notificationId', protect, admin, validate(adminEmailOpsQueueDetailSchema), getAdminEmailQueueItem);
-router.post('/order-queue/:notificationId/retry', protect, admin, validate(adminEmailOpsQueueRetrySchema), sensitiveActions.adminEmailOperation, retryAdminEmailQueueItem);
-router.post('/test-send', protect, admin, testSendLimiter, validate(adminEmailOpsTestSendSchema), sensitiveActions.adminEmailOperation, sendAdminEmailOpsTest);
+router.post('/order-queue/:notificationId/retry', protect, admin, validate(adminEmailOpsQueueRetrySchema), requireTrustDecision('admin.email.write'), sensitiveActions.adminEmailOperation, retryAdminEmailQueueItem);
+router.post('/test-send', protect, admin, testSendLimiter, validate(adminEmailOpsTestSendSchema), requireTrustDecision('admin.email.write'), sensitiveActions.adminEmailOperation, sendAdminEmailOpsTest);
 
 module.exports = router;

@@ -16,10 +16,12 @@ const objectIdFromRequest = (req = {}) => {
 const loadOrderResource = async (req = {}) => {
     const orderId = objectIdFromRequest(req);
     if (!orderId) return null;
-    const order = await Order
-        .findById(orderId)
-        .select('_id user orderStatus paymentState totalPrice refundSummary commandCenter')
-        .lean();
+    const queryOrPromise = Order.findById(orderId);
+    const order = typeof queryOrPromise?.select === 'function'
+        ? await queryOrPromise
+            .select('_id user orderStatus paymentState totalPrice refundSummary commandCenter')
+            .lean()
+        : await queryOrPromise;
     if (!order) return null;
 
     return {

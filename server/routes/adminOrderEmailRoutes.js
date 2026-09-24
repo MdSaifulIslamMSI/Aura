@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const {
     listAdminOrderEmails,
     getAdminOrderEmailById,
@@ -16,6 +17,6 @@ const {
 
 router.get('/', protect, admin, validate(adminOrderEmailListSchema), listAdminOrderEmails);
 router.get('/:notificationId', protect, admin, validate(adminOrderEmailDetailSchema), getAdminOrderEmailById);
-router.post('/:notificationId/retry', protect, admin, validate(adminOrderEmailRetrySchema), sensitiveActions.adminEmailOperation, retryAdminOrderEmail);
+router.post('/:notificationId/retry', protect, admin, validate(adminOrderEmailRetrySchema), requireTrustDecision('admin.email.write'), sensitiveActions.adminEmailOperation, retryAdminOrderEmail);
 
 module.exports = router;

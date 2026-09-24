@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const {
     listAdminNotifications,
     getAdminNotificationSummary,
@@ -17,7 +18,7 @@ const {
 
 router.get('/summary', protect, admin, getAdminNotificationSummary);
 router.get('/', protect, admin, validate(adminNotificationListSchema), listAdminNotifications);
-router.patch('/read-all', protect, admin, validate(adminNotificationMarkAllReadSchema), sensitiveActions.adminNotificationChange, markAllAdminNotificationsRead);
-router.patch('/:notificationId/read', protect, admin, validate(adminNotificationMarkReadSchema), sensitiveActions.adminNotificationChange, markAdminNotificationRead);
+router.patch('/read-all', protect, admin, validate(adminNotificationMarkAllReadSchema), requireTrustDecision('admin.notification.write'), sensitiveActions.adminNotificationChange, markAllAdminNotificationsRead);
+router.patch('/:notificationId/read', protect, admin, validate(adminNotificationMarkReadSchema), requireTrustDecision('admin.notification.write'), sensitiveActions.adminNotificationChange, markAdminNotificationRead);
 
 module.exports = router;
