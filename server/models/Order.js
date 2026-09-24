@@ -133,10 +133,10 @@ const orderSchema = mongoose.Schema({
         presentmentTotalRefunded: { type: Number, default: 0 },
         presentmentTotalRefundedMinor: minorUnitsField(),
         fullyRefunded: { type: Boolean, default: false },
-         refunds: [{
-             refundId: { type: String },
-             requestId: { type: String, default: '' },
-             amount: { type: Number, default: 0 },
+        refunds: [{
+            refundId: { type: String },
+            requestId: { type: String, default: '' },
+            amount: { type: Number, default: 0 },
             amountMinor: minorUnitsField(),
             currency: { type: String, default: 'INR' },
             settlementAmount: { type: Number, default: 0 },
