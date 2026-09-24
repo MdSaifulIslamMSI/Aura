@@ -53,17 +53,21 @@ const createImportJob = asyncHandler(async (req, res, next) => {
             },
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to create catalog import job', 500));
+        return next(new AppError(error.message || 'Failed to create catalog import job', 500, 'ADMIN_CATALOG_IMPORT_CREATE_FAILED'));
     }
 });
 
 const getImportJobById = asyncHandler(async (req, res, next) => {
     try {
         const job = await getCatalogImportJob(req.params.jobId);
+        if (!job) {
+            return next(new AppError('Catalog import job not found', 404, 'ADMIN_CATALOG_JOB_NOT_FOUND'));
+        }
         return res.json({
+            success: true,
             jobId: job.jobId,
             status: job.status,
             totals: job.totals,
@@ -82,7 +86,7 @@ const getImportJobById = asyncHandler(async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch catalog import job', 500));
+        return next(new AppError(error.message || 'Failed to fetch catalog import job', 500, 'ADMIN_CATALOG_JOB_DETAIL_FAILED'));
     }
 });
 
@@ -104,10 +108,10 @@ const publishImportJob = asyncHandler(async (req, res, next) => {
             },
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to publish catalog import', 500));
+        return next(new AppError(error.message || 'Failed to publish catalog import', 500, 'ADMIN_CATALOG_PUBLISH_FAILED'));
     }
 });
 
@@ -140,20 +144,20 @@ const createSyncRun = asyncHandler(async (req, res, next) => {
             },
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to queue catalog sync run', 500));
+        return next(new AppError(error.message || 'Failed to queue catalog sync run', 500, 'ADMIN_CATALOG_SYNC_FAILED'));
     }
 });
 
 const getCatalogOpsHealth = asyncHandler(async (req, res, next) => {
     try {
         const health = await getCatalogHealth();
-        return res.json(health);
+        return res.json({ success: true, ...health });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch catalog health', 500));
+        return next(new AppError(error.message || 'Failed to fetch catalog health', 500, 'ADMIN_CATALOG_HEALTH_FAILED'));
     }
 });
 

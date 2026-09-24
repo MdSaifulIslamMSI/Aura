@@ -27,6 +27,7 @@ const listAdminOrderEmails = asyncHandler(async (req, res, next) => {
         });
 
         return res.json({
+            success: true,
             page,
             limit,
             total: result.total,
@@ -34,7 +35,7 @@ const listAdminOrderEmails = asyncHandler(async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch order email notifications', 500));
+        return next(new AppError(error.message || 'Failed to fetch order email notifications', 500, 'ADMIN_ORDER_EMAIL_LIST_FAILED'));
     }
 });
 
@@ -44,10 +45,13 @@ const listAdminOrderEmails = asyncHandler(async (req, res, next) => {
 const getAdminOrderEmailById = asyncHandler(async (req, res, next) => {
     try {
         const item = await getOrderEmailNotificationById(req.params.notificationId);
-        return res.json(item);
+        if (!item) {
+            return next(new AppError('Order email notification not found', 404, 'ADMIN_ORDER_EMAIL_NOT_FOUND'));
+        }
+        return res.json({ success: true, ...item });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to fetch order email notification', 500));
+        return next(new AppError(error.message || 'Failed to fetch order email notification', 500, 'ADMIN_ORDER_EMAIL_DETAIL_FAILED'));
     }
 });
 
@@ -83,10 +87,10 @@ const retryAdminOrderEmail = asyncHandler(async (req, res, next) => {
             },
         });
 
-        return res.status(result.statusCode).json(result.response);
+        return res.status(result.statusCode).json({ success: true, ...result.response });
     } catch (error) {
         if (error instanceof AppError) return next(error);
-        return next(new AppError(error.message || 'Failed to retry order email notification', 500));
+        return next(new AppError(error.message || 'Failed to retry order email notification', 500, 'ADMIN_ORDER_EMAIL_RETRY_FAILED'));
     }
 });
 
