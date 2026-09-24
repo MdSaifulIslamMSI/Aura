@@ -34,6 +34,10 @@ npm run security:routes:coverage:strict
 | PATCH /api/admin/payments/refunds/ledger/:orderId/:requestId/reference | PAYMENT_REFUND | `protect`, `admin`, `sensitiveActions.paymentRefund` |
 | POST /api/admin/payments/:intentId/capture | PAYMENT_PAYOUT_CHANGE | `protect`, `admin`, `sensitiveActions.paymentPayoutChange` |
 | POST /api/admin/payments/:intentId/refunds | PAYMENT_REFUND | `protect`, `admin`, `sensitiveActions.paymentRefund` |
+| POST /api/admin/privileged-access/grants | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
+| POST /api/admin/privileged-access/grants/:grantId/approve | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
+| POST /api/admin/privileged-access/grants/:grantId/deny | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
+| POST /api/admin/privileged-access/grants/:grantId/revoke | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
 | POST /api/admin/payments/:intentId/retry-capture | PAYMENT_PAYOUT_CHANGE | `protect`, `admin`, `sensitiveActions.paymentPayoutChange` |
 | POST /api/admin/products | ADMIN_STATE_CHANGE | `protect`, `admin`, `sensitiveActions.adminProductChange` |
 | PATCH /api/admin/products/:id/core | ADMIN_STATE_CHANGE | `protect`, `admin`, `sensitiveActions.adminProductChange` |

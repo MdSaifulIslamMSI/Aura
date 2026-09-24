@@ -1,3 +1,16 @@
+const mockGrantStore = { active: [] };
+
+jest.mock('../models/PrivilegedAccessGrant', () => ({
+    updateMany: jest.fn(async () => ({ modifiedCount: 0 })),
+    find: jest.fn(() => ({
+        select: () => ({
+            lean: async () => mockGrantStore.active,
+        }),
+    })),
+    findOne: jest.fn(),
+    create: jest.fn(),
+}));
+
 const ORIGINAL_ENV = {
     NODE_ENV: process.env.NODE_ENV,
     ADMIN_STRICT_ACCESS_ENABLED: process.env.ADMIN_STRICT_ACCESS_ENABLED,
@@ -44,6 +57,7 @@ const loadTrustedDeviceService = () => {
 
 describe('authMiddleware admin second-factor enforcement', () => {
     afterEach(() => {
+        mockGrantStore.active = [];
         for (const [key, value] of Object.entries(ORIGINAL_ENV)) {
             if (value === undefined) {
                 delete process.env[key];
@@ -827,5 +841,122 @@ describe('authMiddleware admin second-factor enforcement', () => {
         });
         expect(next).toHaveBeenCalledTimes(1);
         expect(next).toHaveBeenCalledWith();
+    });
+
+    test('hydrates active privileged grants from the grant store when JIT is enabled', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.PRIVILEGED_JIT_ACCESS_ENABLED = 'true';
+        process.env.DUO_ENABLED = 'false';
+        process.env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_STATE_CHANGES = 'false';
+
+        mockGrantStore.active = [{
+            grantId: 'jit-grant-hydrated',
+            permission: 'admin.users.delete',
+            status: 'approved',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        }];
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            method: 'POST',
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+            },
+            headers: {},
+            originalUrl: '/api/admin/users/507f1f77bcf86cd799439011/delete',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(req.authzDecision).toMatchObject({
+            allowed: true,
+            reason: 'jit_grant_satisfied',
+            grantId: 'jit-grant-hydrated',
+            permission: 'admin.users.delete',
+        });
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('denies privileged admin actions when grant store hydration yields no active grants', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.PRIVILEGED_JIT_ACCESS_ENABLED = 'true';
+        process.env.DUO_ENABLED = 'false';
+        process.env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_STATE_CHANGES = 'false';
+
+        mockGrantStore.active = [];
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            method: 'POST',
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+            },
+            headers: {},
+            originalUrl: '/api/admin/users/507f1f77bcf86cd799439011/delete',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(req.authzDecision).toMatchObject({
+            allowed: false,
+            code: 'PRIVILEGED_JIT_REQUIRED',
+            permission: 'admin.users.delete',
+        });
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'PRIVILEGED_JIT_REQUIRED',
+        }));
     });
 });

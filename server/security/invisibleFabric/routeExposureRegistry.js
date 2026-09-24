@@ -44,6 +44,7 @@ const routeMounts = Object.freeze([
     ['server/routes/adminOpsRoutes.js', '/api/admin/ops'],
     ['server/routes/adminFraudRoutes.js', '/api/admin/fraud'],
     ['server/routes/adminAbuseRoutes.js', '/api/admin/abuse'],
+    ['server/routes/adminPrivilegedAccessRoutes.js', '/api/admin/privileged-access'],
     ['server/routes/adminStatusRoutes.js', '/api/admin/status'],
     ['server/routes/internalOpsRoutes.js', '/api/internal'],
     ['server/routes/observabilityRoutes.js', '/api/observability'],

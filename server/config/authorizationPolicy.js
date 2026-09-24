@@ -78,6 +78,11 @@ const ADMIN_ROUTE_POLICIES = [
     ['POST', '/api/admin/status/seed', 'admin.status.write'],
     ['GET', '/api/admin/fraud', 'admin.fraud.read'],
     ['PATCH', '/api/admin/fraud/:decisionId/resolve', 'admin.fraud.write'],
+    ['GET', '/api/admin/privileged-access/grants', 'admin.privileged_access.read'],
+    ['POST', '/api/admin/privileged-access/grants', 'admin.privileged_access.write'],
+    ['POST', '/api/admin/privileged-access/grants/:grantId/approve', 'admin.privileged_access.write'],
+    ['POST', '/api/admin/privileged-access/grants/:grantId/deny', 'admin.privileged_access.write'],
+    ['POST', '/api/admin/privileged-access/grants/:grantId/revoke', 'admin.privileged_access.write'],
 ].map(([method, path, permission]) => ({
     method,
     path,
