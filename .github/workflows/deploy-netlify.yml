@@ -221,6 +221,7 @@ jobs:
     steps:
       - name: Reject dispatch runs with an empty target
         if: github.event_name == 'workflow_dispatch'
+        working-directory: .
         env:
           DISPATCH_TARGET: ${{ inputs.target }}
         run: |
