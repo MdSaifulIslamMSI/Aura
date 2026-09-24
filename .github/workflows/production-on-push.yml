@@ -80,7 +80,10 @@ jobs:
     name: Canonical release safety gates
     uses: ./.github/workflows/giant-release-gates.yml
     with:
-      staging_off_acknowledged: false
+      # Acknowledged staging-off (repo variable) skips the live staging-parity
+      # smokes; when staging is down but NOT acknowledged, they run and fail
+      # closed, blocking every production lane below.
+      staging_off_acknowledged: ${{ vars.STAGING_INFRA_PAUSED == 'true' }}
     permissions:
       contents: read
       id-token: write

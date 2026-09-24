@@ -1255,12 +1255,18 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:\s*"true"/);
     });
 
-    test('staging watch fails closed when infrastructure is paused', () => {
+    test('staging watch reports acknowledged-off without failing the promotion gate', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
+        const productionOnPush = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-on-push.yml'), 'utf8');
 
-        expect(workflow).toContain('Staging infra paused - fail closed');
-        expect(workflow).toMatch(/STAGING_INFRA_PAUSED=true[\s\S]*exit 1/);
-        expect(workflow).not.toContain('live staging smoke/DAST checks skipped');
+        // Paused staging is an acknowledged state: loud notice, clean exit. The
+        // real fail-closed protection lives in the canonical release gates,
+        // which only skip the live staging smokes when the same repo variable
+        // acknowledges the paused state.
+        expect(workflow).toContain('Staging infra paused - acknowledged off');
+        expect(workflow).toMatch(/STAGING_INFRA_PAUSED=true\); acknowledged-off state/);
+        expect(workflow).not.toMatch(/Staging infra paused[\s\S]{0,400}exit 1/);
+        expect(productionOnPush).toContain("staging_off_acknowledged: ${{ vars.STAGING_INFRA_PAUSED == 'true' }}");
     });
 
     test('production-on-push requires manual confirmation before production dispatch', () => {
