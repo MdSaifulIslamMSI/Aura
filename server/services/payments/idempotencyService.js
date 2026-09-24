@@ -117,8 +117,35 @@ const withIdempotency = async ({
     route,
     requestPayload,
     handler,
+    recover = null,
 }) => {
     const requestHash = hashPayload(requestPayload || {});
+    const tryRecover = async (record) => {
+        if (typeof recover !== 'function' || !record) return null;
+        const recovered = await recover({ key, userKey, route, requestHash, record });
+        if (!recovered) return null;
+        const statusCode = Number.isFinite(Number(recovered.statusCode))
+            ? Number(recovered.statusCode)
+            : 200;
+        const response = recovered.response ?? {};
+        const updated = await IdempotencyRecord.findOneAndUpdate(
+            { _id: record._id, state: 'processing', lockToken: record.lockToken || '' },
+            {
+                $set: {
+                    state: 'completed',
+                    lockToken: '',
+                    lockExpiresAt: null,
+                    statusCode,
+                    response,
+                    processedAt: new Date(),
+                    expiresAt: new Date(Date.now() + IDEMPOTENCY_RECORD_TTL_MS),
+                },
+            },
+            { returnDocument: 'after' }
+        ).lean();
+        if (!updated) return null;
+        return { replayed: true, statusCode, response };
+    };
     const lockToken = crypto.randomUUID();
     let reservedRecord = null;
 
@@ -151,6 +178,9 @@ const withIdempotency = async ({
                 };
             }
 
+            const recovered = await tryRecover(existing);
+            if (recovered) return recovered;
+
             if (!isProcessingRecordExpired(existing)) {
                 const settled = await waitForSettledRecord({
                     key,
@@ -172,6 +202,9 @@ const withIdempotency = async ({
                         response: settled.response,
                     };
                 }
+
+                const recovered = await tryRecover(settled);
+                if (recovered) return recovered;
             }
 
             const reclaimed = await IdempotencyRecord.findOneAndUpdate(
@@ -223,6 +256,9 @@ const withIdempotency = async ({
                     response: settled.response,
                 };
             }
+
+            const recoveredSettled = await tryRecover(settled);
+            if (recoveredSettled) return recoveredSettled;
 
             throw new AppError('A matching request with this Idempotency-Key is still processing. Retry shortly.', 409);
         }

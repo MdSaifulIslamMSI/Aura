@@ -608,7 +608,7 @@ const createDpopJti = () => {
     return base64url(bytes);
 };
 
-const createDpopProof = async (method, url) => {
+export const createDpopProof = async (method, url) => {
     const keyPair = await getOrCreateDpopKeyPair();
     if (!keyPair) return null;
 

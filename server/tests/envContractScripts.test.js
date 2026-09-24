@@ -1255,6 +1255,20 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:\s*"true"/);
     });
 
+    test('staging watch reports acknowledged-off without failing the promotion gate', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
+        const productionOnPush = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-on-push.yml'), 'utf8');
+
+        // Paused staging is an acknowledged state: loud notice, clean exit. The
+        // real fail-closed protection lives in the canonical release gates,
+        // which only skip the live staging smokes when the same repo variable
+        // acknowledges the paused state.
+        expect(workflow).toContain('Staging infra paused - acknowledged off');
+        expect(workflow).toMatch(/STAGING_INFRA_PAUSED=true\); acknowledged-off state/);
+        expect(workflow).not.toMatch(/Staging infra paused[\s\S]{0,400}exit 1/);
+        expect(productionOnPush).toContain("staging_off_acknowledged: ${{ vars.STAGING_INFRA_PAUSED == 'true' }}");
+    });
+
     test('production-on-push requires manual confirmation before production dispatch', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-on-push.yml'), 'utf8');
         const manualGate = "if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'";
@@ -1279,6 +1293,28 @@ describe('repo environment contract scripts', () => {
             const section = jobSection(jobName);
             expect(section).toContain(manualGate);
             expect(section).toContain(`--workflow ${dispatchedWorkflow}`);
+        }
+    });
+
+    test('production-on-push binds every production lane to canonical gates', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-on-push.yml'), 'utf8');
+        const jobSection = (jobName) => {
+            const match = workflow.match(new RegExp(`\\n  ${jobName}:\\n[\\s\\S]*?(?=\\n  [a-zA-Z0-9_-]+:\\n|$)`));
+            expect(match).toBeTruthy();
+            return match[0];
+        };
+
+        expect(jobSection('canonical-quality-gates')).toContain('uses: ./.github/workflows/ci.yml');
+        expect(jobSection('canonical-security-gates')).toContain('uses: ./.github/workflows/security-gates.yml');
+        expect(jobSection('canonical-release-safety-gates')).toContain('uses: ./.github/workflows/giant-release-gates.yml');
+        expect(fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'security-gates.yml'), 'utf8')).toMatch(/workflow_call:/);
+
+        for (const jobName of ['staging-promotion-gate', 'deploy-backend', 'deploy-storefront', 'deploy-gateway', 'release-desktop', 'release-mobile']) {
+            const section = jobSection(jobName);
+            expect(section).toContain('canonical-quality-gates');
+            expect(section).toContain('canonical-security-gates');
+            expect(section).toContain('canonical-release-safety-gates');
+            expect(section).toContain('staging-promotion-gate');
         }
     });
 
@@ -2187,6 +2223,16 @@ describe('repo environment contract scripts', () => {
 
         expect(workflow.jobs['rollback-backend'].with.execute_rollback).toBe(true);
         expect(workflow.jobs['rollback-frontend-aws'].with.execute_rollback).toBe(true);
+    });
+
+    test('blue-green deployment requires an explicit operator opt-in', () => {
+        const deployRelease = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8');
+        const drill = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '17-bluegreen-drill.sh'), 'utf8');
+
+        expect(deployRelease).toContain('AURA_BLUE_GREEN_ENABLED');
+        expect(deployRelease).toContain('Refusing deploy: blue-green activation is disabled');
+        expect(deployRelease).toContain('resolve_env_value "AURA_BLUE_GREEN_ENABLED"');
+        expect(drill).toMatch(/export AURA_BLUE_GREEN_ENABLED=true/);
     });
 
     test('free-tier AWS guard config blocks expensive services by default', () => {

@@ -72,6 +72,11 @@ vi.mock('socket.io-client', () => ({
     io: ioMock,
 }));
 
+vi.mock('../services/apiBase', async (importOriginal) => ({
+    ...(await importOriginal()),
+    createDpopProof: vi.fn(async () => 'dpop-test-proof'),
+}));
+
 vi.mock('../services/runtimeApiConfig', async (importOriginal) => {
     const actual = await importOriginal();
     return {
@@ -172,8 +177,26 @@ describe('SocketProvider', () => {
         });
 
         expect(socketInstances[0]?.options?.withCredentials).toBe(true);
-        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1' });
+        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1', dpopProof: 'dpop-test-proof' });
         expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('still sends the DPoP proof when the token resolves empty', async () => {
+        authState.currentUser.getIdToken = vi.fn(async () => '');
+
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(socketInstances[0]?.options?.auth).toEqual({ dpopProof: 'dpop-test-proof' });
     });
 
     it('forces polling when a hosted Vercel frontend proxies realtime through its own origin', async () => {
@@ -203,7 +226,7 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.options?.transports).toEqual(['polling']);
         expect(socketInstances[0]?.options?.upgrade).toBe(false);
         expect(socketInstances[0]?.options?.rememberUpgrade).toBe(false);
-        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1' });
+        expect(socketInstances[0]?.options?.auth).toEqual({ token: 'socket-token-1', dpopProof: 'dpop-test-proof' });
     });
 
     it('forces polling when a hosted Netlify frontend proxies realtime through its own origin', async () => {
@@ -283,8 +306,8 @@ describe('SocketProvider', () => {
         });
 
         expect(authState.currentUser.getIdToken).toHaveBeenCalledTimes(2);
-        expect(instance.socket.auth).toEqual({ token: 'socket-token-1' });
-        expect(instance.socket.io.opts.auth).toEqual({ token: 'socket-token-1' });
+        expect(instance.socket.auth).toEqual({ token: 'socket-token-1', dpopProof: 'dpop-test-proof' });
+        expect(instance.socket.io.opts.auth).toEqual({ token: 'socket-token-1', dpopProof: 'dpop-test-proof' });
     });
 
     it('force-refreshes exactly once when the server expires a renewable credential', async () => {

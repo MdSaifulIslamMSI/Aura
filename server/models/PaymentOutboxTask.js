@@ -23,5 +23,13 @@ paymentOutboxTaskSchema.index(
         },
     }
 );
+paymentOutboxTaskSchema.index(
+    { taskType: 1, intentId: 1, 'payload.requestId': 1 },
+    {
+        unique: true,
+        partialFilterExpression: { taskType: 'refund' },
+        name: 'refund_task_request_unique',
+    }
+);
 
 module.exports = mongoose.model('PaymentOutboxTask', paymentOutboxTaskSchema);

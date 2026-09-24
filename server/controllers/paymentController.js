@@ -676,6 +676,7 @@ const createRefund = asyncHandler(async (req, res, next) => {
                     amount: req.body.amount,
                     amountMode: req.body.amountMode,
                     reason: req.body.reason,
+                    requestId: idempotencyKey,
                 });
                 return { statusCode: 200, response };
             },
@@ -725,6 +726,7 @@ const createAdminRefund = asyncHandler(async (req, res, next) => {
                     amount: req.body.amount,
                     amountMode: req.body.amountMode,
                     reason: req.body.reason,
+                    requestId: idempotencyKey,
                 });
                 return { statusCode: 200, response };
             },
@@ -777,7 +779,7 @@ const handleRazorpayWebhook = asyncHandler(async (req, res, next) => {
             reasonCode: result?.deduped ? 'deduped' : result?.reason || 'accepted',
             intentId: result?.intentId || '',
         });
-        return res.status(200).json(result);
+        return res.status(result?.suppressed ? 503 : 200).json(result);
     } catch (error) {
         if (/signature/i.test(String(error?.message || ''))) {
             recordPaymentWebhookSecurityAudit({
@@ -831,7 +833,7 @@ const handleStripeWebhook = asyncHandler(async (req, res, next) => {
             reasonCode: result?.deduped ? 'deduped' : result?.reason || 'accepted',
             intentId: result?.intentId || '',
         });
-        return res.status(200).json(result);
+        return res.status(result?.suppressed ? 503 : 200).json(result);
     } catch (error) {
         if (/signature/i.test(String(error?.message || ''))) {
             recordPaymentWebhookSecurityAudit({

@@ -19,6 +19,7 @@ const {
     markSupportTicketLiveCallEnded,
 } = require('./supportVideoService');
 const { deleteSupportRoom } = require('./livekitService');
+const { verifyDpopProof } = require('../utils/dpop');
 
 let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
@@ -126,7 +127,11 @@ const getBrowserSessionDeadlineMs = (session = {}) => {
     return deadlines.length > 0 ? Math.min(...deadlines) : 0;
 };
 
-const resolveSocketUserFromBrowserSessionId = async (sessionId = '', { touch = true } = {}) => {
+const resolveSocketUserFromBrowserSessionId = async (sessionId = '', {
+    touch = true,
+    handshake = null,
+    verifyDpop = true,
+} = {}) => {
     const normalizedSessionId = normalizeId(sessionId);
     if (!normalizedSessionId) return null;
 
@@ -151,6 +156,20 @@ const resolveSocketUserFromBrowserSessionId = async (sessionId = '', { touch = t
 
     // Initial connection is user activity; periodic authorization checks are
     // not. Revalidation must not keep an otherwise idle cookie session alive.
+    if (verifyDpop && (session.dpopJwk || String(process.env.AUTH_DPOP_REQUIRED || '').toLowerCase() === 'true')) {
+        const verification = await verifyDpopProof({
+            headers: handshake?.headers || {},
+            method: String(handshake?.method || 'GET').toUpperCase(),
+            originalUrl: handshake?.url || '/socket.io/',
+        }, session.dpopJwk);
+        if (!verification.success) {
+            throw buildSocketAuthError(
+                `Socket DPoP verification failed: ${verification.reason || 'invalid proof'}`,
+                'SOCKET_AUTH_REJECTED'
+            );
+        }
+    }
+
     const activeSession = touch ? await touchBrowserSession(session) : session;
     const expiresAtMs = getBrowserSessionDeadlineMs(activeSession);
     if (!expiresAtMs || expiresAtMs <= Date.now()) {
@@ -173,8 +192,8 @@ const resolveSocketUserFromBrowserSessionId = async (sessionId = '', { touch = t
     });
 };
 
-const resolveSocketUserFromSessionCookie = async (cookieHeader = '') => (
-    resolveSocketUserFromBrowserSessionId(resolveSessionIdFromCookieHeader(cookieHeader))
+const resolveSocketUserFromSessionCookie = async (cookieHeader = '', options = {}) => (
+    resolveSocketUserFromBrowserSessionId(resolveSessionIdFromCookieHeader(cookieHeader), options)
 );
 
 const resolveSocketUserFromFirebaseToken = async (token = '') => {
@@ -194,13 +213,23 @@ const resolveSocketUserFromFirebaseToken = async (token = '') => {
         }
         throw buildSocketAuthError('Authenticated socket token could not be verified');
     }
+    const authUid = normalizeId(decoded?.uid);
     const email = normalizeEmail(decoded?.email);
+    const emailVerified = decoded?.email_verified === true;
+    const identityQuery = authUid
+        ? {
+            $or: [
+                { authUid },
+                ...(email && emailVerified ? [{ email }] : []),
+            ],
+        }
+        : (email && emailVerified ? { email } : { _id: null });
 
-    if (!email) {
-        throw buildSocketAuthError('Authenticated socket account is missing email', 'SOCKET_ACCOUNT_MISSING');
+    if (!identityQuery || Object.keys(identityQuery).length === 0) {
+        throw buildSocketAuthError('Authenticated socket account is missing a verified identity', 'SOCKET_ACCOUNT_MISSING');
     }
 
-    const user = await User.findOne({ email })
+    const user = await User.findOne(identityQuery)
         .select('_id authUid email name isAdmin isSeller isVerified authTokensRevokedAfter accountState softDeleted')
         .lean();
 
@@ -228,13 +257,13 @@ const resolveSocketUserFromFirebaseToken = async (token = '') => {
     });
 };
 
-const resolveSocketAuthentication = async ({ token = '', cookieHeader = '' } = {}) => {
+const resolveSocketAuthentication = async ({ token = '', cookieHeader = '', handshake = null } = {}) => {
     const normalizedToken = String(token || '').trim();
     if (normalizedToken) {
         const bearerAuthentication = await resolveSocketUserFromFirebaseToken(normalizedToken);
         let cookieAuthentication = null;
         try {
-            cookieAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader);
+            cookieAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader, { handshake });
         } catch (error) {
             // The explicit, freshly verified bearer is authoritative. An old
             // cookie may be expired or revoked after token refresh; compare
@@ -255,7 +284,7 @@ const resolveSocketAuthentication = async ({ token = '', cookieHeader = '' } = {
         return bearerAuthentication;
     }
 
-    const sessionAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader);
+    const sessionAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader, { handshake });
     if (!sessionAuthentication) {
         throw buildSocketAuthError('Authentication session missing or expired', 'SOCKET_AUTH_EXPIRED');
     }
@@ -265,7 +294,7 @@ const resolveSocketAuthentication = async ({ token = '', cookieHeader = '' } = {
 const revalidateSocketAuthentication = async (credential = {}, expectedUserId = '') => {
     const authentication = credential.source === 'firebase_bearer'
         ? await resolveSocketUserFromFirebaseToken(credential.token)
-        : await resolveSocketUserFromBrowserSessionId(credential.sessionId, { touch: false });
+        : await resolveSocketUserFromBrowserSessionId(credential.sessionId, { touch: false, verifyDpop: false });
 
     if (!authentication) {
         throw buildSocketAuthError('Authenticated socket session expired', 'SOCKET_AUTH_EXPIRED');
@@ -944,9 +973,13 @@ const initializeSocket = (httpServer) => {
     io.use(async (socket, next) => {
         const token = String(socket.handshake.auth?.token || '').trim();
         const cookieHeader = String(socket.handshake.headers?.cookie || '').trim();
+        const dpopProof = String(socket.handshake.auth?.dpopProof || '').trim();
+        if (dpopProof) {
+            socket.handshake.headers.dpop = dpopProof;
+        }
 
         try {
-            const authentication = await resolveSocketAuthentication({ token, cookieHeader });
+            const authentication = await resolveSocketAuthentication({ token, cookieHeader, handshake: socket.handshake });
             applySocketAuthentication(socket, authentication);
             next();
         } catch (error) {

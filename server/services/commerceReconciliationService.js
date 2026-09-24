@@ -49,6 +49,7 @@ const syncOrderFromPaymentIntent = async ({ order, paymentIntent }) => {
 
     const updates = {};
     const intentStatus = lower(paymentIntent.status);
+    const orderCancelled = lower(order.orderStatus) === 'cancelled' || Boolean(order.cancelledAt);
 
     if (!order.paymentIntentId && paymentIntent.intentId) {
         updates.paymentIntentId = paymentIntent.intentId;
@@ -65,21 +66,42 @@ const syncOrderFromPaymentIntent = async ({ order, paymentIntent }) => {
         }
     }
     if (intentStatus === 'captured') {
-        if (lower(order.paymentState) !== 'captured') {
+        const orderPaymentState = lower(order.paymentState);
+        const hasTerminalRefundState = ['partially_refunded', 'refunded'].includes(orderPaymentState);
+        if (!hasTerminalRefundState && orderPaymentState !== 'captured') {
             updates.paymentState = 'captured';
         }
-        if (!order.isPaid) {
-            updates.isPaid = true;
-        }
-        if (!order.paidAt && paymentIntent.capturedAt) {
-            updates.paidAt = paymentIntent.capturedAt;
-        }
-        if (!order.paymentCapturedAt && paymentIntent.capturedAt) {
-            updates.paymentCapturedAt = paymentIntent.capturedAt;
+        if (orderCancelled) {
+            updates.isPaid = false;
+            updates.paidAt = null;
+            if (!order.paymentCapturedAt && paymentIntent.capturedAt) {
+                updates.paymentCapturedAt = paymentIntent.capturedAt;
+            }
+        } else {
+            if (!order.isPaid) {
+                updates.isPaid = true;
+            }
+            if (!order.paidAt && paymentIntent.capturedAt) {
+                updates.paidAt = paymentIntent.capturedAt;
+            }
+            if (!order.paymentCapturedAt && paymentIntent.capturedAt) {
+                updates.paymentCapturedAt = paymentIntent.capturedAt;
+            }
         }
     }
     if (['failed', 'expired', 'partially_refunded', 'refunded'].includes(intentStatus) && lower(order.paymentState) !== intentStatus) {
         updates.paymentState = intentStatus;
+    }
+
+    if (intentStatus === 'captured' && orderCancelled && !order.refundSummary?.fullyRefunded) {
+        await scheduleRefundTask({
+            intentId: paymentIntent.intentId,
+            amount: paymentIntent.amount,
+            amountMode: 'charge',
+            reason: 'order_cancelled_after_capture',
+            orderId: order._id,
+            requestId: `capture-after-cancel:${paymentIntent.intentId}`,
+        });
     }
 
     if (Object.keys(updates).length === 0) return 0;

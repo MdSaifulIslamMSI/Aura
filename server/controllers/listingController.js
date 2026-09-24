@@ -24,6 +24,7 @@ const { awardLoyaltyPoints } = require('../services/loyaltyService');
 const {
     sendCounterpartyMessageEmail,
     assertEscrowEligibility,
+    assertEscrowPaymentIntentUsable,
     buildEscrowCheckoutPayload,
     appendEscrowPaymentEvent,
     SELLER_PUBLIC_STRICT,
@@ -39,6 +40,7 @@ const {
 const {
     makeIntentId,
     normalizeMethod,
+    normalizeCurrencyCode,
     roundCurrency,
     mapProviderTypeToPaymentMethod,
 } = require('../services/payments/helpers');
@@ -400,6 +402,15 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
     if (String(intent.metadata?.listingId || '') !== String(listing._id)) {
         return next(new AppError('Escrow payment intent does not match this listing', 409));
     }
+    assertEscrowPaymentIntentUsable({
+        intent,
+        allowedStatuses: [
+            PAYMENT_STATUSES.CREATED,
+            PAYMENT_STATUSES.CHALLENGE_PENDING,
+            PAYMENT_STATUSES.AUTHORIZED,
+            PAYMENT_STATUSES.CAPTURED,
+        ],
+    });
     if (isIntentExpired(intent)) {
         intent.status = PAYMENT_STATUSES.EXPIRED;
         await intent.save();
@@ -445,6 +456,17 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
 
     const payment = await provider.fetchPayment(providerPaymentId);
     const providerStatus = String(payment?.status || '').toLowerCase();
+    const amountInfo = typeof provider.parsePaymentAmounts === 'function'
+        ? provider.parsePaymentAmounts(payment)
+        : null;
+    if (amountInfo?.amount !== undefined && amountInfo?.amount !== null
+        && diff(Number(amountInfo.amount), Number(intent.amount)) > 0.01) {
+        return next(new AppError('Escrow payment amount mismatch', 409));
+    }
+    if (amountInfo?.currency
+        && normalizeCurrencyCode(amountInfo.currency) !== normalizeCurrencyCode(intent.currency)) {
+        return next(new AppError('Escrow payment currency mismatch', 409));
+    }
     const nextStatus = providerStatus === 'captured' ? PAYMENT_STATUSES.CAPTURED : PAYMENT_STATUSES.AUTHORIZED;
     const methodInfo = provider.parsePaymentMethod(payment);
     const providerConfirmedMethod = mapProviderTypeToPaymentMethod(methodInfo.type);
@@ -1562,6 +1584,10 @@ const startEscrow = asyncHandler(async (req, res, next) => {
     if (String(intent.metadata?.sellerId || '') !== String(listing.seller?._id || listing.seller)) {
         return next(new AppError('Payment intent seller mismatch', 409));
     }
+    assertEscrowPaymentIntentUsable({
+        intent,
+        allowedStatuses: [PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED],
+    });
     if (isIntentExpired(intent)) {
         intent.status = PAYMENT_STATUSES.EXPIRED;
         await intent.save();

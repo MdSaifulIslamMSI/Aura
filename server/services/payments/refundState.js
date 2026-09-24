@@ -30,6 +30,20 @@ const getPresentmentRefunded = (order = {}) => roundCurrency(
     Number(order?.refundSummary?.presentmentTotalRefunded || 0),
     getPresentmentCurrency(order)
 );
+const SUCCESSFUL_REFUND_STATUSES = new Set(['processed', 'succeeded', 'success', 'completed', 'refunded', 'confirmed']);
+const normalizeRefundStatus = (value) => {
+    const status = String(value || 'pending').trim().toLowerCase();
+    if (SUCCESSFUL_REFUND_STATUSES.has(status)) return 'processed';
+    if (['failed', 'cancelled', 'canceled', 'rejected'].includes(status)) return 'failed';
+    return 'pending';
+};
+const isSuccessfulRefundStatus = (value) => normalizeRefundStatus(value) === 'processed';
+const getRefundCommandStatus = (value) => {
+    const status = normalizeRefundStatus(value);
+    if (status === 'processed') return 'processed';
+    if (status === 'failed') return 'rejected';
+    return 'pending';
+};
 
 const calculateRefundable = (order) => {
     const refunded = getSettlementRefunded(order);
@@ -173,11 +187,13 @@ const buildRefundEntry = ({
     providerRefund,
     refundAmounts,
     reason,
+    requestId = '',
     fallbackRefundId,
     createdAt = new Date(),
 }) => {
     const entry = {
         refundId: providerRefund?.id || fallbackRefundId,
+        ...(requestId ? { requestId: String(requestId) } : {}),
         amount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
         currency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
         settlementAmount: refundAmounts?.settlementAmount ?? 0,
@@ -185,7 +201,7 @@ const buildRefundEntry = ({
         presentmentAmount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
         presentmentCurrency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
         reason: reason || 'requested_by_user',
-        status: String(providerRefund?.status || 'processed'),
+        status: normalizeRefundStatus(providerRefund?.status),
         createdAt,
     };
 
@@ -201,25 +217,6 @@ const buildRefundMutation = ({
 }) => {
     const settlementCurrency = getSettlementCurrency(order);
     const presentmentCurrency = getPresentmentCurrency(order);
-    const nextTotalRefunded = roundCurrency(
-        getSettlementRefunded(order) + Number(refundEntry?.settlementAmount || 0),
-        settlementCurrency
-    );
-    const nextPresentmentTotalRefunded = roundCurrency(
-        getPresentmentRefunded(order) + Number(refundEntry?.presentmentAmount || 0),
-        presentmentCurrency
-    );
-    const orderTotal = getSettlementTotal(order);
-    const orderPresentmentTotal = getPresentmentTotal(order);
-    const fullyRefunded = (
-        Math.abs(nextTotalRefunded - orderTotal) <= 0.01 || nextTotalRefunded > orderTotal
-    ) && (
-        Math.abs(nextPresentmentTotalRefunded - orderPresentmentTotal) <= 0.01
-        || nextPresentmentTotalRefunded > orderPresentmentTotal
-    );
-    const paymentState = fullyRefunded
-        ? PAYMENT_STATUSES.REFUNDED
-        : PAYMENT_STATUSES.PARTIALLY_REFUNDED;
     const normalizedRefundEntry = {
         ...refundEntry,
         ...buildRefundEntryMinorUnits(refundEntry),
@@ -228,19 +225,40 @@ const buildRefundMutation = ({
         ...refund,
         ...buildRefundEntryMinorUnits(refund),
     }));
+    const successful = isSuccessfulRefundStatus(refundEntry?.status);
+    const previousTotalRefunded = getSettlementRefunded(order);
+    const previousPresentmentTotalRefunded = getPresentmentRefunded(order);
+    const nextTotalRefunded = successful
+        ? roundCurrency(previousTotalRefunded + Number(refundEntry?.settlementAmount || 0), settlementCurrency)
+        : previousTotalRefunded;
+    const nextPresentmentTotalRefunded = successful
+        ? roundCurrency(previousPresentmentTotalRefunded + Number(refundEntry?.presentmentAmount || 0), presentmentCurrency)
+        : previousPresentmentTotalRefunded;
+    const orderTotal = getSettlementTotal(order);
+    const orderPresentmentTotal = getPresentmentTotal(order);
+    const fullyRefunded = successful && (
+        (Math.abs(nextTotalRefunded - orderTotal) <= 0.01 || nextTotalRefunded > orderTotal)
+        && (
+            Math.abs(nextPresentmentTotalRefunded - orderPresentmentTotal) <= 0.01
+            || nextPresentmentTotalRefunded > orderPresentmentTotal
+        )
+    );
+    const paymentState = successful
+        ? (fullyRefunded ? PAYMENT_STATUSES.REFUNDED : PAYMENT_STATUSES.PARTIALLY_REFUNDED)
+        : String(order?.paymentState || PAYMENT_STATUSES.CAPTURED);
     const refundSummary = {
         totalRefunded: nextTotalRefunded,
         settlementCurrency,
         presentmentCurrency,
         presentmentTotalRefunded: nextPresentmentTotalRefunded,
-        fullyRefunded,
+        fullyRefunded: successful ? fullyRefunded : Boolean(order?.refundSummary?.fullyRefunded),
         refunds: [...normalizedPreviousRefunds, normalizedRefundEntry],
     };
 
     return {
         nextTotalRefunded,
         nextPresentmentTotalRefunded,
-        fullyRefunded,
+        fullyRefunded: refundSummary.fullyRefunded,
         paymentState,
         refundSummary: {
             ...refundSummary,
@@ -255,4 +273,5 @@ module.exports = {
     resolveRefundAmounts,
     buildRefundEntry,
     buildRefundMutation,
+    getRefundCommandStatus,
 };

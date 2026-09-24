@@ -38,6 +38,12 @@ const {
 const transactionFallbackEnabled = paymentFlags.nodeEnv !== 'production';
 const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
+const serializeOrderForResponse = (order) => {
+    const serialized = order?.toObject ? order.toObject() : { ...(order || {}) };
+    delete serialized.idempotencyKey;
+    return serialized;
+};
+
 const isUnsupportedTransactionError = (error) => {
     const message = String(error?.message || '').toLowerCase();
     return (
@@ -237,6 +243,7 @@ const executeOrderCreation = async ({
             charge: quote.pricing.charge || null
         },
         paymentIntentId: paymentIntent?.intentId || body.paymentIntentId || '',
+        idempotencyKey: String(idempotencyKey || ''),
         paymentProvider: paymentIntent?.provider || '',
         paymentState: paymentValidation.paymentState,
         paymentAuthorizedAt: paymentIntent?.authorizedAt || null,
@@ -450,6 +457,21 @@ const placeOrderWithIdempotency = async ({
     userKey,
     route: 'orders:create',
     requestPayload: body,
+    recover: async () => {
+        if (!idempotencyKey) return null;
+        const existingOrder = await Order.findOne({
+            user: userId,
+            idempotencyKey,
+        }).lean();
+        if (!existingOrder) return null;
+        return {
+            statusCode: 201,
+            response: {
+                ...serializeOrderForResponse(existingOrder),
+                cart: null,
+            },
+        };
+    },
     handler: async () => {
         if (emailFlags.orderEmailsEnabled && !EMAIL_REGEX.test(String(user?.email || '').trim())) {
             throw new AppError('A valid account email is required to place order', 400);
@@ -504,7 +526,7 @@ const placeOrderWithIdempotency = async ({
             return {
                 statusCode: 201,
                 response: {
-                    ...(createdOrder.toObject ? createdOrder.toObject() : createdOrder),
+                    ...serializeOrderForResponse(createdOrder),
                     cart: cartSnapshot,
                 },
             };

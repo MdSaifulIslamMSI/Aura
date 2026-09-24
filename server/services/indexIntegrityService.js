@@ -7,7 +7,12 @@ const logger = require('../utils/logger');
 const CouponRedemption = require('../models/CouponRedemption');
 const StatusWebhookEvent = require('../models/StatusWebhookEvent');
 const PaymentIntent = require('../models/PaymentIntent');
+const PaymentEvent = require('../models/PaymentEvent');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
+const PaymentMethod = require('../models/PaymentMethod');
+const IdempotencyRecord = require('../models/IdempotencyRecord');
 const Order = require('../models/Order');
+const OrderEmailNotification = require('../models/OrderEmailNotification');
 const Cart = require('../models/Cart');
 const User = require('../models/User');
 const OtpSession = require('../models/OtpSession');
@@ -16,7 +21,12 @@ const CRITICAL_INDEX_MODELS = [
     ['CouponRedemption', CouponRedemption],
     ['StatusWebhookEvent', StatusWebhookEvent],
     ['PaymentIntent', PaymentIntent],
+    ['PaymentEvent', PaymentEvent],
+    ['PaymentOutboxTask', PaymentOutboxTask],
+    ['PaymentMethod', PaymentMethod],
+    ['IdempotencyRecord', IdempotencyRecord],
     ['Order', Order],
+    ['OrderEmailNotification', OrderEmailNotification],
     ['Cart', Cart],
     ['User', User],
     ['OtpSession', OtpSession],

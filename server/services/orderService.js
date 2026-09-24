@@ -22,8 +22,13 @@ const { emitOrderEventNotification } = require('./orderNotificationService');
 const { recordOrderEvent } = require('../middleware/metrics');
 const { DIGITAL_METHODS } = require('./payments/constants');
 const { toStoredMinorUnits } = require('./payments/moneyStorage');
+const { getRefundCommandStatus } = require('./payments/refundState');
 
 const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
+const isRetryableTransactionError = (error) => (
+    (Array.isArray(error?.errorLabels) && error.errorLabels.includes('TransientTransactionError'))
+    || /please retry the operation|catalog changes|TransactionExceededLifetimeLimitSeconds|unable to acquire (?:ix|x|w) lock|write conflict|writeconflict|lock timeout|lock wait timeout/i.test(String(error?.message || ''))
+);
 
 /**
  * Normalizes command center objects to ensure all arrays exist
@@ -39,7 +44,7 @@ const normalizeCommandCenter = (order) => ({
 /**
  * Generates a unique command ID
  */
-const createCommandId = (prefix = 'cmd') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createCommandId = (prefix = 'cmd') => `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
 
 /**
  * Appends a status event to the order's timeline
@@ -61,7 +66,7 @@ const appendOrderStatusEvent = (order, {
 /**
  * Resolves an order item based on product ID or title
  */
-const resolveOrderItemForCommand = (order, payload = {}) => {
+const resolveOrderItemForCommand = (order, payload = {}, { strict = false } = {}) => {
     const orderItems = Array.isArray(order?.orderItems) ? order.orderItems : [];
     if (orderItems.length === 0) return null;
 
@@ -80,6 +85,7 @@ const resolveOrderItemForCommand = (order, payload = {}) => {
         if (byTitle) return byTitle;
     }
 
+    if (strict && (requestedProductId || requestedItemTitle)) return null;
     return orderItems[0];
 };
 
@@ -420,14 +426,7 @@ const cancelOrderForFailedCapture = async ({
     });
     if (!order) return { handled: false, reason: 'no_cancelable_order' };
 
-    const isTransientTxError = (error) => (
-        Array.isArray(error?.errorLabels) && error.errorLabels.includes('TransientTransactionError')
-    ) || /please retry the operation|catalog changes|TransactionExceededLifetimeLimitSeconds/i.test(String(error?.message || ''));
-
-    // Multi-document transactions are documented as retryable on
-    // TransientTransactionError labels (also emitted by replica-set catalog
-    // churn), so a bounded retry is the correct behavior in production, not
-    // just in tests.
+    const isTransientTxError = isRetryableTransactionError;
     const MAX_COMPENSATION_TX_ATTEMPTS = 3;
     for (let attempt = 1; attempt <= MAX_COMPENSATION_TX_ATTEMPTS; attempt += 1) {
         const session = await mongoose.startSession();
@@ -463,11 +462,14 @@ const cancelOrderForFailedCapture = async ({
             }
 
             for (const item of order.orderItems || []) {
-                await Product.updateOne(
+                const restockResult = await Product.updateOne(
                     { _id: item.product },
                     { $inc: { stock: Number(item.quantity || 0) } },
                     { session }
                 );
+                if (Number(restockResult?.matchedCount || 0) !== 1) {
+                    throw new AppError('Order item product is unavailable for restock', 409);
+                }
             }
 
             await releaseCouponRedemptionForOrder({ order, session });
@@ -616,10 +618,13 @@ const cancelOrderByActor = async ({
 
         // Restore stock
         for (const item of txOrder.orderItems || []) {
-            await Product.updateOne(
+            const restockResult = await Product.updateOne(
                 { _id: item.product },
                 { $inc: { stock: Number(item.quantity || 0) } }
             ).session(session);
+            if (Number(restockResult?.matchedCount || 0) !== 1) {
+                throw new AppError('Order item product is unavailable for restock', 409);
+            }
         }
 
         // Clawback: free the coupon consumed by this order and reverse the
@@ -701,23 +706,27 @@ const cancelOrderByActor = async ({
                 isAdmin: isAdminActor,
                 intentId: order.paymentIntentId,
                 reason: `order_cancelled:${cancelReason}`,
+                requestId,
             });
 
             await retireRefundOutboxTask({ intentId: order.paymentIntentId, requestId });
 
+            const refundStatus = getRefundCommandStatus(refundResult.status);
             await Order.updateOne(
                 { _id: order._id, 'commandCenter.refunds.requestId': requestId },
                 {
                     $set: {
-                        'commandCenter.refunds.$.status': 'processed',
-                        'commandCenter.refunds.$.message': `Cancellation refund processed (${refundResult.status})`,
+                        'commandCenter.refunds.$.status': refundStatus,
+                        'commandCenter.refunds.$.message': refundStatus === 'processed'
+                            ? `Cancellation refund processed (${refundResult.status})`
+                            : `Cancellation refund ${refundStatus} (${refundResult.status})`,
                         'commandCenter.refunds.$.refundId': refundResult.refundId || '',
-                        'commandCenter.refunds.$.processedAt': new Date(),
+                        'commandCenter.refunds.$.processedAt': refundStatus === 'processed' ? new Date() : null,
                         'commandCenter.lastUpdatedAt': new Date(),
                     },
                 }
             );
-            refundMessage = 'Refund processed';
+            refundMessage = refundStatus === 'processed' ? 'Refund processed' : `Refund ${refundStatus}`;
         } catch (error) {
             const isTransient = Number(error?.statusCode || 500) >= 500;
             if (isTransient) {
@@ -804,4 +813,5 @@ module.exports = {
     recordShipmentCheckpoint,
     getOrderTimelineData,
     DIGITAL_PAYMENT_METHODS,
+    isRetryableTransactionError,
 };

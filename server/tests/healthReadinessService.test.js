@@ -110,7 +110,7 @@ describe('healthReadinessService', () => {
         });
     });
 
-    test('ignores index sync failures while still inside grace', () => {
+    test('keeps readiness closed for index failures even inside grace', () => {
         expect(buildStartupReadinessFailure({
             runtimeNodeEnv: 'production',
             runtimeStartupState: {
@@ -120,6 +120,9 @@ describe('healthReadinessService', () => {
             },
             isWithinGracePeriod: true,
             uptime: 1,
-        })).toBeNull();
+        })).toMatchObject({
+            ready: false,
+            reason: 'index_integrity_failed',
+        });
     });
 });

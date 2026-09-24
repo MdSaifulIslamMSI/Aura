@@ -58,7 +58,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm --prefix server ci
-      - run: npm test
+      - run: npm run test:server:regression:stable
 
   security:
     name: security

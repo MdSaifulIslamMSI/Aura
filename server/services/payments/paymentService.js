@@ -51,6 +51,7 @@ const {
     resolveRefundAmounts,
     buildRefundEntry,
     buildRefundMutation,
+    getRefundCommandStatus,
 } = require('./refundState');
 const {
     scheduleCaptureTask,
@@ -1466,10 +1467,15 @@ const releaseIntentOrderClaim = async ({ intentId, claimKey, session = null }) =
 };
 
 const applyOrderPaymentCapture = async (intent) => {
-    if (!intent?.order) return;
+    if (!intent?.order) return false;
 
-    await Order.updateOne(
-        { _id: intent.order },
+    const result = await Order.updateOne(
+        {
+            _id: intent.order,
+            orderStatus: { $ne: 'cancelled' },
+            cancelledAt: null,
+            paymentState: { $nin: [PAYMENT_STATUSES.PARTIALLY_REFUNDED, PAYMENT_STATUSES.REFUNDED] },
+        },
         {
             $set: {
                 paymentState: PAYMENT_STATUSES.CAPTURED,
@@ -1479,6 +1485,7 @@ const applyOrderPaymentCapture = async (intent) => {
             },
         }
     );
+    return result?.matchedCount === undefined ? true : result.matchedCount === 1;
 };
 
 const acquireCaptureLock = async (intent) => {
@@ -1528,27 +1535,170 @@ const releaseCaptureLock = async ({ intentId, lockId }) => {
     );
 };
 
+const ensureCancelledCaptureRefund = async (intent) => {
+    if (!intent?.order) return false;
+
+    const cancelledOrder = await findCancelledOrderForIntent(intent);
+    if (!cancelledOrder) return false;
+
+    const currentPaymentState = String(cancelledOrder.paymentState || '');
+    const paymentState = [PAYMENT_STATUSES.PARTIALLY_REFUNDED, PAYMENT_STATUSES.REFUNDED]
+        .includes(currentPaymentState)
+        ? currentPaymentState
+        : PAYMENT_STATUSES.CAPTURED;
+
+    await Order.updateOne(
+        {
+            _id: intent.order,
+            $or: [
+                { orderStatus: 'cancelled' },
+                { cancelledAt: { $exists: true, $ne: null } },
+            ],
+        },
+        {
+            $set: {
+                paymentState,
+                paymentCapturedAt: intent.capturedAt || new Date(),
+                isPaid: false,
+                paidAt: null,
+            },
+        }
+    );
+
+    if (!cancelledOrder.refundSummary?.fullyRefunded) {
+        const requestId = `capture-after-cancel:${intent.intentId}`;
+        const existingTask = await PaymentOutboxTask.findOne({
+            taskType: 'refund',
+            intentId: intent.intentId,
+            'payload.requestId': requestId,
+        }).lean();
+        if (!existingTask) {
+            await scheduleRefundTask({
+                intentId: intent.intentId,
+                amount: intent.amount,
+                amountMode: 'charge',
+                reason: 'order_cancelled_after_capture',
+                orderId: intent.order,
+                requestId,
+            });
+        }
+    }
+
+    return true;
+};
+
+const reconcileCapturedOrder = async (intent) => {
+    if (!intent?.order) return false;
+
+    const order = await Order.findById(intent.order)
+        .select('isPaid paymentState orderStatus cancelledAt')
+        .lean();
+    if (!order) return false;
+
+    const isCancelled = order.orderStatus === 'cancelled'
+        || Boolean(order.cancelledAt);
+    if (isCancelled) return ensureCancelledCaptureRefund(intent);
+    if (order.isPaid && order.paymentState === PAYMENT_STATUSES.CAPTURED) return false;
+    if ([PAYMENT_STATUSES.PARTIALLY_REFUNDED, PAYMENT_STATUSES.REFUNDED].includes(order.paymentState)) {
+        return false;
+    }
+
+    const applied = await applyOrderPaymentCapture(intent);
+    if (applied) return false;
+
+    const currentOrder = await Order.findById(intent.order)
+        .select('orderStatus cancelledAt paymentState')
+        .lean();
+    if (!currentOrder) return false;
+    if (currentOrder.orderStatus === 'cancelled' || currentOrder.cancelledAt) {
+        return ensureCancelledCaptureRefund(intent);
+    }
+    if ([PAYMENT_STATUSES.PARTIALLY_REFUNDED, PAYMENT_STATUSES.REFUNDED].includes(currentOrder.paymentState)) {
+        return false;
+    }
+    throw new AppError('Order payment state changed during capture reconciliation', 409);
+};
+
+const applyRefundWebhookToOrder = async ({ intent, parsedEvent }) => {
+    if (parsedEvent?.eventType !== 'refund.processed' || !intent?.order) return false;
+
+    const order = await Order.findById(intent.order).lean();
+    const refunds = Array.isArray(order?.refundSummary?.refunds)
+        ? order.refundSummary.refunds
+        : [];
+    const refundIndex = refunds.findIndex((refund) => (
+        String(refund?.refundId || '') === String(parsedEvent.refundId || '')
+    ));
+    if (refundIndex < 0) return false;
+
+    const existingRefund = refunds[refundIndex];
+    if (getRefundCommandStatus(existingRefund?.status) === 'processed') return false;
+
+    const refundEntry = {
+        ...existingRefund,
+        status: 'processed',
+    };
+    const orderWithoutPendingRefund = {
+        ...order,
+        refundSummary: {
+            ...(order.refundSummary || {}),
+            refunds: refunds.filter((_, index) => index !== refundIndex),
+        },
+    };
+    const mutation = buildRefundMutation({
+        order: orderWithoutPendingRefund,
+        refundEntry,
+    });
+    await Order.updateOne({ _id: order._id }, {
+        $set: {
+            refundSummary: mutation.refundSummary,
+            paymentState: mutation.paymentState,
+        },
+    });
+    await Order.updateOne(
+        {
+            _id: order._id,
+            'commandCenter.refunds.refundId': String(parsedEvent.refundId),
+        },
+        {
+            $set: {
+                'commandCenter.refunds.$.status': 'processed',
+                'commandCenter.refunds.$.processedAt': new Date(),
+                'commandCenter.refunds.$.message': 'Refund processed',
+                'commandCenter.lastUpdatedAt': new Date(),
+            },
+        }
+    );
+    return true;
+};
+
 const captureIntentNow = async ({ intentId }) => {
     const intent = await PaymentIntent.findOne({ intentId });
     if (!intent) throw new AppError('Capture intent not found', 404);
-    if (intent.status === PAYMENT_STATUSES.CAPTURED) return intent;
+    if (intent.status === PAYMENT_STATUSES.CAPTURED) {
+        await reconcileCapturedOrder(intent);
+        return intent;
+    }
     if (intent.status !== PAYMENT_STATUSES.AUTHORIZED) {
         throw new AppError(`Capture not allowed from status ${intent.status}`, 400);
     }
+    await assertIntentNotLinkedToCancelledOrder(intent);
 
     const captureLockId = await acquireCaptureLock(intent);
 
     try {
-        // Re-read under the lock: another capture may have completed between the
-        // initial read and lock acquisition.
         const lockedIntent = await PaymentIntent.findOne({ intentId });
         if (!lockedIntent || lockedIntent.metadata?.captureLock?.lockId !== captureLockId) {
             throw new AppError('Capture lock was lost before provider mutation', 409);
         }
-        if (lockedIntent.status === PAYMENT_STATUSES.CAPTURED) return lockedIntent;
+        if (lockedIntent.status === PAYMENT_STATUSES.CAPTURED) {
+            await reconcileCapturedOrder(lockedIntent);
+            return lockedIntent;
+        }
         if (lockedIntent.status !== PAYMENT_STATUSES.AUTHORIZED) {
             throw new AppError(`Capture not allowed from status ${lockedIntent.status}`, 400);
         }
+        await assertIntentNotLinkedToCancelledOrder(lockedIntent);
 
         const provider = await getPaymentProvider({
             gatewayId: lockedIntent.provider,
@@ -1582,9 +1732,6 @@ const captureIntentNow = async ({ intentId }) => {
             };
         }
 
-        // Conditional transition: only authorized -> captured wins. A concurrent
-        // writer that captured first makes this a no-op we treat as success, so a
-        // provider-side double capture can never strand the order in AUTHORIZED.
         const mutationUpdate = { $set: { ...captureMutation } };
         if (Object.keys(metadataMutation).length > 0) {
             mutationUpdate.$set.metadata = {
@@ -1601,6 +1748,7 @@ const captureIntentNow = async ({ intentId }) => {
         if (!capturedIntent) {
             const current = await PaymentIntent.findOne({ intentId });
             if (current && current.status === PAYMENT_STATUSES.CAPTURED) {
+                await reconcileCapturedOrder(current);
                 return current;
             }
             throw new AppError('Capture state changed concurrently, retry capture', 409);
@@ -1612,7 +1760,7 @@ const captureIntentNow = async ({ intentId }) => {
             type: 'intent.captured',
             payload: { capturedAt: capturedIntent.capturedAt.toISOString() },
         });
-        await applyOrderPaymentCapture(capturedIntent);
+        await reconcileCapturedOrder(capturedIntent);
 
         return capturedIntent;
     } finally {
@@ -1705,6 +1853,7 @@ const createRefundForIntent = async ({
     amount,
     amountMode = 'settlement',
     reason,
+    requestId = '',
 }) => {
     if (!flags.paymentRefundsEnabled) {
         throw new AppError('Refund operations are disabled', 403);
@@ -1721,6 +1870,25 @@ const createRefundForIntent = async ({
 
     if (!intent.providerPaymentId) {
         throw new AppError('Provider payment reference is missing for refund', 400);
+    }
+
+    const existingRequestRefund = requestId
+        ? (order.refundSummary?.refunds || []).find((refund) => (
+            String(refund?.requestId || '') === String(requestId)
+        ))
+        : null;
+    if (existingRequestRefund) {
+        return {
+            refundId: existingRequestRefund.refundId || '',
+            status: existingRequestRefund.status || 'pending',
+            amount: existingRequestRefund.amount || 0,
+            currency: existingRequestRefund.currency || intent.currency,
+            settlementAmount: existingRequestRefund.settlementAmount || 0,
+            settlementCurrency: existingRequestRefund.settlementCurrency || intent.settlementCurrency,
+            presentmentAmount: existingRequestRefund.presentmentAmount || 0,
+            presentmentCurrency: existingRequestRefund.presentmentCurrency || intent.currency,
+            intentId,
+        };
     }
 
     resolveRefundAmountsForOrder({ order, amount, amountMode });
@@ -1770,6 +1938,7 @@ const createRefundForIntent = async ({
             providerRefund,
             refundAmounts,
             reason,
+            requestId,
             fallbackRefundId: makeEventId('refund'),
         });
         const refundMutation = buildRefundMutation({
@@ -1989,7 +2158,7 @@ const findCancelledOrderForIntent = async (intent) => {
             { orderStatus: 'cancelled' },
             { cancelledAt: { $exists: true, $ne: null } },
         ],
-    }).select('_id orderStatus cancelledAt').lean();
+    }).select('_id orderStatus cancelledAt paymentState refundSummary').lean();
 };
 
 const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
@@ -2003,7 +2172,22 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     const parsedEvent = extractWebhookIdentifiers(parsed);
 
     const existing = await PaymentEvent.findOne({ eventId: parsedEvent.eventId }).lean();
-    if (existing) {
+    const replaySuppressed = Boolean(
+        existing
+        && (existing.processingState === 'suppressed' || existing.payload?.processingMeta?.suppressed === true)
+    );
+    const replayCancellationCompensation = Boolean(
+        existing?.payload?.processingMeta?.reason === 'order_cancelled'
+    );
+    if (existing && !replaySuppressed && !replayCancellationCompensation) {
+        if (existing.type === 'payment.captured') {
+            const existingIntent = await PaymentIntent.findOne({ intentId: existing.intentId });
+            if (existingIntent) await reconcileCapturedOrder(existingIntent);
+        }
+        if (existing.type === 'refund.processed') {
+            const existingIntent = await PaymentIntent.findOne({ intentId: existing.intentId });
+            if (existingIntent) await applyRefundWebhookToOrder({ intent: existingIntent, parsedEvent });
+        }
         return { received: true, deduped: true };
     }
 
@@ -2053,6 +2237,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             intentId: intent.intentId,
             source: 'webhook',
             type: parsedEvent.eventType,
+            processingState: 'discarded',
             payloadHash: hashPayload(parsed),
             payload: {
                 ...parsed,
@@ -2089,6 +2274,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             intentId: intent.intentId,
             source: 'webhook',
             type: parsedEvent.eventType,
+            processingState: 'suppressed',
             payloadHash: hashPayload(parsed),
             payload: {
                 ...parsed,
@@ -2111,47 +2297,21 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         };
     }
 
-    const statusTransitionedToCaptured = currentStatus !== PAYMENT_STATUSES.CAPTURED
+    const captureEvent = parsedEvent.eventType === 'payment.captured'
         && mapped === PAYMENT_STATUSES.CAPTURED;
-    if (statusTransitionedToCaptured) {
-        const cancelledOrder = await findCancelledOrderForIntent(intent);
-        if (cancelledOrder) {
-            logger.warn('payment.webhook_cancelled_order_discarded', {
+    let cancelledOrderForCapture = null;
+    if (captureEvent) {
+        cancelledOrderForCapture = await findCancelledOrderForIntent(intent);
+        if (cancelledOrderForCapture) {
+            logger.warn('payment.webhook_cancelled_order_compensation_required', {
                 eventId: parsedEvent.eventId,
                 eventType: parsedEvent.eventType,
                 intentId: intent.intentId,
-                orderId: String(cancelledOrder._id),
+                orderId: String(cancelledOrderForCapture._id),
                 currentStatus,
                 targetStatus: mapped,
-                currentOrderStatus: cancelledOrder.orderStatus || '',
+                currentOrderStatus: cancelledOrderForCapture.orderStatus || '',
             });
-
-            await PaymentEvent.create({
-                eventId: parsedEvent.eventId,
-                intentId: intent.intentId,
-                source: 'webhook',
-                type: parsedEvent.eventType,
-                payloadHash: hashPayload(parsed),
-                payload: {
-                    ...parsed,
-                    processingMeta: {
-                        discarded: true,
-                        reason: 'order_cancelled',
-                        currentStatus,
-                        targetStatus: mapped,
-                        currentOrderStatus: cancelledOrder.orderStatus || '',
-                    },
-                },
-                receivedAt: new Date(),
-            });
-
-            return {
-                received: true,
-                deduped: false,
-                intentId: intent.intentId,
-                discarded: true,
-                reason: 'order_cancelled',
-            };
         }
     }
 
@@ -2215,6 +2375,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
                     intentId: intent.intentId,
                     source: 'webhook',
                     type: parsedEvent.eventType,
+                    processingState: 'discarded',
                     payloadHash: hashPayload(parsed),
                     payload: {
                         ...parsed,
@@ -2247,6 +2408,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             intentId: intent.intentId,
             source: 'webhook',
             type: parsedEvent.eventType,
+            processingState: 'discarded',
             payloadHash: hashPayload(parsed),
             payload: {
                 ...parsed,
@@ -2268,27 +2430,65 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         };
     }
 
+    const cancelledAfterCapture = captureEvent
+        ? await reconcileCapturedOrder(mutatedIntent)
+        : false;
+    if (parsedEvent.eventType === 'refund.processed') {
+        await applyRefundWebhookToOrder({ intent: mutatedIntent, parsedEvent });
+    }
     const recordedEvent = await recordWebhookEvent({
         eventId: parsedEvent.eventId,
         intentId: intent.intentId,
         source: 'webhook',
         type: parsedEvent.eventType,
+        processingState: 'processed',
         payloadHash: hashPayload(parsed),
-        payload: parsed,
+        payload: cancelledOrderForCapture
+            ? {
+                ...parsed,
+                processingMeta: {
+                    compensated: true,
+                    reason: 'order_cancelled_after_capture',
+                    currentOrderStatus: cancelledOrderForCapture.orderStatus || '',
+                },
+            }
+            : parsed,
         receivedAt: new Date(),
     });
 
     if (!recordedEvent) {
-        // A concurrent duplicate delivery won the eventId insert; the intent
-        // mutations above are idempotent for that same event.
-        return { received: true, deduped: true, intentId: intent.intentId };
+        if (replaySuppressed || replayCancellationCompensation) {
+            await PaymentEvent.updateOne(
+                { eventId: parsedEvent.eventId },
+                {
+                    $set: {
+                        processingState: 'processed',
+                        'payload.processingMeta.suppressed': false,
+                        'payload.processingMeta.discarded': false,
+                        'payload.processingMeta.replayedAt': new Date(),
+                        ...(cancelledAfterCapture
+                            ? { 'payload.processingMeta.compensated': true }
+                            : {}),
+                    },
+                }
+            );
+            return {
+                received: true,
+                deduped: false,
+                replayed: true,
+                compensated: cancelledAfterCapture,
+                intentId: intent.intentId,
+            };
+        }
+        return { received: true, deduped: true, compensated: cancelledAfterCapture, intentId: intent.intentId };
     }
 
-    if (statusTransitionedToCaptured) {
-        await applyOrderPaymentCapture(mutatedIntent);
-    }
-
-    return { received: true, deduped: false, intentId: intent.intentId };
+    return {
+        received: true,
+        deduped: false,
+        compensated: cancelledAfterCapture,
+        intentId: intent.intentId,
+    };
 };
 
 const processRazorpayWebhook = async ({ signature, rawBody }) => processProviderWebhook({
@@ -2361,16 +2561,29 @@ const processOutboxTask = async (task) => {
                 amount: task.payload?.amount ?? undefined,
                 amountMode: task.payload?.amountMode || 'settlement',
                 reason: task.payload?.reason || 'queued_refund_retry',
+                requestId: task.payload?.requestId || '',
             });
 
+            const refundStatus = getRefundCommandStatus(refundResult.status);
             await updateOrderCommandRefundEntry({
                 orderId: task.payload?.orderId,
                 requestId: task.payload?.requestId,
-                status: 'processed',
-                message: `Refund processed (${refundResult.status})`,
+                status: refundStatus,
+                message: refundStatus === 'processed'
+                    ? `Refund processed (${refundResult.status})`
+                    : `Refund ${refundStatus} (${refundResult.status})`,
                 refundId: refundResult.refundId || '',
-                processedAt: new Date(),
+                processedAt: refundStatus === 'processed' ? new Date() : null,
             });
+            if (refundStatus === 'pending') {
+                task.status = 'pending';
+                task.lastError = '';
+                task.nextRunAt = new Date(Date.now() + 60 * 1000);
+                task.lockedAt = null;
+                task.lockedBy = null;
+                await task.save();
+                return;
+            }
         } else {
             throw new AppError(`Unsupported outbox task type: ${task.taskType}`, 400);
         }
@@ -2394,7 +2607,7 @@ const processOutboxTask = async (task) => {
                     requestId: task.payload?.requestId,
                     status: 'rejected',
                     message: error.message || 'Refund retry exhausted',
-                    processedAt: new Date(),
+                    processedAt: null,
                 });
             }
             if (task.taskType === 'capture') {
@@ -2410,7 +2623,7 @@ const processOutboxTask = async (task) => {
                     requestId: task.payload?.requestId,
                     status: 'pending',
                     message: `Retry scheduled: ${error.message || 'provider temporary failure'}`,
-                    processedAt: new Date(),
+                    processedAt: null,
                 });
             }
         }

@@ -48,7 +48,7 @@ jobs:
         run: npm --prefix app ci
 
       - name: Test
-        run: npm test -- --runInBand
+        run: npm run test:server:regression:stable
 
       - name: Lint
         run: npm run lint

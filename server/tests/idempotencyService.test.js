@@ -95,6 +95,104 @@ describe('Idempotency Service', () => {
         });
     });
 
+    test('recovers a committed operation before reclaiming a stale processing lock', async () => {
+        const requestPayload = { amount: 4400, currency: 'INR' };
+        await IdempotencyRecord.create({
+            key: 'idem-recover-committed',
+            user: 'user-recover',
+            route: 'orders:create',
+            requestHash: hashPayload(requestPayload),
+            state: 'processing',
+            lockToken: 'stale-lock-token',
+            lockExpiresAt: new Date(Date.now() - 1000),
+            statusCode: 202,
+            response: {},
+            processedAt: new Date(Date.now() - 1000),
+            expiresAt: new Date(Date.now() + 60 * 1000),
+        });
+        const handler = jest.fn();
+        const recover = jest.fn().mockResolvedValue({
+            statusCode: 201,
+            response: { orderId: 'order-recovered' },
+        });
+
+        const result = await withIdempotency({
+            key: 'idem-recover-committed',
+            userKey: 'user-recover',
+            route: 'orders:create',
+            requestPayload,
+            handler,
+            recover,
+        });
+
+        expect(handler).not.toHaveBeenCalled();
+        expect(recover).toHaveBeenCalledWith(expect.objectContaining({
+            key: 'idem-recover-committed',
+            userKey: 'user-recover',
+            route: 'orders:create',
+        }));
+        expect(result).toMatchObject({
+            replayed: true,
+            statusCode: 201,
+            response: { orderId: 'order-recovered' },
+        });
+        await expect(IdempotencyRecord.findOne({ key: 'idem-recover-committed' }).lean()).resolves.toMatchObject({
+            state: 'completed',
+            response: { orderId: 'order-recovered' },
+        });
+    });
+
+    test('does not let a recovery callback clear a newer lock owner', async () => {
+        const requestPayload = { amount: 5100, currency: 'INR' };
+        const record = await IdempotencyRecord.create({
+            key: 'idem-recover-lock-cas',
+            user: 'user-recover-cas',
+            route: 'orders:create',
+            requestHash: hashPayload(requestPayload),
+            state: 'processing',
+            lockToken: 'original-lock',
+            lockExpiresAt: new Date(Date.now() - 1000),
+            statusCode: 202,
+            response: {},
+            processedAt: new Date(Date.now() - 1000),
+            expiresAt: new Date(Date.now() + 60_000),
+        });
+        const recover = jest.fn(async ({ record: current }) => {
+            await IdempotencyRecord.updateOne({ _id: current._id }, {
+                $set: {
+                    lockToken: 'new-owner-lock',
+                    lockExpiresAt: new Date(Date.now() - 1000),
+                },
+            });
+            return { statusCode: 201, response: { orderId: 'order-recovered-cas' } };
+        });
+        const handler = jest.fn(async () => ({
+            statusCode: 201,
+            response: { orderId: 'order-reclaimed-cas' },
+        }));
+
+        const result = await withIdempotency({
+            key: 'idem-recover-lock-cas',
+            userKey: 'user-recover-cas',
+            route: 'orders:create',
+            requestPayload,
+            handler,
+            recover,
+        });
+
+        expect(recover).toHaveBeenCalled();
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(result).toMatchObject({
+            replayed: false,
+            response: { orderId: 'order-reclaimed-cas' },
+        });
+        await expect(IdempotencyRecord.findById(record._id).lean()).resolves.toMatchObject({
+            state: 'completed',
+            lockToken: '',
+            response: { orderId: 'order-reclaimed-cas' },
+        });
+    });
+
     test('reclaims stale processing locks instead of leaving the key wedged', async () => {
         const requestPayload = { amount: 3200, currency: 'INR' };
         const staleRecord = await IdempotencyRecord.create({

@@ -18,6 +18,7 @@ set -euo pipefail
 
 DRILL_TARGET_URL="${DRILL_TARGET_URL:-http://127.0.0.1/health/live}"
 export AURA_BACKEND_DEPLOY_STRATEGY=blue-green
+export AURA_BLUE_GREEN_ENABLED=true
 
 probe_log="$(mktemp)"
 probe_pid=""

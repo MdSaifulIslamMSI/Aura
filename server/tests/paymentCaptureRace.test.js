@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Order = require('../models/Order');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const { captureIntentNow } = require('../services/payments/paymentService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
 
@@ -181,6 +182,77 @@ describe('Payment capture race safety', () => {
 
         const refreshedIntent = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
         expect(refreshedIntent.metadata?.captureLock).toBeUndefined();
+        await expect(Order.findById(order._id).lean()).resolves.toMatchObject({
+            isPaid: true,
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+        });
+    });
+
+    test('capture is blocked before provider mutation when the order is already cancelled', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({ userId: owner._id });
+        const intent = await makeIntent({ userId: owner._id, order: order._id });
+        await Order.updateOne({ _id: order._id }, {
+            $set: {
+                paymentIntentId: intent.intentId,
+                orderStatus: 'cancelled',
+                cancelledAt: new Date(),
+            },
+        });
+        global.fetch = jest.fn();
+
+        await expect(captureIntentNow({ intentId: intent.intentId })).rejects.toMatchObject({
+            statusCode: 409,
+            message: expect.stringMatching(/cancelled order/i),
+        });
+        expect(global.fetch).not.toHaveBeenCalled();
+        await expect(PaymentIntent.findById(intent._id).lean()).resolves.toMatchObject({
+            status: PAYMENT_STATUSES.AUTHORIZED,
+        });
+    });
+
+    test('a capture that completes after cancellation stays unpaid and schedules a refund', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({ userId: owner._id });
+        const intent = await makeIntent({ userId: owner._id, order: order._id });
+        await Order.updateOne({ _id: order._id }, { $set: { paymentIntentId: intent.intentId } });
+
+        providerGate = new Promise((resolve) => {
+            releaseProvider = resolve;
+        });
+        global.fetch = jest.fn().mockImplementation(async () => {
+            await providerGate;
+            return {
+                ok: true,
+                json: async () => ({
+                    id: intent.providerPaymentId,
+                    amount: intent.amount * 100,
+                    currency: 'INR',
+                    status: 'captured',
+                }),
+            };
+        });
+
+        const capturePromise = captureIntentNow({ intentId: intent.intentId });
+        await waitForProviderAttempt(capturePromise);
+        await Order.updateOne({ _id: order._id }, {
+            $set: {
+                orderStatus: 'cancelled',
+                cancelledAt: new Date(),
+            },
+        });
+        releaseProvider();
+
+        await expect(capturePromise).resolves.toMatchObject({ status: PAYMENT_STATUSES.CAPTURED });
+        await expect(Order.findById(order._id).lean()).resolves.toMatchObject({
+            orderStatus: 'cancelled',
+            isPaid: false,
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+        });
+        await expect(PaymentOutboxTask.findOne({
+            taskType: 'refund',
+            intentId: intent.intentId,
+        }).lean()).resolves.toBeTruthy();
     });
 
     test('capture lock is released when the provider call fails so a retry can proceed', async () => {

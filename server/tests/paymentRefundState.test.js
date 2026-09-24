@@ -98,6 +98,56 @@ describe('Payment refund state helpers', () => {
         });
     });
 
+    test('pending and failed provider refunds do not increase local refund totals', () => {
+        const order = {
+            settlementAmount: 8400,
+            settlementCurrency: 'INR',
+            presentmentTotalPrice: 100,
+            presentmentCurrency: 'USD',
+            paymentState: PAYMENT_STATUSES.CAPTURED,
+            refundSummary: {
+                totalRefunded: 0,
+                presentmentTotalRefunded: 0,
+                fullyRefunded: false,
+                refunds: [],
+            },
+        };
+        const refundAmounts = {
+            settlementAmount: 2100,
+            settlementCurrency: 'INR',
+            presentmentAmount: 25,
+            presentmentCurrency: 'USD',
+        };
+        const pendingEntry = buildRefundEntry({
+            providerRefund: { id: 'rfnd_pending', status: 'pending' },
+            refundAmounts,
+            reason: 'provider_pending',
+            fallbackRefundId: 'rfnd_pending',
+        });
+        const pendingMutation = buildRefundMutation({ order, refundEntry: pendingEntry });
+
+        expect(pendingEntry.status).toBe('pending');
+        expect(pendingMutation.nextTotalRefunded).toBe(0);
+        expect(pendingMutation.nextPresentmentTotalRefunded).toBe(0);
+        expect(pendingMutation.fullyRefunded).toBe(false);
+        expect(pendingMutation.paymentState).toBe(PAYMENT_STATUSES.CAPTURED);
+        expect(pendingMutation.refundSummary.refunds).toHaveLength(1);
+
+        const failedEntry = buildRefundEntry({
+            providerRefund: { id: 'rfnd_failed', status: 'failed' },
+            refundAmounts,
+            reason: 'provider_failed',
+            fallbackRefundId: 'rfnd_failed',
+        });
+        const failedMutation = buildRefundMutation({ order, refundEntry: failedEntry });
+
+        expect(failedEntry.status).toBe('failed');
+        expect(failedMutation.nextTotalRefunded).toBe(0);
+        expect(failedMutation.nextPresentmentTotalRefunded).toBe(0);
+        expect(failedMutation.paymentState).toBe(PAYMENT_STATUSES.CAPTURED);
+        expect(failedMutation.refundSummary.refunds).toHaveLength(1);
+    });
+
     test('buildRefundMutation computes partial and full refund transitions across both ledgers', () => {
         const partialEntry = {
             refundId: 'rfnd_partial',

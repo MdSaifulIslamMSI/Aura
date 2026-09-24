@@ -6,7 +6,7 @@
   "author": "MdSaifulIslamMSI <MdSaifulIslamMSI@users.noreply.github.com>",
   "main": "desktop/main.cjs",
   "scripts": {
-    "test": "npm run test:server:regression",
+    "test": "npm run test:server:regression:stable",
     "quality:lint": "npm --prefix app run lint -- --quiet",
     "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
     "quality:test": "npm test && npm --prefix app test",
@@ -38,7 +38,8 @@
     "lint": "npm --prefix app run lint",
     "test:server:full": "npm --prefix server test",
     "test:server:regression": "node scripts/run-test-tier.cjs server regression --forceExit",
-    "test:server:coverage": "npm run test:server:regression -- --coverage",
+    "test:server:regression:stable": "node scripts/run-test-tier.cjs server regression --runInBand --forceExit",
+    "test:server:coverage": "npm run test:server:regression:stable -- --coverage",
     "build": "cd app && npm install && npm run build",
     "test:i18n": "npm --prefix server test -- --runTestsByPath tests/translationService.test.js tests/translationPrivacy.test.js tests/i18nTranslationPolicy.test.js tests/i18nRateLimitPolicy.test.js && npm --prefix app test -- runtimeTranslationPolicy.test.js runtimeTranslation.test.js i18nApi.test.js useDynamicTranslations.test.js marketMessagesCoverage.test.js LocaleProvider.test.jsx MarketContext.test.jsx StepPayment.test.jsx ProductCardInline.test.jsx Orders.test.jsx",
     "i18n:inventory": "node scripts/i18n/build-full-legacy-migration-inventory.mjs",

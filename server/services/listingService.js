@@ -8,6 +8,7 @@ const {
 } = require('./email/templateUtils');
 const { makeEventId } = require('./payments/helpers');
 const { flags: paymentFlags } = require('../config/paymentFlags');
+const { PAYMENT_STATUSES } = require('./payments/constants');
 const crypto = require('crypto');
 
 const SELLER_PUBLIC_STRICT = 'name createdAt isVerified';
@@ -147,6 +148,20 @@ const assertEscrowEligibility = ({ listing, userId, allowHeld = false }) => {
     }
 };
 
+const assertEscrowPaymentIntentUsable = ({ intent, allowedStatuses = [] } = {}) => {
+    if (!intent) {
+        throw new AppError('Escrow payment intent not found', 404);
+    }
+    const status = String(intent.status || '').trim().toLowerCase();
+    if ([PAYMENT_STATUSES.EXPIRED, PAYMENT_STATUSES.FAILED, PAYMENT_STATUSES.REFUNDED].includes(status)) {
+        throw new AppError(`Escrow payment intent is terminal (${status})`, 409);
+    }
+    if (allowedStatuses.length > 0 && !allowedStatuses.includes(status)) {
+        throw new AppError(`Escrow payment intent cannot transition from ${status}`, 409);
+    }
+    return intent;
+};
+
 /**
  * Builds the checkout payload for escrow payments
  */
@@ -204,6 +219,7 @@ module.exports = {
     serializeThreadForUser,
     sendCounterpartyMessageEmail,
     assertEscrowEligibility,
+    assertEscrowPaymentIntentUsable,
     buildEscrowCheckoutPayload,
     appendEscrowPaymentEvent,
     SELLER_PUBLIC_STRICT,
