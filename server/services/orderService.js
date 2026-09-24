@@ -44,7 +44,7 @@ const normalizeCommandCenter = (order) => ({
 /**
  * Generates a unique command ID
  */
-const createCommandId = (prefix = 'cmd') => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createCommandId = (prefix = 'cmd') => `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
 
 /**
  * Appends a status event to the order's timeline

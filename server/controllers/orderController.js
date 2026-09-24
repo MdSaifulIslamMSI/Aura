@@ -352,6 +352,16 @@ const persistRefundDecisionWithRestock = async ({
             let restocked = 0;
 
             if (shouldRestock) {
+                const productRefs = restockPlan.map(({ productRef }) => productRef);
+                const existingProducts = await Product.find({ _id: { $in: productRefs } })
+                    .select({ _id: 1 })
+                    .session(session)
+                    .lean();
+                const existingProductIds = new Set(existingProducts.map(({ _id }) => String(_id)));
+                if (restockPlan.some(({ productRef }) => !existingProductIds.has(String(productRef)))) {
+                    throw new AppError('Inventory product not found for refund restock', 409);
+                }
+
                 txRefund.inventoryDisposition = {
                     status: 'claimed',
                     claimId: createCommandId('inv'),
@@ -1257,7 +1267,6 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
     }
 
     let persistedOrder = order;
-    let restocked = 0;
     if (req.body.restock === true) {
         const result = await persistRefundDecisionWithRestock({
             orderId: order._id,
@@ -1272,7 +1281,6 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
             restockItems: req.body.restockItems,
         });
         persistedOrder = result.order;
-        restocked = result.restocked;
     } else {
         refund.status = finalStatus;
         refund.amount = amount;

@@ -2433,9 +2433,9 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     const cancelledAfterCapture = captureEvent
         ? await reconcileCapturedOrder(mutatedIntent)
         : false;
-    const refundApplied = parsedEvent.eventType === 'refund.processed'
-        ? await applyRefundWebhookToOrder({ intent: mutatedIntent, parsedEvent })
-        : false;
+    if (parsedEvent.eventType === 'refund.processed') {
+        await applyRefundWebhookToOrder({ intent: mutatedIntent, parsedEvent });
+    }
     const recordedEvent = await recordWebhookEvent({
         eventId: parsedEvent.eventId,
         intentId: intent.intentId,
