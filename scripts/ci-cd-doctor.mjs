@@ -66,6 +66,8 @@ const securityRunner = read('scripts/security-runner.mjs');
 const qualityWorkflow = read('.github/workflows/quality.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const securityGatesWorkflow = read('.github/workflows/security-gates.yml');
+const paymentArchitectureWorkflow = read('.github/workflows/payment-architecture.yml');
+const securityAttackerFrictionWorkflow = read('.github/workflows/security-attacker-friction.yml');
 const statusWatchWorkflow = read('.github/workflows/status-watch.yml');
 
 const checks = [];
@@ -488,11 +490,35 @@ addCheck(
     'staging-promotion-gate:',
     '--workflow staging-ops-watch.yml',
     '--label "Staging promotion gate"',
-    'needs: staging-promotion-gate',
+    '- staging-promotion-gate',
     'STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}',
     '| Staging: same-commit promotion gate | ${STAGING_RESULT} |',
   ].every((needle) => productionOnPush.includes(needle)),
   'production-on-push dispatches and watches staging-ops-watch before production lanes'
+);
+
+addCheck(
+  'main push pipeline binds production lanes to canonical gates',
+  [
+    'uses: ./.github/workflows/ci.yml',
+    'uses: ./.github/workflows/security-gates.yml',
+    'uses: ./.github/workflows/giant-release-gates.yml',
+  ].every((needle) => productionOnPush.includes(needle)) &&
+    ['canonical-quality-gates', 'canonical-security-gates', 'canonical-release-safety-gates']
+      .every((jobName) => productionOnPush.includes(jobName)) &&
+    ['staging-promotion-gate', 'deploy-backend', 'deploy-storefront', 'deploy-gateway', 'release-desktop', 'release-mobile']
+      .every((jobName) => {
+        const section = workflowJobSection(productionOnPush, jobName);
+        return ['canonical-quality-gates', 'canonical-security-gates', 'canonical-release-safety-gates', 'staging-promotion-gate']
+          .every((need) => section.includes(need));
+      }),
+  'production-on-push cannot dispatch a production lane after only the limited preflight'
+);
+
+addCheck(
+  'canonical security gates are reusable from production workflows',
+  securityGatesWorkflow.includes('workflow_call:'),
+  'security-gates.yml can be called as a canonical reusable workflow'
 );
 
 addCheck(
@@ -659,6 +685,18 @@ addCheck(
     'quality:all',
   ].every((script) => packageJson.scripts?.[script]),
   'package.json quality:* scripts'
+);
+
+addCheck(
+  'backend regression lanes use deterministic execution',
+  packageJson.scripts?.test === 'npm run test:server:regression:stable'
+    && packageJson.scripts?.['test:server:regression:stable'] === 'node scripts/run-test-tier.cjs server regression --runInBand --forceExit'
+    && packageJson.scripts?.['test:server:coverage'] === 'npm run test:server:regression:stable -- --coverage'
+    && ciWorkflow.includes('node ../scripts/run-test-tier.cjs server regression --runInBand')
+    && giantReleaseGates.includes('npm run test:server:regression:stable')
+    && paymentArchitectureWorkflow.includes('npm run test:server:regression:stable')
+    && securityAttackerFrictionWorkflow.includes('npm run test:server:regression:stable'),
+  'root, coverage, and release-gate regression commands use the serialized runner'
 );
 
 addCheck(

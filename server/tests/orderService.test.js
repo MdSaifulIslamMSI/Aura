@@ -2,6 +2,7 @@ const {
   appendOrderStatusEvent,
   createCommandId,
   DIGITAL_PAYMENT_METHODS,
+  isRetryableTransactionError,
   normalizeCommandCenter,
   resolveOrderItemForCommand,
 } = require('../services/orderService');
@@ -82,14 +83,27 @@ describe('orderService.resolveOrderItemForCommand', () => {
     expect(resolveOrderItemForCommand(order, { itemTitle: '  AURA PHONE ' }).product).toBe('p-1');
   });
 
-  test('falls back to the first item when nothing matches', () => {
+  test('supports strict item selection while retaining legacy fallback by default', () => {
     expect(resolveOrderItemForCommand(order, { itemProductId: 'unknown' }).product).toBe('p-1');
+    expect(resolveOrderItemForCommand(order, { itemProductId: 'unknown' }, { strict: true })).toBeNull();
     expect(resolveOrderItemForCommand(order, {}).product).toBe('p-1');
   });
 
   test('supports legacy productId item shape', () => {
     const legacy = { orderItems: [{ productId: 42, title: 'Legacy' }] };
     expect(resolveOrderItemForCommand(legacy, { itemProductId: 42 }).title).toBe('Legacy');
+  });
+});
+
+describe('orderService transaction retry classification', () => {
+  test('classifies Mongo lock acquisition and write-conflict failures as retryable', () => {
+    expect(isRetryableTransactionError(new Error('Unable to acquire IX lock on orders within 5ms'))).toBe(true);
+    expect(isRetryableTransactionError(new Error('WriteConflict: transaction aborted'))).toBe(true);
+    expect(isRetryableTransactionError(new Error('lock timeout while waiting for a transaction'))).toBe(true);
+  });
+
+  test('does not classify ordinary errors as retryable', () => {
+    expect(isRetryableTransactionError(new Error('order not found'))).toBe(false);
   });
 });
 

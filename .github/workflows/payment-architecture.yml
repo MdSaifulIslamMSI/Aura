@@ -92,7 +92,7 @@ jobs:
         run: npm run typecheck
 
       - name: Root regression tests
-        run: npm test
+        run: npm run test:server:regression:stable
 
       - name: Build
         run: npm run build
