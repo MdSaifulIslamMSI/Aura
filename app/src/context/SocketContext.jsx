@@ -134,9 +134,12 @@ export const SocketProvider = ({ children }) => {
             const dpopProof = typeof window !== 'undefined'
                 ? await createDpopProof('GET', `${window.location.origin}/socket.io/`)
                 : null;
-            return token
-                ? { token, ...(dpopProof ? { dpopProof } : {}) }
-                : {};
+            // Cookie-session-only handshakes still need the DPoP proof: the
+            // server rejects dpopJwk-bound sessions without one, token or not.
+            if (!token) {
+                return dpopProof ? { dpopProof } : {};
+            }
+            return { token, ...(dpopProof ? { dpopProof } : {}) };
         };
 
         const syncSocketAuth = async (forceRefresh = false) => {

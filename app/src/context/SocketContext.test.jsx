@@ -181,6 +181,24 @@ describe('SocketProvider', () => {
         expect(socketInstances[0]?.socket.connect).toHaveBeenCalledTimes(1);
     });
 
+    it('still sends the DPoP proof when the token resolves empty', async () => {
+        authState.currentUser.getIdToken = vi.fn(async () => '');
+
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        expect(socketInstances[0]?.options?.auth).toEqual({ dpopProof: 'dpop-test-proof' });
+    });
+
     it('forces polling when a hosted Vercel frontend proxies realtime through its own origin', async () => {
         runtimeApiConfig.resolveServiceOrigin.mockReturnValue('https://aurapilot.vercel.app');
         Object.defineProperty(window, 'location', {
