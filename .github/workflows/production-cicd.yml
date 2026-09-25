@@ -468,8 +468,8 @@ jobs:
             'docs/emergency-controls.md' \
             'docs/login-staging-production-activation.md' \
             'docs/privileged-access-management.md' \
-            'SECURITY_TEST_PLAN.md' \
-            'security_best_practices_report.md' \
+            'security-reports/SECURITY_TEST_PLAN.md' \
+            'security-reports/security_best_practices_report.md' \
             '.gitleaks.toml' \
             'security-audit-exceptions.json' \
             'infra/edge/*' \

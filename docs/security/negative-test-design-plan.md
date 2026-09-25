@@ -8,7 +8,7 @@ Use it with:
 
 - `server/security/sensitiveActionRegistry.js` for canonical sensitive actions.
 - `docs/security/route-enforcement-coverage.md` for high-risk route coverage.
-- `SECURITY_TEST_PLAN.md` for current security suites and known limitations.
+- `security-reports/SECURITY_TEST_PLAN.md` for current security suites and known limitations.
 - `server/tests/helpers/securityTestHelpers.js` for reusable test actors, resources, and no-mutation assertions.
 - `tests/auth/helpers/matrix-engine.js` and `tests/auth/matrix/auth-test-matrix.json` for auth matrix generation.
 
