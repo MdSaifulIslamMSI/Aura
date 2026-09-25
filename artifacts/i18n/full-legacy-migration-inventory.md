@@ -1,17 +1,17 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-19T08:04:14.390Z
+Generated: 2026-09-25T11:39:56.806Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 527
-- Tracked files: 152
-- Production files with stable literal UI copy: 99
-- Production stable literal references: 4115
-- Unique production stable IDs: 3716
-- Dynamic lookup references requiring manual review: 15
+- Source files scanned: 529
+- Tracked files: 153
+- Production files with stable literal UI copy: 100
+- Production stable literal references: 4132
+- Unique production stable IDs: 3730
+- Dynamic lookup references requiring manual review: 16
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
 - Runtime enum compatibility files: 1
@@ -31,7 +31,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Login/useLoginController.js` | 170 | 159 | 1 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepPayment.jsx` | 151 | 133 | 0 | stable-ui |
 | high | `app/src/pages/Orders/index.jsx` | 132 | 129 | 1 | stable-ui |
-| high | `app/src/pages/Profile/components/SettingsSection.jsx` | 129 | 126 | 0 | stable-ui |
+| high | `app/src/pages/Profile/components/SettingsSection.jsx` | 130 | 127 | 0 | stable-ui |
 | high | `app/src/pages/ListingDetail/index.jsx` | 123 | 116 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/index.jsx` | 103 | 92 | 0 | stable-ui |
 | high | `app/src/pages/Profile/components/SupportSection.jsx` | 84 | 74 | 0 | runtime-content-nearby |
@@ -50,7 +50,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/components/features/auth/DesktopBrowserAuthShell.jsx` | 22 | 22 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepAddress.jsx` | 23 | 22 | 0 | stable-ui |
 | high | `app/src/pages/SellerProfile/index.jsx` | 22 | 21 | 0 | stable-ui |
-| high | `app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx` | 17 | 17 | 0 | stable-ui |
+| high | `app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx` | 18 | 18 | 0 | stable-ui |
 | high | `app/src/components/shared/ProtectedRoute.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Bundles/index.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepDelivery.jsx` | 16 | 16 | 0 | stable-ui |
@@ -64,14 +64,15 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Status/IncidentDetail.jsx` | 7 | 7 | 0 | stable-ui |
 | high | `app/src/App.jsx` | 4 | 4 | 0 | stable-ui |
 | high | `app/src/pages/Status/History.jsx` | 4 | 4 | 0 | stable-ui |
+| high | `app/src/components/features/orders/OrderProgressStepper.jsx` | 2 | 2 | 1 | stable-ui |
 | high | `app/src/pages/Login/loginFlowHelpers.js` | 1 | 1 | 0 | stable-ui |
-| medium | `app/src/pages/Admin/Dashboard.jsx` | 146 | 132 | 0 | runtime-content-nearby |
+| medium | `app/src/pages/Admin/Dashboard.jsx` | 147 | 133 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Marketplace/index.jsx` | 133 | 132 | 0 | runtime-content-nearby |
-| medium | `app/src/pages/Admin/Support.jsx` | 128 | 106 | 0 | runtime-content-nearby |
+| medium | `app/src/pages/Admin/Support.jsx` | 131 | 109 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/ProductDetails/index.jsx` | 108 | 98 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Home/index.jsx` | 97 | 84 | 0 | stable-ui |
 | medium | `app/src/components/shared/GlobalSearchBar.jsx` | 55 | 53 | 0 | runtime-content-nearby |
-| medium | `app/src/components/layout/Navbar/index.jsx` | 75 | 49 | 1 | stable-ui |
+| medium | `app/src/components/layout/Navbar/index.jsx` | 76 | 50 | 1 | stable-ui |
 | medium | `app/src/pages/AICompare/index.jsx` | 45 | 45 | 2 | stable-ui |
 | medium | `app/src/components/features/product/Filters/index.jsx` | 38 | 34 | 0 | stable-ui |
 | medium | `app/src/components/features/chat/MessageItem.jsx` | 32 | 32 | 5 | stable-ui |
@@ -83,8 +84,8 @@ These production references are eligible for reviewed ICU catalog migration.
 | low | `app/src/pages/Sell/index.jsx` | 140 | 140 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Payments.jsx` | 102 | 99 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Users.jsx` | 120 | 99 | 0 | stable-ui |
-| low | `app/src/pages/Admin/EmailOps.jsx` | 116 | 93 | 0 | stable-ui |
-| low | `app/src/pages/Admin/OrderList.jsx` | 72 | 64 | 0 | stable-ui |
+| low | `app/src/pages/Admin/EmailOps.jsx` | 117 | 94 | 0 | stable-ui |
+| low | `app/src/pages/Admin/OrderList.jsx` | 79 | 70 | 0 | stable-ui |
 | low | `app/src/pages/Admin/ProductEdit.jsx` | 63 | 60 | 0 | stable-ui |
 | low | `app/src/pages/Admin/ProductList.jsx` | 61 | 57 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/OverviewSection.jsx` | 50 | 50 | 0 | stable-ui |
@@ -139,7 +140,8 @@ These computed keys stay outside automatic migration until manually reviewed.
 | `app/src/components/features/chat/MessageItem.jsx` | 316 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/features/chat/MessageItem.jsx` | 317 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/features/chat/MessageItem.jsx` | 510 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/layout/Navbar/index.jsx` | 382 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/orders/OrderProgressStepper.jsx` | 62 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/layout/Navbar/index.jsx` | 383 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/i18n/StableText.jsx` | 6 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 89 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 360 | First t() argument is computed or interpolated and requires manual review. |
@@ -147,7 +149,7 @@ These computed keys stay outside automatic migration until manually reviewed.
 | `app/src/pages/MissionControl/index.jsx` | 285 | StableText id is computed and requires manual review. |
 | `app/src/pages/Orders/index.jsx` | 22 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/ProductListing/index.jsx` | 491 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/utils/authErrors.js` | 2147 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/utils/authErrors.js` | 2202 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/utils/supportArchitecture.js` | 148 | First t() argument is computed or interpolated and requires manual review. |
 
 ### Runtime content translation

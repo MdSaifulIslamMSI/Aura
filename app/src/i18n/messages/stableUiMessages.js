@@ -1468,6 +1468,26 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "+{count} more pending",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.orders.restock.error.empty": {
+        id: "admin.orders.restock.error.empty",
+        defaultMessage: "Enter a restock quantity for at least one item.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.orders.restock.hint": {
+        id: "admin.orders.restock.hint",
+        defaultMessage: "Returned units re-enter inventory once the refund is processed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.orders.restock.quantityLabel": {
+        id: "admin.orders.restock.quantityLabel",
+        defaultMessage: "Qty",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.orders.restock.toggle": {
+        id: "admin.orders.restock.toggle",
+        defaultMessage: "Restock returned items",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.orders.stats.awaitingCapture": {
         id: "admin.orders.stats.awaitingCapture",
         defaultMessage: "Awaiting successful capture",

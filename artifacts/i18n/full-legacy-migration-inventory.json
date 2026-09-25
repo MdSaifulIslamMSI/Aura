@@ -66,6 +66,19 @@
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
+      "column": 43,
+      "defaultMessageSource": "message-id",
+      "fallback": "",
+      "file": "app/src/components/features/orders/OrderProgressStepper.jsx",
+      "icuDefaultMessage": "",
+      "id": "",
+      "interpolationTokens": [],
+      "kind": "dynamic-lookup",
+      "legacyEnglishTemplate": "",
+      "line": 62,
+      "reason": "First t() argument is computed or interpolated and requires manual review."
+    },
+    {
       "column": 31,
       "defaultMessageSource": "message-id",
       "fallback": "",
@@ -75,7 +88,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 382,
+      "line": 383,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -179,7 +192,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 2147,
+      "line": 2202,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -666,7 +679,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 126,
+      "messageIdCount": 127,
       "messageIds": [
         "common.cancel",
         "common.confirm",
@@ -677,6 +690,7 @@
         "common.revoking",
         "common.save",
         "common.saving",
+        "nav.logoutFailed",
         "profile.settings.credentials.emptyTitle",
         "profile.settings.credentials.title",
         "profile.settings.devices.activeCount",
@@ -796,7 +810,7 @@
         "profile.settings.trust.warning"
       ],
       "risk": "high",
-      "stableLiteralCount": 129,
+      "stableLiteralCount": 130,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1891,7 +1905,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 17,
+      "messageIdCount": 18,
       "messageIds": [
         "auth.trustedDevice.confirming",
         "auth.trustedDevice.exit.anotherAccount",
@@ -1909,10 +1923,11 @@
         "auth.trustedDevice.proofBindingNote",
         "auth.trustedDevice.reauth.passwordLabel",
         "auth.trustedDevice.resetBrowser",
-        "auth.trustedDevice.resetBrowserSession"
+        "auth.trustedDevice.resetBrowserSession",
+        "nav.logoutFailed"
       ],
       "risk": "high",
-      "stableLiteralCount": 17,
+      "stableLiteralCount": 18,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -2270,6 +2285,22 @@
       "usesDynamicRuntimeTranslation": false
     },
     {
+      "dynamicLookupCount": 1,
+      "file": "app/src/components/features/orders/OrderProgressStepper.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 2,
+      "messageIds": [
+        "orders.progress.latest",
+        "orders.status.cancelled"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 2,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
       "dynamicLookupCount": 0,
       "file": "app/src/pages/Login/loginFlowHelpers.js",
       "importsLegacyPacks": false,
@@ -2290,7 +2321,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 132,
+      "messageIdCount": 133,
       "messageIds": [
         "admin.dashboard.actions.markMatchingRead",
         "admin.dashboard.actions.runOpsSmoke",
@@ -2363,6 +2394,7 @@
         "admin.dashboard.paymentFailureRate",
         "admin.dashboard.paymentQueue",
         "admin.dashboard.portalSession",
+        "admin.dashboard.powerBiBlocked",
         "admin.dashboard.powerBiFrame",
         "admin.dashboard.powerBiTitle",
         "admin.dashboard.priorityQueue",
@@ -2426,7 +2458,7 @@
         "admin.shared.yes"
       ],
       "risk": "medium",
-      "stableLiteralCount": 146,
+      "stableLiteralCount": 147,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": true
     },
@@ -2582,7 +2614,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 106,
+      "messageIdCount": 109,
       "messageIds": [
         "admin.shared.refresh",
         "admin.shared.unknown",
@@ -2614,6 +2646,7 @@
         "admin.support.arch.voiceLanes",
         "admin.support.arch.voiceLanesBody",
         "admin.support.callerName",
+        "admin.support.clearSelection",
         "admin.support.closed",
         "admin.support.closedTicketBody",
         "admin.support.composerPlaceholder",
@@ -2627,6 +2660,8 @@
         "admin.support.error.startCall",
         "admin.support.error.updateStatus",
         "admin.support.eyebrow",
+        "admin.support.filteredOut",
+        "admin.support.filteredOutBody",
         "admin.support.joinCall",
         "admin.support.lastEndedAt",
         "admin.support.liveCallContext",
@@ -2692,7 +2727,7 @@
         "profile.support.priority.urgent"
       ],
       "risk": "medium",
-      "stableLiteralCount": 128,
+      "stableLiteralCount": 131,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": true
     },
@@ -2979,7 +3014,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 49,
+      "messageIdCount": 50,
       "messageIds": [
         "common.jsx.text.live.runtimes.ae649138",
         "market.country",
@@ -3009,6 +3044,7 @@
         "nav.login",
         "nav.loginSignup",
         "nav.logout",
+        "nav.logoutFailed",
         "nav.marketPanelBody",
         "nav.marketPanelDialog",
         "nav.marketPanelTitle",
@@ -3032,7 +3068,7 @@
         "nav.wishlist"
       ],
       "risk": "medium",
-      "stableLiteralCount": 75,
+      "stableLiteralCount": 76,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3785,7 +3821,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 93,
+      "messageIdCount": 94,
       "messageIds": [
         "admin.email.actions.refreshAll",
         "admin.email.actions.sendTest",
@@ -3806,6 +3842,7 @@
         "admin.email.emptyFailures",
         "admin.email.emptyQueue",
         "admin.email.enabled",
+        "admin.email.error.invalidRecipient",
         "admin.email.error.loadDeliveries",
         "admin.email.error.loadQueue",
         "admin.email.error.loadSummary",
@@ -3882,7 +3919,7 @@
         "admin.shared.unknown"
       ],
       "risk": "low",
-      "stableLiteralCount": 116,
+      "stableLiteralCount": 117,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3892,7 +3929,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 64,
+      "messageIdCount": 70,
       "messageIds": [
         "admin.orders.actions.adminCancel",
         "admin.orders.actions.apply",
@@ -3908,6 +3945,7 @@
         "admin.orders.cancelled",
         "admin.orders.currentStatus",
         "admin.orders.description",
+        "admin.orders.empty.noOrders",
         "admin.orders.empty.refunds",
         "admin.orders.empty.replacements",
         "admin.orders.empty.warranty",
@@ -3931,6 +3969,11 @@
         "admin.orders.payment.paid",
         "admin.orders.payment.pending",
         "admin.orders.payment.state",
+        "admin.orders.pendingMore",
+        "admin.orders.restock.error.empty",
+        "admin.orders.restock.hint",
+        "admin.orders.restock.quantityLabel",
+        "admin.orders.restock.toggle",
         "admin.orders.stats.awaitingCapture",
         "admin.orders.stats.funded",
         "admin.orders.stats.loadedSet",
@@ -3960,7 +4003,7 @@
         "admin.shared.refresh"
       ],
       "risk": "low",
-      "stableLiteralCount": 72,
+      "stableLiteralCount": 79,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6107,7 +6150,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-19T08:04:14.390Z",
+  "generatedAt": "2026-09-25T11:39:56.806Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6856,6 +6899,19 @@
       "reason": ""
     },
     {
+      "column": 19,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Logout failed. Please try again.",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Logout failed. Please try again.",
+      "id": "nav.logoutFailed",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Logout failed. Please try again.",
+      "line": 322,
+      "reason": ""
+    },
+    {
       "column": 21,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Admin access",
@@ -6865,7 +6921,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access",
-      "line": 365,
+      "line": 369,
       "reason": ""
     },
     {
@@ -6878,7 +6934,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in",
-      "line": 366,
+      "line": 370,
       "reason": ""
     },
     {
@@ -6891,7 +6947,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign-in progress",
-      "line": 377,
+      "line": 381,
       "reason": ""
     },
     {
@@ -6904,7 +6960,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account verified",
-      "line": 379,
+      "line": 383,
       "reason": ""
     },
     {
@@ -6917,7 +6973,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm device",
-      "line": 382,
+      "line": 386,
       "reason": ""
     },
     {
@@ -6930,7 +6986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Extra check if needed",
-      "line": 385,
+      "line": 389,
       "reason": ""
     },
     {
@@ -6943,7 +6999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recommended",
-      "line": 393,
+      "line": 397,
       "reason": ""
     },
     {
@@ -6956,7 +7012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Try another way",
-      "line": 410,
+      "line": 414,
       "reason": ""
     },
     {
@@ -6969,7 +7025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device verification methods",
-      "line": 415,
+      "line": 419,
       "reason": ""
     },
     {
@@ -6982,7 +7038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account password",
-      "line": 450,
+      "line": 454,
       "reason": ""
     },
     {
@@ -6995,7 +7051,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The required method is not available in this browser. Use a supported browser or another device.",
-      "line": 466,
+      "line": 470,
       "reason": ""
     },
     {
@@ -7008,7 +7064,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirming device…",
-      "line": 487,
+      "line": 491,
       "reason": ""
     },
     {
@@ -7021,7 +7077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use another account",
-      "line": 496,
+      "line": 500,
       "reason": ""
     },
     {
@@ -7034,7 +7090,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset this browser",
-      "line": 507,
+      "line": 511,
       "reason": ""
     },
     {
@@ -7047,7 +7103,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset browser session",
-      "line": 516,
+      "line": 520,
       "reason": ""
     },
     {
@@ -7060,7 +7116,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device proof is short-lived and bound to this sign-in.",
-      "line": 520,
+      "line": 524,
       "reason": ""
     },
     {
@@ -7073,7 +7129,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete multi-factor verification",
-      "line": 109,
+      "line": 110,
       "reason": ""
     },
     {
@@ -7086,7 +7142,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify this device",
-      "line": 110,
+      "line": 111,
       "reason": ""
     },
     {
@@ -7099,7 +7155,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
-      "line": 113,
+      "line": 114,
       "reason": ""
     },
     {
@@ -7112,7 +7168,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep this page open. Do not submit your sign-in details again.",
-      "line": 120,
+      "line": 121,
       "reason": ""
     },
     {
@@ -7125,7 +7181,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 132,
+      "line": 133,
       "reason": ""
     },
     {
@@ -7138,7 +7194,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
-      "line": 135,
+      "line": 136,
       "reason": ""
     },
     {
@@ -7151,7 +7207,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel browser sign-in",
-      "line": 144,
+      "line": 145,
       "reason": ""
     },
     {
@@ -7164,7 +7220,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open browser again",
-      "line": 152,
+      "line": 153,
       "reason": ""
     },
     {
@@ -7177,7 +7233,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Welcome back",
-      "line": 165,
+      "line": 166,
       "reason": ""
     },
     {
@@ -7190,7 +7246,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use your browser to complete Aura sign-in securely.",
-      "line": 168,
+      "line": 169,
       "reason": ""
     },
     {
@@ -7203,7 +7259,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account",
-      "line": 185,
+      "line": 186,
       "reason": ""
     },
     {
@@ -7216,7 +7272,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Profile, orders, and saved shopping links.",
-      "line": 187,
+      "line": 188,
       "reason": ""
     },
     {
@@ -7229,7 +7285,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 201,
+      "line": 202,
       "reason": ""
     },
     {
@@ -7242,7 +7298,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 203,
+      "line": 204,
       "reason": ""
     },
     {
@@ -7255,7 +7311,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Owner Access",
-      "line": 221,
+      "line": 222,
       "reason": ""
     },
     {
@@ -7268,7 +7324,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open marketplace",
-      "line": 230,
+      "line": 231,
       "reason": ""
     },
     {
@@ -7281,7 +7337,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New to Aura? Continue in the browser, then choose Sign up.",
-      "line": 235,
+      "line": 236,
       "reason": ""
     },
     {
@@ -7294,7 +7350,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
-      "line": 243,
+      "line": 244,
       "reason": ""
     },
     {
@@ -7307,7 +7363,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "By continuing, you accept our",
-      "line": 245,
+      "line": 246,
       "reason": ""
     },
     {
@@ -7320,7 +7376,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Terms of Use",
-      "line": 247,
+      "line": 248,
       "reason": ""
     },
     {
@@ -7333,7 +7389,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and",
-      "line": 249,
+      "line": 250,
       "reason": ""
     },
     {
@@ -7346,7 +7402,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Privacy Policy",
-      "line": 251,
+      "line": 252,
       "reason": ""
     },
     {
@@ -8435,6 +8491,32 @@
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select",
       "line": 211,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Cancelled",
+      "file": "app/src/components/features/orders/OrderProgressStepper.jsx",
+      "icuDefaultMessage": "Cancelled",
+      "id": "orders.status.cancelled",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Cancelled",
+      "line": 23,
+      "reason": ""
+    },
+    {
+      "column": 28,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Latest update received",
+      "file": "app/src/components/features/orders/OrderProgressStepper.jsx",
+      "icuDefaultMessage": "Latest update received",
+      "id": "orders.progress.latest",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 81,
       "reason": ""
     },
     {
@@ -9976,7 +10058,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 98,
+      "line": 99,
       "reason": ""
     },
     {
@@ -9991,7 +10073,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}}",
-      "line": 106,
+      "line": 107,
       "reason": ""
     },
     {
@@ -10006,7 +10088,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}} from account menu",
-      "line": 141,
+      "line": 142,
       "reason": ""
     },
     {
@@ -10019,7 +10101,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 188,
+      "line": 189,
       "reason": ""
     },
     {
@@ -10032,7 +10114,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune country, language, and browse currency without losing your place.",
-      "line": 191,
+      "line": 192,
       "reason": ""
     },
     {
@@ -10045,7 +10127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset to detected market",
-      "line": 199,
+      "line": 200,
       "reason": ""
     },
     {
@@ -10058,7 +10140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country",
-      "line": 205,
+      "line": 206,
       "reason": ""
     },
     {
@@ -10071,7 +10153,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Language",
-      "line": 220,
+      "line": 221,
       "reason": ""
     },
     {
@@ -10084,7 +10166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Currency",
-      "line": 235,
+      "line": 236,
       "reason": ""
     },
     {
@@ -10097,7 +10179,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detected",
-      "line": 252,
+      "line": 253,
       "reason": ""
     },
     {
@@ -10110,7 +10192,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Region",
-      "line": 255,
+      "line": 256,
       "reason": ""
     },
     {
@@ -10123,7 +10205,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local prices",
-      "line": 258,
+      "line": 259,
       "reason": ""
     },
     {
@@ -10136,7 +10218,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog prices convert from INR for browsing. Final payment quotes lock at checkout.",
-      "line": 268,
+      "line": 269,
       "reason": ""
     },
     {
@@ -10149,7 +10231,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice commands, dates, and UI copy follow the selected language and locale where translated.",
-      "line": 271,
+      "line": 272,
       "reason": ""
     },
     {
@@ -10162,7 +10244,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Native catalog FX",
-      "line": 272,
+      "line": 273,
       "reason": ""
     },
     {
@@ -10175,7 +10257,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 299,
+      "line": 300,
       "reason": ""
     },
     {
@@ -10188,7 +10270,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 306,
+      "line": 307,
       "reason": ""
     },
     {
@@ -10201,7 +10283,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 307,
+      "line": 308,
       "reason": ""
     },
     {
@@ -10214,7 +10296,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 316,
+      "line": 317,
       "reason": ""
     },
     {
@@ -10227,7 +10309,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 322,
+      "line": 323,
       "reason": ""
     },
     {
@@ -10240,7 +10322,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 327,
+      "line": 328,
       "reason": ""
     },
     {
@@ -10253,7 +10335,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 393,
+      "line": 394,
       "reason": ""
     },
     {
@@ -10266,7 +10348,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 531,
+      "line": 532,
       "reason": ""
     },
     {
@@ -10279,7 +10361,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 532,
+      "line": 533,
       "reason": ""
     },
     {
@@ -10292,7 +10374,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 587,
+      "line": 588,
       "reason": ""
     },
     {
@@ -10305,7 +10387,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 660,
+      "line": 661,
       "reason": ""
     },
     {
@@ -10318,7 +10400,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 670,
+      "line": 671,
       "reason": ""
     },
     {
@@ -10331,7 +10413,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 676,
+      "line": 677,
       "reason": ""
     },
     {
@@ -10344,7 +10426,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 687,
+      "line": 688,
       "reason": ""
     },
     {
@@ -10357,7 +10439,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open market settings",
-      "line": 710,
+      "line": 711,
       "reason": ""
     },
     {
@@ -10370,7 +10452,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market preferences",
-      "line": 725,
+      "line": 726,
       "reason": ""
     },
     {
@@ -10383,7 +10465,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 730,
+      "line": 731,
       "reason": ""
     },
     {
@@ -10396,7 +10478,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country, language, and currency controls.",
-      "line": 733,
+      "line": 734,
       "reason": ""
     },
     {
@@ -10409,7 +10491,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune browsing without disturbing the main navigation rail.",
-      "line": 736,
+      "line": 737,
       "reason": ""
     },
     {
@@ -10422,7 +10504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open profile menu",
-      "line": 775,
+      "line": 776,
       "reason": ""
     },
     {
@@ -10437,7 +10519,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 789,
+      "line": 790,
       "reason": ""
     },
     {
@@ -10450,7 +10532,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close profile menu backdrop",
-      "line": 800,
+      "line": 801,
       "reason": ""
     },
     {
@@ -10463,7 +10545,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account",
-      "line": 812,
+      "line": 813,
       "reason": ""
     },
     {
@@ -10476,7 +10558,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Profile, orders, and saved shopping links.",
-      "line": 815,
+      "line": 816,
       "reason": ""
     },
     {
@@ -10489,7 +10571,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close",
-      "line": 823,
+      "line": 824,
       "reason": ""
     },
     {
@@ -10504,7 +10586,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 831,
+      "line": 832,
       "reason": ""
     },
     {
@@ -10517,7 +10599,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 840,
+      "line": 841,
       "reason": ""
     },
     {
@@ -10530,7 +10612,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 847,
+      "line": 848,
       "reason": ""
     },
     {
@@ -10543,7 +10625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 854,
+      "line": 855,
       "reason": ""
     },
     {
@@ -10556,7 +10638,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 862,
+      "line": 863,
       "reason": ""
     },
     {
@@ -10569,7 +10651,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 870,
+      "line": 871,
       "reason": ""
     },
     {
@@ -10582,7 +10664,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 882,
+      "line": 883,
+      "reason": ""
+    },
+    {
+      "column": 45,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Logout failed. Please try again.",
+      "file": "app/src/components/layout/Navbar/index.jsx",
+      "icuDefaultMessage": "Logout failed. Please try again.",
+      "id": "nav.logoutFailed",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Logout failed. Please try again.",
+      "line": 895,
       "reason": ""
     },
     {
@@ -10595,7 +10690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logout",
-      "line": 898,
+      "line": 901,
       "reason": ""
     },
     {
@@ -10608,7 +10703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications temporarily unavailable",
-      "line": 907,
+      "line": 910,
       "reason": ""
     },
     {
@@ -10621,7 +10716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications are temporarily unavailable",
-      "line": 908,
+      "line": 911,
       "reason": ""
     },
     {
@@ -10634,7 +10729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 925,
+      "line": 928,
       "reason": ""
     },
     {
@@ -10647,7 +10742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 933,
+      "line": 936,
       "reason": ""
     },
     {
@@ -10660,7 +10755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Toggle menu",
-      "line": 949,
+      "line": 952,
       "reason": ""
     },
     {
@@ -10673,7 +10768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 960,
+      "line": 963,
       "reason": ""
     },
     {
@@ -10686,7 +10781,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 961,
+      "line": 964,
       "reason": ""
     },
     {
@@ -10699,7 +10794,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 968,
+      "line": 971,
       "reason": ""
     },
     {
@@ -10712,7 +10807,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 988,
+      "line": 991,
       "reason": ""
     },
     {
@@ -10725,7 +10820,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 989,
+      "line": 992,
       "reason": ""
     },
     {
@@ -10738,7 +10833,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 996,
+      "line": 999,
       "reason": ""
     },
     {
@@ -10751,7 +10846,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close mobile menu backdrop",
-      "line": 1008,
+      "line": 1011,
       "reason": ""
     },
     {
@@ -10764,7 +10859,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop",
-      "line": 1025,
+      "line": 1028,
       "reason": ""
     },
     {
@@ -10777,7 +10872,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 1033,
+      "line": 1036,
       "reason": ""
     },
     {
@@ -10790,7 +10885,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 1041,
+      "line": 1044,
       "reason": ""
     },
     {
@@ -10803,7 +10898,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1041,
+      "line": 1044,
       "reason": ""
     },
     {
@@ -10816,7 +10911,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 1049,
+      "line": 1052,
       "reason": ""
     },
     {
@@ -10829,7 +10924,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 1057,
+      "line": 1060,
       "reason": ""
     },
     {
@@ -10842,7 +10937,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse by category",
-      "line": 1063,
+      "line": 1066,
       "reason": ""
     },
     {
@@ -10855,7 +10950,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account control",
-      "line": 1080,
+      "line": 1083,
       "reason": ""
     },
     {
@@ -10868,7 +10963,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 1085,
+      "line": 1088,
       "reason": ""
     },
     {
@@ -10881,7 +10976,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 1088,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -10894,7 +10989,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 1091,
+      "line": 1094,
       "reason": ""
     },
     {
@@ -10907,7 +11002,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1091,
+      "line": 1094,
       "reason": ""
     },
     {
@@ -10920,7 +11015,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 1098,
+      "line": 1101,
       "reason": ""
     },
     {
@@ -10933,7 +11028,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 1130,
+      "line": 1133,
       "reason": ""
     },
     {
@@ -10946,7 +11041,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login / Sign up",
-      "line": 1174,
+      "line": 1177,
       "reason": ""
     },
     {
@@ -14780,7 +14875,7 @@
       "reason": ""
     },
     {
-      "column": 76,
+      "column": 80,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Power BI Dashboard",
       "file": "app/src/pages/Admin/Dashboard.jsx",
@@ -14789,7 +14884,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Power BI Dashboard",
-      "line": 693,
+      "line": 694,
+      "reason": ""
+    },
+    {
+      "column": 72,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Power BI dashboard blocked: URL must use HTTPS.",
+      "file": "app/src/pages/Admin/Dashboard.jsx",
+      "icuDefaultMessage": "Power BI dashboard blocked: URL must use HTTPS.",
+      "id": "admin.dashboard.powerBiBlocked",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Power BI dashboard blocked: URL must use HTTPS.",
+      "line": 696,
       "reason": ""
     },
     {
@@ -14802,7 +14910,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Top Actions (24h)",
-      "line": 701,
+      "line": 705,
       "reason": ""
     },
     {
@@ -14815,7 +14923,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No recent action bursts.",
-      "line": 704,
+      "line": 708,
       "reason": ""
     },
     {
@@ -14828,7 +14936,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Quick Actions",
-      "line": 717,
+      "line": 721,
       "reason": ""
     },
     {
@@ -14841,7 +14949,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Orders Console",
-      "line": 719,
+      "line": 723,
       "reason": ""
     },
     {
@@ -14854,7 +14962,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Payment Ops",
-      "line": 720,
+      "line": 724,
       "reason": ""
     },
     {
@@ -14867,7 +14975,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product Control",
-      "line": 721,
+      "line": 725,
       "reason": ""
     },
     {
@@ -14880,7 +14988,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Portal Session",
-      "line": 722,
+      "line": 726,
       "reason": ""
     },
     {
@@ -14893,7 +15001,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live Notification Feed",
-      "line": 729,
+      "line": 733,
       "reason": ""
     },
     {
@@ -14906,7 +15014,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search action, actor, path...",
-      "line": 731,
+      "line": 735,
       "reason": ""
     },
     {
@@ -14919,7 +15027,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All severities",
-      "line": 733,
+      "line": 737,
       "reason": ""
     },
     {
@@ -14932,7 +15040,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Info",
-      "line": 734,
+      "line": 738,
       "reason": ""
     },
     {
@@ -14945,7 +15053,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warning",
-      "line": 735,
+      "line": 739,
       "reason": ""
     },
     {
@@ -14958,7 +15066,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Critical",
-      "line": 736,
+      "line": 740,
       "reason": ""
     },
     {
@@ -14971,7 +15079,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unread Only",
-      "line": 740,
+      "line": 744,
       "reason": ""
     },
     {
@@ -14984,7 +15092,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading notifications...",
-      "line": 747,
+      "line": 751,
       "reason": ""
     },
     {
@@ -14997,7 +15105,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No notifications match current filters.",
-      "line": 749,
+      "line": 753,
       "reason": ""
     },
     {
@@ -15010,7 +15118,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown actor",
-      "line": 761,
+      "line": 765,
       "reason": ""
     },
     {
@@ -15027,7 +15135,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{time}} | {{duration}} ms | status {{status}}",
-      "line": 762,
+      "line": 766,
       "reason": ""
     },
     {
@@ -15040,7 +15148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Updating...",
-      "line": 765,
+      "line": 769,
       "reason": ""
     },
     {
@@ -15053,7 +15161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Mark Unread",
-      "line": 765,
+      "line": 769,
       "reason": ""
     },
     {
@@ -15066,7 +15174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Mark Read",
-      "line": 765,
+      "line": 769,
       "reason": ""
     },
     {
@@ -15083,7 +15191,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{total}} total records | page {{page}} / {{pages}}",
-      "line": 774,
+      "line": 778,
       "reason": ""
     },
     {
@@ -15096,7 +15204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Previous",
-      "line": 776,
+      "line": 780,
       "reason": ""
     },
     {
@@ -15109,7 +15217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next",
-      "line": 777,
+      "line": 781,
       "reason": ""
     },
     {
@@ -15122,7 +15230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading timeline...",
-      "line": 817,
+      "line": 821,
       "reason": ""
     },
     {
@@ -15135,7 +15243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No timeline data in current range.",
-      "line": 820,
+      "line": 824,
       "reason": ""
     },
     {
@@ -15151,7 +15259,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{bucket}}: {{value}}",
-      "line": 832,
+      "line": 836,
       "reason": ""
     },
     {
@@ -15166,7 +15274,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Latest: {{value}}",
-      "line": 840,
+      "line": 844,
       "reason": ""
     },
     {
@@ -15179,7 +15287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "ok",
-      "line": 860,
+      "line": 864,
       "reason": ""
     },
     {
@@ -15192,7 +15300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "risk",
-      "line": 860,
+      "line": 864,
       "reason": ""
     },
     {
@@ -15391,6 +15499,19 @@
       "reason": ""
     },
     {
+      "column": 25,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Enter a valid email address or leave the field empty",
+      "file": "app/src/pages/Admin/EmailOps.jsx",
+      "icuDefaultMessage": "Enter a valid email address or leave the field empty",
+      "id": "admin.email.error.invalidRecipient",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Enter a valid email address or leave the field empty",
+      "line": 221,
+      "reason": ""
+    },
+    {
       "column": 27,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Test email queued to {{value1}}",
@@ -15402,7 +15523,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Test email queued to {{recipient}}",
-      "line": 224,
+      "line": 229,
       "reason": ""
     },
     {
@@ -15415,7 +15536,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "designated inbox",
-      "line": 224,
+      "line": 229,
       "reason": ""
     },
     {
@@ -15428,7 +15549,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to send test email",
-      "line": 227,
+      "line": 232,
       "reason": ""
     },
     {
@@ -15441,7 +15562,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unified Messaging Control",
-      "line": 235,
+      "line": 240,
       "reason": ""
     },
     {
@@ -15454,7 +15575,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email operations portal",
-      "line": 236,
+      "line": 241,
       "reason": ""
     },
     {
@@ -15467,7 +15588,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "One operational command deck for provider posture, persistent delivery logs, live failure visibility, and order-email recovery workflows.",
-      "line": 237,
+      "line": 242,
       "reason": ""
     },
     {
@@ -15480,7 +15601,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Optional designate email",
-      "line": 244,
+      "line": 249,
       "reason": ""
     },
     {
@@ -15493,7 +15614,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sending test...",
-      "line": 249,
+      "line": 254,
       "reason": ""
     },
     {
@@ -15506,7 +15627,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Send test",
-      "line": 249,
+      "line": 254,
       "reason": ""
     },
     {
@@ -15519,7 +15640,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refresh all",
-      "line": 253,
+      "line": 258,
       "reason": ""
     },
     {
@@ -15532,7 +15653,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active provider",
-      "line": 260,
+      "line": 265,
       "reason": ""
     },
     {
@@ -15545,7 +15666,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 261,
+      "line": 266,
       "reason": ""
     },
     {
@@ -15558,7 +15679,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 261,
+      "line": 266,
       "reason": ""
     },
     {
@@ -15571,7 +15692,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading provider posture",
-      "line": 262,
+      "line": 267,
       "reason": ""
     },
     {
@@ -15584,7 +15705,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Transactional email armed",
-      "line": 262,
+      "line": 267,
       "reason": ""
     },
     {
@@ -15597,7 +15718,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Transactional email disabled",
-      "line": 262,
+      "line": 267,
       "reason": ""
     },
     {
@@ -15610,7 +15731,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sent in 24h",
-      "line": 267,
+      "line": 272,
       "reason": ""
     },
     {
@@ -15623,7 +15744,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 268,
+      "line": 273,
       "reason": ""
     },
     {
@@ -15636,7 +15757,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading delivery log",
-      "line": 269,
+      "line": 274,
       "reason": ""
     },
     {
@@ -15651,7 +15772,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} total attempts",
-      "line": 269,
+      "line": 274,
       "reason": ""
     },
     {
@@ -15664,7 +15785,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed in 24h",
-      "line": 274,
+      "line": 279,
       "reason": ""
     },
     {
@@ -15677,7 +15798,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 275,
+      "line": 280,
       "reason": ""
     },
     {
@@ -15690,7 +15811,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading failures",
-      "line": 276,
+      "line": 281,
       "reason": ""
     },
     {
@@ -15705,7 +15826,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} recent failure records",
-      "line": 276,
+      "line": 281,
       "reason": ""
     },
     {
@@ -15718,7 +15839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Queue backlog",
-      "line": 281,
+      "line": 286,
       "reason": ""
     },
     {
@@ -15731,7 +15852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 282,
+      "line": 287,
       "reason": ""
     },
     {
@@ -15744,7 +15865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading queue health",
-      "line": 283,
+      "line": 288,
       "reason": ""
     },
     {
@@ -15757,7 +15878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Worker online",
-      "line": 283,
+      "line": 288,
       "reason": ""
     },
     {
@@ -15770,7 +15891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Worker attention required",
-      "line": 283,
+      "line": 288,
       "reason": ""
     },
     {
@@ -15783,7 +15904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provider posture",
-      "line": 292,
+      "line": 297,
       "reason": ""
     },
     {
@@ -15796,7 +15917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Real sender wiring and designate addresses.",
-      "line": 293,
+      "line": 298,
       "reason": ""
     },
     {
@@ -15809,7 +15930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "armed",
-      "line": 296,
+      "line": 301,
       "reason": ""
     },
     {
@@ -15822,7 +15943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "disabled",
-      "line": 296,
+      "line": 301,
       "reason": ""
     },
     {
@@ -15835,7 +15956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active provider",
-      "line": 301,
+      "line": 306,
       "reason": ""
     },
     {
@@ -15848,7 +15969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 301,
+      "line": 306,
       "reason": ""
     },
     {
@@ -15861,7 +15982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "From",
-      "line": 302,
+      "line": 307,
       "reason": ""
     },
     {
@@ -15874,7 +15995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply-to",
-      "line": 303,
+      "line": 308,
       "reason": ""
     },
     {
@@ -15887,7 +16008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failure alert",
-      "line": 304,
+      "line": 309,
       "reason": ""
     },
     {
@@ -15900,7 +16021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "configured",
-      "line": 308,
+      "line": 313,
       "reason": ""
     },
     {
@@ -15913,7 +16034,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "missing",
-      "line": 308,
+      "line": 313,
       "reason": ""
     },
     {
@@ -15926,7 +16047,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "configured",
-      "line": 310,
+      "line": 315,
       "reason": ""
     },
     {
@@ -15939,7 +16060,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "missing",
-      "line": 310,
+      "line": 315,
       "reason": ""
     },
     {
@@ -15952,7 +16073,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend webhook",
-      "line": 313,
+      "line": 318,
       "reason": ""
     },
     {
@@ -15965,7 +16086,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "configured",
-      "line": 313,
+      "line": 318,
       "reason": ""
     },
     {
@@ -15978,7 +16099,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "missing",
-      "line": 313,
+      "line": 318,
       "reason": ""
     },
     {
@@ -15991,7 +16112,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Activity email",
-      "line": 316,
+      "line": 321,
       "reason": ""
     },
     {
@@ -16004,7 +16125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "enabled",
-      "line": 316,
+      "line": 321,
       "reason": ""
     },
     {
@@ -16017,7 +16138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "disabled",
-      "line": 316,
+      "line": 321,
       "reason": ""
     },
     {
@@ -16030,7 +16151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Queue health",
-      "line": 324,
+      "line": 329,
       "reason": ""
     },
     {
@@ -16043,7 +16164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Persistent order-email worker state.",
-      "line": 325,
+      "line": 330,
       "reason": ""
     },
     {
@@ -16056,7 +16177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pending",
-      "line": 332,
+      "line": 337,
       "reason": ""
     },
     {
@@ -16069,7 +16190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Processing",
-      "line": 333,
+      "line": 338,
       "reason": ""
     },
     {
@@ -16082,7 +16203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 334,
+      "line": 339,
       "reason": ""
     },
     {
@@ -16095,7 +16216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed",
-      "line": 335,
+      "line": 340,
       "reason": ""
     },
     {
@@ -16108,7 +16229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Event mix (24h)",
-      "line": 340,
+      "line": 345,
       "reason": ""
     },
     {
@@ -16121,7 +16242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Top email-producing flows across the app.",
-      "line": 341,
+      "line": 346,
       "reason": ""
     },
     {
@@ -16134,7 +16255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No persistent events logged yet.",
-      "line": 344,
+      "line": 349,
       "reason": ""
     },
     {
@@ -16147,7 +16268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recent failures",
-      "line": 361,
+      "line": 366,
       "reason": ""
     },
     {
@@ -16160,7 +16281,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fastest signal for live provider trouble.",
-      "line": 362,
+      "line": 367,
       "reason": ""
     },
     {
@@ -16173,7 +16294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No recent persistent failures.",
-      "line": 368,
+      "line": 373,
       "reason": ""
     },
     {
@@ -16186,7 +16307,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "UNKNOWN",
-      "line": 380,
+      "line": 385,
       "reason": ""
     },
     {
@@ -16199,7 +16320,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No error message captured",
-      "line": 380,
+      "line": 385,
       "reason": ""
     },
     {
@@ -16212,7 +16333,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Latest deliveries",
-      "line": 391,
+      "line": 396,
       "reason": ""
     },
     {
@@ -16225,7 +16346,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Persistent gateway records across all email services.",
-      "line": 392,
+      "line": 397,
       "reason": ""
     },
     {
@@ -16238,7 +16359,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No delivery records yet.",
-      "line": 398,
+      "line": 403,
       "reason": ""
     },
     {
@@ -16251,7 +16372,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery explorer",
-      "line": 421,
+      "line": 426,
       "reason": ""
     },
     {
@@ -16264,7 +16385,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search OTP, activity, admin-action, and order email delivery history in one place.",
-      "line": 422,
+      "line": 427,
       "reason": ""
     },
     {
@@ -16277,7 +16398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search recipient, event, request, subject...",
-      "line": 429,
+      "line": 434,
       "reason": ""
     },
     {
@@ -16290,7 +16411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All statuses",
-      "line": 433,
+      "line": 438,
       "reason": ""
     },
     {
@@ -16303,7 +16424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sent",
-      "line": 434,
+      "line": 439,
       "reason": ""
     },
     {
@@ -16316,7 +16437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed",
-      "line": 435,
+      "line": 440,
       "reason": ""
     },
     {
@@ -16329,7 +16450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Skipped",
-      "line": 436,
+      "line": 441,
       "reason": ""
     },
     {
@@ -16342,7 +16463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All providers",
-      "line": 439,
+      "line": 444,
       "reason": ""
     },
     {
@@ -16355,7 +16476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "disabled",
-      "line": 442,
+      "line": 447,
       "reason": ""
     },
     {
@@ -16368,7 +16489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 443,
+      "line": 448,
       "reason": ""
     },
     {
@@ -16381,7 +16502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Event",
-      "line": 452,
+      "line": 457,
       "reason": ""
     },
     {
@@ -16394,7 +16515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recipient",
-      "line": 453,
+      "line": 458,
       "reason": ""
     },
     {
@@ -16407,7 +16528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provider",
-      "line": 454,
+      "line": 459,
       "reason": ""
     },
     {
@@ -16420,7 +16541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Status",
-      "line": 455,
+      "line": 460,
       "reason": ""
     },
     {
@@ -16433,7 +16554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Time",
-      "line": 456,
+      "line": 461,
       "reason": ""
     },
     {
@@ -16446,7 +16567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading delivery logs...",
-      "line": 461,
+      "line": 466,
       "reason": ""
     },
     {
@@ -16459,7 +16580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No delivery logs match current filters.",
-      "line": 463,
+      "line": 468,
       "reason": ""
     },
     {
@@ -16472,7 +16593,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order email queue",
-      "line": 494,
+      "line": 499,
       "reason": ""
     },
     {
@@ -16485,7 +16606,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Persistent retry console for customer order confirmations.",
-      "line": 495,
+      "line": 500,
       "reason": ""
     },
     {
@@ -16498,7 +16619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Filter by recipient",
-      "line": 502,
+      "line": 507,
       "reason": ""
     },
     {
@@ -16511,7 +16632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All queue states",
-      "line": 506,
+      "line": 511,
       "reason": ""
     },
     {
@@ -16524,7 +16645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pending",
-      "line": 507,
+      "line": 512,
       "reason": ""
     },
     {
@@ -16537,7 +16658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Processing",
-      "line": 508,
+      "line": 513,
       "reason": ""
     },
     {
@@ -16550,7 +16671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 509,
+      "line": 514,
       "reason": ""
     },
     {
@@ -16563,7 +16684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sent",
-      "line": 510,
+      "line": 515,
       "reason": ""
     },
     {
@@ -16576,7 +16697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed",
-      "line": 511,
+      "line": 516,
       "reason": ""
     },
     {
@@ -16589,7 +16710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notification",
-      "line": 520,
+      "line": 525,
       "reason": ""
     },
     {
@@ -16602,7 +16723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recipient",
-      "line": 521,
+      "line": 526,
       "reason": ""
     },
     {
@@ -16615,7 +16736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attempts",
-      "line": 522,
+      "line": 527,
       "reason": ""
     },
     {
@@ -16628,7 +16749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "State",
-      "line": 523,
+      "line": 528,
       "reason": ""
     },
     {
@@ -16641,7 +16762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next attempt",
-      "line": 524,
+      "line": 529,
       "reason": ""
     },
     {
@@ -16654,7 +16775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Action",
-      "line": 525,
+      "line": 530,
       "reason": ""
     },
     {
@@ -16667,7 +16788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading queue...",
-      "line": 530,
+      "line": 535,
       "reason": ""
     },
     {
@@ -16680,7 +16801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No queued notifications match current filters.",
-      "line": 532,
+      "line": 537,
       "reason": ""
     },
     {
@@ -16693,7 +16814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retrying...",
-      "line": 559,
+      "line": 564,
       "reason": ""
     },
     {
@@ -16706,7 +16827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 559,
+      "line": 564,
       "reason": ""
     },
     {
@@ -16719,7 +16840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to fetch orders",
-      "line": 60,
+      "line": 61,
       "reason": ""
     },
     {
@@ -16732,7 +16853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a valid status",
-      "line": 89,
+      "line": 90,
       "reason": ""
     },
     {
@@ -16745,7 +16866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Updated from admin order console",
-      "line": 97,
+      "line": 98,
       "reason": ""
     },
     {
@@ -16758,7 +16879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order status updated",
-      "line": 107,
+      "line": 108,
       "reason": ""
     },
     {
@@ -16771,7 +16892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to update status",
-      "line": 109,
+      "line": 110,
       "reason": ""
     },
     {
@@ -16784,7 +16905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelled by admin",
-      "line": 116,
+      "line": 117,
       "reason": ""
     },
     {
@@ -16797,7 +16918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order cancelled",
-      "line": 129,
+      "line": 130,
       "reason": ""
     },
     {
@@ -16810,7 +16931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to cancel order",
-      "line": 131,
+      "line": 132,
       "reason": ""
     },
     {
@@ -16825,7 +16946,20 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin {{status}} via order console",
-      "line": 142,
+      "line": 169,
+      "reason": ""
+    },
+    {
+      "column": 33,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Enter a restock quantity for at least one item.",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Enter a restock quantity for at least one item.",
+      "id": "admin.orders.restock.error.empty",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Enter a restock quantity for at least one item.",
+      "line": 174,
       "reason": ""
     },
     {
@@ -16838,7 +16972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund request updated",
-      "line": 144,
+      "line": 181,
       "reason": ""
     },
     {
@@ -16851,7 +16985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to process refund request",
-      "line": 147,
+      "line": 185,
       "reason": ""
     },
     {
@@ -16866,7 +17000,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin {{status}} via order console",
-      "line": 159,
+      "line": 197,
       "reason": ""
     },
     {
@@ -16879,7 +17013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacement request updated",
-      "line": 161,
+      "line": 199,
       "reason": ""
     },
     {
@@ -16892,7 +17026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to process replacement request",
-      "line": 164,
+      "line": 202,
       "reason": ""
     },
     {
@@ -16907,7 +17041,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin {{status}} via order console",
-      "line": 175,
+      "line": 213,
       "reason": ""
     },
     {
@@ -16920,7 +17054,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty claim updated",
-      "line": 177,
+      "line": 215,
       "reason": ""
     },
     {
@@ -16933,7 +17067,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to process warranty claim",
-      "line": 180,
+      "line": 218,
       "reason": ""
     },
     {
@@ -16946,7 +17080,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Write a support reply message first",
-      "line": 189,
+      "line": 227,
       "reason": ""
     },
     {
@@ -16959,7 +17093,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support reply sent",
-      "line": 196,
+      "line": 234,
       "reason": ""
     },
     {
@@ -16972,7 +17106,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to send support reply",
-      "line": 200,
+      "line": 238,
       "reason": ""
     },
     {
@@ -16985,7 +17119,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order command",
-      "line": 209,
+      "line": 247,
       "reason": ""
     },
     {
@@ -16998,7 +17132,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order operations console",
-      "line": 210,
+      "line": 248,
       "reason": ""
     },
     {
@@ -17011,7 +17145,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.",
-      "line": 211,
+      "line": 249,
       "reason": ""
     },
     {
@@ -17024,7 +17158,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading orders...",
-      "line": 215,
+      "line": 253,
       "reason": ""
     },
     {
@@ -17037,7 +17171,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order command",
-      "line": 223,
+      "line": 261,
       "reason": ""
     },
     {
@@ -17050,7 +17184,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order operations console",
-      "line": 224,
+      "line": 262,
       "reason": ""
     },
     {
@@ -17063,7 +17197,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.",
-      "line": 225,
+      "line": 263,
       "reason": ""
     },
     {
@@ -17076,7 +17210,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refresh",
-      "line": 229,
+      "line": 267,
       "reason": ""
     },
     {
@@ -17089,7 +17223,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 233,
+      "line": 271,
       "reason": ""
     },
     {
@@ -17102,7 +17236,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current loaded console set",
-      "line": 233,
+      "line": 271,
       "reason": ""
     },
     {
@@ -17115,7 +17249,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Paid",
-      "line": 234,
+      "line": 272,
       "reason": ""
     },
     {
@@ -17128,7 +17262,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Successfully funded orders",
-      "line": 234,
+      "line": 272,
       "reason": ""
     },
     {
@@ -17141,7 +17275,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pending pay",
-      "line": 235,
+      "line": 273,
       "reason": ""
     },
     {
@@ -17154,7 +17288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Awaiting successful capture",
-      "line": 235,
+      "line": 273,
       "reason": ""
     },
     {
@@ -17167,7 +17301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "ID",
-      "line": 244,
+      "line": 282,
       "reason": ""
     },
     {
@@ -17180,7 +17314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "User",
-      "line": 245,
+      "line": 283,
       "reason": ""
     },
     {
@@ -17193,7 +17327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order",
-      "line": 246,
+      "line": 284,
       "reason": ""
     },
     {
@@ -17206,7 +17340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment",
-      "line": 247,
+      "line": 285,
       "reason": ""
     },
     {
@@ -17219,7 +17353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refund Ops",
-      "line": 248,
+      "line": 286,
       "reason": ""
     },
     {
@@ -17232,7 +17366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Replacement Ops",
-      "line": 249,
+      "line": 287,
       "reason": ""
     },
     {
@@ -17245,7 +17379,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shipping / Support Ops",
-      "line": 250,
+      "line": 288,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "No orders found",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "No orders found",
+      "id": "admin.orders.empty.noOrders",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "No orders found",
+      "line": 295,
       "reason": ""
     },
     {
@@ -17258,7 +17405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown User",
-      "line": 275,
+      "line": 322,
       "reason": ""
     },
     {
@@ -17273,7 +17420,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} item(s)",
-      "line": 284,
+      "line": 331,
       "reason": ""
     },
     {
@@ -17286,7 +17433,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Paid",
-      "line": 290,
+      "line": 337,
       "reason": ""
     },
     {
@@ -17299,7 +17446,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "pending",
-      "line": 294,
+      "line": 341,
       "reason": ""
     },
     {
@@ -17312,7 +17459,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "State",
-      "line": 297,
+      "line": 344,
       "reason": ""
     },
     {
@@ -17325,11 +17472,65 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "pending",
-      "line": 297,
+      "line": 344,
       "reason": ""
     },
     {
-      "column": 81,
+      "column": 62,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "+{{count}} more pending",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "+{count} more pending",
+      "id": "admin.orders.pendingMore",
+      "interpolationTokens": [
+        "count"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "+{{count}} more pending",
+      "line": 362,
+      "reason": ""
+    },
+    {
+      "column": 66,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Restock returned items",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Restock returned items",
+      "id": "admin.orders.restock.toggle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Restock returned items",
+      "line": 382,
+      "reason": ""
+    },
+    {
+      "column": 74,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Returned units re-enter inventory once the refund is processed.",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Returned units re-enter inventory once the refund is processed.",
+      "id": "admin.orders.restock.hint",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Returned units re-enter inventory once the refund is processed.",
+      "line": 387,
+      "reason": ""
+    },
+    {
+      "column": 86,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Qty",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Qty",
+      "id": "admin.orders.restock.quantityLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Qty",
+      "line": 396,
+      "reason": ""
+    },
+    {
+      "column": 85,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "...",
       "file": "app/src/pages/Admin/OrderList.jsx",
@@ -17338,11 +17539,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 322,
+      "line": 422,
       "reason": ""
     },
     {
-      "column": 117,
+      "column": 121,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Process",
       "file": "app/src/pages/Admin/OrderList.jsx",
@@ -17351,72 +17552,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Process",
-      "line": 322,
-      "reason": ""
-    },
-    {
-      "column": 66,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Reject",
-      "file": "app/src/pages/Admin/OrderList.jsx",
-      "icuDefaultMessage": "Reject",
-      "id": "admin.orders.actions.reject",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Reject",
-      "line": 330,
-      "reason": ""
-    },
-    {
-      "column": 82,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "No refunds",
-      "file": "app/src/pages/Admin/OrderList.jsx",
-      "icuDefaultMessage": "No refunds",
-      "id": "admin.orders.empty.refunds",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "No refunds",
-      "line": 336,
-      "reason": ""
-    },
-    {
-      "column": 78,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Tracking ID (optional)",
-      "file": "app/src/pages/Admin/OrderList.jsx",
-      "icuDefaultMessage": "Tracking ID (optional)",
-      "id": "admin.orders.trackingPlaceholder",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Tracking ID (optional)",
-      "line": 358,
-      "reason": ""
-    },
-    {
-      "column": 90,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "...",
-      "file": "app/src/pages/Admin/OrderList.jsx",
-      "icuDefaultMessage": "...",
-      "id": "admin.shared.busy",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "...",
-      "line": 371,
-      "reason": ""
-    },
-    {
-      "column": 126,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Ship",
-      "file": "app/src/pages/Admin/OrderList.jsx",
-      "icuDefaultMessage": "Ship",
-      "id": "admin.orders.actions.ship",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Ship",
-      "line": 371,
+      "line": 422,
       "reason": ""
     },
     {
@@ -17429,7 +17565,87 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reject",
-      "line": 379,
+      "line": 430,
+      "reason": ""
+    },
+    {
+      "column": 82,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "No refunds",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "No refunds",
+      "id": "admin.orders.empty.refunds",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "No refunds",
+      "line": 437,
+      "reason": ""
+    },
+    {
+      "column": 62,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "+{{count}} more pending",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "+{count} more pending",
+      "id": "admin.orders.pendingMore",
+      "interpolationTokens": [
+        "count"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "+{{count}} more pending",
+      "line": 456,
+      "reason": ""
+    },
+    {
+      "column": 78,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Tracking ID (optional)",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Tracking ID (optional)",
+      "id": "admin.orders.trackingPlaceholder",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Tracking ID (optional)",
+      "line": 464,
+      "reason": ""
+    },
+    {
+      "column": 90,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "...",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "...",
+      "id": "admin.shared.busy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "...",
+      "line": 477,
+      "reason": ""
+    },
+    {
+      "column": 126,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Ship",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Ship",
+      "id": "admin.orders.actions.ship",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Ship",
+      "line": 477,
+      "reason": ""
+    },
+    {
+      "column": 70,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Reject",
+      "file": "app/src/pages/Admin/OrderList.jsx",
+      "icuDefaultMessage": "Reject",
+      "id": "admin.orders.actions.reject",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Reject",
+      "line": 485,
       "reason": ""
     },
     {
@@ -17442,7 +17658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No replacements",
-      "line": 386,
+      "line": 492,
       "reason": ""
     },
     {
@@ -17457,7 +17673,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current: {{status}}",
-      "line": 392,
+      "line": 498,
       "reason": ""
     },
     {
@@ -17470,7 +17686,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Updating...",
-      "line": 411,
+      "line": 517,
       "reason": ""
     },
     {
@@ -17483,7 +17699,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Apply",
-      "line": 411,
+      "line": 517,
       "reason": ""
     },
     {
@@ -17496,7 +17712,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel reason (optional)",
-      "line": 416,
+      "line": 522,
       "reason": ""
     },
     {
@@ -17509,7 +17725,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelled",
-      "line": 429,
+      "line": 535,
       "reason": ""
     },
     {
@@ -17522,7 +17738,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancelling...",
-      "line": 431,
+      "line": 537,
       "reason": ""
     },
     {
@@ -17535,7 +17751,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin Cancel",
-      "line": 432,
+      "line": 538,
       "reason": ""
     },
     {
@@ -17548,7 +17764,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty",
-      "line": 437,
+      "line": 543,
       "reason": ""
     },
     {
@@ -17561,7 +17777,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 462,
+      "line": 568,
       "reason": ""
     },
     {
@@ -17574,7 +17790,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Approve",
-      "line": 462,
+      "line": 568,
       "reason": ""
     },
     {
@@ -17587,7 +17803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reject",
-      "line": 470,
+      "line": 576,
       "reason": ""
     },
     {
@@ -17600,7 +17816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No warranty claims",
-      "line": 476,
+      "line": 582,
       "reason": ""
     },
     {
@@ -17613,7 +17829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support Reply",
-      "line": 482,
+      "line": 588,
       "reason": ""
     },
     {
@@ -17626,7 +17842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply to customer...",
-      "line": 486,
+      "line": 592,
       "reason": ""
     },
     {
@@ -17639,7 +17855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sending...",
-      "line": 498,
+      "line": 604,
       "reason": ""
     },
     {
@@ -17652,7 +17868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Send Reply",
-      "line": 498,
+      "line": 604,
       "reason": ""
     },
     {
@@ -23001,6 +23217,45 @@
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This ticket is closed. Reopen it to send a new message.",
       "line": 1231,
+      "reason": ""
+    },
+    {
+      "column": 81,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Selected ticket is hidden by the current filter",
+      "file": "app/src/pages/Admin/Support.jsx",
+      "icuDefaultMessage": "Selected ticket is hidden by the current filter",
+      "id": "admin.support.filteredOut",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Selected ticket is hidden by the current filter",
+      "line": 1237,
+      "reason": ""
+    },
+    {
+      "column": 34,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.",
+      "file": "app/src/pages/Admin/Support.jsx",
+      "icuDefaultMessage": "The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.",
+      "id": "admin.support.filteredOutBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "The ticket status changed so it no longer matches the filter. Clear the selection or change the filter to see it again.",
+      "line": 1239,
+      "reason": ""
+    },
+    {
+      "column": 34,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Clear selection",
+      "file": "app/src/pages/Admin/Support.jsx",
+      "icuDefaultMessage": "Clear selection",
+      "id": "admin.support.clearSelection",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Clear selection",
+      "line": 1242,
       "reason": ""
     },
     {
@@ -31364,7 +31619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 193,
+      "line": 194,
       "reason": ""
     },
     {
@@ -31377,7 +31632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Opening Aura Desktop",
-      "line": 207,
+      "line": 208,
       "reason": ""
     },
     {
@@ -31390,7 +31645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue",
-      "line": 209,
+      "line": 210,
       "reason": ""
     },
     {
@@ -31403,7 +31658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use another account",
-      "line": 223,
+      "line": 224,
       "reason": ""
     },
     {
@@ -31416,7 +31671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Only continue if you started this sign-in from Aura Desktop. Aura sends a one-time sealed session to this device; your required identity and security checks remain in force.",
-      "line": 227,
+      "line": 228,
       "reason": ""
     },
     {
@@ -31429,7 +31684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Waiting for passkey verification before returning sign-in to Aura Desktop.",
-      "line": 240,
+      "line": 241,
       "reason": ""
     },
     {
@@ -31442,7 +31697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Securely returning sign-in to Aura Desktop.",
-      "line": 241,
+      "line": 242,
       "reason": ""
     },
     {
@@ -31455,7 +31710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop request not active",
-      "line": 252,
+      "line": 253,
       "reason": ""
     },
     {
@@ -31468,7 +31723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start again from Aura Desktop so this browser can bind sign-in to the trusted local request.",
-      "line": 255,
+      "line": 256,
       "reason": ""
     },
     {
@@ -31481,7 +31736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking your browser session",
-      "line": 283,
+      "line": 284,
       "reason": ""
     },
     {
@@ -31494,7 +31749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirming your browser session before Aura verifies this device for the desktop handoff.",
-      "line": 286,
+      "line": 287,
       "reason": ""
     },
     {
@@ -31507,7 +31762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose a new password",
-      "line": 331,
+      "line": 332,
       "reason": ""
     },
     {
@@ -31520,7 +31775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify your email",
-      "line": 334,
+      "line": 335,
       "reason": ""
     },
     {
@@ -31533,7 +31788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify your phone",
-      "line": 336,
+      "line": 337,
       "reason": ""
     },
     {
@@ -31546,7 +31801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your verification code",
-      "line": 337,
+      "line": 338,
       "reason": ""
     },
     {
@@ -31559,7 +31814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create your account",
-      "line": 339,
+      "line": 340,
       "reason": ""
     },
     {
@@ -31572,7 +31827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset your password",
-      "line": 341,
+      "line": 342,
       "reason": ""
     },
     {
@@ -31585,7 +31840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Welcome back",
-      "line": 342,
+      "line": 343,
       "reason": ""
     },
     {
@@ -31598,7 +31853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset password",
-      "line": 344,
+      "line": 345,
       "reason": ""
     },
     {
@@ -31611,7 +31866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue",
-      "line": 345,
+      "line": 346,
       "reason": ""
     },
     {
@@ -31624,7 +31879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name",
-      "line": 421,
+      "line": 423,
       "reason": ""
     },
     {
@@ -31637,7 +31892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your full name",
-      "line": 430,
+      "line": 432,
       "reason": ""
     },
     {
@@ -31650,7 +31905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Registered email",
-      "line": 440,
+      "line": 442,
       "reason": ""
     },
     {
@@ -31663,7 +31918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address",
-      "line": 441,
+      "line": 443,
       "reason": ""
     },
     {
@@ -31676,7 +31931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "you@example.com",
-      "line": 451,
+      "line": 453,
       "reason": ""
     },
     {
@@ -31689,7 +31944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 459,
+      "line": 461,
       "reason": ""
     },
     {
@@ -31702,7 +31957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country calling code",
-      "line": 466,
+      "line": 468,
       "reason": ""
     },
     {
@@ -31715,7 +31970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 484,
+      "line": 486,
       "reason": ""
     },
     {
@@ -31728,7 +31983,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Forgot password?",
-      "line": 501,
+      "line": 503,
       "reason": ""
     },
     {
@@ -31741,7 +31996,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password",
-      "line": 505,
+      "line": 507,
       "reason": ""
     },
     {
@@ -31754,7 +32009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your password",
-      "line": 515,
+      "line": 517,
       "reason": ""
     },
     {
@@ -31767,7 +32022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hide password",
-      "line": 523,
+      "line": 525,
       "reason": ""
     },
     {
@@ -31780,7 +32035,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Show password",
-      "line": 524,
+      "line": 526,
       "reason": ""
     },
     {
@@ -31793,7 +32048,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 535,
+      "line": 537,
       "reason": ""
     },
     {
@@ -31806,7 +32061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm your password",
-      "line": 545,
+      "line": 547,
       "reason": ""
     },
     {
@@ -31819,7 +32074,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back",
-      "line": 562,
+      "line": 564,
       "reason": ""
     },
     {
@@ -31832,7 +32087,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Code sent to {email}.",
-      "line": 567,
+      "line": 569,
       "reason": ""
     },
     {
@@ -31845,7 +32100,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Code sent to {phone}.",
-      "line": 569,
+      "line": 571,
       "reason": ""
     },
     {
@@ -31858,7 +32113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the secure verification code to continue.",
-      "line": 570,
+      "line": 572,
       "reason": ""
     },
     {
@@ -31871,7 +32126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verification code digit {number}",
-      "line": 578,
+      "line": 580,
       "reason": ""
     },
     {
@@ -31884,7 +32139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend in {count}s",
-      "line": 599,
+      "line": 601,
       "reason": ""
     },
     {
@@ -31897,7 +32152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend code",
-      "line": 608,
+      "line": 610,
       "reason": ""
     },
     {
@@ -31910,7 +32165,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back",
-      "line": 623,
+      "line": 625,
       "reason": ""
     },
     {
@@ -31923,7 +32178,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New password",
-      "line": 627,
+      "line": 629,
       "reason": ""
     },
     {
@@ -31936,7 +32191,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New password",
-      "line": 637,
+      "line": 639,
       "reason": ""
     },
     {
@@ -31949,7 +32204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 644,
+      "line": 646,
       "reason": ""
     },
     {
@@ -31962,7 +32217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 654,
+      "line": 656,
       "reason": ""
     },
     {
@@ -31975,7 +32230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Temporarily unavailable",
-      "line": 675,
+      "line": 677,
       "reason": ""
     },
     {
@@ -31988,7 +32243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Waiting for browser",
-      "line": 677,
+      "line": 679,
       "reason": ""
     },
     {
@@ -32001,7 +32256,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Already have an account?",
-      "line": 686,
+      "line": 688,
       "reason": ""
     },
     {
@@ -32014,7 +32269,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Don't have an account?",
-      "line": 687,
+      "line": 689,
       "reason": ""
     },
     {
@@ -32027,7 +32282,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in",
-      "line": 695,
+      "line": 697,
       "reason": ""
     },
     {
@@ -32040,7 +32295,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up",
-      "line": 696,
+      "line": 698,
       "reason": ""
     },
     {
@@ -32053,7 +32308,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "or",
-      "line": 702,
+      "line": 704,
       "reason": ""
     },
     {
@@ -32066,7 +32321,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue with Duo",
-      "line": 711,
+      "line": 713,
       "reason": ""
     },
     {
@@ -32079,7 +32334,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social access is unavailable for this deployment. Use your email, phone, and password instead.",
-      "line": 755,
+      "line": 757,
       "reason": ""
     },
     {
@@ -32092,7 +32347,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remember your password?",
-      "line": 767,
+      "line": 769,
       "reason": ""
     },
     {
@@ -32105,7 +32360,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in",
-      "line": 774,
+      "line": 776,
       "reason": ""
     },
     {
@@ -32118,7 +32373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop handoff active",
-      "line": 787,
+      "line": 789,
       "reason": ""
     },
     {
@@ -35943,7 +36198,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are offline. Your details stay here; reconnect to continue securely.",
-      "line": 267,
+      "line": 268,
       "reason": ""
     },
     {
@@ -35956,7 +36211,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete multi-factor verification",
-      "line": 284,
+      "line": 285,
       "reason": ""
     },
     {
@@ -35969,7 +36224,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify this device",
-      "line": 285,
+      "line": 286,
       "reason": ""
     },
     {
@@ -35982,7 +36237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
-      "line": 288,
+      "line": 289,
       "reason": ""
     },
     {
@@ -35995,7 +36250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep this page open. Do not submit your sign-in details again.",
-      "line": 295,
+      "line": 296,
       "reason": ""
     },
     {
@@ -36008,7 +36263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name",
-      "line": 314,
+      "line": 315,
       "reason": ""
     },
     {
@@ -36021,7 +36276,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your full name",
-      "line": 324,
+      "line": 325,
       "reason": ""
     },
     {
@@ -36034,7 +36289,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Registered email",
-      "line": 335,
+      "line": 336,
       "reason": ""
     },
     {
@@ -36047,7 +36302,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address",
-      "line": 336,
+      "line": 337,
       "reason": ""
     },
     {
@@ -36060,7 +36315,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "you@example.com",
-      "line": 346,
+      "line": 347,
       "reason": ""
     },
     {
@@ -36073,7 +36328,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 355,
+      "line": 356,
       "reason": ""
     },
     {
@@ -36086,7 +36341,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 368,
+      "line": 369,
       "reason": ""
     },
     {
@@ -36099,7 +36354,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 376,
+      "line": 377,
       "reason": ""
     },
     {
@@ -36112,7 +36367,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number {dialCode}",
-      "line": 380,
+      "line": 381,
       "reason": ""
     },
     {
@@ -36125,7 +36380,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
-      "line": 391,
+      "line": 392,
       "reason": ""
     },
     {
@@ -36138,7 +36393,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "We will verify this sign-in with email and phone codes.",
-      "line": 393,
+      "line": 394,
       "reason": ""
     },
     {
@@ -36151,7 +36406,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "We will send a verification code to your email and phone.",
-      "line": 394,
+      "line": 395,
       "reason": ""
     },
     {
@@ -36164,7 +36419,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password",
-      "line": 402,
+      "line": 403,
       "reason": ""
     },
     {
@@ -36177,7 +36432,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Forgot password?",
-      "line": 411,
+      "line": 412,
       "reason": ""
     },
     {
@@ -36190,7 +36445,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your password",
-      "line": 423,
+      "line": 424,
       "reason": ""
     },
     {
@@ -36203,7 +36458,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 443,
+      "line": 444,
       "reason": ""
     },
     {
@@ -36216,7 +36471,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Re-enter your password",
-      "line": 453,
+      "line": 454,
       "reason": ""
     },
     {
@@ -36229,7 +36484,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back to sign-in details",
-      "line": 467,
+      "line": 468,
       "reason": ""
     },
     {
@@ -36242,7 +36497,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter verification code",
-      "line": 471,
+      "line": 472,
       "reason": ""
     },
     {
@@ -36257,7 +36512,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to {{email}}. Phone verification follows.",
-      "line": 474,
+      "line": 475,
       "reason": ""
     },
     {
@@ -36272,7 +36527,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to {{phone}}.",
-      "line": 476,
+      "line": 477,
       "reason": ""
     },
     {
@@ -36285,7 +36540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit verification code we sent you.",
-      "line": 477,
+      "line": 478,
       "reason": ""
     },
     {
@@ -36298,7 +36553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Six-digit verification code",
-      "line": 482,
+      "line": 483,
       "reason": ""
     },
     {
@@ -36313,7 +36568,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verification code digit {{position}}",
-      "line": 497,
+      "line": 498,
       "reason": ""
     },
     {
@@ -36328,7 +36583,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend in {{seconds}}s",
-      "line": 512,
+      "line": 513,
       "reason": ""
     },
     {
@@ -36341,7 +36596,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend code",
-      "line": 521,
+      "line": 522,
       "reason": ""
     },
     {
@@ -36354,7 +36609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back to recovery details",
-      "line": 532,
+      "line": 533,
       "reason": ""
     },
     {
@@ -36367,7 +36622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery is verified. Set a strong new password for this account.",
-      "line": 535,
+      "line": 536,
       "reason": ""
     },
     {
@@ -36380,7 +36635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New password",
-      "line": 540,
+      "line": 541,
       "reason": ""
     },
     {
@@ -36393,7 +36648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter a new password",
-      "line": 550,
+      "line": 551,
       "reason": ""
     },
     {
@@ -36406,7 +36661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 568,
+      "line": 569,
       "reason": ""
     },
     {
@@ -36419,7 +36674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Re-enter the new password",
-      "line": 578,
+      "line": 579,
       "reason": ""
     },
     {
@@ -36432,7 +36687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remember your password?",
-      "line": 615,
+      "line": 616,
       "reason": ""
     },
     {
@@ -36445,7 +36700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Don't have an account?",
-      "line": 628,
+      "line": 629,
       "reason": ""
     },
     {
@@ -36458,7 +36713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Already have an account?",
-      "line": 629,
+      "line": 630,
       "reason": ""
     },
     {
@@ -36471,7 +36726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Other secure sign-in options",
-      "line": 646,
+      "line": 647,
       "reason": ""
     },
     {
@@ -36484,7 +36739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue with Duo",
-      "line": 658,
+      "line": 659,
       "reason": ""
     },
     {
@@ -36497,7 +36752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social sign-in is unavailable here. Use email, phone, and password instead.",
-      "line": 699,
+      "line": 700,
       "reason": ""
     },
     {
@@ -36510,7 +36765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
-      "line": 700,
+      "line": 701,
       "reason": ""
     },
     {
@@ -36523,7 +36778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
-      "line": 709,
+      "line": 710,
       "reason": ""
     },
     {
@@ -36536,7 +36791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "By continuing, you accept our",
-      "line": 715,
+      "line": 716,
       "reason": ""
     },
     {
@@ -36549,7 +36804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Terms of Use",
-      "line": 717,
+      "line": 718,
       "reason": ""
     },
     {
@@ -36562,7 +36817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and",
-      "line": 719,
+      "line": 720,
       "reason": ""
     },
     {
@@ -36575,7 +36830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Privacy Policy",
-      "line": 721,
+      "line": 722,
       "reason": ""
     },
     {
@@ -36588,7 +36843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue",
-      "line": 664,
+      "line": 675,
       "reason": ""
     },
     {
@@ -36601,7 +36856,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking this browser",
-      "line": 666,
+      "line": 677,
       "reason": ""
     },
     {
@@ -36614,7 +36869,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Opening Aura Desktop",
-      "line": 667,
+      "line": 678,
       "reason": ""
     },
     {
@@ -36627,7 +36882,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Aura account",
-      "line": 675,
+      "line": 686,
       "reason": ""
     },
     {
@@ -36640,7 +36895,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finishing Desktop Sign-In",
-      "line": 827,
+      "line": 838,
       "reason": ""
     },
     {
@@ -36653,7 +36908,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura is securely returning this browser sign-in to the desktop app.",
-      "line": 828,
+      "line": 839,
       "reason": ""
     },
     {
@@ -36666,7 +36921,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security check is still loading. Please try again.",
-      "line": 916,
+      "line": 927,
       "reason": ""
     },
     {
@@ -36679,7 +36934,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery Verified",
-      "line": 974,
+      "line": 985,
       "reason": ""
     },
     {
@@ -36692,7 +36947,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "account setup",
-      "line": 1420,
+      "line": 1431,
       "reason": ""
     },
     {
@@ -36705,7 +36960,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "password recovery",
-      "line": 1422,
+      "line": 1433,
       "reason": ""
     },
     {
@@ -36718,7 +36973,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "sign-in",
-      "line": 1423,
+      "line": 1434,
       "reason": ""
     },
     {
@@ -36731,7 +36986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish activating your account",
-      "line": 1425,
+      "line": 1436,
       "reason": ""
     },
     {
@@ -36744,7 +36999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unlock password reset",
-      "line": 1427,
+      "line": 1438,
       "reason": ""
     },
     {
@@ -36757,7 +37012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish signing in",
-      "line": 1428,
+      "line": 1439,
       "reason": ""
     },
     {
@@ -36770,7 +37025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes Re-Sent",
-      "line": 1437,
+      "line": 1448,
       "reason": ""
     },
     {
@@ -36783,7 +37038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Code Sent",
-      "line": 1438,
+      "line": 1449,
       "reason": ""
     },
     {
@@ -36798,7 +37053,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh {{mode}} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.",
-      "line": 1440,
+      "line": 1451,
       "reason": ""
     },
     {
@@ -36813,7 +37068,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email code is ready. After that, you will confirm the same {{mode}} with Firebase SMS on your phone.",
-      "line": 1441,
+      "line": 1452,
       "reason": ""
     },
     {
@@ -36826,7 +37081,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Verified",
-      "line": 1447,
+      "line": 1458,
       "reason": ""
     },
     {
@@ -36841,7 +37096,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 is complete. Enter the Firebase SMS code sent to your phone to {{outcome}}.",
-      "line": 1448,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -36854,7 +37109,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase Code Re-Sent",
-      "line": 1455,
+      "line": 1466,
       "reason": ""
     },
     {
@@ -36867,7 +37122,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase SMS Sent",
-      "line": 1456,
+      "line": 1467,
       "reason": ""
     },
     {
@@ -36880,7 +37135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh 6-digit Firebase verification code is on its way to your phone.",
-      "line": 1458,
+      "line": 1469,
       "reason": ""
     },
     {
@@ -36893,7 +37148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A 6-digit Firebase verification code has been sent to your phone.",
-      "line": 1459,
+      "line": 1470,
       "reason": ""
     },
     {
@@ -36906,7 +37161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Check for a Code",
-      "line": 1464,
+      "line": 1475,
       "reason": ""
     },
     {
@@ -36919,7 +37174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a fresh verification code has been sent.",
-      "line": 1466,
+      "line": 1477,
       "reason": ""
     },
     {
@@ -36932,7 +37187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a 6-digit verification code has been sent.",
-      "line": 1467,
+      "line": 1478,
       "reason": ""
     },
     {
@@ -36945,7 +37200,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is required",
-      "line": 1587,
+      "line": 1598,
       "reason": ""
     },
     {
@@ -36958,7 +37213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must be at least 12 characters",
-      "line": 1588,
+      "line": 1599,
       "reason": ""
     },
     {
@@ -36971,7 +37226,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain an uppercase letter",
-      "line": 1589,
+      "line": 1600,
       "reason": ""
     },
     {
@@ -36984,7 +37239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a lowercase letter",
-      "line": 1590,
+      "line": 1601,
       "reason": ""
     },
     {
@@ -36997,7 +37252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a digit",
-      "line": 1591,
+      "line": 1602,
       "reason": ""
     },
     {
@@ -37010,7 +37265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a special character (!@#$%^&*)",
-      "line": 1592,
+      "line": 1603,
       "reason": ""
     },
     {
@@ -37023,7 +37278,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passwords do not match",
-      "line": 1593,
+      "line": 1604,
       "reason": ""
     },
     {
@@ -37036,7 +37291,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number is required",
-      "line": 1599,
+      "line": 1610,
       "reason": ""
     },
     {
@@ -37049,7 +37304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use international phone format with country code, for example +1 202 555 0142",
-      "line": 1603,
+      "line": 1614,
       "reason": ""
     },
     {
@@ -37062,49 +37317,23 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name is required",
-      "line": 1607,
-      "reason": ""
-    },
-    {
-      "column": 48,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Email address is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Email address is required",
-      "id": "login.error.emailRequired",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Email address is required",
-      "line": 1608,
-      "reason": ""
-    },
-    {
-      "column": 63,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Valid email address is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Valid email address is required",
-      "id": "login.error.emailValid",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1609,
-      "reason": ""
-    },
-    {
-      "column": 48,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Email address is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Email address is required",
-      "id": "login.error.emailRequired",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Email address is required",
       "line": 1618,
       "reason": ""
     },
     {
+      "column": 48,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Email address is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Email address is required",
+      "id": "login.error.emailRequired",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Email address is required",
+      "line": 1619,
+      "reason": ""
+    },
+    {
       "column": 63,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Valid email address is required",
@@ -37114,19 +37343,6 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1619,
-      "reason": ""
-    },
-    {
-      "column": 51,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Password is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Password is required",
-      "id": "login.error.passwordRequired",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Password is required",
       "line": 1620,
       "reason": ""
     },
@@ -37140,7 +37356,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address is required",
-      "line": 1623,
+      "line": 1629,
       "reason": ""
     },
     {
@@ -37153,7 +37369,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1624,
+      "line": 1630,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Password is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Password is required",
+      "id": "login.error.passwordRequired",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Password is required",
+      "line": 1631,
+      "reason": ""
+    },
+    {
+      "column": 48,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Email address is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Email address is required",
+      "id": "login.error.emailRequired",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Email address is required",
+      "line": 1634,
+      "reason": ""
+    },
+    {
+      "column": 63,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Valid email address is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Valid email address is required",
+      "id": "login.error.emailValid",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Valid email address is required",
+      "line": 1635,
       "reason": ""
     },
     {
@@ -37166,7 +37421,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are already signed in. Please log out before creating another account.",
-      "line": 1632,
+      "line": 1643,
       "reason": ""
     },
     {
@@ -37179,7 +37434,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter complete 6-digit OTP",
-      "line": 1695,
+      "line": 1706,
       "reason": ""
     },
     {
@@ -37192,7 +37447,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure phone challenge expired. Please request a new code.",
-      "line": 1734,
+      "line": 1745,
       "reason": ""
     },
     {
@@ -37205,7 +37460,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email OTP and Firebase phone verification are complete. Set a new password for this account now.",
-      "line": 1771,
+      "line": 1782,
       "reason": ""
     },
     {
@@ -37218,7 +37473,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email and phone are verified. Set a new password for this account now.",
-      "line": 1805,
+      "line": 1816,
       "reason": ""
     },
     {
@@ -37231,7 +37486,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in proof expired. Please re-enter credentials.",
-      "line": 1866,
+      "line": 1877,
       "reason": ""
     },
     {
@@ -37244,7 +37499,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SET NEW PASSWORD",
-      "line": 2000,
+      "line": 2011,
       "reason": ""
     },
     {
@@ -37257,7 +37512,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.",
-      "line": 2001,
+      "line": 2012,
       "reason": ""
     },
     {
@@ -37270,7 +37525,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL",
-      "line": 2008,
+      "line": 2019,
       "reason": ""
     },
     {
@@ -37283,7 +37538,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.",
-      "line": 2010,
+      "line": 2021,
       "reason": ""
     },
     {
@@ -37296,7 +37551,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.",
-      "line": 2012,
+      "line": 2023,
       "reason": ""
     },
     {
@@ -37309,7 +37564,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.",
-      "line": 2013,
+      "line": 2024,
       "reason": ""
     },
     {
@@ -37322,7 +37577,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE",
-      "line": 2019,
+      "line": 2030,
       "reason": ""
     },
     {
@@ -37335,7 +37590,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.",
-      "line": 2021,
+      "line": 2032,
       "reason": ""
     },
     {
@@ -37348,7 +37603,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.",
-      "line": 2023,
+      "line": 2034,
       "reason": ""
     },
     {
@@ -37361,7 +37616,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.",
-      "line": 2024,
+      "line": 2035,
       "reason": ""
     },
     {
@@ -37374,7 +37629,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2029,
+      "line": 2040,
       "reason": ""
     },
     {
@@ -37387,7 +37642,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit Firebase SMS code sent to your phone to complete the login.",
-      "line": 2031,
+      "line": 2042,
       "reason": ""
     },
     {
@@ -37402,7 +37657,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to your email{{extra}}.",
-      "line": 2032,
+      "line": 2043,
       "reason": ""
     },
     {
@@ -37415,7 +37670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and phone",
-      "line": 2032,
+      "line": 2043,
       "reason": ""
     },
     {
@@ -37428,7 +37683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "CREATE ACCOUNT",
-      "line": 2039,
+      "line": 2050,
       "reason": ""
     },
     {
@@ -37441,7 +37696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before account creation.",
-      "line": 2041,
+      "line": 2052,
       "reason": ""
     },
     {
@@ -37454,7 +37709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.",
-      "line": 2043,
+      "line": 2054,
       "reason": ""
     },
     {
@@ -37467,7 +37722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your phone number. We'll verify it with an OTP sent to your email and phone.",
-      "line": 2044,
+      "line": 2055,
       "reason": ""
     },
     {
@@ -37480,7 +37735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2048,
+      "line": 2059,
       "reason": ""
     },
     {
@@ -37493,7 +37748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before password reset.",
-      "line": 2050,
+      "line": 2061,
       "reason": ""
     },
     {
@@ -37506,7 +37761,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.",
-      "line": 2052,
+      "line": 2063,
       "reason": ""
     },
     {
@@ -37519,7 +37774,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number. We'll verify both before allowing a new password.",
-      "line": 2053,
+      "line": 2064,
       "reason": ""
     },
     {
@@ -37532,7 +37787,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "WELCOME BACK",
-      "line": 2057,
+      "line": 2068,
       "reason": ""
     },
     {
@@ -37545,7 +37800,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel after your password is checked.",
-      "line": 2059,
+      "line": 2070,
       "reason": ""
     },
     {
@@ -37558,7 +37813,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.",
-      "line": 2061,
+      "line": 2072,
       "reason": ""
     },
     {
@@ -37571,7 +37826,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your credentials. We'll verify your identity with an OTP.",
-      "line": 2062,
+      "line": 2073,
       "reason": ""
     },
     {
@@ -37584,7 +37839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This password change is allowed only after verified recovery for the same email and phone.",
-      "line": 2070,
+      "line": 2081,
       "reason": ""
     },
     {
@@ -37597,7 +37852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your new password must meet the full strength policy before it is saved.",
-      "line": 2071,
+      "line": 2082,
       "reason": ""
     },
     {
@@ -37610,7 +37865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.",
-      "line": 2072,
+      "line": 2083,
       "reason": ""
     },
     {
@@ -37623,7 +37878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the email address that will own the new account.",
-      "line": 2080,
+      "line": 2091,
       "reason": ""
     },
     {
@@ -37636,7 +37891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the registered recovery email for this account.",
-      "line": 2082,
+      "line": 2093,
       "reason": ""
     },
     {
@@ -37649,7 +37904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 checks the email address tied to your password and registered phone number.",
-      "line": 2083,
+      "line": 2094,
       "reason": ""
     },
     {
@@ -37662,7 +37917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 will still require the Firebase phone code before this flow is finalized.",
-      "line": 2084,
+      "line": 2095,
       "reason": ""
     },
     {
@@ -37675,7 +37930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Both codes expire quickly and each resend refreshes the full secure verification chain.",
-      "line": 2085,
+      "line": 2096,
       "reason": ""
     },
     {
@@ -37688,7 +37943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this new account.",
-      "line": 2092,
+      "line": 2103,
       "reason": ""
     },
     {
@@ -37701,7 +37956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery email step is already verified for this account.",
-      "line": 2094,
+      "line": 2105,
       "reason": ""
     },
     {
@@ -37714,7 +37969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this login attempt.",
-      "line": 2095,
+      "line": 2106,
       "reason": ""
     },
     {
@@ -37727,7 +37982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The final Firebase SMS confirmation binds this flow to your registered phone.",
-      "line": 2096,
+      "line": 2107,
       "reason": ""
     },
     {
@@ -37740,7 +37995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the phone code expires, resend refreshes both email and phone factors together.",
-      "line": 2097,
+      "line": 2108,
       "reason": ""
     },
     {
@@ -37753,7 +38008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes expire in 5 minutes and can be used only once.",
-      "line": 2102,
+      "line": 2113,
       "reason": ""
     },
     {
@@ -37766,7 +38021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura never asks for your OTP outside this secure verification step.",
-      "line": 2103,
+      "line": 2114,
       "reason": ""
     },
     {
@@ -37779,7 +38034,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry and resend controls stay available if delivery is delayed.",
-      "line": 2104,
+      "line": 2115,
       "reason": ""
     },
     {
@@ -37792,7 +38047,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before account creation.",
-      "line": 2111,
+      "line": 2122,
       "reason": ""
     },
     {
@@ -37805,7 +38060,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email is checked first, then Firebase phone verification finishes the new account securely.",
-      "line": 2113,
+      "line": 2124,
       "reason": ""
     },
     {
@@ -37818,7 +38073,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email and phone are verified before a new account becomes active.",
-      "line": 2114,
+      "line": 2125,
       "reason": ""
     },
     {
@@ -37831,7 +38086,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller, payment, and order access stay locked behind verified identity.",
-      "line": 2115,
+      "line": 2126,
       "reason": ""
     },
     {
@@ -37844,7 +38099,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fraud checks and duplicate-account controls run before activation.",
-      "line": 2116,
+      "line": 2127,
       "reason": ""
     },
     {
@@ -37857,7 +38112,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before recovery continues.",
-      "line": 2123,
+      "line": 2134,
       "reason": ""
     },
     {
@@ -37870,7 +38125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery checks your email first, then requires Firebase phone verification before password reset.",
-      "line": 2125,
+      "line": 2136,
       "reason": ""
     },
     {
@@ -37883,7 +38138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset requests stay tied to your registered email and phone.",
-      "line": 2126,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -37896,7 +38151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh verification chain is required before any password recovery step.",
-      "line": 2127,
+      "line": 2138,
       "reason": ""
     },
     {
@@ -37909,7 +38164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspicious recovery attempts are rate-limited automatically.",
-      "line": 2128,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -37922,7 +38177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone verification is unavailable here, so Aura is using secure backup delivery through the available verification channel.",
-      "line": 2134,
+      "line": 2145,
       "reason": ""
     },
     {
@@ -37935,7 +38190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is verified first, then login codes are sent to both your email and Firebase phone channel.",
-      "line": 2136,
+      "line": 2147,
       "reason": ""
     },
     {
@@ -37948,7 +38203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password validity is checked before an OTP is issued.",
-      "line": 2137,
+      "line": 2148,
       "reason": ""
     },
     {
@@ -37961,7 +38216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone confirmation reduces account-takeover risk before the session is finalized.",
-      "line": 2138,
+      "line": 2149,
       "reason": ""
     },
     {
@@ -37974,7 +38229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rate limits, device checks, and audit logs guard repeated attempts.",
-      "line": 2139,
+      "line": 2150,
       "reason": ""
     },
     {
@@ -37987,7 +38242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP window",
-      "line": 2151,
+      "line": 2162,
       "reason": ""
     },
     {
@@ -38000,7 +38255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset window",
-      "line": 2151,
+      "line": 2162,
       "reason": ""
     },
     {
@@ -38013,7 +38268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity gate",
-      "line": 2151,
+      "line": 2162,
       "reason": ""
     },
     {
@@ -38026,7 +38281,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "5-minute secure verify",
-      "line": 2153,
+      "line": 2164,
       "reason": ""
     },
     {
@@ -38039,7 +38294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP verified, new password pending",
-      "line": 2155,
+      "line": 2166,
       "reason": ""
     },
     {
@@ -38052,7 +38307,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Credentials checked before send",
-      "line": 2156,
+      "line": 2167,
       "reason": ""
     },
     {
@@ -38065,7 +38320,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery",
-      "line": 2159,
+      "line": 2170,
       "reason": ""
     },
     {
@@ -38078,7 +38333,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP live, Firebase phone pending",
-      "line": 2161,
+      "line": 2172,
       "reason": ""
     },
     {
@@ -38091,7 +38346,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email verified, Firebase SMS active",
-      "line": 2163,
+      "line": 2174,
       "reason": ""
     },
     {
@@ -38104,7 +38359,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backup OTP fallback active",
-      "line": 2165,
+      "line": 2176,
       "reason": ""
     },
     {
@@ -38117,7 +38372,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + Firebase SMS",
-      "line": 2167,
+      "line": 2178,
       "reason": ""
     },
     {
@@ -38130,7 +38385,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + phone active",
-      "line": 2168,
+      "line": 2179,
       "reason": ""
     },
     {
@@ -38143,7 +38398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email first, phone required",
-      "line": 2168,
+      "line": 2179,
       "reason": ""
     },
     {
@@ -38156,7 +38411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Flow",
-      "line": 2171,
+      "line": 2182,
       "reason": ""
     },
     {
@@ -38169,7 +38424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New account activation",
-      "line": 2173,
+      "line": 2184,
       "reason": ""
     },
     {
@@ -38182,7 +38437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery unlocked",
-      "line": 2176,
+      "line": 2187,
       "reason": ""
     },
     {
@@ -38195,7 +38450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password recovery",
-      "line": 2177,
+      "line": 2188,
       "reason": ""
     },
     {
@@ -38208,7 +38463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in",
-      "line": 2178,
+      "line": 2189,
       "reason": ""
     },
     {
@@ -38221,7 +38476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social access",
-      "line": 2181,
+      "line": 2192,
       "reason": ""
     },
     {
@@ -38236,7 +38491,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 2184,
+      "line": 2195,
       "reason": ""
     },
     {
@@ -38249,7 +38504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Google, Facebook, GitHub, and X available",
-      "line": 2185,
+      "line": 2196,
       "reason": ""
     },
     {
@@ -38262,7 +38517,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP active in app",
-      "line": 2187,
+      "line": 2198,
       "reason": ""
     },
     {
@@ -38275,7 +38530,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only until this tab is refreshed",
-      "line": 2189,
+      "line": 2200,
       "reason": ""
     },
     {
@@ -38290,7 +38545,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only on {{host}}",
-      "line": 2190,
+      "line": 2201,
       "reason": ""
     },
     {
@@ -38303,7 +38558,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "this host",
-      "line": 2190,
+      "line": 2201,
       "reason": ""
     },
     {
@@ -38316,7 +38571,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resumable flow",
-      "line": 2217,
+      "line": 2228,
       "reason": ""
     },
     {
@@ -38329,7 +38584,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fast recovery ready",
-      "line": 2218,
+      "line": 2229,
       "reason": ""
     },
     {
@@ -38342,7 +38597,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your previous secure auth attempt can be restarted with the saved identity details.",
-      "line": 2219,
+      "line": 2230,
       "reason": ""
     },
     {
@@ -38357,7 +38612,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved {{age}}",
-      "line": 2221,
+      "line": 2232,
       "reason": ""
     },
     {
@@ -38370,7 +38625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2227,
+      "line": 2238,
       "reason": ""
     },
     {
@@ -38387,7 +38642,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last secure session used {{assurance}} via {{provider}} {{age}}.",
-      "line": 2229,
+      "line": 2240,
       "reason": ""
     },
     {
@@ -38400,7 +38655,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "just now",
-      "line": 2234,
+      "line": 2245,
       "reason": ""
     },
     {
@@ -38416,7 +38671,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last secure session used {{provider}} {{age}}.",
-      "line": 2238,
+      "line": 2249,
       "reason": ""
     },
     {
@@ -38429,7 +38684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "just now",
-      "line": 2242,
+      "line": 2253,
       "reason": ""
     },
     {
@@ -38442,7 +38697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2250,
+      "line": 2261,
       "reason": ""
     },
     {
@@ -38455,7 +38710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use saved identity",
-      "line": 2254,
+      "line": 2265,
       "reason": ""
     },
     {
@@ -38468,7 +38723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fastest lane",
-      "line": 2270,
+      "line": 2281,
       "reason": ""
     },
     {
@@ -38481,7 +38736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2336,
+      "line": 2347,
       "reason": ""
     },
     {
@@ -38494,7 +38749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2337,
+      "line": 2348,
       "reason": ""
     },
     {
@@ -38507,7 +38762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2341,
+      "line": 2352,
       "reason": ""
     },
     {
@@ -38520,7 +38775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access",
-      "line": 2384,
+      "line": 2395,
       "reason": ""
     },
     {
@@ -38533,7 +38788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 2385,
+      "line": 2396,
       "reason": ""
     },
     {
@@ -38546,7 +38801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2395,
+      "line": 2406,
       "reason": ""
     },
     {
@@ -38559,7 +38814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2403,
+      "line": 2414,
       "reason": ""
     },
     {
@@ -38572,7 +38827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2404,
+      "line": 2415,
       "reason": ""
     },
     {
@@ -38585,7 +38840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop owner access is not configured for this app.",
-      "line": 2566,
+      "line": 2577,
       "reason": ""
     },
     {
@@ -38598,7 +38853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Owner Access",
-      "line": 2573,
+      "line": 2584,
       "reason": ""
     },
     {
@@ -38611,7 +38866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Desktop is verifying the local owner access key.",
-      "line": 2574,
+      "line": 2585,
       "reason": ""
     },
     {
@@ -38624,7 +38879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop Duo sign-in could not arm the secure browser bridge. Please refresh from Aura Desktop and try again.",
-      "line": 2599,
+      "line": 2610,
       "reason": ""
     },
     {
@@ -38637,7 +38892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2613,
+      "line": 2624,
       "reason": ""
     },
     {
@@ -38650,7 +38905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL CODE",
-      "line": 2616,
+      "line": 2627,
       "reason": ""
     },
     {
@@ -38663,7 +38918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CREATE ACCOUNT",
-      "line": 2618,
+      "line": 2629,
       "reason": ""
     },
     {
@@ -38676,7 +38931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CONTINUE",
-      "line": 2619,
+      "line": 2630,
       "reason": ""
     },
     {
@@ -38689,7 +38944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & SIGN IN",
-      "line": 2620,
+      "line": 2631,
       "reason": ""
     },
     {
@@ -38702,7 +38957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP & SIGN IN",
-      "line": 2622,
+      "line": 2633,
       "reason": ""
     },
     {
@@ -38715,7 +38970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2622,
+      "line": 2633,
       "reason": ""
     },
     {
@@ -38728,7 +38983,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND BACKUP OTP",
-      "line": 2625,
+      "line": 2636,
       "reason": ""
     },
     {
@@ -38741,7 +38996,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2626,
+      "line": 2637,
       "reason": ""
     },
     {
@@ -38754,7 +39009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN UP",
-      "line": 2626,
+      "line": 2637,
       "reason": ""
     },
     {
@@ -38767,7 +39022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2627,
+      "line": 2638,
       "reason": ""
     },
     {
@@ -38780,7 +39035,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP",
-      "line": 2627,
+      "line": 2638,
       "reason": ""
     },
     {
@@ -38793,7 +39048,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2628,
+      "line": 2639,
       "reason": ""
     },
     {
@@ -38806,7 +39061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN IN",
-      "line": 2628,
+      "line": 2639,
       "reason": ""
     },
     {
@@ -51448,7 +51703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your security settings could not be loaded. Your factors and devices have not been changed.",
-      "line": 115,
+      "line": 116,
       "reason": ""
     },
     {
@@ -51461,7 +51716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No recent check timestamp",
-      "line": 157,
+      "line": 158,
       "reason": ""
     },
     {
@@ -51474,7 +51729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Never",
-      "line": 162,
+      "line": 163,
       "reason": ""
     },
     {
@@ -51487,7 +51742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown",
-      "line": 164,
+      "line": 165,
       "reason": ""
     },
     {
@@ -51500,7 +51755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security",
-      "line": 221,
+      "line": 222,
       "reason": ""
     },
     {
@@ -51513,7 +51768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password",
-      "line": 227,
+      "line": 228,
       "reason": ""
     },
     {
@@ -51526,7 +51781,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password recovery now follows the same email + phone OTP flow as sign-in.",
-      "line": 228,
+      "line": 229,
       "reason": ""
     },
     {
@@ -51539,7 +51794,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add a verified email and registered phone to unlock secure recovery from this panel.",
-      "line": 231,
+      "line": 232,
       "reason": ""
     },
     {
@@ -51552,7 +51807,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Opening...",
-      "line": 241,
+      "line": 242,
       "reason": ""
     },
     {
@@ -51565,7 +51820,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Secure Recovery",
-      "line": 242,
+      "line": 243,
       "reason": ""
     },
     {
@@ -51578,7 +51833,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked sign-in providers",
-      "line": 253,
+      "line": 254,
       "reason": ""
     },
     {
@@ -51591,7 +51846,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attach another provider after signing in with the method that already owns this email.",
-      "line": 256,
+      "line": 257,
       "reason": ""
     },
     {
@@ -51606,7 +51861,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked",
-      "line": 273,
+      "line": 274,
       "reason": ""
     },
     {
@@ -51621,7 +51876,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linking {{provider}}...",
-      "line": 275,
+      "line": 276,
       "reason": ""
     },
     {
@@ -51636,7 +51891,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Link {{provider}}",
-      "line": 276,
+      "line": 277,
       "reason": ""
     },
     {
@@ -51649,7 +51904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading security settings",
-      "line": 291,
+      "line": 292,
       "reason": ""
     },
     {
@@ -51662,7 +51917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking your passkeys, MFA methods, trusted credentials, and remembered browsers.",
-      "line": 294,
+      "line": 295,
       "reason": ""
     },
     {
@@ -51675,7 +51930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security settings could not load",
-      "line": 308,
+      "line": 309,
       "reason": ""
     },
     {
@@ -51690,7 +51945,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reference: {{reference}}",
-      "line": 313,
+      "line": 314,
       "reason": ""
     },
     {
@@ -51703,7 +51958,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Showing the last security settings loaded on this page.",
-      "line": 318,
+      "line": 319,
       "reason": ""
     },
     {
@@ -51716,7 +51971,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retrying...",
-      "line": 331,
+      "line": 332,
       "reason": ""
     },
     {
@@ -51729,7 +51984,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 332,
+      "line": 333,
       "reason": ""
     },
     {
@@ -51742,7 +51997,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refreshing security settings...",
-      "line": 341,
+      "line": 342,
       "reason": ""
     },
     {
@@ -51755,7 +52010,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA ready",
-      "line": 377,
+      "line": 378,
       "reason": ""
     },
     {
@@ -51768,7 +52023,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA available",
-      "line": 378,
+      "line": 379,
       "reason": ""
     },
     {
@@ -51781,7 +52036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking factors...",
-      "line": 382,
+      "line": 383,
       "reason": ""
     },
     {
@@ -51797,7 +52052,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{passkeys}} passkeys | {{totp}} authenticator apps",
-      "line": 383,
+      "line": 384,
       "reason": ""
     },
     {
@@ -51810,7 +52065,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passkeys and MFA",
-      "line": 392,
+      "line": 393,
       "reason": ""
     },
     {
@@ -51825,7 +52080,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current policy: {{reason}}",
-      "line": 396,
+      "line": 397,
       "reason": ""
     },
     {
@@ -51838,7 +52093,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passkeys, authenticator app codes, and one-time recovery codes protect sign-in and sensitive account changes.",
-      "line": 397,
+      "line": 398,
       "reason": ""
     },
     {
@@ -51851,7 +52106,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Registering...",
-      "line": 409,
+      "line": 410,
       "reason": ""
     },
     {
@@ -51864,7 +52119,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Register passkey",
-      "line": 410,
+      "line": 411,
       "reason": ""
     },
     {
@@ -51877,7 +52132,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Starting...",
-      "line": 420,
+      "line": 421,
       "reason": ""
     },
     {
@@ -51890,7 +52145,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rotate app key",
-      "line": 422,
+      "line": 423,
       "reason": ""
     },
     {
@@ -51903,7 +52158,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Set up app",
-      "line": 423,
+      "line": 424,
       "reason": ""
     },
     {
@@ -51916,7 +52171,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No MFA method enrolled yet",
-      "line": 431,
+      "line": 432,
       "reason": ""
     },
     {
@@ -51929,7 +52184,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Register a passkey or set up an authenticator app to add a second sign-in factor.",
-      "line": 434,
+      "line": 435,
       "reason": ""
     },
     {
@@ -51942,7 +52197,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator setup QR code",
-      "line": 444,
+      "line": 445,
       "reason": ""
     },
     {
@@ -51955,7 +52210,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator pending",
-      "line": 455,
+      "line": 456,
       "reason": ""
     },
     {
@@ -51968,7 +52223,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator code",
-      "line": 468,
+      "line": 469,
       "reason": ""
     },
     {
@@ -51981,7 +52236,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "6-digit code",
-      "line": 470,
+      "line": 471,
       "reason": ""
     },
     {
@@ -51994,7 +52249,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verifying...",
-      "line": 480,
+      "line": 481,
       "reason": ""
     },
     {
@@ -52007,7 +52262,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify app",
-      "line": 481,
+      "line": 482,
       "reason": ""
     },
     {
@@ -52022,7 +52277,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active",
-      "line": 498,
+      "line": 499,
       "reason": ""
     },
     {
@@ -52035,7 +52290,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This browser is identified",
-      "line": 502,
+      "line": 503,
       "reason": ""
     },
     {
@@ -52048,7 +52303,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This session is not bound to a managed device",
-      "line": 506,
+      "line": 507,
       "reason": ""
     },
     {
@@ -52061,7 +52316,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted credentials and remembered browsers",
-      "line": 512,
+      "line": 513,
       "reason": ""
     },
     {
@@ -52074,7 +52329,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 516,
+      "line": 517,
       "reason": ""
     },
     {
@@ -52087,7 +52342,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
-      "line": 517,
+      "line": 518,
       "reason": ""
     },
     {
@@ -52100,7 +52355,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking...",
-      "line": 531,
+      "line": 532,
       "reason": ""
     },
     {
@@ -52115,7 +52370,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm revoke {{count}}",
-      "line": 533,
+      "line": 534,
       "reason": ""
     },
     {
@@ -52128,7 +52383,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke all others",
-      "line": 534,
+      "line": 535,
       "reason": ""
     },
     {
@@ -52141,7 +52396,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 542,
+      "line": 543,
       "reason": ""
     },
     {
@@ -52154,7 +52409,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
-      "line": 552,
+      "line": 553,
       "reason": ""
     },
     {
@@ -52167,7 +52422,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No trusted credentials or remembered browsers",
-      "line": 560,
+      "line": 561,
       "reason": ""
     },
     {
@@ -52180,7 +52435,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
-      "line": 563,
+      "line": 564,
       "reason": ""
     },
     {
@@ -52193,7 +52448,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin passkey",
-      "line": 577,
+      "line": 578,
       "reason": ""
     },
     {
@@ -52206,7 +52461,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA passkey",
-      "line": 579,
+      "line": 580,
       "reason": ""
     },
     {
@@ -52219,7 +52474,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recognition passkey",
-      "line": 580,
+      "line": 581,
       "reason": ""
     },
     {
@@ -52232,7 +52487,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remembered browser - not MFA",
-      "line": 581,
+      "line": 582,
       "reason": ""
     },
     {
@@ -52245,7 +52500,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Synced passkey",
-      "line": 584,
+      "line": 585,
       "reason": ""
     },
     {
@@ -52258,7 +52513,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sync eligible",
-      "line": 586,
+      "line": 587,
       "reason": ""
     },
     {
@@ -52271,7 +52526,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device-bound or sync unknown",
-      "line": 587,
+      "line": 588,
       "reason": ""
     },
     {
@@ -52284,7 +52539,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device name",
-      "line": 601,
+      "line": 602,
       "reason": ""
     },
     {
@@ -52299,7 +52554,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Name for {{device}}",
-      "line": 608,
+      "line": 609,
       "reason": ""
     },
     {
@@ -52312,7 +52567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current",
-      "line": 616,
+      "line": 617,
       "reason": ""
     },
     {
@@ -52327,7 +52582,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last verified {{date}}",
-      "line": 629,
+      "line": 630,
       "reason": ""
     },
     {
@@ -52340,7 +52595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh passkey verification is required before this credential can protect admin actions.",
-      "line": 634,
+      "line": 635,
       "reason": ""
     },
     {
@@ -52353,7 +52608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking this device signs you out and removes its local trust identity.",
-      "line": 639,
+      "line": 640,
       "reason": ""
     },
     {
@@ -52366,7 +52621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saving...",
-      "line": 655,
+      "line": 656,
       "reason": ""
     },
     {
@@ -52379,7 +52634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Save",
-      "line": 655,
+      "line": 656,
       "reason": ""
     },
     {
@@ -52392,7 +52647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel rename",
-      "line": 661,
+      "line": 662,
       "reason": ""
     },
     {
@@ -52405,7 +52660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 664,
+      "line": 665,
       "reason": ""
     },
     {
@@ -52420,7 +52675,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rename {{device}}",
-      "line": 673,
+      "line": 674,
       "reason": ""
     },
     {
@@ -52433,7 +52688,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rename",
-      "line": 676,
+      "line": 677,
       "reason": ""
     },
     {
@@ -52448,7 +52703,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm revoke {{device}}",
-      "line": 685,
+      "line": 686,
       "reason": ""
     },
     {
@@ -52463,7 +52718,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke {{device}}",
-      "line": 686,
+      "line": 687,
       "reason": ""
     },
     {
@@ -52476,7 +52731,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking...",
-      "line": 690,
+      "line": 691,
       "reason": ""
     },
     {
@@ -52489,7 +52744,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm",
-      "line": 692,
+      "line": 693,
       "reason": ""
     },
     {
@@ -52502,7 +52757,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke & sign out",
-      "line": 694,
+      "line": 695,
       "reason": ""
     },
     {
@@ -52515,7 +52770,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke",
-      "line": 695,
+      "line": 696,
       "reason": ""
     },
     {
@@ -52528,7 +52783,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 703,
+      "line": 704,
       "reason": ""
     },
     {
@@ -52541,7 +52796,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery ready",
-      "line": 723,
+      "line": 724,
       "reason": ""
     },
     {
@@ -52554,7 +52809,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery action",
-      "line": 724,
+      "line": 725,
       "reason": ""
     },
     {
@@ -52569,7 +52824,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active backup codes",
-      "line": 727,
+      "line": 728,
       "reason": ""
     },
     {
@@ -52582,7 +52837,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA backup recovery codes",
-      "line": 736,
+      "line": 737,
       "reason": ""
     },
     {
@@ -52595,7 +52850,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.",
-      "line": 740,
+      "line": 741,
       "reason": ""
     },
     {
@@ -52608,7 +52863,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add a passkey or authenticator app first. Backup recovery codes are available after MFA is enrolled.",
-      "line": 741,
+      "line": 742,
       "reason": ""
     },
     {
@@ -52621,7 +52876,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This account has MFA protection but no backup codes yet. Generate them after a fresh security checkpoint.",
-      "line": 745,
+      "line": 746,
       "reason": ""
     },
     {
@@ -52634,7 +52889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generating...",
-      "line": 757,
+      "line": 758,
       "reason": ""
     },
     {
@@ -52647,7 +52902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Regenerate codes",
-      "line": 759,
+      "line": 760,
       "reason": ""
     },
     {
@@ -52660,7 +52915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generate codes",
-      "line": 760,
+      "line": 761,
       "reason": ""
     },
     {
@@ -52673,7 +52928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shown once",
-      "line": 769,
+      "line": 770,
       "reason": ""
     },
     {
@@ -52686,7 +52941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "These codes are not stored in readable form after this moment. Each one works only once.",
-      "line": 772,
+      "line": 773,
       "reason": ""
     },
     {
@@ -52699,7 +52954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Copy",
-      "line": 782,
+      "line": 783,
       "reason": ""
     },
     {
@@ -52712,7 +52967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Download .txt",
-      "line": 790,
+      "line": 791,
       "reason": ""
     },
     {
@@ -52725,7 +52980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hide",
-      "line": 797,
+      "line": 798,
       "reason": ""
     },
     {
@@ -52738,7 +52993,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP posture",
-      "line": 816,
+      "line": 817,
       "reason": ""
     },
     {
@@ -52751,7 +53006,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ready",
-      "line": 818,
+      "line": 819,
       "reason": ""
     },
     {
@@ -52764,7 +53019,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Incomplete",
-      "line": 818,
+      "line": 819,
       "reason": ""
     },
     {
@@ -52777,7 +53032,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email and phone are ready for stronger account assurance.",
-      "line": 822,
+      "line": 823,
       "reason": ""
     },
     {
@@ -52790,7 +53045,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add or correct a phone number to unlock stronger identity protection.",
-      "line": 823,
+      "line": 824,
       "reason": ""
     },
     {
@@ -52803,7 +53058,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment posture",
-      "line": 828,
+      "line": 829,
       "reason": ""
     },
     {
@@ -52816,7 +53071,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tokenized",
-      "line": 830,
+      "line": 831,
       "reason": ""
     },
     {
@@ -52829,7 +53084,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review needed",
-      "line": 830,
+      "line": 831,
       "reason": ""
     },
     {
@@ -52844,7 +53099,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} saved payment methods with a default secured method active.",
-      "line": 834,
+      "line": 835,
       "reason": ""
     },
     {
@@ -52859,7 +53114,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} saved payment methods and no trusted default method yet.",
-      "line": 835,
+      "line": 836,
       "reason": ""
     },
     {
@@ -52872,7 +53127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust & Security Command Center",
-      "line": 845,
+      "line": 846,
       "reason": ""
     },
     {
@@ -52885,7 +53140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Platform status",
-      "line": 850,
+      "line": 851,
       "reason": ""
     },
     {
@@ -52898,7 +53153,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking...",
-      "line": 853,
+      "line": 854,
       "reason": ""
     },
     {
@@ -52911,7 +53166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Healthy",
-      "line": 855,
+      "line": 856,
       "reason": ""
     },
     {
@@ -52924,7 +53179,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Degraded",
-      "line": 856,
+      "line": 857,
       "reason": ""
     },
     {
@@ -52937,7 +53192,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity posture",
-      "line": 860,
+      "line": 861,
       "reason": ""
     },
     {
@@ -52950,7 +53205,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fortified",
-      "line": 862,
+      "line": 863,
       "reason": ""
     },
     {
@@ -52963,7 +53218,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Needs attention",
-      "line": 862,
+      "line": 863,
       "reason": ""
     },
     {
@@ -52976,7 +53231,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment safety",
-      "line": 866,
+      "line": 867,
       "reason": ""
     },
     {
@@ -52989,7 +53244,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tokenized + default",
-      "line": 868,
+      "line": 869,
       "reason": ""
     },
     {
@@ -53002,7 +53257,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review needed",
-      "line": 868,
+      "line": 869,
       "reason": ""
     },
     {
@@ -53015,7 +53270,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last trust sweep",
-      "line": 876,
+      "line": 877,
       "reason": ""
     },
     {
@@ -53032,7 +53287,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Member since {{memberSince}}. Backend status: {{backend}} | DB: {{db}}",
-      "line": 880,
+      "line": 881,
       "reason": ""
     },
     {
@@ -53045,7 +53300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 884,
+      "line": 885,
       "reason": ""
     },
     {
@@ -53058,7 +53313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 885,
+      "line": 886,
       "reason": ""
     },
     {
@@ -53071,7 +53326,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Some live trust checks are degraded. Core account actions still work, but use official support channels if behavior looks suspicious.",
-      "line": 894,
+      "line": 895,
       "reason": ""
     },
     {
@@ -53084,7 +53339,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notification posture",
-      "line": 902,
+      "line": 903,
       "reason": ""
     },
     {
@@ -53097,7 +53352,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety controls",
-      "line": 910,
+      "line": 911,
       "reason": ""
     },
     {
@@ -53110,7 +53365,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Security Policy",
-      "line": 914,
+      "line": 915,
       "reason": ""
     },
     {
@@ -53123,7 +53378,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Privacy Policy",
-      "line": 917,
+      "line": 918,
       "reason": ""
     },
     {
@@ -53136,7 +53391,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Contact Support",
-      "line": 920,
+      "line": 921,
+      "reason": ""
+    },
+    {
+      "column": 45,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Logout failed. Please try again.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Logout failed. Please try again.",
+      "id": "nav.logoutFailed",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Logout failed. Please try again.",
+      "line": 926,
       "reason": ""
     },
     {
@@ -53149,7 +53417,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Log Out",
-      "line": 927,
+      "line": 932,
       "reason": ""
     },
     {
@@ -60446,18 +60714,18 @@
     "app/src/services/runtimeTranslation.test.js"
   ],
   "summary": {
-    "dynamicLookupReferences": 15,
+    "dynamicLookupReferences": 16,
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
-    "productionFiles": 99,
-    "productionStableReferences": 4115,
+    "productionFiles": 100,
+    "productionStableReferences": 4132,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 527,
+    "sourceFilesScanned": 529,
     "testHarnessReferences": 16,
-    "totalTrackedFiles": 152,
-    "uniqueProductionStableIds": 3716,
+    "totalTrackedFiles": 153,
+    "uniqueProductionStableIds": 3730,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -60744,6 +61012,7 @@
     "admin.dashboard.paymentFailureRate",
     "admin.dashboard.paymentQueue",
     "admin.dashboard.portalSession",
+    "admin.dashboard.powerBiBlocked",
     "admin.dashboard.powerBiFrame",
     "admin.dashboard.powerBiTitle",
     "admin.dashboard.priorityQueue",
@@ -60848,6 +61117,7 @@
     "admin.email.emptyFailures",
     "admin.email.emptyQueue",
     "admin.email.enabled",
+    "admin.email.error.invalidRecipient",
     "admin.email.error.loadDeliveries",
     "admin.email.error.loadQueue",
     "admin.email.error.loadSummary",
@@ -60939,6 +61209,7 @@
     "admin.orders.cancelled",
     "admin.orders.currentStatus",
     "admin.orders.description",
+    "admin.orders.empty.noOrders",
     "admin.orders.empty.refunds",
     "admin.orders.empty.replacements",
     "admin.orders.empty.warranty",
@@ -60962,6 +61233,11 @@
     "admin.orders.payment.paid",
     "admin.orders.payment.pending",
     "admin.orders.payment.state",
+    "admin.orders.pendingMore",
+    "admin.orders.restock.error.empty",
+    "admin.orders.restock.hint",
+    "admin.orders.restock.quantityLabel",
+    "admin.orders.restock.toggle",
     "admin.orders.stats.awaitingCapture",
     "admin.orders.stats.funded",
     "admin.orders.stats.loadedSet",
@@ -61321,6 +61597,7 @@
     "admin.support.arch.voiceLanes",
     "admin.support.arch.voiceLanesBody",
     "admin.support.callerName",
+    "admin.support.clearSelection",
     "admin.support.closed",
     "admin.support.closedTicketBody",
     "admin.support.composerPlaceholder",
@@ -61334,6 +61611,8 @@
     "admin.support.error.startCall",
     "admin.support.error.updateStatus",
     "admin.support.eyebrow",
+    "admin.support.filteredOut",
+    "admin.support.filteredOutBody",
     "admin.support.joinCall",
     "admin.support.lastEndedAt",
     "admin.support.liveCallContext",
@@ -62931,6 +63210,7 @@
     "nav.login",
     "nav.loginSignup",
     "nav.logout",
+    "nav.logoutFailed",
     "nav.marketPanelBody",
     "nav.marketPanelDialog",
     "nav.marketPanelTitle",
@@ -63082,9 +63362,11 @@
     "orders.placed.dismiss",
     "orders.placed.subtitle",
     "orders.placed.title",
+    "orders.progress.latest",
     "orders.qty",
     "orders.refundId",
     "orders.startShopping",
+    "orders.status.cancelled",
     "orders.subtitle",
     "orders.summary.active.detail",
     "orders.summary.active.label",
