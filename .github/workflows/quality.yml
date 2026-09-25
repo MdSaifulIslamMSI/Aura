@@ -142,7 +142,7 @@ jobs:
       - name: Merge shard coverage into the canonical LCOV files
         run: |
           mkdir -p server/coverage
-          npx --yes lcov-result-merger@7.2.0 "coverage-shards/server-coverage-shard-*/lcov.info" server/coverage/lcov.info
+          npx --yes lcov-result-merger@6.0.0 "coverage-shards/server-coverage-shard-*/lcov.info" server/coverage/lcov.info
           wc -l server/coverage/lcov.info app/coverage/lcov.info
 
       - name: Upload coverage
