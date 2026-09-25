@@ -1328,6 +1328,36 @@ describe('repo environment contract scripts', () => {
         expect(preflight[0]).not.toContain('continue-on-error: true');
     });
 
+    test('production dispatch re-runs canonical gates unless same-SHA evidence proves them green', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        // The evidence job queries the Actions runs API for the dispatch SHA.
+        expect(workflow).toContain('gate-evidence:');
+        expect(workflow).toContain('scripts/github/verify-production-gate-evidence.mjs');
+        expect(workflow).toContain('actions: read');
+
+        // Both canonical gate calls are fail-open: any doubt re-runs them.
+        expect(workflow).toContain("if: always() && (needs.gate-evidence.result != 'success' || needs.gate-evidence.outputs.quality_trusted != 'true')");
+        expect(workflow).toContain("needs.gate-evidence.outputs.release_safety_trusted != 'true'");
+
+        // Seven lanes (approval + six deploy/release jobs) accept the
+        // evidence-backed skip but nothing else changed.
+        const skippedAcceptance = workflow.match(/needs\.quality-gates\.result == 'skipped'/g) || [];
+        expect(skippedAcceptance.length).toBe(7);
+
+        // security-gates has no push-run equivalent: it must never be skipped.
+        expect(workflow).not.toContain("needs.security-gates.result == 'skipped'");
+    });
+
+    test('same-SHA gate evidence trust rule behavioral suite passes', () => {
+        const result = execFileSync(process.execPath, [
+            '--test', path.join(repoRoot, 'scripts', 'github', 'verify-production-gate-evidence.test.mjs'),
+        ], { encoding: 'utf8', timeout: 120000 });
+        // execFileSync throws on a non-zero node --test exit; the summary line
+        // proves the suite actually ran its assertions.
+        expect(result).toContain('fail 0');
+    });
+
     test('desktop release defaults to fast Windows x64 while preserving full cross-platform mode', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'desktop-release.yml'), 'utf8');
 
