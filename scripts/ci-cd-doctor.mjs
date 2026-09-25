@@ -779,6 +779,24 @@ addCheck(
     : reusablePermissionGraphFailures.join('; ')
 );
 
+// Same-SHA gate evidence: dispatches may skip the canonical quality and
+// release-safety re-runs ONLY when the evidence script proved a green
+// identical run for the exact SHA. The skip must always be fail-open.
+const gateEvidenceWiring = [
+  'gate-evidence:',
+  'scripts/github/verify-production-gate-evidence.mjs',
+  "if: always() && (needs.gate-evidence.result != 'success' || needs.gate-evidence.outputs.quality_trusted != 'true')",
+  'needs.gate-evidence.outputs.release_safety_trusted != \'true\'',
+  "(needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped')",
+].every((needle) => production.includes(needle));
+const gateEvidenceSkipCount = (production.match(/needs\.quality-gates\.result == 'skipped'/g) || []).length;
+
+addCheck(
+  'production dispatch skips canonical gate re-runs only on trusted same-SHA evidence',
+  gateEvidenceWiring && gateEvidenceSkipCount === 7,
+  'evidence job + fail-open gate conditions + skipped acceptance across approval and every deploy/release lane'
+);
+
 // Consolidated security surface: the former security.yml duplicate was merged
 // into security-gates.yml; a reintroduction would double every PR scan again.
 addCheck(

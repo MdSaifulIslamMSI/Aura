@@ -772,8 +772,43 @@ jobs:
             echo "Signing and store publishing are intentionally disabled by this orchestrator. Desktop and mobile release workflows receive explicit false signing/store inputs."
           } >> "$GITHUB_STEP_SUMMARY"
 
+  gate-evidence:
+    name: Same-SHA gate evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      quality_trusted: ${{ steps.evidence.outputs.quality_trusted }}
+      release_safety_trusted: ${{ steps.evidence.outputs.release_safety_trusted }}
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify same-SHA gate evidence
+        id: evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GATE_SHA: ${{ github.sha }}
+          DISPATCH_STAGING_ACK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.staging_off_acknowledged == 'true' && 'true' || 'false' }}
+          STAGING_INFRA_PAUSED: ${{ vars.STAGING_INFRA_PAUSED }}
+        run: node scripts/github/verify-production-gate-evidence.mjs >> "$GITHUB_OUTPUT"
+
   quality-gates:
     name: Quality gates
+    needs:
+      - gate-evidence
+    # Fail-open: the canonical re-run happens unless this exact SHA provably
+    # has a successful identical ci.yml run (verify-production-gate-evidence.mjs).
+    if: always() && (needs.gate-evidence.result != 'success' || needs.gate-evidence.outputs.quality_trusted != 'true')
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -892,14 +927,19 @@ jobs:
     name: Same-SHA staging, cost, observability, and rollback gates
     needs:
       - plan
+      - gate-evidence
     # always() is load-bearing: plan runs behind resolve-last-known-good, which
     # is legitimately skipped unless the rollback_refs_json=last-known-good
     # mode is used. GitHub skips downstream jobs of a skipped node WITHOUT
     # evaluating a plain if, so this call needs always() to be evaluated.
+    # The gate-evidence clause fail-opens: the gates re-run unless this exact
+    # SHA provably has a successful giant-release-gates run whose staging
+    # posture covers what this dispatch demands.
     if: |
       always() &&
       needs.plan.outputs.planned_production_action == 'true' &&
-      needs.plan.outputs.requested_deploy_or_release_action == 'true'
+      needs.plan.outputs.requested_deploy_or_release_action == 'true' &&
+      (needs.gate-evidence.result != 'success' || needs.gate-evidence.outputs.release_safety_trusted != 'true')
     uses: ./.github/workflows/giant-release-gates.yml
     with:
       staging_off_acknowledged: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production == 'PRODUCTION' && github.event.inputs.staging_off_acknowledged == 'true' || false }}
@@ -927,9 +967,9 @@ jobs:
           needs.plan.outputs.requested_rollback_action == 'true'
         ) ||
         (
-          needs.quality-gates.result == 'success' &&
+          (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
           needs.security-gates.result == 'success' &&
-          needs.release-safety-gates.result == 'success'
+          (needs.release-safety-gates.result == 'success' || needs.release-safety-gates.result == 'skipped')
         )
       )
     environment:
@@ -1003,7 +1043,7 @@ jobs:
             echo
             if [ "${PLANNED_PRODUCTION_ACTION}" != "true" ]; then
               echo "No real production action was planned, so the production environment approval was intentionally not requested."
-            elif [ "${REQUESTED_DEPLOY_OR_RELEASE}" = "true" ] && { [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ] || [ "${RELEASE_SAFETY_GATES_RESULT}" != "success" ]; }; then
+            elif [ "${REQUESTED_DEPLOY_OR_RELEASE}" = "true" ] && { [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ] || [ "${RELEASE_SAFETY_GATES_RESULT}" != "success" ] && [ "${RELEASE_SAFETY_GATES_RESULT}" != "skipped" ]; }; then
               echo "A deploy or release was requested, but production approval was blocked because CI, security, or same-SHA release safety gates did not pass."
             else
               echo "Production approval did not complete successfully."
@@ -1121,7 +1161,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_deploy_backend == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       needs.release-manifest.result == 'success'
@@ -1182,7 +1222,7 @@ jobs:
               echo "Backend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Backend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Backend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Backend deploy was not requested for this run."
@@ -1202,7 +1242,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_deploy_frontend_netlify == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       needs.release-manifest.result == 'success'
@@ -1290,7 +1330,7 @@ jobs:
               echo "Netlify frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Netlify frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Netlify frontend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Netlify frontend deploy was not requested for this run."
@@ -1310,7 +1350,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_deploy_frontend_aws == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       needs.release-manifest.result == 'success'
@@ -1380,7 +1420,7 @@ jobs:
               echo "AWS frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "AWS frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "AWS frontend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "AWS frontend deploy was not requested for this run."
@@ -1400,7 +1440,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_deploy_gateway == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       needs.release-manifest.result == 'success'
@@ -1461,7 +1501,7 @@ jobs:
               echo "Gateway deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Gateway deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Gateway deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Gateway deploy was not requested for this run."
@@ -2079,7 +2119,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_release_desktop == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
@@ -2174,7 +2214,7 @@ jobs:
               echo "Desktop release was requested but no-opped because confirm_production was not PRODUCTION."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Desktop release was not requested for this run."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Desktop release was blocked because CI or security gates did not pass."
             elif [ "${SMOKE_TESTS_RESULT}" = "failure" ]; then
               echo "Desktop release was blocked because smoke tests failed."
@@ -2198,7 +2238,7 @@ jobs:
     if: |
       always() &&
       needs.plan.outputs.should_release_mobile == 'true' &&
-      needs.quality-gates.result == 'success' &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
@@ -2289,7 +2329,7 @@ jobs:
               echo "Mobile release was requested but no-opped because confirm_production was not PRODUCTION."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Mobile release was not requested for this run."
-            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] && [ "${QUALITY_GATES_RESULT}" != "skipped" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Mobile release was blocked because CI or security gates did not pass."
             elif [ "${SMOKE_TESTS_RESULT}" = "failure" ]; then
               echo "Mobile release was blocked because smoke tests failed."
