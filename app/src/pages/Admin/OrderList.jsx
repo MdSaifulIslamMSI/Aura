@@ -23,6 +23,7 @@ const OrderList = () => {
     const [statusSubmitting, setStatusSubmitting] = useState({});
     const [cancelSubmitting, setCancelSubmitting] = useState({});
     const [refundSubmitting, setRefundSubmitting] = useState({});
+    const [restockDrafts, setRestockDrafts] = useState({});
     const [replacementSubmitting, setReplacementSubmitting] = useState({});
     const [warrantySubmitting, setWarrantySubmitting] = useState({});
     const [supportSubmitting, setSupportSubmitting] = useState({});
@@ -134,14 +135,51 @@ const OrderList = () => {
         }
     };
 
-    const processRefundRequest = async (orderId, requestId, status) => {
+    const resolveRestockProductId = (item) => {
+        const productRef = item?.product ?? item?.productId;
+        if (!productRef) return '';
+        return typeof productRef === 'object' ? String(productRef._id || productRef.id || '') : String(productRef);
+    };
+
+    const buildRestockItems = (order, draft) => {
+        const items = [];
+        for (const item of Array.isArray(order?.orderItems) ? order.orderItems : []) {
+            const productId = resolveRestockProductId(item);
+            if (!productId) continue;
+            const orderedQuantity = Number(item?.quantity || 0);
+            const raw = draft?.quantities?.[productId];
+            const quantity = raw === undefined || raw === '' ? orderedQuantity : Number(raw);
+            if (Number.isSafeInteger(quantity) && quantity > 0) {
+                items.push({ productId, quantity: Math.min(quantity, orderedQuantity) });
+            }
+        }
+        return items;
+    };
+
+    const updateRestockDraft = (orderId, updater) => {
+        setRestockDrafts((prev) => ({ ...prev, [orderId]: updater(prev[orderId]) }));
+    };
+
+    const processRefundRequest = async (order, requestId, status) => {
+        const orderId = order._id;
         setRefundSubmitting((prev) => ({ ...prev, [orderId]: true }));
         try {
-            const response = await orderApi.processRefundRequestAdmin(orderId, requestId, {
+            const payload = {
                 status,
                 note: t('admin.orders.notes.refundAction', { status }, `Admin ${status} via order console`),
-            });
+            };
+            if (status === 'processed' && restockDrafts[orderId]?.enabled) {
+                const restockItems = buildRestockItems(order, restockDrafts[orderId]);
+                if (restockItems.length === 0) {
+                    toast.error(t('admin.orders.restock.error.empty', {}, 'Enter a restock quantity for at least one item.'));
+                    return;
+                }
+                payload.restock = true;
+                payload.restockItems = restockItems;
+            }
+            const response = await orderApi.processRefundRequestAdmin(orderId, requestId, payload);
             toast.success(response?.message || t('admin.orders.success.refundUpdated', {}, 'Refund request updated'));
+            setRestockDrafts((prev) => ({ ...prev, [orderId]: { enabled: false, quantities: {} } }));
             await loadOrders();
         } catch (error) {
             toast.error(error.message || t('admin.orders.error.refund', {}, 'Failed to process refund request'));
@@ -326,23 +364,72 @@ const OrderList = () => {
                                                     ) : null}
                                                     {latestRefund.refundId && <div className="font-mono text-[10px]"><FormattedMessage id="order.jsx.text.id" defaultMessage="ID:" />{' '}{latestRefund.refundId}</div>}
                                                     {['pending', 'approved'].includes(String(latestRefund.status || '').toLowerCase()) ? (
-                                                        <div className="flex gap-1 pt-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => processRefundRequest(order._id, latestRefund.requestId, 'processed')}
-                                                                disabled={isRefundBusy}
-                                                                className="admin-premium-button admin-premium-button-success px-2 py-1 text-[10px] font-bold disabled:opacity-60"
-                                                            >
-                                                                {isRefundBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.process', {}, 'Process')}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => processRefundRequest(order._id, latestRefund.requestId, 'rejected')}
-                                                                disabled={isRefundBusy}
-                                                                className="admin-premium-button admin-premium-button-danger px-2 py-1 text-[10px] font-bold disabled:opacity-60"
-                                                            >
-                                                                {t('admin.orders.actions.reject', {}, 'Reject')}
-                                                            </button>
+                                                        <div className="space-y-1 pt-1">
+                                                            <label className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={Boolean(restockDrafts[order._id]?.enabled)}
+                                                                    onChange={(event) => updateRestockDraft(order._id, (prev) => ({
+                                                                        enabled: event.target.checked,
+                                                                        quantities: event.target.checked
+                                                                            ? Object.fromEntries((order.orderItems || [])
+                                                                                .map((item) => [resolveRestockProductId(item), String(item?.quantity ?? '')]))
+                                                                            : (prev?.quantities || {}),
+                                                                    }))}
+                                                                    className="h-3 w-3 rounded border-gray-300"
+                                                                    disabled={isRefundBusy}
+                                                                />
+                                                                {t('admin.orders.restock.toggle', {}, 'Restock returned items')}
+                                                            </label>
+                                                            {restockDrafts[order._id]?.enabled ? (
+                                                                <div className="space-y-1 rounded border border-gray-200 bg-gray-50 p-1.5">
+                                                                    <div className="text-[10px] text-gray-500">
+                                                                        {t('admin.orders.restock.hint', {}, 'Returned units re-enter inventory once the refund is processed.')}
+                                                                    </div>
+                                                                    {(order.orderItems || []).map((item) => {
+                                                                        const productId = resolveRestockProductId(item);
+                                                                        const orderedQuantity = Number(item?.quantity || 0);
+                                                                        return (
+                                                                            <label key={productId || item?.title} className="flex items-center justify-between gap-2 text-[10px] text-gray-600">
+                                                                                <span className="truncate">{item?.title || productId}</span>
+                                                                                <span className="flex items-center gap-1">
+                                                                                    {t('admin.orders.restock.quantityLabel', {}, 'Qty')}
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min={0}
+                                                                                        max={orderedQuantity}
+                                                                                        value={restockDrafts[order._id]?.quantities?.[productId] ?? String(orderedQuantity)}
+                                                                                        onChange={(event) => updateRestockDraft(order._id, (prev) => ({
+                                                                                            ...prev,
+                                                                                            quantities: { ...(prev?.quantities || {}), [productId]: event.target.value },
+                                                                                        }))}
+                                                                                        className="w-12 rounded border border-gray-300 px-1 py-0.5 text-right text-[10px]"
+                                                                                        disabled={isRefundBusy}
+                                                                                    />
+                                                                                </span>
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : null}
+                                                            <div className="flex gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => processRefundRequest(order, latestRefund.requestId, 'processed')}
+                                                                    disabled={isRefundBusy}
+                                                                    className="admin-premium-button admin-premium-button-success px-2 py-1 text-[10px] font-bold disabled:opacity-60"
+                                                                >
+                                                                    {isRefundBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.process', {}, 'Process')}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => processRefundRequest(order, latestRefund.requestId, 'rejected')}
+                                                                    disabled={isRefundBusy}
+                                                                    className="admin-premium-button admin-premium-button-danger px-2 py-1 text-[10px] font-bold disabled:opacity-60"
+                                                                >
+                                                                    {t('admin.orders.actions.reject', {}, 'Reject')}
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     ) : null}
                                                 </div>
