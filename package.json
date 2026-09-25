@@ -40,7 +40,7 @@
     "test:server:regression": "node scripts/run-test-tier.cjs server regression --forceExit",
     "test:server:regression:stable": "node scripts/run-test-tier.cjs server regression --runInBand --forceExit",
     "test:server:coverage": "npm run test:server:regression:stable -- --coverage",
-    "build": "cd app && npm install && npm run build",
+    "build": "cd app && npm ci && npm run build",
     "test:i18n": "npm --prefix server test -- --runTestsByPath tests/translationService.test.js tests/translationPrivacy.test.js tests/i18nTranslationPolicy.test.js tests/i18nRateLimitPolicy.test.js && npm --prefix app test -- runtimeTranslationPolicy.test.js runtimeTranslation.test.js i18nApi.test.js useDynamicTranslations.test.js marketMessagesCoverage.test.js LocaleProvider.test.jsx MarketContext.test.jsx StepPayment.test.jsx ProductCardInline.test.jsx Orders.test.jsx",
     "i18n:inventory": "node scripts/i18n/build-full-legacy-migration-inventory.mjs",
     "i18n:stable-catalogs": "node scripts/i18n/generate-stable-icu-catalogs.mjs",
@@ -301,7 +301,7 @@
     "rimraf": "^6.1.3",
     "socket.io-parser": "4.2.7",
     "tmp": "0.2.7",
-    "undici": "8.10.2"
+    "undici": "8.11.2"
   },
   "build": {
     "appId": "com.aura.marketplace.desktop",
