@@ -42,8 +42,8 @@ on:
       - "docs/staging-bootstrap.md"
       - "docs/staging-readiness-inventory.md"
       - "docs/privileged-access-management.md"
-      - "SECURITY_TEST_PLAN.md"
-      - "security_best_practices_report.md"
+      - "security-reports/SECURITY_TEST_PLAN.md"
+      - "security-reports/security_best_practices_report.md"
       - ".gitleaks.toml"
       - "security-audit-exceptions.json"
       - "infra/cloudflare/**"
@@ -197,7 +197,7 @@ jobs:
               docs/staging-readiness-inventory.md|docs/privileged-access-management.md)
                 backend=true
                 ;;
-              SECURITY_TEST_PLAN.md|security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json)
+              security-reports/SECURITY_TEST_PLAN.md|security-reports/security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json)
                 backend=true
                 ;;
               infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/auth/*|infra/opentofu/*)

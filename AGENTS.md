@@ -52,7 +52,7 @@ Default behavior:
 - `.github/workflows/`, `netlify.toml`, `vercel.json`, `.netlify/`, `.vercel/`: CI and hosting configuration.
 - `scripts/`: repo-level automation and validation scripts.
 - `tests/`: auth/security test documentation and generated test planning material.
-- `docs/`, `security-reports/`, `SECURITY_*.md`: architecture, security, and operational documentation.
+- `docs/`, `security-reports/`: architecture, security, and operational documentation. Point-in-time security reports (including the former root-level `SECURITY_*.md` files and the legacy root threat model) live in `security-reports/`; the living threat model is `docs/security/threat-model.md`.
 
 Generated, dependency, or local-only surfaces:
 - `node_modules/`, `app/node_modules/`
