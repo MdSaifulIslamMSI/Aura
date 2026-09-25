@@ -21,10 +21,52 @@ env:
   NODE_VERSION: 24.x
 
 jobs:
-  quality:
-    name: Quality, tests, and coverage
+  quality-shard:
+    name: Quality server tests shard (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      # Same deterministic serialized execution as the release gates; the
+      # shard split restores the wall-clock time that serialization cost.
+      - name: Run sharded server suites and generate LCOV coverage
+        run: node scripts/run-test-tier.cjs server regression --shard=${{ matrix.shard }}/3 --runInBand --forceExit --coverage
+
+      - name: Upload server shard coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: server-coverage-shard-${{ matrix.shard }}
+          path: server/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
+  quality-static:
+    name: Quality lint, types, and frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -39,7 +81,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             app/package-lock.json
-            server/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -47,17 +88,62 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix app ci
 
-      - name: Install backend dependencies
-        run: npm --prefix server ci
-
       - name: Run blocking ESLint rules
         run: npm run quality:lint
 
       - name: Report TypeScript compiler readiness
         run: npm run quality:typecheck
 
-      - name: Run test suites and generate real LCOV coverage
-        run: npm run quality:coverage
+      - name: Run frontend suites and generate LCOV coverage
+        run: npm --prefix app run test:coverage
+
+      - name: Build frontend bundle
+        working-directory: app
+        run: npx vite build
+
+      - name: Check admin chunk isolation from the public shell
+        run: npm run security:admin-chunk-isolation
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: app-coverage
+          path: app/coverage/
+          if-no-files-found: error
+          retention-days: 14
+
+  quality:
+    name: Quality, tests, and coverage
+    needs:
+      - quality-shard
+      - quality-static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download server shard coverage
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: server-coverage-shard-*
+          path: coverage-shards
+          merge-multiple: false
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: app-coverage
+          path: app/coverage
+
+      - name: Merge shard coverage into the canonical LCOV files
+        run: |
+          mkdir -p server/coverage
+          npx --yes lcov-result-merger@7.2.0 "coverage-shards/server-coverage-shard-*/lcov.info" server/coverage/lcov.info
+          wc -l server/coverage/lcov.info app/coverage/lcov.info
 
       - name: Upload coverage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -82,13 +168,6 @@ jobs:
             exit 0
           fi
           npx --yes @datadog/datadog-ci@5.17.0 coverage upload app/coverage/lcov.info server/coverage/lcov.info
-
-      - name: Build frontend bundle
-        working-directory: app
-        run: npx vite build
-
-      - name: Check admin chunk isolation from the public shell
-        run: npm run security:admin-chunk-isolation
 
   repo-hygiene:
     name: Repo hygiene
