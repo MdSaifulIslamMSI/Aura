@@ -73,9 +73,9 @@ therefore has two arming paths:
    `pull_requests: write` (contents: read) as the repo secret
    `DEPENDABOT_MERGE_TOKEN`. The workflow automatically prefers it and arms
    auto-merge straight from the sweep/event run.
-2. **Local sweep (works today with `gh auth login` credentials):** the scheduled
-   local run executes the same controller with the repository owner's token and
-   arms everything the CI sweep classified.
+2. **Local sweep (manual fallback):** the same controller run locally with the
+   repository owner's `gh auth login` credentials arms everything the CI sweep
+   classified — useful if the PAT has expired and a PR must not wait.
 
 ```
 node scripts/github/dependency-automerge-policy.mjs --sweep
