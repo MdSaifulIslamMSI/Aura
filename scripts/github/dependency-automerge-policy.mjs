@@ -23,7 +23,9 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const POLICY_PATH = path.join(REPO_ROOT, 'config', 'dependency-policy.json');
+// GraphQL reports the Dependabot app as "app/dependabot", REST as "dependabot[bot]".
 const DEPENDABOT_ACTOR = 'app/dependabot';
+const DEPENDABOT_LOGINS = new Set(['app/dependabot', 'dependabot[bot]']);
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run') || process.env.DRY_RUN === '1';
@@ -148,8 +150,14 @@ function armAutoMerge(pr, dryRun) {
     log(`PR #${pr.number}: DRY RUN — would arm auto-merge (squash)`);
     return;
   }
-  gh('pr', 'merge', String(pr.number), '--auto', '--squash');
-  log(`PR #${pr.number}: auto-merge armed (squash)`);
+  try {
+    gh('pr', 'merge', String(pr.number), '--auto', '--squash');
+    log(`PR #${pr.number}: auto-merge armed (squash)`);
+  } catch (error) {
+    // A PR conflicted with main (Dependabot rebases it automatically) or hit a
+    // transient API state — log and leave it for the next sweep instead of failing.
+    log(`PR #${pr.number}: could not arm auto-merge (${error.message.split('\n')[0]}) — leaving for the next sweep`);
+  }
 }
 
 function hasPolicyComment(pr, marker) {
@@ -187,7 +195,7 @@ async function processPr(prNumber, policy, dryRun) {
     'number,title,author,state,files,baseRefOid,headRefOid,statusCheckRollup,autoMergeRequest,comments'
   );
 
-  if (pr.author?.login !== 'dependabot[bot]') {
+  if (!DEPENDABOT_LOGINS.has(pr.author?.login)) {
     log(`PR #${prNumber}: author ${pr.author?.login ?? 'unknown'} is not dependabot, skipping`);
     return { lane: 'skipped' };
   }
