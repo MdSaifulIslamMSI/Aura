@@ -96,6 +96,7 @@
   },
   "overrides": {
     "adm-zip": "0.6.0",
+    "@unicode/unicode-17.0.0": "2.0.5",
     "brace-expansion": "5.0.9",
     "fast-uri": "4.1.4",
     "ip-address": "10.4.0",
@@ -105,7 +106,7 @@
     "react-router": "7.18.3",
     "rollup": "4.59.1",
     "socket.io-parser": "4.2.7",
-    "undici": "8.10.2",
+    "undici": "8.11.2",
     "uuid": "^11.1.1",
     "ws": "^8.20.1"
   }

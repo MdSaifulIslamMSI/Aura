@@ -107,7 +107,7 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.6.2",
     "svix": "^2.4.0",
-    "undici": "8.10.2",
+    "undici": "8.11.2",
     "voyageai": "^0.4.0",
     "xss": "^1.0.15",
     "zod": "^4.6.2"
@@ -136,7 +136,7 @@
     "socket.io-parser": "4.2.7",
     "teeny-request": "^10.1.2",
     "test-exclude": "^8.0.0",
-    "undici": "8.10.2",
+    "undici": "8.11.2",
     "uuid": "^14.0.0",
     "ws": "^8.20.1"
   },
