@@ -199,6 +199,12 @@ function armAutoMerge(pr, dryRun) {
     // stderr (the real reason) instead of the bare "Command failed" line.
     const detail = String(error.stderr || error.message).split('\n').filter(Boolean).pop();
     log(`PR #${pr.number}: could not arm auto-merge (${detail}) — leaving for the next sweep`);
+    if (/not accessible by integration/i.test(detail)) {
+      // GitHub's platform policy: GITHUB_TOKEN can never modify Dependabot PR
+      // merge state. Arming needs a PAT (set the DEPENDABOT_MERGE_TOKEN secret,
+      // the workflow prefers it) or the scheduled local sweep with gh auth.
+      log('GITHUB_TOKEN cannot arm Dependabot PRs (GitHub policy). Add the DEPENDABOT_MERGE_TOKEN secret — the workflow uses it automatically — or run the local sweep: node scripts/github/dependency-automerge-policy.mjs --sweep');
+    }
     return 'arm-failed';
   }
 }

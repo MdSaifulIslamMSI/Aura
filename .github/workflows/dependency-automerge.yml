@@ -42,7 +42,11 @@ jobs:
 
       - name: Classify dependency PRs against policy
         env:
-          GH_TOKEN: ${{ github.token }}
+          # GitHub forbids GITHUB_TOKEN from arming auto-merge on Dependabot
+          # PRs. If you add a fine-grained PAT as the DEPENDABOT_MERGE_TOKEN
+          # secret, the controller arms merges directly from CI; otherwise the
+          # scheduled local sweep (docs/dependency-automation.md) does it.
+          GH_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN || github.token }}
           GH_PR_NUMBER: ${{ github.event.pull_request.number }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
         run: |
