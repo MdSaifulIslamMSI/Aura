@@ -289,7 +289,7 @@ function writeStepSummary(results, dryRun) {
     ...results.map((r) => `| #${r.number ?? '?'} | ${r.lane} | ${r.decision ?? ''} |`),
     '',
   ];
-  fs.appendFileSync(target, lines.join('\n'));
+  appendFileSync(target, lines.join('\n'));
 }
 
 function summarize(results, dryRun) {
