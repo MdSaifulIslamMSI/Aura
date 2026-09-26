@@ -63,6 +63,27 @@ npm --prefix app test         # vitest
 npm test                      # server regression tier (stable)
 ```
 
+## Arming on Dependabot PRs — token reality
+
+GitHub's platform policy forbids `GITHUB_TOKEN` from changing the merge state of
+Dependabot-authored PRs (`Resource not accessible by integration`). The pipeline
+therefore has two arming paths:
+
+1. **CI arming (preferred once configured):** add a fine-grained PAT with
+   `pull_requests: write` (contents: read) as the repo secret
+   `DEPENDABOT_MERGE_TOKEN`. The workflow automatically prefers it and arms
+   auto-merge straight from the sweep/event run.
+2. **Local sweep (works today with `gh auth login` credentials):** the scheduled
+   local run executes the same controller with the repository owner's token and
+   arms everything the CI sweep classified.
+
+```
+node scripts/github/dependency-automerge-policy.mjs --sweep
+```
+
+Either way, GitHub's branch protection remains the final gate — an armed PR only
+merges when every required check is green.
+
 ## Controller script
 
 `scripts/github/dependency-automerge-policy.mjs`
