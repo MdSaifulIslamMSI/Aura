@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "description": "Standing-approval dependency policy. Dependabot PRs auto-merge (squash) when the required checks pass, except where this file says otherwise. The controller reads this at run time — edit freely, no workflow changes needed.",
+  "automerge": {
+    "patch": true,
+    "minor": true,
+    "major": true,
+    "majorBlocklist": [
+      "stripe",
+      "express",
+      "express-rate-limit",
+      "socket.io",
+      "socket.io-client",
+      "@socket.io/*",
+      "mongoose",
+      "mongodb",
+      "firebase",
+      "firebase-admin",
+      "@sentry/*",
+      "electron",
+      "electron-updater",
+      "electron-builder",
+      "@capacitor/*",
+      "@capacitor-firebase/*",
+      "react",
+      "react-dom",
+      "react-intl",
+      "vite",
+      "@vitejs/*",
+      "@playwright/test",
+      "sharp",
+      "undici",
+      "axios",
+      "bcryptjs",
+      "redis",
+      "dd-trace",
+      "openai",
+      "http-proxy-middleware",
+      "tailwindcss",
+      "@aws-sdk/*",
+      "jest",
+      "vitest",
+      "eslint",
+      "typescript-eslint"
+    ]
+  },
+  "overridesGuard": true,
+  "labels": {
+    "safe": "automerge:policy",
+    "risk": "needs-human:risk-policy"
+  },
+  "commentMarker": "<!-- dep-automerge-policy -->"
+}

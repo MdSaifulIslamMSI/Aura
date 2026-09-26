@@ -1,0 +1,53 @@
+name: Dependency Automerge Policy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  schedule:
+    # Monday sweep, after Dependabot's Monday 07:00 run — self-heals any PR
+    # the event path missed (races, holds cancelled by earlier failures).
+    - cron: '37 13 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Classify only — no labels, comments, or auto-merge'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: dep-automerge-${{ github.event.pull_request.number || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    name: Dependency automerge policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+
+      - name: Classify dependency PRs against policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PR_NUMBER: ${{ github.event.pull_request.number }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            node scripts/github/dependency-automerge-policy.mjs --pr "$GH_PR_NUMBER"
+          else
+            node scripts/github/dependency-automerge-policy.mjs --sweep
+          fi
