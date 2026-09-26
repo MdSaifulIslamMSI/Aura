@@ -17,7 +17,7 @@
 // auto-merge, which itself waits for the required status checks to pass.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,8 +38,28 @@ function gh(...params) {
   });
 }
 
-function ghJson(...params) {
-  return JSON.parse(gh(...params));
+const TRANSIENT_ERROR = /network|timed out|timeout|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ENOTFOUND|rate limit|502|503|504/i;
+
+// Same call as gh(), but retries transient api.github.com blips with a short
+// linear backoff. Mutating calls that are not idempotent (pr comment) must use
+// plain gh() instead.
+function ghRetry(...params) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return gh(...params);
+    } catch (error) {
+      lastError = error;
+      if (!TRANSIENT_ERROR.test(error.message) || attempt === 3) break;
+      log(`transient failure (attempt ${attempt}/3): ${error.message.split('\n')[0]} — retrying`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+function ghJsonRetry(...params) {
+  return JSON.parse(ghRetry(...params));
 }
 
 function log(...parts) {
@@ -107,7 +127,7 @@ function matchesBlocklist(name, blocklist) {
 }
 
 function fetchManifest(owner, repo, manifestPath, ref) {
-  const raw = gh(
+  const raw = ghRetry(
     'api',
     '-H',
     'Accept: application/vnd.github.raw',
@@ -140,23 +160,30 @@ function failedChecks(pr) {
 function armAutoMerge(pr, dryRun) {
   if (pr.autoMergeRequest) {
     log(`PR #${pr.number}: auto-merge already armed (${pr.autoMergeRequest.mergeMethod ?? 'squash'})`);
-    return;
+    return 'already-armed';
   }
   if (pr.state !== 'OPEN') {
     log(`PR #${pr.number}: state is ${pr.state}, skipping`);
-    return;
+    return 'not-open';
+  }
+  if (pr.mergeable === false || pr.mergeStateStatus === 'DIRTY' || pr.mergeStateStatus === 'CONFLICTING') {
+    // Dependabot rebases conflicted branches automatically; the next sweep retries.
+    log(`PR #${pr.number}: conflicted with main (${pr.mergeStateStatus ?? 'unknown'}) — leaving for Dependabot rebase + next sweep`);
+    return 'conflicted';
   }
   if (dryRun) {
     log(`PR #${pr.number}: DRY RUN — would arm auto-merge (squash)`);
-    return;
+    return 'dry-run';
   }
   try {
-    gh('pr', 'merge', String(pr.number), '--auto', '--squash');
+    ghRetry('pr', 'merge', String(pr.number), '--auto', '--squash');
     log(`PR #${pr.number}: auto-merge armed (squash)`);
+    return 'armed';
   } catch (error) {
-    // A PR conflicted with main (Dependabot rebases it automatically) or hit a
-    // transient API state — log and leave it for the next sweep instead of failing.
+    // Final backstop for anything the mergeable pre-check missed (race, conflict
+    // appearing mid-flight, unexpected API state) — never fail the whole sweep.
     log(`PR #${pr.number}: could not arm auto-merge (${error.message.split('\n')[0]}) — leaving for the next sweep`);
+    return 'arm-failed';
   }
 }
 
@@ -187,17 +214,17 @@ function postRiskComment(pr, policy, decision, dryRun) {
 }
 
 async function processPr(prNumber, policy, dryRun) {
-  const pr = ghJson(
+  const pr = ghJsonRetry(
     'pr',
     'view',
     String(prNumber),
     '--json',
-    'number,title,author,state,files,baseRefOid,headRefOid,statusCheckRollup,autoMergeRequest,comments'
+    'number,title,author,state,files,baseRefOid,headRefOid,mergeable,mergeStateStatus,statusCheckRollup,autoMergeRequest,comments'
   );
 
   if (!DEPENDABOT_LOGINS.has(pr.author?.login)) {
     log(`PR #${prNumber}: author ${pr.author?.login ?? 'unknown'} is not dependabot, skipping`);
-    return { lane: 'skipped' };
+    return { lane: 'skipped', decision: 'not a Dependabot PR' };
   }
 
   const manifests = (pr.files ?? []).map((f) => f.path).filter((p) => p === 'package.json' || p.endsWith('/package.json'));
@@ -227,22 +254,42 @@ async function processPr(prNumber, policy, dryRun) {
   if (decision.lane === 'safe') {
     const failing = failedChecks(pr);
     if (failing.length > 0) {
-      log(
-        `PR #${pr.number}: NOT arming auto-merge, ${failing.length} failing check(s): ` +
-          failing.map((c) => c.name ?? c.context ?? 'unknown').join(', ')
-      );
-      return { lane: 'held-failing-checks' };
+      const names = failing.map((c) => c.name ?? c.context ?? 'unknown').join(', ');
+      log(`PR #${pr.number}: NOT arming auto-merge, ${failing.length} failing check(s): ${names}`);
+      return { lane: 'held-failing-checks', decision: `held: failing ${names}` };
     }
     ensureLabel(policy.labels.safe, '0e8a16', 'Dependency policy: auto-merge when required checks pass', dryRun);
     if (!dryRun) gh('pr', 'edit', String(pr.number), '--add-label', policy.labels.safe);
-    armAutoMerge(pr, dryRun);
-    return { lane: 'safe' };
+    const armResult = armAutoMerge(pr, dryRun);
+    const decisionText = {
+      'armed': 'auto-merge armed (squash)',
+      'already-armed': 'auto-merge already armed',
+      'conflicted': 'conflicted — waiting for Dependabot rebase',
+      'dry-run': 'would arm auto-merge (dry run)',
+      'arm-failed': 'arm failed — retry next sweep',
+      'not-open': 'not open',
+    }[armResult] ?? armResult;
+    return { lane: 'safe', decision: decisionText };
   }
 
   ensureLabel(policy.labels.risk, 'd93f0b', 'Dependency policy: blocked from automerge, needs review', dryRun);
   if (!dryRun) gh('pr', 'edit', String(pr.number), '--add-label', policy.labels.risk);
   postRiskComment(pr, policy, decision, dryRun);
-  return { lane: 'risk' };
+  return { lane: 'risk', decision: `manual lane: ${decision.blocked.join('; ')}` };
+}
+
+function writeStepSummary(results, dryRun) {
+  const target = process.env.GITHUB_STEP_SUMMARY;
+  if (!target || results.length === 0) return;
+  const lines = [
+    `## Dependency automerge policy${dryRun ? ' — dry run' : ''}`,
+    '',
+    '| PR | Lane | Decision |',
+    '| --- | --- | --- |',
+    ...results.map((r) => `| #${r.number ?? '?'} | ${r.lane} | ${r.decision ?? ''} |`),
+    '',
+  ];
+  fs.appendFileSync(target, lines.join('\n'));
 }
 
 function summarize(results, dryRun) {
@@ -260,17 +307,19 @@ async function main() {
   }
 
   if (args.includes('--sweep')) {
-    const open = ghJson('pr', 'list', '--state', 'open', '--author', DEPENDABOT_ACTOR, '--limit', '50', '--json', 'number');
+    const open = ghJsonRetry('pr', 'list', '--state', 'open', '--author', DEPENDABOT_ACTOR, '--limit', '50', '--json', 'number');
     log(`Sweep: ${open.length} open Dependabot PR(s)`);
     const results = [];
     for (const { number } of open) {
       try {
-        results.push({ lane: (await processPr(number, policy, DRY_RUN)).lane });
+        const outcome = await processPr(number, policy, DRY_RUN);
+        results.push({ number, lane: outcome.lane, decision: outcome.decision });
       } catch (error) {
         log(`PR #${number}: ERROR ${error.message}`);
-        results.push({ lane: 'error' });
+        results.push({ number, lane: 'error', decision: error.message.split('\n')[0] });
       }
     }
+    writeStepSummary(results, DRY_RUN);
     summarize(results, DRY_RUN);
     return;
   }
@@ -281,6 +330,7 @@ async function main() {
     process.exit(2);
   }
   const result = await processPr(prArg, policy, DRY_RUN);
+  writeStepSummary([{ number: prArg, ...result }], DRY_RUN);
   summarize([result], DRY_RUN);
 }
 

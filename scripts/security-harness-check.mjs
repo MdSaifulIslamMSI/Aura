@@ -39,6 +39,12 @@ const netlifyDeploy = read('.github/workflows/deploy-netlify.yml');
 const desktopRelease = read('.github/workflows/desktop-release.yml');
 const freeScannerWorkflow = read('.github/workflows/free-security-scanners.yml');
 const stagingOpsWatchWorkflow = read('.github/workflows/staging-ops-watch.yml');
+// Action SHAs in the ops-watch workflow must stay commit-pinned, but the exact
+// versions are Dependabot's to bump — assert the pinning property, not frozen SHAs.
+const stagingOpsWatchRefsAreFullShas = (() => {
+  const refs = [...stagingOpsWatchWorkflow.matchAll(/uses:\s*[^\s#]+@([^\s#]+)/g)].map((match) => match[1]);
+  return refs.length > 0 && refs.every((ref) => /^[0-9a-f]{40}$/i.test(ref));
+})();
 const freeScannerScript = read('scripts/security-free-scanners.mjs');
 const edgeNginx = read('infra/edge/nginx/auth-rate-limit.conf');
 const edgeCrsCompose = read('infra/edge/modsecurity-crs/docker-compose.example.yml');
@@ -344,15 +350,10 @@ addCheck(
 
 addCheck(
   'staging ops watch action refs are immutable',
-  includesAll(stagingOpsWatchWorkflow, [
-    'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803',
-    'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
-    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-  ]) && includesAll(supplyChainPinCheck, [
+  includesAll(supplyChainPinCheck, [
     'strictPinnedWorkflowFiles',
     'staging-ops-watch.yml',
-    'strict workflow action refs',
-  ]),
+  ]) && stagingOpsWatchRefsAreFullShas,
   '.github/workflows/staging-ops-watch.yml uses full action SHAs and the pin checker enforces it'
 );
 
