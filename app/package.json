@@ -96,6 +96,7 @@
   },
   "overrides": {
     "adm-zip": "0.6.0",
+    "@unicode/unicode-17.0.0": "2.0.5",
     "brace-expansion": "5.0.9",
     "fast-uri": "4.1.4",
     "ip-address": "10.4.0",
