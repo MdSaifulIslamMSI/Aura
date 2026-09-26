@@ -8,6 +8,8 @@ updates:
       - /server
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -19,6 +21,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
     open-pull-requests-limit: 5
     groups:
       actions-bump:
@@ -31,6 +35,8 @@ updates:
       - /server
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
     open-pull-requests-limit: 5
     groups:
       docker-bump:
