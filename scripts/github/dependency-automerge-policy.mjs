@@ -166,10 +166,25 @@ function armAutoMerge(pr, dryRun) {
     log(`PR #${pr.number}: state is ${pr.state}, skipping`);
     return 'not-open';
   }
+
+  // GitHub recomputes mergeability after every base push and reports UNKNOWN
+  // for a few seconds; arming during that window is rejected. Give it one
+  // re-query (after a short beat) before deferring to the next sweep.
+  if (pr.mergeable === 'UNKNOWN' || pr.mergeStateStatus === 'UNKNOWN') {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10000);
+    const refetched = ghJsonRetry('pr', 'view', String(pr.number), '--json', 'mergeable,mergeStateStatus');
+    pr.mergeable = refetched.mergeable;
+    pr.mergeStateStatus = refetched.mergeStateStatus;
+  }
+
   if (pr.mergeable === false || pr.mergeStateStatus === 'DIRTY' || pr.mergeStateStatus === 'CONFLICTING') {
     // Dependabot rebases conflicted branches automatically; the next sweep retries.
     log(`PR #${pr.number}: conflicted with main (${pr.mergeStateStatus ?? 'unknown'}) — leaving for Dependabot rebase + next sweep`);
     return 'conflicted';
+  }
+  if (pr.mergeable === 'UNKNOWN' || pr.mergeStateStatus === 'UNKNOWN') {
+    log(`PR #${pr.number}: mergeability still being computed — leaving for the next sweep`);
+    return 'unknown-mergeability';
   }
   if (dryRun) {
     log(`PR #${pr.number}: DRY RUN — would arm auto-merge (squash)`);
@@ -180,9 +195,10 @@ function armAutoMerge(pr, dryRun) {
     log(`PR #${pr.number}: auto-merge armed (squash)`);
     return 'armed';
   } catch (error) {
-    // Final backstop for anything the mergeable pre-check missed (race, conflict
-    // appearing mid-flight, unexpected API state) — never fail the whole sweep.
-    log(`PR #${pr.number}: could not arm auto-merge (${error.message.split('\n')[0]}) — leaving for the next sweep`);
+    // Final backstop for anything the pre-checks missed — surface gh's own
+    // stderr (the real reason) instead of the bare "Command failed" line.
+    const detail = String(error.stderr || error.message).split('\n').filter(Boolean).pop();
+    log(`PR #${pr.number}: could not arm auto-merge (${detail}) — leaving for the next sweep`);
     return 'arm-failed';
   }
 }
@@ -265,6 +281,7 @@ async function processPr(prNumber, policy, dryRun) {
       'armed': 'auto-merge armed (squash)',
       'already-armed': 'auto-merge already armed',
       'conflicted': 'conflicted — waiting for Dependabot rebase',
+      'unknown-mergeability': 'mergeability computing — retry next sweep',
       'dry-run': 'would arm auto-merge (dry run)',
       'arm-failed': 'arm failed — retry next sweep',
       'not-open': 'not open',
