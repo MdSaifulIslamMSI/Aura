@@ -370,6 +370,20 @@ jobs:
             cp app/android/app/build/outputs/apk/debug/app-debug.apk "release-artifacts/android/Aura-Marketplace-Android-Debug-${VERSION}.apk"
           fi
 
+      - name: Enforce APK size budget
+        env:
+          BUDGET_MB: ${{ vars.ANDROID_APK_SIZE_BUDGET_MB }}
+        run: |
+          set -euo pipefail
+          APK="$(find release-artifacts/android -name '*.apk' | head -n 1)"
+          SIZE_MB=$(( $(stat -c%s "${APK}") / 1024 / 1024 ))
+          BUDGET="${BUDGET_MB:-20}"
+          echo "APK size: ${SIZE_MB} MB (budget: ${BUDGET} MB)"
+          if [ "${SIZE_MB}" -gt "${BUDGET}" ]; then
+            echo "::error::APK size ${SIZE_MB}MB exceeds the ${BUDGET}MB budget. Raise vars.ANDROID_APK_SIZE_BUDGET_MB deliberately or shrink the web bundle."
+            exit 1
+          fi
+
       - name: Verify Android release signature
         if: needs.preflight.outputs.can_sign_android == 'true'
         env:
@@ -393,6 +407,17 @@ jobs:
             exit 1
           fi
           echo "APK signature verified against the pinned release keystore."
+
+      - name: Validate Fastfile lanes
+        uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1
+        with:
+          ruby-version: '3.2'
+      - name: Parse fastlane lanes
+        run: |
+          set -euo pipefail
+          gem install bundler -v '~> 2.5' --no-document
+          bundle install --jobs 4
+          bundle exec fastlane lanes
 
       - name: Upload Android release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -596,6 +621,66 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  smoke-android:
+    name: Emulator smoke launch
+    needs:
+      - prepare
+      - preflight
+      - build-android
+    if: needs.build-android.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download Android release artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mobile-android
+          path: release-artifacts/android
+
+      - name: Install, cold-launch, and verify the shell
+        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808 # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          script: |
+            set -euo pipefail
+            APK="$(find release-artifacts/android -name '*.apk' | head -n 1)"
+            echo "Smoke-installing ${APK}"
+            adb install -r "${APK}"
+            adb logcat -c
+            adb shell am start -W -n com.aura.marketplace.mobile/.MainActivity
+            sleep 45
+            FOCUS="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 || true)"
+            echo "Focused window: ${FOCUS}"
+            echo "${FOCUS}" | grep -qi "com.aura.marketplace.mobile" || {
+              echo "::error::Aura activity did not take focus after cold launch."
+              exit 1
+            }
+            if adb logcat -d | grep -q "FATAL EXCEPTION"; then
+              echo "::error::FATAL EXCEPTION during smoke launch:"
+              adb logcat -d | grep -A 40 "FATAL EXCEPTION"
+              exit 1
+            fi
+            echo "Emulator smoke launch passed."
+
   publish-android-play:
     needs:
       - prepare
@@ -688,6 +773,7 @@ jobs:
       - preflight
       - build-android
       - build-ios
+      - smoke-android
       - publish-android-play
       - publish-ios-testflight
     if: |
@@ -695,6 +781,7 @@ jobs:
       (needs.build-android.result == 'success' || needs.build-ios.result == 'success') &&
       (needs.build-android.result == 'success' || needs.build-android.result == 'skipped') &&
       (needs.build-ios.result == 'success' || needs.build-ios.result == 'skipped') &&
+      (needs.smoke-android.result == 'success' || needs.smoke-android.result == 'skipped') &&
       (needs.publish-android-play.result == 'success' || needs.publish-android-play.result == 'skipped') &&
       (needs.publish-ios-testflight.result == 'success' || needs.publish-ios-testflight.result == 'skipped')
     runs-on: ubuntu-latest

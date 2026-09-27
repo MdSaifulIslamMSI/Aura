@@ -206,6 +206,52 @@ const run = async () => {
   await ensureParentDir(reportPath);
   await fs.writeFile(reportPath, JSON.stringify(benchmarkReport, null, 2));
   console.log(JSON.stringify({ ...benchmarkReport, reportPath }, null, 2));
+
+  if (args.assert) {
+    assertBudgets(config, benchmarkReport);
+  }
+};
+
+const assertBudgets = (config, benchmarkReport) => {
+  const failures = [];
+
+  for (const entry of benchmarkReport.targets) {
+    const target = (config.targets || []).find((candidate) => candidate.label === entry.label);
+    const budget = target?.budget;
+    if (!budget) continue;
+
+    const scoreChecks = [
+      ['performance', budget.minPerformanceScore],
+      ['accessibility', budget.minAccessibilityScore],
+      ['best-practices', budget.minBestPracticesScore],
+    ];
+    for (const [category, minScore] of scoreChecks) {
+      if (!minScore) continue;
+      const score = Number(entry.audit?.[category] ?? 0);
+      if (score < minScore) {
+        failures.push(`${entry.label} [${entry.viewport}] Lighthouse ${category} score ${score} < budget ${minScore}`);
+      }
+    }
+
+    for (const [flowName, maxSteps] of Object.entries(budget.maxFlowStepCount || {})) {
+      const flow = (entry.flows || []).find((candidate) => candidate.name === flowName);
+      if (!flow || flow.skipped) continue;
+      const steps = Number(flow.stepCount ?? 0);
+      if (steps > maxSteps) {
+        failures.push(`${entry.label} [${entry.viewport}] flow ${flowName} used ${steps} steps > budget ${maxSteps}`);
+      }
+    }
+  }
+
+  if (failures.length > 0) {
+    for (const failure of failures) {
+      console.error(`::error::Mobile benchmark budget violated: ${failure}`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('Mobile benchmark budget assertions passed.');
 };
 
 run().catch((error) => {
