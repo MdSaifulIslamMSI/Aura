@@ -670,7 +670,9 @@ jobs:
           arch: x86_64
           target: google_apis
           script: |
-            set -euo pipefail
+            # Emulator-runner executes this with /usr/bin/sh (dash): no bash
+            # options such as pipefail.
+            set -eu
             APK="$(find release-artifacts/android -name '*.apk' | head -n 1)"
             echo "Smoke-installing ${APK}"
             adb install -r "${APK}"
