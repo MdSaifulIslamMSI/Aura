@@ -227,3 +227,84 @@ export const addNativeAppResumeListener = (callback) => {
     });
   };
 };
+
+const DEFAULT_BACK_EXIT_ROOTS = ['/', '/search', '/market', '/cart', '/account'];
+
+export const registerAndroidBackButtonHandler = ({ exitRoots = DEFAULT_BACK_EXIT_ROOTS } = {}) => {
+  if (!isCapacitorNativeRuntime() || !hasWindow()) {
+    return () => {};
+  }
+
+  let cancelled = false;
+  let handle = null;
+  const exitRootSet = new Set(
+    (Array.isArray(exitRoots) && exitRoots.length ? exitRoots : DEFAULT_BACK_EXIT_ROOTS)
+      .map((root) => String(root).replace(/\/+$/, '') || '/')
+  );
+
+  const isExitRoot = (pathname = '') => exitRootSet.has(String(pathname).replace(/\/+$/, '') || '/');
+
+  import('@capacitor/app')
+    .then(({ App }) => {
+      if (cancelled || !App?.addListener || typeof App.exitApp !== 'function') {
+        return;
+      }
+
+      return Promise.resolve(App.addListener('backButton', () => {
+        const pathname = window.location?.pathname || '/';
+        if (isExitRoot(pathname)) {
+          // Hardware back on a tab root leaves the app, matching Android
+          // navigation conventions everywhere else the user would be stuck.
+          App.exitApp();
+          return;
+        }
+        // Product, checkout, and other inner flows always navigate back
+        // instead of closing the app.
+        window.history.back();
+      })).then((registered) => {
+        handle = registered;
+      }).catch(() => {});
+    })
+    .catch(() => {});
+
+  return () => {
+    cancelled = true;
+    try {
+      handle?.remove?.();
+    } catch {
+      // Best-effort native listener cleanup.
+    }
+    handle = null;
+  };
+};
+
+export const requestNativeNotificationPermission = async () => {
+  if (!isCapacitorNativeRuntime()) {
+    return { supported: false, permission: 'unsupported' };
+  }
+
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    if (!PushNotifications?.requestPermissions) {
+      return { supported: false, permission: 'unsupported' };
+    }
+
+    const result = await PushNotifications.requestPermissions();
+    const permission = String(result?.receive || 'denied').toLowerCase();
+
+    if (permission === 'granted') {
+      try {
+        // Registers with FCM for push tokens. Without google-services.json the
+        // registration fails; the runtime permission result still stands and
+        // foreground Web notifications keep working.
+        await PushNotifications.register();
+      } catch {
+        // FCM credentials are not configured yet — foreground lane only.
+      }
+    }
+
+    return { supported: true, permission };
+  } catch {
+    return { supported: false, permission: 'unsupported' };
+  }
+};

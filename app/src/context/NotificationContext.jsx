@@ -8,6 +8,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import { normalizeRuntimeTranslationText, requestRuntimeTranslations } from '../services/runtimeTranslation';
 import {
     isInstalledAppRuntime,
+    requestNativeNotificationPermission,
     requestUserNotificationPermission,
     showSystemNotification,
 } from '../services/nativeAppExperience';
@@ -68,6 +69,9 @@ export function NotificationProvider({ children }) {
         }
 
         void requestUserNotificationPermission();
+        // Android 13+ requires the native POST_NOTIFICATIONS runtime prompt;
+        // the web shim alone never triggers it inside the Capacitor shell.
+        void requestNativeNotificationPermission();
     }, [isAuthenticated]);
 
     useEffect(() => {

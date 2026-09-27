@@ -41,6 +41,7 @@ import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
 import { ADMIN_ACCESS_LOCK_EVENT, getAdminAccessLockFromIntelligence } from './utils/adminAccessLock';
 import { getNativeMobilePlatform, isCapacitorNativeRuntime } from './utils/nativeRuntime';
+import { registerAndroidBackButtonHandler } from './services/nativeAppExperience';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
 import {
@@ -247,6 +248,15 @@ function AppContent() {
       delete root.dataset.auraRuntime;
       delete root.dataset.auraMobilePlatform;
     };
+  }, []);
+
+  useEffect(() => {
+    if (!isCapacitorNativeRuntime()) {
+      return undefined;
+    }
+    // Android hardware back: history back on inner flows, app exit only from
+    // the tab roots (default Capacitor behavior exits from anywhere).
+    return registerAndroidBackButtonHandler();
   }, []);
 
   useEffect(() => {

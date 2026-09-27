@@ -90,7 +90,7 @@ const pinnedEnvFileHashes = new Map([
   // Content-pin the legacy Vitest fixture so any change fails closed.
   ['app/.env.test', '32dd63a10645253fb150449f2e798415a91fbd6f'],
 ]);
-const sensitiveArtifactPattern = /(^|\/)(?:[^/]+\.)?(?:jks|keystore|p12|pem|key)$|(^|\/)app\/android\/ci\/.*\.base64$/i;
+const sensitiveArtifactPattern = /(^|\/)(?:[^/]+\.)?(?:jks|keystore|p12|pem|key)$|\.keystore\.b64$|(^|\/)keystore-backup\/|(^|\/)app\/android\/ci\/.*\.base64$/i;
 
 const findings = [];
 

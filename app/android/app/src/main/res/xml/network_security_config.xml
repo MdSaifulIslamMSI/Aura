@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cleartext is denied platform-wide; the storefront and API lanes are all
+     HTTPS. Certificate pinning is intentionally omitted: the storefront runs
+     on managed platforms that rotate certificates, and a stale pin would
+     brick every installed shell. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

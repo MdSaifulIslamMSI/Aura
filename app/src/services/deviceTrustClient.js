@@ -264,11 +264,27 @@ const deleteKeyRecord = async (deviceId) => {
   });
 };
 
+const randomHex = (length) => {
+  const bytes = new Uint8Array(Math.ceil(length / 2));
+  if (hasWindow() && typeof window.crypto?.getRandomValues === 'function') {
+    window.crypto.getRandomValues(bytes);
+  } else if (typeof crypto?.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Last-resort fallback only (no Web Crypto at all); Math.random is not
+    // cryptographically secure.
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, length);
+};
+
 const generateDeviceId = () => {
   if (hasWindow() && window.crypto?.randomUUID) {
     return `aura_${window.crypto.randomUUID().replace(/-/g, '_')}`;
   }
-  return `aura_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  return `aura_${randomHex(16)}`;
 };
 
 const generateDesktopDeviceId = () => {
@@ -277,18 +293,13 @@ const generateDesktopDeviceId = () => {
     return `aura_desktop_${randomUuid}`;
   }
 
-  const bytes = new Uint8Array(16);
-  if (typeof window.crypto?.getRandomValues === 'function') {
-    window.crypto.getRandomValues(bytes);
-  } else {
-    for (let index = 0; index < bytes.length; index += 1) {
-      bytes[index] = Math.floor(Math.random() * 256);
-    }
-  }
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `aura_desktop_${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  const hex = randomHex(32);
+  // Set the RFC 4122 version nibble (4, hex index 12) and variant bits
+  // (10xx, hex index 16) for a well-formed UUID-shaped identifier.
+  const versionNibble = '4';
+  const variantNibble = ((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16);
+  const patched = `${hex.slice(0, 12)}${versionNibble}${hex.slice(13, 16)}${variantNibble}${hex.slice(17)}`;
+  return `aura_desktop_${patched.slice(0, 8)}-${patched.slice(8, 12)}-${patched.slice(12, 16)}-${patched.slice(16, 20)}-${patched.slice(20)}`;
 };
 
 export const getTrustedDeviceId = () => {

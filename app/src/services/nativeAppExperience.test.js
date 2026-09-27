@@ -2,10 +2,42 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getNotificationPermission,
   isAuraDesktopRuntime,
+  registerAndroidBackButtonHandler,
   requestCallMediaReadiness,
+  requestNativeNotificationPermission,
   requestUserNotificationPermission,
   showSystemNotification,
 } from './nativeAppExperience';
+
+const backListeners = [];
+const exitApp = vi.fn();
+const registerPush = vi.fn();
+
+vi.mock('@capacitor/app', () => ({
+  App: {
+    addListener: vi.fn((event, callback) => {
+      if (event === 'backButton') {
+        backListeners.push(callback);
+      }
+      return Promise.resolve({ remove: vi.fn() });
+    }),
+    exitApp,
+  },
+}));
+
+vi.mock('@capacitor/push-notifications', () => ({
+  PushNotifications: {
+    requestPermissions: vi.fn(async () => ({ receive: 'granted' })),
+    register: (...args) => registerPush(...args),
+  },
+}));
+
+const goNative = (platform = 'android') => {
+  window.Capacitor = {
+    isNativePlatform: () => true,
+    getPlatform: () => platform,
+  };
+};
 
 describe('nativeAppExperience', () => {
   beforeEach(() => {
@@ -111,5 +143,67 @@ describe('nativeAppExperience', () => {
         message: 'Microphone permission is needed before Aura can start the live call.',
       })
     );
+  });
+
+  it('registers no back-button handler outside the native runtime', () => {
+    const cleanup = registerAndroidBackButtonHandler();
+    expect(typeof cleanup).toBe('function');
+    cleanup();
+    expect(backListeners).toHaveLength(0);
+  });
+
+  it('exits the app from a tab root on Android back', async () => {
+    goNative();
+    window.history.replaceState(null, '', '/');
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const cleanup = registerAndroidBackButtonHandler();
+    await vi.waitFor(() => expect(backListeners.length).toBe(1));
+
+    backListeners[0]();
+    expect(exitApp).toHaveBeenCalledTimes(1);
+    expect(historyBack).not.toHaveBeenCalled();
+    historyBack.mockRestore();
+    cleanup();
+  });
+
+  it('navigates back instead of exiting on inner flows', async () => {
+    goNative();
+    window.history.replaceState(null, '', '/product/aura-headphones');
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const cleanup = registerAndroidBackButtonHandler();
+    await vi.waitFor(() => expect(backListeners.length).toBe(2));
+
+    backListeners[1]();
+    expect(historyBack).toHaveBeenCalledTimes(1);
+    expect(exitApp).not.toHaveBeenCalled();
+    historyBack.mockRestore();
+    cleanup();
+  });
+
+  it('returns unsupported for native notification permission off-device', async () => {
+    delete window.Capacitor;
+    await expect(requestNativeNotificationPermission()).resolves.toEqual({
+      supported: false,
+      permission: 'unsupported',
+    });
+    expect(registerPush).not.toHaveBeenCalled();
+  });
+
+  it('requests the Android 13+ permission and registers for push when granted', async () => {
+    goNative();
+    await expect(requestNativeNotificationPermission()).resolves.toEqual({
+      supported: true,
+      permission: 'granted',
+    });
+    expect(registerPush).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the granted permission result even when FCM registration fails', async () => {
+    goNative();
+    registerPush.mockRejectedValueOnce(new Error('google-services.json missing'));
+    await expect(requestNativeNotificationPermission()).resolves.toEqual({
+      supported: true,
+      permission: 'granted',
+    });
   });
 });

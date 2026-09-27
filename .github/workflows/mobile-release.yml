@@ -370,6 +370,30 @@ jobs:
             cp app/android/app/build/outputs/apk/debug/app-debug.apk "release-artifacts/android/Aura-Marketplace-Android-Debug-${VERSION}.apk"
           fi
 
+      - name: Verify Android release signature
+        if: needs.preflight.outputs.can_sign_android == 'true'
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.AURA_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          APK_PATH="app/android/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          CERT_LINE="$("$APKSIGNER" verify --print-certs "${APK_PATH}" \
+            | grep -i 'SHA-256' | head -n 1 \
+            | grep -oE '[0-9a-fA-F:]{95,}' | tr -d ':' | tr 'A-F' 'a-f')"
+          test -n "${CERT_LINE}" || { echo "Could not read signing certificate SHA-256"; exit 1; }
+          echo "APK signing certificate SHA-256: ${CERT_LINE}"
+          EXPECTED="$(printf '%s' "${EXPECTED_CERT_SHA256}" | tr -d ':' | tr 'A-F' 'a-f')"
+          if [ -z "${EXPECTED}" ]; then
+            echo "::error::vars.AURA_ANDROID_CERT_SHA256 is not configured; refusing to publish an unverifiable APK."
+            exit 1
+          fi
+          if [ "${CERT_LINE}" != "${EXPECTED}" ]; then
+            echo "::error::APK signing certificate mismatch. Expected ${EXPECTED}, got ${CERT_LINE}."
+            exit 1
+          fi
+          echo "APK signature verified against the pinned release keystore."
+
       - name: Upload Android release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -777,6 +801,7 @@ jobs:
           node <<'EOF'
           const fs = require('fs');
           const path = require('path');
+          const crypto = require('crypto');
 
           const artifactsDir = 'release-artifacts';
           const version = process.env.VERSION;
@@ -786,8 +811,12 @@ jobs:
             .filter((fileName) => fs.statSync(path.join(artifactsDir, fileName)).isFile())
             .sort();
 
+          const sha256Of = (filePath) => crypto.createHash('sha256')
+            .update(fs.readFileSync(filePath))
+            .digest('hex');
+
           const manifest = {
-            schemaVersion: 1,
+            schemaVersion: 2,
             app: 'Aura Marketplace Mobile',
             version,
             tagName,
@@ -807,6 +836,8 @@ jobs:
             assets: files.map((fileName) => ({
               name: fileName,
               downloadUrl: `${releaseBaseUrl}/${encodeURIComponent(fileName)}`,
+              sha256: sha256Of(path.join(artifactsDir, fileName)),
+              sizeBytes: fs.statSync(path.join(artifactsDir, fileName)).size,
             })),
           };
 

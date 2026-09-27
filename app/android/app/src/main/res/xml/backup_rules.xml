@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-API-31 backup rules: empty include list = nothing backed up. -->
+<full-backup-content />
