@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty cloud-backup and device-transfer sections disable both entirely
+     (API 31+): auth/session state lives in WebView storage and must never be
+     copied via adb backup, cloud backup, or device-to-device migration. -->
+<data-extraction-rules>
+    <cloud-backup />
+    <device-transfer />
+</data-extraction-rules>

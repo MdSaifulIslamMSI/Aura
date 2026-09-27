@@ -18,7 +18,10 @@ const config: CapacitorConfig = {
       'aura-storefront.pages.dev',
       'mdsaifulislammsi.github.io',
       'dbtrhsolhec1s.cloudfront.net',
-      '*.up.railway.app',
+      // Concrete fleet hosts only: allowNavigation origins get the native
+      // bridge injected, so a wildcard like *.up.railway.app would grant any
+      // attacker-rentable Railway subdomain a trusted in-app WebView.
+      'aura-storefront-production.up.railway.app',
       'aura-gateway.vercel.app',
       'accounts.google.com',
       'google.com',
@@ -41,7 +44,10 @@ const config: CapacitorConfig = {
   plugins: {
     FirebaseAuthentication: {
       authDomain: 'billy-b674c.firebaseapp.com',
-      skipNativeAuth: false,
+      // All call-sites pass skipNativeAuth: true and complete sign-in through
+      // the web SDK (nativeSocialAuth.js), so the config must not claim
+      // native token persistence.
+      skipNativeAuth: true,
       providers: ['google.com', 'facebook.com', 'github.com', 'twitter.com'],
     },
     SplashScreen: {

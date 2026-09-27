@@ -12209,11 +12209,26 @@
   "mobileTabBar.search": {
     "defaultMessage": "Search"
   },
+  "mobileUpdate.checkFailedDetail": {
+    "defaultMessage": "Aura could not reach the release channel. {message}"
+  },
+  "mobileUpdate.checkFailedTitle": {
+    "defaultMessage": "Update check needs another try"
+  },
+  "mobileUpdate.checksumLabel": {
+    "defaultMessage": "Verify SHA-256"
+  },
   "mobileUpdate.dismiss.ariaLabel": {
     "defaultMessage": "Dismiss mobile update notice"
   },
+  "mobileUpdate.downloadPlatformUpdate": {
+    "defaultMessage": "Download {platform} update"
+  },
   "mobileUpdate.later": {
     "defaultMessage": "Later"
+  },
+  "mobileUpdate.openRelease": {
+    "defaultMessage": "Open mobile release"
   },
   "mobileUpdate.releaseNotes": {
     "defaultMessage": "Release notes"

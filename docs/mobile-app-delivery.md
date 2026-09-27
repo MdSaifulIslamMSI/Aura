@@ -75,6 +75,14 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
 - The repo is prepared for that path, but Apple distribution itself is not free and cannot be completed from Windows alone.
 - iOS cannot silently self-install updates from a GitHub Release. Real automatic updates for normal iPhone users come from TestFlight/App Store distribution; the free release lane can only open the latest IPA/release page.
 
+## Security posture
+- The Android shell denies backups and device-to-device transfer (`allowBackup=false`, empty `dataExtractionRules`), enforces HTTPS-only networking (`network_security_config.xml`), and scopes its FileProvider to app-private directories.
+- WebView navigation (`allowNavigation`) lists concrete fleet hosts only; no wildcard provider domains. Certificate pinning is deliberately omitted because hosted platforms rotate certificates.
+- Release APKs are verified in CI against the pinned signing certificate (`vars.AURA_ANDROID_CERT_SHA256`) before publication, and every release manifest (schema v2) carries per-asset SHA-256 digests that the in-app update banner surfaces.
+- The in-app update banner only offers downloads from the Aura GitHub Releases origin and only when the installed version is strictly older than the latest release.
+- The release keystore lives outside the repo (see `docs/ci-cd-secrets.md`); the secret scanner flags `*.keystore.b64` and `keystore-backup/` paths anywhere in a checkout.
+- Findings, dispositions, and residual risks: `docs/mobile-security-audit-2026-09-27.md`.
+
 ## Local commands
 - From repo root:
   - `npm run mobile:doctor`

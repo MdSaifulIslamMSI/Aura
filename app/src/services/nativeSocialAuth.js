@@ -93,7 +93,15 @@ const ensureFacebookTrackingPermission = async () => {
   if (getNativeMobilePlatform() !== 'ios') return;
   if (typeof FirebaseAuthentication.checkAppTrackingTransparencyPermission !== 'function') return;
 
-  const current = await FirebaseAuthentication.checkAppTrackingTransparencyPermission();
+  // The ATT plugin calls can reject for reasons outside Aura's control
+  // (shell timing, iOS quirks); degrade to the request flow instead of
+  // surfacing a raw plugin rejection.
+  let current = null;
+  try {
+    current = await FirebaseAuthentication.checkAppTrackingTransparencyPermission();
+  } catch {
+    current = null;
+  }
   if (current?.status === 'granted') return;
 
   if (typeof FirebaseAuthentication.requestAppTrackingTransparencyPermission !== 'function') {
@@ -103,7 +111,12 @@ const ensureFacebookTrackingPermission = async () => {
     );
   }
 
-  const requested = await FirebaseAuthentication.requestAppTrackingTransparencyPermission();
+  let requested = null;
+  try {
+    requested = await FirebaseAuthentication.requestAppTrackingTransparencyPermission();
+  } catch {
+    requested = null;
+  }
   if (requested?.status === 'granted') return;
 
   throw buildProviderError(

@@ -1,5 +1,11 @@
 const AURA_RELEASES_API = 'https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases?per_page=30';
 const MOBILE_TAG_PREFIX = 'mobile-v';
+// Only release assets hosted on the Aura repo's own GitHub Releases download
+// origin may be offered for install; anything else falls back to the release
+// page so a tampered API payload can never turn the banner into an arbitrary
+// APK download link.
+const TRUSTED_DOWNLOAD_BASE = 'https://github.com/MdSaifulIslamMSI/Aura/releases/download/';
+const MANIFEST_ASSET_PREFIX = 'Aura-Mobile-Release-Manifest-';
 
 const MOBILE_ASSET_PATTERNS = Object.freeze({
   android: [
@@ -48,6 +54,44 @@ const isMobileRelease = (release = {}) => (
   && release.tag_name.startsWith(MOBILE_TAG_PREFIX)
 );
 
+export const isTrustedReleaseDownloadUrl = (downloadUrl = '', tagName = '') => (
+  typeof downloadUrl === 'string'
+  && downloadUrl.startsWith(`${TRUSTED_DOWNLOAD_BASE}${tagName}/`)
+);
+
+const resolveTrustedDownloadUrl = (asset = {}, tagName = '') => {
+  if (asset?.downloadUrl && isTrustedReleaseDownloadUrl(asset.downloadUrl, tagName)) {
+    return asset.downloadUrl;
+  }
+  return '';
+};
+
+const fetchReleaseAssetDigest = async ({ tagName, version, assetName, fetchImpl, fallbackUrl }) => {
+  if (!tagName || !version || !assetName || typeof fetchImpl !== 'function') {
+    return '';
+  }
+
+  try {
+    const manifestUrl = `${TRUSTED_DOWNLOAD_BASE}${tagName}/${encodeURIComponent(
+      `${MANIFEST_ASSET_PREFIX}${version}.json`
+    )}`;
+    const response = await fetchImpl(manifestUrl, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return '';
+
+    const manifest = await response.json();
+    const entry = (Array.isArray(manifest?.assets) ? manifest.assets : [])
+      .find((item) => item?.name === assetName && isTrustedReleaseDownloadUrl(item?.downloadUrl, tagName));
+    const digest = String(entry?.sha256 || '').toLowerCase();
+    return /^[0-9a-f]{64}$/.test(digest) ? digest : '';
+  } catch {
+    // Digests are best-effort: a missing or unreadable manifest simply
+    // means the banner shows no checksum for this release.
+    return '';
+  }
+};
+
 export const findMobileReleaseAsset = (release = {}, platform = '') => {
   const patterns = MOBILE_ASSET_PATTERNS[platform] || [];
   const assets = Array.isArray(release.assets) ? release.assets : [];
@@ -88,16 +132,24 @@ export const resolveLatestMobileRelease = async ({ platform = '', fetchImpl = fe
   }
 
   const version = normalizeVersion(latestMobileRelease.tag_name);
+  const tagName = latestMobileRelease.tag_name;
   const asset = findMobileReleaseAsset(latestMobileRelease, platform);
+  const fallbackUrl = latestMobileRelease.html_url || 'https://github.com/MdSaifulIslamMSI/Aura/releases';
+  const trustedDownloadUrl = asset ? resolveTrustedDownloadUrl(asset, tagName) : '';
+  const downloadUrl = trustedDownloadUrl || fallbackUrl;
+  const sha256 = trustedDownloadUrl
+    ? await fetchReleaseAssetDigest({ tagName, version, assetName: asset?.name || '', fetchImpl })
+    : '';
 
   return {
     version,
-    tagName: latestMobileRelease.tag_name,
-    name: latestMobileRelease.name || latestMobileRelease.tag_name,
-    notesUrl: latestMobileRelease.html_url || 'https://github.com/MdSaifulIslamMSI/Aura/releases',
+    tagName,
+    name: latestMobileRelease.name || tagName,
+    notesUrl: fallbackUrl,
     publishedAt: latestMobileRelease.published_at || '',
     assetName: asset?.name || '',
-    downloadUrl: asset?.downloadUrl || latestMobileRelease.html_url || 'https://github.com/MdSaifulIslamMSI/Aura/releases',
+    sha256,
+    downloadUrl,
   };
 };
 
