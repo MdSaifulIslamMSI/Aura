@@ -14,7 +14,7 @@ This report is the per-language quality gate for the reviewed ICU catalog system
 
 - Required locales: 21
 - Source ICU message keys: 4969
-- Stable UI scanner candidates: 425
+- Stable UI scanner candidates: 424
 - Uncovered stable UI scanner candidates: 0
 - Blocking mechanical quality rows: 0
 - Final native-quality rows not ready: 19
