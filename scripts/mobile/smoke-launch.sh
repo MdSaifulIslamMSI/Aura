@@ -21,14 +21,31 @@ fi
 adb install -r "${APK}"
 adb logcat -c
 adb shell am start -W -n com.aura.marketplace.mobile/.MainActivity
-sleep 45
+# Cold-launch status comes from am start -W itself; any non-ok status exits
+# via adb's non-zero result with set -e active.
 
-FOCUS=$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 || true)
+# The resumed/focused window field naming varies across Android versions
+# (mResumedActivity vs mCurrentFocus/mFocusedApp); poll both for up to 60s.
+i=0
+FOCUS=""
+while [ "$i" -lt 12 ]; do
+    FOCUS=$(adb shell dumpsys activity activities 2>/dev/null | grep -i "mResumedActivity" | head -n 1 || true)
+    case "${FOCUS}" in *com.aura.marketplace.mobile*) break ;; esac
+    FOCUS=$(adb shell dumpsys window 2>/dev/null | grep -iE "mCurrentFocus|mFocusedApp" | head -n 1 || true)
+    case "${FOCUS}" in *com.aura.marketplace.mobile*) break ;; esac
+    sleep 5
+    i=$((i + 1))
+done
+
 echo "Focused window: ${FOCUS}"
-echo "${FOCUS}" | grep -qi "com.aura.marketplace.mobile" || {
-    echo "::error::Aura activity did not take focus after cold launch."
-    exit 1
-}
+case "${FOCUS}" in
+    *com.aura.marketplace.mobile*) echo "Aura shell resumed and focused." ;;
+    *)
+        echo "::error::Aura activity did not resume after cold launch."
+        adb shell dumpsys activity activities 2>/dev/null | head -n 40 || true
+        exit 1
+        ;;
+esac
 
 if adb logcat -d | grep -q "FATAL EXCEPTION"; then
     echo "::error::FATAL EXCEPTION during smoke launch:"
