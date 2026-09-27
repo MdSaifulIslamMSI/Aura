@@ -1,21 +1,25 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# App-level R8 rules. Capacitor ships consumer rules that keep the
+# JS-bridge plugin surface (@com.getcapacitor.annotation annotations and
+# Plugin subclasses); Firebase and Facebook AARs ship their own consumer
+# rules. The entries below are the deliberate app-level additions.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep line numbers so release stack traces map through
+# app/build/outputs/mapping/release/mapping.txt.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Belt and suspenders for the bridge surface: the Capacitor core classes
+# and the Capacitor Firebase authentication plugin (the plugin classes are
+# already covered by the capacitor-android consumer rules, but an explicit
+# keep costs almost nothing and survives consumer-rule drift).
+-keep class com.getcapacitor.** { *; }
+-keep class io.capawesome.capacitorjs.plugins.firebase.authentication.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# The Cordova compatibility layer is resolved reflectively by Capacitor.
+-keep class org.apache.cordova.** { *; }
+
+# Optional transitive references that R8 flags once shrinking is on.
+-dontwarn com.facebook.**
+-dontwarn org.apache.http.**
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**

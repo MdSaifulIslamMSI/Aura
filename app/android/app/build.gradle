@@ -72,7 +72,14 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
+            // R8 shrinking + resource shrinking: smaller, obfuscated shells.
+            // Capacitor and the Capacitor Firebase plugin ship consumer rules
+            // that keep the JS-bridge surface; app-level extras live in
+            // proguard-rules.pro. The emulator smoke lane in
+            // mobile-release.yml installs and cold-launches the minified
+            // build before it can ship.
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Fail closed: a "release" build must never fall back to the debug
             // key, or devices refuse the next release-signed update

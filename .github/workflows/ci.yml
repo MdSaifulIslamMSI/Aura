@@ -104,6 +104,7 @@ jobs:
       desktop: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.desktop || steps.filter.outputs.desktop }}
       frontend: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.frontend || steps.filter.outputs.frontend }}
       gateway: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.gateway || steps.filter.outputs.gateway }}
+      android: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.android || steps.filter.outputs.android }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -120,6 +121,7 @@ jobs:
           echo "desktop=true" >> "$GITHUB_OUTPUT"
           echo "frontend=true" >> "$GITHUB_OUTPUT"
           echo "gateway=true" >> "$GITHUB_OUTPUT"
+          echo "android=true" >> "$GITHUB_OUTPUT"
 
       - name: Detect changed surfaces
         if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
@@ -135,6 +137,7 @@ jobs:
           desktop=false
           frontend=false
           gateway=false
+          android=false
 
           if ! changed_files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"; then
             echo "Primary diff failed; falling back to the checked out PR range."
@@ -232,6 +235,15 @@ jobs:
             case "${file}" in
               gateway/*|docs/platform-availability.md|scripts/validate-gateway-release-contract.mjs)
                 gateway=true
+                ;;
+            esac
+
+            case "${file}" in
+              app/capacitor.config.ts|app/android/*|app/ios/*|app/package.json|app/package-lock.json|Gemfile|Gemfile.lock|fastlane/*)
+                android=true
+                ;;
+              app/src/config/firebase.js|app/src/context/AuthContext.jsx|app/src/context/NotificationContext.jsx|app/src/context/SocketContext.jsx|app/src/context/VideoCallContext.jsx|app/src/services/deviceTrustClient.js|app/src/services/mobileReleaseChannel.js|app/src/services/nativeAppExperience.js|app/src/services/nativeSocialAuth.js|app/src/components/shared/MobileUpdateBanner.jsx|app/src/utils/nativeRuntime.js)
+                android=true
                 ;;
             esac
           done <<< "${changed_files}"
@@ -769,6 +781,46 @@ jobs:
 
       - name: Package Linux desktop directory smoke test
         run: npx electron-builder --linux dir --publish never
+
+  android-shell:
+    name: Android shell compile
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Use Gradle cache
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+
+      - name: Sync Capacitor Android shell
+        run: npm --prefix app run mobile:sync:android
+
+      - name: Compile Android debug shell
+        working-directory: app/android
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Upload Android build report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: android-shell-report
+          path: app/android/app/build/reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
   devops-foundation:
     runs-on: ubuntu-latest
