@@ -99,9 +99,13 @@ OWASP MASVS v2 domains. Status is the state after the same-day hardening batch.
 14. **Config/code disagreement on `skipNativeAuth`** (config `false`, all call-sites `true`).
     Config aligned to `true` so the plugin contract matches actual token handling.
 
-15. **Placeholder Firebase API key in the gradle fallback** replaced with the real public web
-    API key (public-by-design; identical to the value shipped in every web bundle), making the
-    no-`google-services.json` launch-safe path genuinely functional.
+15. **Placeholder Firebase API key in the gradle fallback kept deliberately.** The fallback
+    resValues exist only to keep the native Firebase classes from crashing at init when
+    `google-services.json` is absent; native Firebase calls cannot work in that state anyway
+    (no Android app registration). Putting the real public web key in tracked source tripped
+    the gitleaks `gcp-api-key` rule for no functional gain, so the placeholder stays. When
+    native social auth is enabled, the real `google-services.json` (CI secret) supersedes the
+    fallback entirely.
 
 ## Residual risks (accepted, monitored)
 

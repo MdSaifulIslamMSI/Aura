@@ -4,11 +4,11 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Machine Certification
 
-- Stable UI candidates discovered: 425
+- Stable UI candidates discovered: 424
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (104244/104244 required locale/message pairs)
+- Locale key coverage: 100% (104349/104349 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4964
+- Source message keys: 4969
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 93544
-- Unique review locale/id pairs: 93544
-- Actionable grouped queue entries: 1758
-- Actionable affected locale/message pairs: 29466
+- Total tracked review pairs preserved: 93639
+- Unique review locale/id pairs: 93639
+- Actionable grouped queue entries: 1762
+- Actionable affected locale/message pairs: 29561
 - Native-review audit grouped entries: 3063
 - Native-review audit affected locale/message pairs: 64078
 
@@ -31,7 +31,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | --- | ---: | ---: | --- |
 | critical | 901 | 16311 | bn 806, hi 790, te 868, mr 869, ur 853, gu 882, pa 873, ml 867, kn 868, or 880, as 865, sa 872, es 867, fr 888, de 886, ar 804, ja 853, pt 872, zh 848 |
 | high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
-| medium | 765 | 12822 | bn 676, hi 628, te 680, mr 682, ur 680, gu 704, pa 695, ml 682, kn 677, or 695, as 681, sa 697, es 684, fr 668, de 673, ar 669, ja 638, pt 674, zh 639 |
+| medium | 769 | 12917 | bn 681, hi 633, te 685, mr 687, ur 685, gu 709, pa 700, ml 687, kn 682, or 700, as 686, sa 702, es 689, fr 673, de 678, ar 674, ja 643, pt 679, zh 644 |
 | low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |
 
 ## Examples
@@ -54,6 +54,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | high | high | 9 | Reply to Aura Support and keep things moving... | profile.support.compose.replyPlaceholder |
 | high | high | 9 | Start your negotiation in Aura chat. | listingDetail.chat.readyPreview |
 | high | high | 9 | Tell Aura Support what happened | profile.support.compose.messageLabel |
+| medium | low | 57 | Update check needs another try | common.jsx.text.update.check.needs.another.try, desktopUpdate.error.title, mobileUpdate.checkFailedTitle |
 | medium | low | 50 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
 | medium | medium | 38 | +{value} more | assistant.attachment.moreAudio, assistant.attachment.moreImages |
 | medium | medium | 38 | Frequently Bought Together | product.jsx.prop.label.frequently.bought.together, recommendations.frequentlyBoughtTogether.title |
@@ -61,7 +62,6 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | medium | low | 38 | Back to app | common.jsx.text.back.to.app, videoCall.backToApp.title |
 | medium | low | 38 | Home | assistant.intent.navigation.home, mobileTabBar.home |
 | medium | low | 38 | Later | desktopUpdate.later, mobileUpdate.later |
-| medium | low | 38 | Open the focused commerce copilot | assistantLauncher.openCopilot.ariaLabel, assistantLauncher.openCopilot.title |
 | low | low | 9 | Explore Aura | wishlist.explore |
 | low | low | 8 | Aura evaluated a sign-in security signal. | profile.securityActivity.risk.body |
 | low | low | 8 | Chat with Aura Support | profile.support.inbox.title |
