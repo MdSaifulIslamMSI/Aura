@@ -539,10 +539,15 @@ fs.writeFileSync(generatedDescriptorPath, [
     '',
 ].join('\n'), 'utf8');
 
+const compareMessageKeys = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+
 Object.entries(catalogs).forEach(([locale, messages]) => {
     fs.writeFileSync(
         path.join(reviewedDir, `${locale}.json`),
-        `${JSON.stringify(Object.fromEntries(Object.entries(messages).sort(([left], [right]) => left.localeCompare(right))), null, 2)}\n`,
+        // Byte-wise key order: localeCompare ordering varies across Node/ICU
+        // builds, which breaks the committed-catalog verification between a
+        // local regeneration and CI.
+        `${JSON.stringify(Object.fromEntries(Object.entries(messages).sort(([left], [right]) => compareMessageKeys(left, right))), null, 2)}\n`,
         'utf8'
     );
 });
