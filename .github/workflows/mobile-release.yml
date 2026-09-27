@@ -391,11 +391,20 @@ jobs:
         run: |
           set -euo pipefail
           APK_PATH="app/android/app/build/outputs/apk/release/app-release.apk"
-          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
-          CERT_LINE="$("$APKSIGNER" verify --print-certs "${APK_PATH}" \
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Android SDK: ${SDK}"
+          APKSIGNER="$(find "${SDK}" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${APKSIGNER}" ]; then
+            echo "::warning::apksigner not found under ${SDK}; installing build-tools"
+            yes | "${SDK}/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0" > /dev/null 2>&1 || true
+            APKSIGNER="$(find "${SDK}" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)"
+          fi
+          test -n "${APKSIGNER}" || { echo "::error::apksigner is unavailable on this runner."; exit 1; }
+          echo "Using apksigner: ${APKSIGNER}"
+          CERT_LINE="$("${APKSIGNER}" verify --print-certs "${APK_PATH}" \
             | grep -i 'SHA-256' | head -n 1 \
-            | grep -oE '[0-9a-fA-F:]{95,}' | tr -d ':' | tr 'A-F' 'a-f')"
-          test -n "${CERT_LINE}" || { echo "Could not read signing certificate SHA-256"; exit 1; }
+            | grep -oE '[0-9a-fA-F:]{95,}' | tr -d ':' | tr 'A-F' 'a-f' || true)"
+          test -n "${CERT_LINE}" || { echo "::error::Could not read signing certificate SHA-256"; exit 1; }
           echo "APK signing certificate SHA-256: ${CERT_LINE}"
           EXPECTED="$(printf '%s' "${EXPECTED_CERT_SHA256}" | tr -d ':' | tr 'A-F' 'a-f')"
           if [ -z "${EXPECTED}" ]; then
