@@ -670,32 +670,11 @@ jobs:
           arch: x86_64
           target: google_apis
           script: |
-            # Emulator-runner executes this with /usr/bin/sh (dash) under a
-            # scrubbed environment: no pipefail, and GITHUB_WORKSPACE/pwd are
-            # not reliable. The hosted-runner workspace path is deterministic:
-            # /home/runner/work/<repo>/<repo>.
-            set -eu
-            APK_DIR="/home/runner/work/Aura/Aura/release-artifacts/android"
-            ls -la "${APK_DIR}"
-            APK="$(find "${APK_DIR}" -type f -name 'Aura-Marketplace-Android-*.apk' | head -n 1)"
-            echo "Smoke-installing ${APK}"
-            test -n "${APK}" || { echo "::error::No Android APK artifact found."; exit 1; }
-            adb install -r "${APK}"
-            adb logcat -c
-            adb shell am start -W -n com.aura.marketplace.mobile/.MainActivity
-            sleep 45
-            FOCUS="$(adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1 || true)"
-            echo "Focused window: ${FOCUS}"
-            echo "${FOCUS}" | grep -qi "com.aura.marketplace.mobile" || {
-              echo "::error::Aura activity did not take focus after cold launch."
-              exit 1
-            }
-            if adb logcat -d | grep -q "FATAL EXCEPTION"; then
-              echo "::error::FATAL EXCEPTION during smoke launch:"
-              adb logcat -d | grep -A 40 "FATAL EXCEPTION"
-              exit 1
-            fi
-            echo "Emulator smoke launch passed."
+            # The emulator-runner interpolates $-constructs in this script
+            # with an outer shell before execution, so the smoke logic lives
+            # in a committed file (scripts/mobile/smoke-launch.sh) where
+            # normal POSIX sh semantics apply.
+            sh /home/runner/work/Aura/Aura/scripts/mobile/smoke-launch.sh /home/runner/work/Aura/Aura
 
   publish-android-play:
     needs:
