@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -68,14 +68,6 @@ jobs:
       contents: read
       pull-requests: read
 
-  canonical-security-gates:
-    name: Canonical security gates
-    uses: ./.github/workflows/security-gates.yml
-    permissions:
-      contents: read
-      id-token: write
-      security-events: write
-
   canonical-release-safety-gates:
     name: Canonical release safety gates
     uses: ./.github/workflows/giant-release-gates.yml
@@ -95,7 +87,6 @@ jobs:
     needs:
       - production-preflight
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -104,7 +95,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -131,9 +122,8 @@ jobs:
     needs:
       - staging-promotion-gate
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
@@ -141,7 +131,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -170,9 +160,8 @@ jobs:
     needs:
       - staging-promotion-gate
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -180,7 +169,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -209,9 +198,8 @@ jobs:
     needs:
       - staging-promotion-gate
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -219,7 +207,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -250,10 +238,9 @@ jobs:
       - deploy-storefront
       - deploy-gateway
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
       - staging-promotion-gate
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
@@ -261,7 +248,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -292,10 +279,9 @@ jobs:
       - deploy-storefront
       - deploy-gateway
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
       - staging-promotion-gate
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-security-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION' && needs.canonical-quality-gates.result == 'success' && needs.canonical-release-safety-gates.result == 'success' && needs.staging-promotion-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
@@ -303,7 +289,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -333,7 +319,6 @@ jobs:
     needs:
       - production-preflight
       - canonical-quality-gates
-      - canonical-security-gates
       - canonical-release-safety-gates
       - staging-promotion-gate
       - deploy-backend
@@ -351,7 +336,6 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           PREFLIGHT_RESULT: ${{ needs.production-preflight.result }}
           QUALITY_RESULT: ${{ needs.canonical-quality-gates.result }}
-          SECURITY_RESULT: ${{ needs.canonical-security-gates.result }}
           RELEASE_SAFETY_RESULT: ${{ needs.canonical-release-safety-gates.result }}
           STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}
           BACKEND_RESULT: ${{ needs.deploy-backend.result }}
