@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -69,11 +69,26 @@ jobs:
       pull-requests: read
 
   canonical-security-gates:
-    name: Canonical security gates (probe noop)
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - run: echo ok
+    name: Canonical security gates
+    uses: ./.github/workflows/security-gates.yml
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+
+  canonical-release-safety-gates:
+    name: Canonical release safety gates
+    uses: ./.github/workflows/giant-release-gates.yml
+    with:
+      # Acknowledged staging-off (repo variable) skips the live staging-parity
+      # smokes; when staging is down but NOT acknowledged, they run and fail
+      # closed, blocking every production lane below.
+      staging_off_acknowledged: ${{ vars.STAGING_INFRA_PAUSED == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    secrets:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
 
   staging-promotion-gate:
     name: Staging promotion gate
@@ -89,7 +104,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -126,7 +141,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -165,7 +180,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -204,7 +219,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -246,7 +261,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -288,7 +303,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
