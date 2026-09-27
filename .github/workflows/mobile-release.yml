@@ -671,10 +671,15 @@ jobs:
           target: google_apis
           script: |
             # Emulator-runner executes this with /usr/bin/sh (dash): no bash
-            # options such as pipefail.
+            # options such as pipefail, and the cwd is not guaranteed to be
+            # the workspace - resolve everything from $GITHUB_WORKSPACE.
             set -eu
-            APK="$(find release-artifacts/android -name '*.apk' | head -n 1)"
+            WORKSPACE="${GITHUB_WORKSPACE:-$(pwd)}"
+            echo "Workspace: ${WORKSPACE}"
+            ls -la "${WORKSPACE}/release-artifacts/android"
+            APK="$(find "${WORKSPACE}/release-artifacts/android" -type f -name 'Aura-Marketplace-Android-*.apk' | head -n 1)"
             echo "Smoke-installing ${APK}"
+            test -n "${APK}" || { echo "::error::No Android APK artifact found."; exit 1; }
             adb install -r "${APK}"
             adb logcat -c
             adb shell am start -W -n com.aura.marketplace.mobile/.MainActivity
