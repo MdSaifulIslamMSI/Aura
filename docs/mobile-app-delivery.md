@@ -25,6 +25,7 @@ Aura Marketplace now ships as Capacitor-based Android and iOS shells on top of t
 
 ## CI/CD rules
 - The production CI/CD workflow only triggers a mobile release after the main quality gates and production deploy jobs succeed.
+- Shell releases (desktop and mobile) default on: a production Command Center dispatch with no explicit `release_targets` ships both shells. Pass `release_targets` (for example `desktop`) to scope a run narrower.
 - If the main CI/CD pipeline fails, the mobile release job does not publish a new version.
 - Mobile binary releases are scoped to native/mobile-runtime changes so the overall pipeline stays faster.
 - GitHub Release publication is the free distribution lane. Google Play and TestFlight publication are fully automated when their credentials are configured, and safely skipped when they are not.
