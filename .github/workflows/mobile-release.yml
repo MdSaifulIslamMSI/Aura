@@ -670,14 +670,14 @@ jobs:
           arch: x86_64
           target: google_apis
           script: |
-            # Emulator-runner executes this with /usr/bin/sh (dash): no bash
-            # options such as pipefail, and the cwd is not guaranteed to be
-            # the workspace - resolve everything from $GITHUB_WORKSPACE.
+            # Emulator-runner executes this with /usr/bin/sh (dash) under a
+            # scrubbed environment: no pipefail, and GITHUB_WORKSPACE/pwd are
+            # not reliable. The hosted-runner workspace path is deterministic:
+            # /home/runner/work/<repo>/<repo>.
             set -eu
-            WORKSPACE="${GITHUB_WORKSPACE:-$(pwd)}"
-            echo "Workspace: ${WORKSPACE}"
-            ls -la "${WORKSPACE}/release-artifacts/android"
-            APK="$(find "${WORKSPACE}/release-artifacts/android" -type f -name 'Aura-Marketplace-Android-*.apk' | head -n 1)"
+            APK_DIR="/home/runner/work/Aura/Aura/release-artifacts/android"
+            ls -la "${APK_DIR}"
+            APK="$(find "${APK_DIR}" -type f -name 'Aura-Marketplace-Android-*.apk' | head -n 1)"
             echo "Smoke-installing ${APK}"
             test -n "${APK}" || { echo "::error::No Android APK artifact found."; exit 1; }
             adb install -r "${APK}"
