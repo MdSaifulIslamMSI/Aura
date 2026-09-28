@@ -5,9 +5,11 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
   schedule:
-    # Monday sweep, after Dependabot's Monday 07:00 run — self-heals any PR
-    # the event path missed (races, holds cancelled by earlier failures).
-    - cron: '37 13 * * 1'
+    # Daily sweep — Dependabot PR event runs cannot access secrets (GitHub
+    # policy for Dependabot PRs), so the event path only classifies and this
+    # sweep owns arming. Daily keeps arming latency under 24h, including for
+    # mid-week security-update PRs.
+    - cron: '37 13 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -49,6 +51,9 @@ jobs:
           GH_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN || github.token }}
           GH_PR_NUMBER: ${{ github.event.pull_request.number }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          # Dependabot PR event runs get no secrets (GitHub policy), so arming
+          # there always fails; classification still labels/comments. Sweeps arm.
+          ARMING: ${{ github.event_name == 'pull_request' && '0' || '1' }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             node scripts/github/dependency-automerge-policy.mjs --pr "$GH_PR_NUMBER"

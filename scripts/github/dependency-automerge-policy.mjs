@@ -282,6 +282,12 @@ async function processPr(prNumber, policy, dryRun) {
     }
     ensureLabel(policy.labels.safe, '0e8a16', 'Dependency policy: auto-merge when required checks pass', dryRun);
     if (!dryRun) gh('pr', 'edit', String(pr.number), '--add-label', policy.labels.safe);
+    if (process.env.ARMING === '0') {
+      // Dependabot PR event runs have no secrets access (GitHub policy), so
+      // arming there can never succeed — the daily sweep owns it.
+      log(`PR #${pr.number}: classification only — the daily sweep will arm this PR`);
+      return { lane: 'safe', decision: 'classified — daily sweep will arm' };
+    }
     const armResult = armAutoMerge(pr, dryRun);
     const decisionText = {
       'armed': 'auto-merge armed (squash)',
