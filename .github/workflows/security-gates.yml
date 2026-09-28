@@ -112,7 +112,7 @@ jobs:
       - name: Run Gitleaks
         run: npm run security:gitleaks
       - name: Upload Gitleaks SARIF
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/gitleaks-report.sarif') != ''
         with:
           sarif_file: security-reports/gitleaks-report.sarif
@@ -148,7 +148,7 @@ jobs:
       - name: Run Semgrep
         run: npm run security:semgrep
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/semgrep-report.sarif') != ''
         with:
           sarif_file: security-reports/semgrep-report.sarif
@@ -184,7 +184,7 @@ jobs:
       - name: Run Trivy filesystem scan
         run: npm run security:trivy
       - name: Upload Trivy filesystem SARIF
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/trivy-fs.sarif') != ''
         with:
           sarif_file: security-reports/trivy-fs.sarif
@@ -219,7 +219,7 @@ jobs:
       - name: Run Checkov, tfsec, and Terrascan
         run: npm run security:iac
       - name: Upload Checkov SARIF
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/checkov-report.sarif') != ''
         with:
           sarif_file: security-reports/checkov-report.sarif
@@ -443,7 +443,7 @@ jobs:
         run: npm run security:trivy:image
 
       - name: Upload Trivy image SARIF
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/trivy-image.sarif') != ''
         with:
           sarif_file: security-reports/trivy-image.sarif
