@@ -97,11 +97,12 @@ async function main() {
     ({ qualityTrusted, releaseSafetyTrusted } = computeGateTrust({ runs, dispatchStagingAck, stagingPaused }));
     evidence = `${runs.length} run(s) for ${sha}`;
   } catch (error) {
-    // Fail open: any doubt re-runs the gates.
-    console.log(`::warning::gate evidence unavailable (${error.message}); canonical gates will re-run.`);
+    // Fail open: any doubt re-runs the gates. Log on stderr — the job output
+    // file must only ever contain key=value lines.
+    console.error(`::warning::gate evidence unavailable (${error.message}); canonical gates will re-run.`);
   }
 
-  console.log(`gate evidence for ${sha}: ${evidence}`);
+  console.error(`gate evidence for ${sha}: ${evidence}`);
   console.log(`quality_trusted=${qualityTrusted}`);
   console.log(`release_safety_trusted=${releaseSafetyTrusted}`);
   writeOutput([
@@ -113,7 +114,7 @@ async function main() {
 const invokedDirectly = process.argv[1] && process.argv[1].endsWith('verify-production-gate-evidence.mjs');
 if (invokedDirectly) {
   main().catch((error) => {
-    console.log(`::warning::gate evidence crashed (${error.message}); canonical gates will re-run.`);
+    console.error(`::warning::gate evidence crashed (${error.message}); canonical gates will re-run.`);
     writeOutput(['quality_trusted=false', 'release_safety_trusted=false']);
   });
 }
