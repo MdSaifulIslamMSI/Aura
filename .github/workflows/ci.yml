@@ -811,7 +811,9 @@ jobs:
 
       - name: Compile Android debug shell
         working-directory: app/android
-        run: ./gradlew --no-daemon :app:assembleDebug
+        # The wrapper's +x bit keeps getting flattened by Windows checkouts;
+        # mobile-release.yml already defends the same way.
+        run: chmod +x ./gradlew && ./gradlew --no-daemon :app:assembleDebug
 
       - name: Upload Android build report
         if: failure()
