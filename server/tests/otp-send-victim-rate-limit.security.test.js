@@ -83,4 +83,15 @@ describe('otp send per-victim rate limit', () => {
 
         expect(blocked.body.code).toBe('OTP_SEND_VICTIM_LIMITED');
     });
+
+    test('collapses phone formatting variants into one victim identity', async () => {
+        // otpController.normalizePhone strips whitespace/hyphens/parens before the
+        // SMS dispatch, so these three bodies reach the same number. The victim
+        // bucket must see them as one identity or formatting mints fresh budget.
+        await sendOtpRequest(app, { phone: '+15550100006' }).expect(200);
+        await sendOtpRequest(app, { phone: '+1 555 010 0006' }).expect(200);
+        const blocked = await sendOtpRequest(app, { phone: '+1-555-010-0006' }).expect(429);
+
+        expect(blocked.body.code).toBe('OTP_SEND_VICTIM_LIMITED');
+    });
 });

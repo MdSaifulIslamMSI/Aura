@@ -48,9 +48,11 @@ const resetPasswordNetworkRateLimitKey = (req) => `ip:${hashRateLimitKeyPart(get
 // egress addresses can still drive OTP sends at one victim, amplifying SMS/email
 // cost and harassing the target. Key the send cap on the target identity as well.
 // Purpose is deliberately excluded so one victim has one budget across flows.
+// Phone must strip the same characters otpController's normalizePhone strips:
+// formatting variants of one number have to collapse into one victim bucket.
 const otpSendVictimRateLimitKey = (req) => {
     const email = parseRateLimitKeyPart(req.body?.email).toLowerCase();
-    const phone = parseRateLimitKeyPart(req.body?.phone);
+    const phone = parseRateLimitKeyPart(req.body?.phone).replace(/[\s\-()]/g, '');
     if (!email && !phone) {
         return `ip:${hashRateLimitKeyPart(getRequestIp(req))}`;
     }
