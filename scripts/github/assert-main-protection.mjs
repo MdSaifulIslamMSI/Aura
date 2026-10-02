@@ -29,11 +29,20 @@ const requiredApprovals = Number.parseInt(process.env.GITHUB_MAIN_PROTECTION_REQ
 const reviewRule = protection?.required_pull_request_reviews;
 // The required status checks actually configured on main. The doctor enforces
 // these so protection cannot silently lose them.
+// The scanner lanes below are promoted from security-gates.yml job names that run
+// on both pull_request and push to main. Dependency Review is deliberately absent:
+// it is gated on `if: github.event_name == 'pull_request'`, so promoting it would
+// leave the check permanently pending and block every merge.
 const enforcedChecks = [
   'Quality, tests, and coverage',
   'javascript-typescript',
   'security',
   'build-and-smoke',
+  'Secret Scan',
+  'SAST',
+  'Trivy Filesystem Scan',
+  'Dependency Scan',
+  'Focused Security Tests',
 ];
 // Emitted on PRs by .github/workflows/giant-release-gates.yml. Promotion into
 // required_status_checks is desirable once live staging runs continuously

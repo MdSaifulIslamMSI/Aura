@@ -14,6 +14,19 @@
   - `javascript-typescript` (CodeQL)
   - `security` (Giant Release Gates `security` job; Security Gates supplies the scanner fleet)
   - `build-and-smoke` (Docker build and smoke)
+  - `Secret Scan` (Security Gates; Gitleaks, PR and push)
+  - `SAST` (Security Gates; Semgrep, PR and push)
+  - `Trivy Filesystem Scan` (Security Gates; Trivy filesystem HIGH/CRITICAL, PR and push)
+  - `Dependency Scan` (Security Gates; npm audit and OSV, PR and push)
+  - `Focused Security Tests` (Security Gates; auth, IDOR, payment, webhook, rate-limit suites)
+- The scanner lanes above are promoted so a failing scanner blocks the merge instead
+  of only reporting. `Dependency Review` is intentionally **not** promoted: it is
+  gated on `if: github.event_name == 'pull_request'`, so requiring it would leave the
+  check permanently pending and block every merge. Promote it only alongside a
+  push-to-main dependency gate. `DAST - OWASP ZAP Baseline`, `SBOM`,
+  `Supply Chain Integrity`, `Docker Image Security`, `IaC Security Scan`, and
+  `Evidence Check` stay advisory; ZAP degrades to a local static preview whenever
+  `vars.STAGING_URL` is unset, so promoting it today would guarantee a hollow pass.
 - Promotion candidates: the Giant Release Gates PR checks (`test`,
   `smoke:staging`, `smoke:staging:frontend`, `smoke:env-contract`,
   `aws:cost-guard`, `aws:observability:guard`, `sre:synthetic:staging`,
