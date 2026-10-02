@@ -807,7 +807,7 @@ jobs:
           GATE_SHA: ${{ github.sha }}
           DISPATCH_STAGING_ACK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.staging_off_acknowledged == 'true' && 'true' || 'false' }}
           STAGING_INFRA_PAUSED: ${{ vars.STAGING_INFRA_PAUSED }}
-        run: node scripts/github/verify-production-gate-evidence.mjs >> "$GITHUB_OUTPUT"
+        run: node scripts/github/verify-production-gate-evidence.mjs
 
   quality-gates:
     name: Quality gates
