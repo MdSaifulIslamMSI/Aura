@@ -188,6 +188,8 @@ const {
     checkSplitRuntimeWorkerHealth,
 } = require('./config/runtimeRoles');
 const { syncCriticalIndexes } = require('./services/indexIntegrityService');
+const { registry } = require('./migrations');
+const { runMigrations } = require('./migrations/runner');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
@@ -979,6 +981,28 @@ assertProductionRedisConfig();
                 .then(() => syncCriticalIndexes())
                 .then((indexSync) => {
                     runtimeStartupState.indexSyncFailures = indexSync.failures;
+                })
+                // The migration registry only applies when the runner executes —
+                // nothing else invokes it, so a merged registry change silently
+                // no-ops until someone remembers to run the script by hand
+                // (2026-10-02: the 2d statuschecks TTL sat pending after deploy).
+                // Boot is the only moment every deployment is guaranteed to pass
+                // through; the lock makes concurrent boots safe and failure stays
+                // loud rather than fatal so a broken migration cannot take the
+                // API down with it.
+                .then(() => runMigrations({ registry }))
+                .then((result) => {
+                    if (result.ok) {
+                        logger.info('server.migrations_boot_complete', {
+                            applied: result.applied,
+                            skipped: result.skipped.length,
+                        });
+                    } else {
+                        logger.warn('server.migrations_boot_skipped', { reason: result.reason });
+                    }
+                })
+                .catch((error) => {
+                    logger.error('server.migrations_boot_failed', { error: error.message });
                 })
                 .then(() => enforceCatalogStartupCheck())
                 .then(() => {
