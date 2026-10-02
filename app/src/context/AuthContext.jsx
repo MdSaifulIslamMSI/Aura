@@ -288,6 +288,16 @@ const buildRecoverableSessionErrorMessage = (error, fallbackMessage) => {
   return message || fallbackMessage;
 };
 
+const MASKED_RESPONSE_MESSAGE_PATTERN = /^(?:http \d+:\s*)?request failed(?: with status \d+)?\.?$/i;
+
+const buildStaleSessionErrorMessage = (error) => {
+  const message = String(error?.message || '').trim();
+  if (!message || MASKED_RESPONSE_MESSAGE_PATTERN.test(message)) {
+    return 'Your sign-in expired. Please sign in again.';
+  }
+  return message;
+};
+
 export const AuthProvider = ({ children }) => {
   const localeContext = useOptionalLocale();
   const authIntl = useMemo(() => createIntl({
@@ -569,7 +579,7 @@ export const AuthProvider = ({ children }) => {
       profile: null,
       roles: EMPTY_ROLES,
       error: {
-        message: error?.message || 'Your sign-in expired. Please sign in again.',
+        message: buildStaleSessionErrorMessage(error),
       },
     });
 

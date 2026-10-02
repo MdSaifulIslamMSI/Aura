@@ -43,7 +43,7 @@ const REQUIRED_TTL_INDEXES = [
     ['productgovernancelogs', 'createdAt', 365],
     ['usergovernancelogs', 'createdAt', 365],
     ['paymentevents', 'createdAt', 365],
-    ['statuschecks', 'checkedAt', 7],
+    ['statuschecks', 'checkedAt', 2],
 ];
 
 const keyMatches = (indexKey, expectedKey) => {

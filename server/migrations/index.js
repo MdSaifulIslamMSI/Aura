@@ -52,7 +52,11 @@ const TTL_RETENTIONS = [
     ['productgovernancelogs', 'createdAt', 365, 'Product governance log retention'],
     ['usergovernancelogs', 'createdAt', 365, 'User governance log retention'],
     ['paymentevents', 'createdAt', 365, 'Payment event retention (money data)'],
-    ['statuschecks', 'checkedAt', 7, 'Status check telemetry retention (monitor writes every few seconds; raw checks older than 7d have no display value - statusdailymetrics holds the rollups)'],
+    // 2d, not 7d: the shared M0 cluster hit its 512MB wall twice (2026-09-10,
+    // 2026-10-02) with statuschecks as the fastest-growing collection. Raw
+    // checks older than 2d have no display value — statusdailymetrics holds
+    // the rollups — and 2d caps the collection at roughly two days of writes.
+    ['statuschecks', 'checkedAt', 2, 'Status check telemetry retention (monitor writes continuously; raw checks older than 2d have no display value - statusdailymetrics holds the rollups)'],
 ];
 
 const registry = [

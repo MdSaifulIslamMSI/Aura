@@ -337,6 +337,36 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
+  it('softens masked 401 session failures into a sign-in expired message', async () => {
+    mocks.authApiMock.getSession.mockRejectedValue(
+      Object.assign(new Error('Request failed'), {
+        status: 401,
+      })
+    );
+
+    const AuthProbe = () => {
+      const { status, sessionError } = useAuth();
+      return (
+        <>
+          <div data-testid="masked-401-status">{status}</div>
+          <div data-testid="masked-401-error">{sessionError?.message || 'none'}</div>
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('masked-401-status')).toHaveTextContent('signed_out');
+    });
+
+    expect(screen.getByTestId('masked-401-error')).toHaveTextContent('Your sign-in expired. Please sign in again.');
+  });
+
   it('clears local and Firebase sessions before a slow backend logout finishes', async () => {
     let resolveBackendLogout;
     mocks.authApiMock.logoutSession.mockImplementation(() => new Promise((resolve) => {
