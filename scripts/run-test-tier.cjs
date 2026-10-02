@@ -56,6 +56,15 @@ if (shard) {
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const jestArgs = ['--runTestsByPath', ...testFiles, ...shardArgs];
+
+// A shard's coverage pool is whatever files its slice of suites happens to
+// require, so the global thresholds would measure the shard split, not the
+// codebase — and one suite added to the tier reshuffles every later file
+// across shards. Enforcement belongs to whole-tier coverage runs; sharded
+// runs only emit coverage artifacts for the merge step.
+if (shard) {
+    jestArgs.push('--coverageThreshold={}');
+}
 const cmd = `${npmCmd} --prefix "${serverDir}" test -- ${jestArgs.join(' ')}`;
 
 if (shardArgs.includes('--dry-run')) {
