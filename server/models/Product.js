@@ -432,17 +432,12 @@ productSchema.index(
         partialFilterExpression: { imageKey: { $type: 'string' } },
     }
 );
-productSchema.index({ category: 1 });
-productSchema.index({ categoryPaths: 1 });
+// Single-field indexes retired 2026-10-02 ($indexStats: zero reads in 4+ days
+// of production traffic; every surviving read path is served by the compounds
+// below or by Atlas Search). The unique/partial constraints above stay.
 productSchema.index({ tags: 1 });
-productSchema.index({ price: 1 });
-productSchema.index({ rating: -1 });
-productSchema.index({ stock: 1 });
-productSchema.index({ createdAt: -1 });
-productSchema.index({ title: 1 });
 productSchema.index({ isPublished: 1, catalogVersion: 1, category: 1, price: 1 });
 productSchema.index({ isPublished: 1, catalogVersion: 1, brand: 1 });
-productSchema.index({ isPublished: 1, 'contentQuality.publishReady': 1, 'provenance.trustTier': 1 });
 productSchema.index({ catalogVersion: 1, 'publishGate.status': 1, 'provenance.datasetClass': 1 });
 productSchema.index({
     'adCampaign.isSponsored': 1,
