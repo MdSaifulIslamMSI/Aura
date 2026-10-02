@@ -19,6 +19,25 @@ This inventory records what is visible in the repository at the time of the zero
 | Data Governance | Partial | Data classification, PII map, DLP/tokenization policy | DLP test, export/delete test, field-level encryption review | High |
 | Vulnerability Management | Partial | Patch SLA and review cadence policy | Weekly review records and retest artifacts | High |
 
+## Default-Off Security Flags
+
+These flags ship `false`. That is a deliberate operational choice, not an oversight:
+each one is staged behind an activation gate so it can be enabled after evidence
+exists, and each has an owner. Do not enable any of them as a code change — enabling
+them is a production decision with a readiness requirement.
+
+| Flag | Default | Controls | Enable when | Owner |
+| --- | --- | --- | --- | --- |
+| `MFA_ENABLED`, `MFA_TOTP_ENABLED`, `MFA_PASSKEY_ENABLED` | `false` | Customer/seller MFA. Admin step-up is enforced separately and is not covered by this flag. | Staging rollout verification is complete and passkey recovery is proven. See `admin-step-up-mfa.md`, `aura-mfa-staging-rollout-verification.md`. | Security owner |
+| `MFA_REQUIRED_FOR_ADMINS`, `MFA_REQUIRED_FOR_SELLERS` | `false` | Makes MFA mandatory rather than available. | After `MFA_ENABLED=true` is proven and an account-recovery path exists for locked-out sellers. | Security owner |
+| `SECURITY_EVENT_LEDGER_ENABLED` | `false` | Tamper-evident hash-chained security event ledger. Without it, a database attacker can alter or delete audit rows undetected. | `SECURITY_EVENT_LEDGER_SECRET` is provisioned and `server/scripts/verify-security-event-ledger.mjs` runs on a schedule. See `phase5-evidence-and-behavior.md`. | Platform owner |
+| `FIELD_ENCRYPTION_ENABLED` | `false` | AES-256-GCM field-level encryption via KMS envelope keys. Phone numbers currently rely on the blind-index scheme in `server/models/User.js`; plaintext values may exist where this is off. | KMS key and previous-key rotation path are provisioned and `server/services/fieldEncryptionService.js` is load-tested. | Data owner |
+
+`SECURITY_EVENT_LEDGER_ENABLED` and `FIELD_ENCRYPTION_ENABLED` are the two with real
+audit-forensics and data-at-rest exposure while off. Neither is asserted at startup,
+so a production deploy with them unset starts cleanly. That is intentional for
+rollout; it also means the posture is invisible unless someone checks.
+
 ## Edge
 
 - DNSSEC: Not proven in repo. Track with DNS provider evidence.

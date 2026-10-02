@@ -4,14 +4,14 @@ Gitleaks detected historical secret-like material in git history. The current wo
 
 No secret values are reproduced in this report.
 
-## Working-Tree Status (verified 2026-09-06)
+## Working-Tree Status (verified 2026-10-02)
 
 | Surface | Status | Evidence |
 | --- | --- | --- |
 | `app/.env.production` | Removed from working tree | File no longer exists; only env example templates are tracked |
 | Android hardcoded Firebase key | Remediated — key now injected at build time | `app/android/app/build.gradle` reads `AURA_ANDROID_FIREBASE_API_KEY` via `resolveStringEnv` with placeholder default `example-firebase-api-key` |
-| Working-tree secret scan | PASS | `npm run security:secrets` — 2/2 gate tests, 0 findings across 2,786 files |
-| History scan gate | Enforced in CI (local run requires Docker Desktop running) | `.github/workflows/security.yml:69`, `security-gates.yml`, `ci.yml` run `npm run security:gitleaks` |
+| Working-tree secret scan | PASS | `npm run security:secrets` — 2/2 gate tests, 0 findings across 3,214 files; `security-reports/secret-scan.json` records `gitleaks.status: passed`, `exitCode: 0`, `available: true` |
+| History scan gate | Enforced in CI (local run requires Docker Desktop running) | `.github/workflows/security-gates.yml` and `ci.yml` run `npm run security:gitleaks`. The earlier `security.yml` reference was stale; that workflow was renamed to `security-gates.yml`. |
 | **Console-side rotation of the historically committed key** | **STILL OPEN — owner action required** | Checklist below has blank verification dates |
 
 What remains open cannot be done from this repository: the key that was committed before 2026-05-24 lives in the Firebase/GCP console. Until the owner confirms rotation or restriction below, treat that key as attacker-known.

@@ -13,6 +13,9 @@ const RESET_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
 const RESET_PASSWORD_FLOW_MAX = 5;
 const RESET_PASSWORD_NETWORK_MAX = 40;
 
+const OTP_SEND_VICTIM_WINDOW_MS = Number(process.env.OTP_SEND_VICTIM_WINDOW_MS || 10 * 60 * 1000);
+const OTP_SEND_VICTIM_MAX = Number(process.env.OTP_SEND_VICTIM_MAX || 5);
+
 // Turnstile and abuse limiters must finish before OTP/password state can own
 // the response. Once admitted, do not emit a timeout while that state commits.
 const beginAtomicOtpResponse = (req, res, next) => {
@@ -41,6 +44,22 @@ const resetPasswordFlowRateLimitKey = (req) => {
 
 const resetPasswordNetworkRateLimitKey = (req) => `ip:${hashRateLimitKeyPart(getRequestIp(req))}`;
 
+// The IP-keyed otpLimiter cannot see a distributed sender: a botnet with many
+// egress addresses can still drive OTP sends at one victim, amplifying SMS/email
+// cost and harassing the target. Key the send cap on the target identity as well.
+// Purpose is deliberately excluded so one victim has one budget across flows.
+// Phone must strip the same characters otpController's normalizePhone strips:
+// formatting variants of one number have to collapse into one victim bucket.
+const otpSendVictimRateLimitKey = (req) => {
+    const email = parseRateLimitKeyPart(req.body?.email).toLowerCase();
+    const phone = parseRateLimitKeyPart(req.body?.phone).replace(/[\s\-()]/g, '');
+    if (!email && !phone) {
+        return `ip:${hashRateLimitKeyPart(getRequestIp(req))}`;
+    }
+
+    return `victim:${hashRateLimitKeyPart(`${email}|${phone}`)}`;
+};
+
 const otpLimiter = createDistributedRateLimit({
     allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
@@ -48,6 +67,20 @@ const otpLimiter = createDistributedRateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 3, // Max 3 OTP requests per minute per IP
     message: 'Too many OTP requests. Please wait a minute before trying again.',
+});
+
+const otpVictimLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    securityCritical: true,
+    name: 'otp_send_victim',
+    windowMs: OTP_SEND_VICTIM_WINDOW_MS,
+    max: OTP_SEND_VICTIM_MAX,
+    keyGenerator: otpSendVictimRateLimitKey,
+    message: {
+        success: false,
+        code: 'OTP_SEND_VICTIM_LIMITED',
+        message: 'Too many codes requested for this account. Please wait before trying again.',
+    },
 });
 
 const verifyLimiter = createDistributedRateLimit({
@@ -104,7 +137,7 @@ router.use(adaptiveRateLimit({ action: 'otp', windowMs: 5 * 60 * 1000, max: 20, 
 router.use(loginLockoutGate({ surface: 'otp' }));
 
 router.post('/challenge', checkUserLimiter, getOtpChallenge);
-router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, beginAtomicOtpResponse, sendOtp);
+router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, otpVictimLimiter, beginAtomicOtpResponse, sendOtp);
 router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, beginAtomicOtpResponse, verifyOtp);
 router.post('/reset-password', resetPasswordScannerRateLimit, requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, beginAtomicOtpResponse, resetPasswordWithOtp);
 router.post('/check-user', requireTurnstile({ routeName: 'otp_check_user' }), checkUserLimiter, checkUserExists);
