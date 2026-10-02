@@ -10,13 +10,13 @@ on:
         type: string
 
       deploy_targets:
-        description: "Comma-separated non-overlapping targets: backend, frontend-multihost, gateway"
+        description: "Comma-separated non-overlapping targets: backend, frontend-multihost, gateway. Empty = nothing deploys."
         required: false
         default: ""
         type: string
 
       release_targets:
-        description: "Comma-separated release targets: desktop, mobile"
+        description: "Comma-separated release targets: desktop, mobile. Empty = nothing releases (no default-on)."
         required: false
         default: ""
         type: string
@@ -604,15 +604,11 @@ jobs:
           INPUT_DEPLOY_FRONTEND_NETLIFY="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-multihost storefront)"
           INPUT_DEPLOY_FRONTEND_AWS="false"
           INPUT_DEPLOY_GATEWAY="$(target_selected "${INPUT_DEPLOY_TARGETS}" gateway)"
-          # Shell releases default on: an empty release_targets ships desktop and
-          # mobile alongside the requested deploy lanes. Pass explicit targets
-          # (for example "desktop") to scope the run narrower.
-          EFFECTIVE_RELEASE_TARGETS="${INPUT_RELEASE_TARGETS}"
-          if [ -z "${EFFECTIVE_RELEASE_TARGETS}" ]; then
-            EFFECTIVE_RELEASE_TARGETS="desktop,mobile"
-          fi
-          INPUT_RELEASE_DESKTOP="$(target_selected "${EFFECTIVE_RELEASE_TARGETS}" desktop)"
-          INPUT_RELEASE_MOBILE="$(target_selected "${EFFECTIVE_RELEASE_TARGETS}" mobile)"
+          # Shell releases NEVER default on: empty release_targets releases
+          # nothing. A 2026-10-02 backend-only dispatch silently shipped a
+          # desktop release and attempted a mobile one before this changed.
+          INPUT_RELEASE_DESKTOP="$(target_selected "${INPUT_RELEASE_TARGETS}" desktop)"
+          INPUT_RELEASE_MOBILE="$(target_selected "${INPUT_RELEASE_TARGETS}" mobile)"
           INPUT_ROLLBACK_BACKEND="$(target_selected "${INPUT_ROLLBACK_TARGETS}" backend)"
           INPUT_ROLLBACK_FRONTEND_NETLIFY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-multihost storefront)"
           INPUT_ROLLBACK_FRONTEND_AWS="false"
