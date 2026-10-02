@@ -115,10 +115,14 @@ const DAY_STATUS_RANK = {
 const ACTIVE_INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring'];
 const PUBLIC_STATUS_CACHE_MS = Math.max(Number(process.env.STATUS_PUBLIC_CACHE_SECONDS || 60), 5) * 1000;
 const HISTORY_DAYS = 90;
-const DEFAULT_MONITOR_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_MONITOR_INTERVAL_SECONDS || 60), 15);
+// Monitor cadence: 5 minutes. Raw checks exist to feed the public status
+// page and daily rollups; a 60s cadence from three runtime processes
+// regenerates ~6-7MB/day on the shared M0 cluster and outpaces free-tier
+// headroom. STATUS_MONITOR_INTERVAL_SECONDS still overrides per environment.
+const DEFAULT_MONITOR_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_MONITOR_INTERVAL_SECONDS || 300), 15);
 const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_SNAPSHOT_INTERVAL_SECONDS || 60), 30);
 const DEFAULT_NOTIFICATION_WORKER_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_NOTIFICATION_WORKER_INTERVAL_SECONDS || 30), 10);
-const DEFAULT_STATUS_CHECK_RETENTION_DAYS = 7;
+const DEFAULT_STATUS_CHECK_RETENTION_DAYS = 2;
 const STATUS_CHECK_RETENTION_DAYS = Math.min(
     Math.max(Number(process.env.STATUS_CHECK_RETENTION_DAYS || DEFAULT_STATUS_CHECK_RETENTION_DAYS), 1),
     HISTORY_DAYS
