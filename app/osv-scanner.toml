@@ -7,3 +7,8 @@
 id = "GHSA-vwc7-r8mq-g2x9"
 ignoreUntil = 2026-11-08
 reason = "adm-zip 0.6.0 is the latest published release; every version in the affected range (>=0.5.9 <=0.6.0) is unfixed upstream (CVE-2026-76845, CWE-59 symlink-following during extraction, Medium). Dev-only dependency of the app workspace that also pins the @lambdatest/node-tunnel transitive, and our tooling does not extract untrusted archives. Re-evaluate for an upstream fix after the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-12-31
+reason = "braces 3.0.3 is the latest published release; every version in the affected range (<=3.0.3) is unfixed upstream (CVE-2026-93687, CWE-674 stack-exhaustion ReDoS, High). Build/proxy tooling reached only from trusted internal configuration (micromatch, http-proxy-middleware), never from untrusted user-supplied glob patterns. Mirrors security-audit-exceptions.json and .trivyignore.yaml. Re-evaluate for an upstream fix after the expiry."

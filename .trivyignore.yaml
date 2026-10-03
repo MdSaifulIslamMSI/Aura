@@ -1,2 +1,9 @@
-vulnerabilities: []
-
+vulnerabilities:
+  # braces 3.0.3 is the latest published release; GHSA-vfj7-8cjw-p6xm /
+  # CVE-2026-93687 (stack-exhaustion ReDoS, CWE-674) affects every version
+  # including the latest and has no upstream fix yet. braces is build/proxy
+  # tooling reached only from trusted internal configuration (micromatch,
+  # http-proxy-middleware), never from untrusted user-supplied glob patterns.
+  # Mirrors security-audit-exceptions.json; re-evaluate after the expiry.
+  - id: CVE-2026-93687
+    expired_at: 2026-12-31T00:00:00Z

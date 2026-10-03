@@ -1,3 +1,9 @@
 {
-  "exceptions": []
+  "exceptions": [
+    {
+      "reason": "GHSA-vfj7-8cjw-p6xm / CVE-2026-93687 (braces stack-exhaustion ReDoS, CWE-674, CVSS 7.5) affects every braces version including the latest 3.0.3, so no upgraded release exists to pin. braces is only reached through build/proxy tooling (micromatch, http-proxy-middleware) with trusted internal configuration, never from untrusted user-supplied glob patterns. Scoped by advisory id so the transitive micromatch and http-proxy-middleware findings resolve to the same acceptance. Re-evaluate when a patched braces release ships.",
+      "expires": "2026-12-31",
+      "advisoryIds": ["GHSA-vfj7-8cjw-p6xm"]
+    }
+  ]
 }

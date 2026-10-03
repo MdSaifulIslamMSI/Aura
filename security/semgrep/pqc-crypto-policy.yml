@@ -103,6 +103,9 @@ rules:
         - server/services/catalogArtworkService.js
         - scripts/i18n/codemod-jsx-stable-text.mjs
         - scripts/i18n/discover-stable-ui-text.mjs
+        # Accepted in config/security/pqc-allowlist.json (SHA1_SIGNATURE_OR_INTEGRITY);
+        # hash function mandated by the HIBP k-anonymity range API:
+        - server/utils/pwnedPasswordCheck.js
 
   - id: hardcoded-private-key
     message: Remove hardcoded private key material and load secrets from approved runtime secret storage.
