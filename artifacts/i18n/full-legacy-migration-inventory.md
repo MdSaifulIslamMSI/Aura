@@ -1,12 +1,12 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-25T11:39:56.806Z
+Generated: 2026-10-03T17:25:52.704Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 529
+- Source files scanned: 530
 - Tracked files: 153
 - Production files with stable literal UI copy: 100
 - Production stable literal references: 4132
@@ -149,7 +149,7 @@ These computed keys stay outside automatic migration until manually reviewed.
 | `app/src/pages/MissionControl/index.jsx` | 285 | StableText id is computed and requires manual review. |
 | `app/src/pages/Orders/index.jsx` | 22 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/ProductListing/index.jsx` | 491 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/utils/authErrors.js` | 2202 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/utils/authErrors.js` | 2224 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/utils/supportArchitecture.js` | 148 | First t() argument is computed or interpolated and requires manual review. |
 
 ### Runtime content translation
