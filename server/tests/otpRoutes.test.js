@@ -24,6 +24,10 @@ jest.mock('../config/firebase', () => ({
     }),
 }));
 
+jest.mock('../utils/pwnedPasswordCheck', () => ({
+    checkPwnedPassword: jest.fn().mockResolvedValue({ pwned: false, count: 0, checked: true }),
+}));
+
 const app = require('../index');
 const User = require('../models/User');
 const OtpSession = require('../models/OtpSession');
@@ -39,6 +43,7 @@ const { hashTrustedDeviceSessionToken } = trustedDeviceChallengeService;
 
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms } = require('../services/sms');
+const { checkPwnedPassword } = require('../utils/pwnedPasswordCheck');
 
 const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification instructions have been sent.';
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
@@ -746,6 +751,42 @@ describe('OTP API Routes Integration', () => {
 
             expect(res.statusCode).toBe(403);
             expect(res.body.message).toContain('Password reset verification is required');
+            expect(mockUpdateUser).not.toHaveBeenCalled();
+        });
+
+        test('should reject password reset when the password appears in a known data breach', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            checkPwnedPassword.mockResolvedValueOnce({ pwned: true, count: 999, checked: true });
+
+            const nextPassword = buildStrongPassword();
+            const res = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: nextPassword,
+                });
+
+            expect(res.statusCode).toBe(400);
+            expect(res.body.message).toContain('data breach');
             expect(mockUpdateUser).not.toHaveBeenCalled();
         });
 

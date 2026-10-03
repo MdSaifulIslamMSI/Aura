@@ -17,6 +17,7 @@ const { inspectOtpFlowToken, issueOtpFlowToken, verifyOtpFlowToken } = require('
 const { flags: otpEmailFlags } = require('../config/otpEmailFlags');
 const { flags: otpSmsFlags } = require('../config/otpSmsFlags');
 const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
+const { checkPwnedPassword } = require('../utils/pwnedPasswordCheck');
 const {
     extractTrustedDeviceChallengePayload,
     extractTrustedDeviceContext,
@@ -1869,6 +1870,11 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const weakPassword = detectWeakPasswordPatterns(password);
     if (weakPassword.isWeak) {
         return next(new AppError(weakPassword.reason || 'Password is too weak', 400));
+    }
+
+    const breachCheck = await checkPwnedPassword(password);
+    if (breachCheck.pwned) {
+        return next(new AppError('This password has appeared in a known data breach and cannot be used. Please choose a different password.', 400));
     }
 
     const inspectedFlow = inspectOtpFlowToken(flowToken);

@@ -510,6 +510,13 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'password has appeared in a known data breach': {
+        title: 'Password Found in Data Breach',
+        detail: 'This password is known to attackers from past data breaches.',
+        hint: 'Pick a different password you have never used on any other site.',
+        action: null,
+        actionLabel: null
+    },
     'phone number does not match your pending signup': {
         title: 'Pending Signup Mismatch',
         detail: 'The verified phone number does not match the phone entered for this signup.',
@@ -1492,6 +1499,21 @@ const authFeedbackMessages = defineMessages({
     "auth.error.passwordFollowsKeyboardPatterns.title": {
         id: "auth.error.passwordFollowsKeyboardPatterns.title",
         defaultMessage: "Password Too Predictable",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.passwordFoundInDataBreach.detail": {
+        id: "auth.error.passwordFoundInDataBreach.detail",
+        defaultMessage: "This password is known to attackers from past data breaches.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.passwordFoundInDataBreach.hint": {
+        id: "auth.error.passwordFoundInDataBreach.hint",
+        defaultMessage: "Pick a different password you have never used on any other site.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.passwordFoundInDataBreach.title": {
+        id: "auth.error.passwordFoundInDataBreach.title",
+        defaultMessage: "Password Found in Data Breach",
         description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
     },
     "auth.error.passwordMustBeAtLeast6.detail": {
