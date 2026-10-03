@@ -1382,7 +1382,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@5
+        run: npm install -g @railway/cli@5.63.1
 
       - name: Publish Railway production deploy
         id: deploy

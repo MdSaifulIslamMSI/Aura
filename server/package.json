@@ -1,6 +1,13 @@
 {
   "name": "server",
   "private": true,
+  "allowScripts": {
+    "@firebase/util": true,
+    "@parcel/watcher": true,
+    "mongodb-memory-server": true,
+    "protobufjs": true,
+    "unrs-resolver": true
+  },
   "version": "1.1.0",
   "description": "",
   "main": "index.js",

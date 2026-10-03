@@ -1,6 +1,11 @@
 {
   "name": "aura-storefront",
   "private": true,
+  "allowScripts": {
+    "@firebase/util": true,
+    "fsevents": true,
+    "protobufjs": true
+  },
   "version": "1.0.0",
   "type": "module",
   "scripts": {
