@@ -5,7 +5,10 @@ const { checkPwnedPassword } = require('../utils/pwnedPasswordCheck');
 // Derive the fixture hash at runtime instead of hardcoding hex characters,
 // so secret scanners do not mistake test constants for credential material.
 const BREACHED_PASSWORD = 'password';
-const FULL_HASH = crypto.createHash('sha1').update(BREACHED_PASSWORD, 'utf8').digest('hex').toUpperCase();
+// The runtime-derived hash is a k-anonymity lookup token for the mocked HIBP
+// response, never password storage.
+// codeql[js/insufficient-password-hash]
+const FULL_HASH = crypto.createHash('sha1').update(BREACHED_PASSWORD, 'utf8').digest('hex').toUpperCase(); // nosemgrep: security.semgrep.nodejs-sha1 - test fixture derivation, not a security primitive
 const BREACHED_PREFIX = FULL_HASH.slice(0, 5);
 const BREACHED_SUFFIX = FULL_HASH.slice(5);
 
