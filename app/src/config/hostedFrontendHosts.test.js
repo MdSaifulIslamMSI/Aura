@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
 import {
     HOSTED_DEPLOYMENT_HOST_SUFFIXES,
     PLANNED_CUSTOM_FRONTEND_HOSTS,

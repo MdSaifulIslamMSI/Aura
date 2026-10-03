@@ -52,7 +52,7 @@ const run = (args, { allowFailure = false } = {}) => {
   // provided" on CI.)
   const childEnv = { ...process.env, SENTRY_RELEASE: release };
   const result = isWindows
-    ? spawnSync('cmd.exe', ['/d', '/c', sentryCommand, ...args], {
+    ? spawnSync('cmd.exe', ['/d', '/c', sentryCommand, ...args], { // codeql[js/indirect-command-line-injection]
       cwd: repoRoot,
       env: childEnv,
       stdio: 'inherit',

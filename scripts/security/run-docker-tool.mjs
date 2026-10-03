@@ -748,6 +748,7 @@ const runZizmor = () => {
     images.zizmor,
     '--no-progress',
     '--format', 'sarif',
+    '--config', '/src/.github/zizmor.yml',
     '--output', '/zap/wrk/zizmor-report.sarif',
     '/src/.github/workflows/',
   ]);

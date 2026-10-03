@@ -55,7 +55,6 @@ jest.mock('../services/payments/paymentService', () => ({
 
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User');
 const AccountPreference = require('../models/AccountPreference');
 const AdminNotification = require('../models/AdminNotification');
 const ShippingEvent = require('../models/ShippingEvent');
