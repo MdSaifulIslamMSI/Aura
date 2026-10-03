@@ -388,6 +388,7 @@
       "tests/paymentMethodEnrollmentSecurity.test.js",
       "tests/paymentNetbankingCatalog.test.js",
       "tests/paymentOperationsService.test.js",
+      "tests/pwnedPasswordCheck.test.js",
       "tests/paymentOutboxState.test.js",
       "tests/paymentProviderFactory.test.js",
       "tests/paymentWebhookTransitionGuards.test.js",

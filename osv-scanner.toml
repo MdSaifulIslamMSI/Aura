@@ -1,0 +1,8 @@
+# OSV vulnerability exceptions for the root workspace scan (osv-scanner -r .).
+# The app-workspace config lives in app/osv-scanner.toml. Re-add entries here
+# only with an expiry + reason, mirroring security-audit-exceptions.json.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-12-31
+reason = "braces 3.0.3 is the latest published release; every version in the affected range (<=3.0.3) is unfixed upstream (CVE-2026-93687, CWE-674 stack-exhaustion ReDoS, High). Build/proxy tooling reached only from trusted internal configuration (micromatch, http-proxy-middleware), never from untrusted user-supplied glob patterns. Mirrors security-audit-exceptions.json and .trivyignore.yaml. Re-evaluate for an upstream fix after the expiry."

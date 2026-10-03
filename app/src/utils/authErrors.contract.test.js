@@ -71,6 +71,7 @@ describe('authErrors backend coverage contract', () => {
         'Password recovery email verification expired',
         'Unable to update password right now',
         'Passwords do not match',
+        'This password has appeared in a known data breach and cannot be used. Please choose a different password.',
         'You are already signed in',
         'No verified account found for this email and phone number. Please sign up first.',
         // DPoP / social-provider failures

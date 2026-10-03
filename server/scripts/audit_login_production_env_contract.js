@@ -266,6 +266,7 @@ if (!publicUrlHost || webAuthnRpId !== publicUrlHost) {
 requireEnvValue(baseEnv, 'AUTH_WEBAUTHN_USER_VERIFICATION', 'required', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'MFA_ENABLED', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'MFA_PASSKEY_ENABLED', 'AWS base.env');
+requireTruthyEnv(baseEnv, 'MFA_TOTP_ENABLED', 'AWS base.env');
 requireEnvValue(baseEnv, 'AURA_DESKTOP_OWNER_ACCESS_ENABLED', 'false', 'AWS base.env');
 
 const backendPublicHost = String(baseEnv.get('AURA_BACKEND_PUBLIC_HOST') || '').trim();
@@ -284,6 +285,7 @@ requireRegex(awsCompose, /AUTH_DEVICE_CHALLENGE_MODE:\s*(admin|always)/, 'AWS AP
 requireIncludes(awsCompose, 'ADMIN_REQUIRE_PASSKEY: "true"', 'AWS API service must require passkey-backed admin access.');
 requireIncludes(awsCompose, 'MFA_ENABLED: "true"', 'AWS API service must keep the MFA subsystem enabled.');
 requireIncludes(awsCompose, 'MFA_PASSKEY_ENABLED: "true"', 'AWS API service must keep passkey MFA enabled.');
+requireIncludes(awsCompose, 'MFA_TOTP_ENABLED: "true"', 'AWS API service must keep TOTP MFA enabled.');
 requireIncludes(awsCompose, 'AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"', 'AWS API service must disable shared-key desktop owner access.');
 requireRegex(awsCompose, /["']127\.0\.0\.1:\$\{AURA_API_HOST_PORT:-5000\}:5000["']/, 'AWS API port 5000 must bind to loopback only.');
 if (/["']?5000:5000["']?/.test(awsCompose) && !/127\.0\.0\.1:[^"']*:5000["']/.test(awsCompose)) {
@@ -343,9 +345,11 @@ requireIncludes(deployRelease, '--resolve "${backend_public_host}:443:127.0.0.1"
 requireIncludes(deployRelease, 'AURA_INFRA_BUNDLE_SHA256', 'AWS deploy must require an expected infra bundle SHA-256.');
 requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"', 'AWS deploy must persist MFA_ENABLED=true.');
 requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"', 'AWS deploy must persist MFA_PASSKEY_ENABLED=true.');
+requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "MFA_TOTP_ENABLED" "true"', 'AWS deploy must persist MFA_TOTP_ENABLED=true.');
 requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"', 'AWS deploy must persistently disable shared-key desktop owner access.');
 requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"', 'AWS rollback must preserve MFA_ENABLED=true.');
 requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"', 'AWS rollback must preserve MFA_PASSKEY_ENABLED=true.');
+requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "MFA_TOTP_ENABLED" "true"', 'AWS rollback must preserve MFA_TOTP_ENABLED=true.');
 requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"', 'AWS rollback must preserve the shared-key owner-access shutdown.');
 requireIncludes(deployRelease, 'AURA_IMAGE_BUNDLE_SHA256', 'AWS deploy must require an expected image bundle SHA-256.');
 requireIncludes(deployRelease, 'verify_sha256 "${release_dir}/image.tar.gz"', 'AWS deploy must verify the image bundle before docker load.');

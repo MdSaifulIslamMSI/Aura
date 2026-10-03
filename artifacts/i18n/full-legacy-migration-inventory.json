@@ -192,7 +192,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 2202,
+      "line": 2224,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -6150,7 +6150,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-25T11:39:56.806Z",
+  "generatedAt": "2026-10-03T17:25:52.704Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6206,7 +6206,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 136,
+      "line": 137,
       "reason": ""
     },
     {
@@ -6219,7 +6219,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 137,
+      "line": 138,
       "reason": ""
     },
     {
@@ -6232,7 +6232,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 139,
+      "line": 140,
       "reason": ""
     },
     {
@@ -6245,7 +6245,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 280,
+      "line": 290,
       "reason": ""
     },
     {
@@ -12044,7 +12044,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 95,
+      "line": 115,
       "reason": ""
     },
     {
@@ -12057,7 +12057,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 137,
+      "line": 164,
       "reason": ""
     },
     {
@@ -12070,7 +12070,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 139,
+      "line": 166,
       "reason": ""
     },
     {
@@ -12083,7 +12083,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 139,
+      "line": 166,
       "reason": ""
     },
     {
@@ -12096,7 +12096,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 142,
+      "line": 169,
       "reason": ""
     },
     {
@@ -12109,7 +12109,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 142,
+      "line": 169,
       "reason": ""
     },
     {
@@ -12122,7 +12122,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 145,
+      "line": 172,
       "reason": ""
     },
     {
@@ -12135,7 +12135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 145,
+      "line": 172,
       "reason": ""
     },
     {
@@ -12759,7 +12759,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New notification",
-      "line": 78,
+      "line": 82,
       "reason": ""
     },
     {
@@ -60722,7 +60722,7 @@
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 529,
+    "sourceFilesScanned": 530,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 153,
     "uniqueProductionStableIds": 3730,

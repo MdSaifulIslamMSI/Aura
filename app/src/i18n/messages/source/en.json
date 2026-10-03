@@ -5009,6 +5009,18 @@
     "defaultMessage": "Password Too Predictable",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
+  "auth.error.passwordFoundInDataBreach.detail": {
+    "defaultMessage": "This password is known to attackers from past data breaches.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.passwordFoundInDataBreach.hint": {
+    "defaultMessage": "Pick a different password you have never used on any other site.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.passwordFoundInDataBreach.title": {
+    "defaultMessage": "Password Found in Data Breach",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
   "auth.error.passwordMustBeAtLeast6.detail": {
     "defaultMessage": "Your password must be at least 6 characters long.",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."

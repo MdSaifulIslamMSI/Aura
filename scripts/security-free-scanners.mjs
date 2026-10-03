@@ -119,7 +119,8 @@ const scanners = [
     // and flags installed-tree noise that npm audit already covers. The
     // filtered source keeps all git-tracked manifests/lockfiles.
     binaryArgs: ['-r', scannerSource],
-    dockerArgs: ['run', '--rm', '-v', scannerSourceMount, dockerImage(scannerImages.osv), '-r', '/scan'],
+    // -w /scan so osv-scanner auto-loads osv-scanner.toml from the scan root.
+    dockerArgs: ['run', '--rm', '-v', scannerSourceMount, '-w', '/scan', dockerImage(scannerImages.osv), '-r', '/scan'],
   },
   {
     name: 'trivy',
