@@ -822,6 +822,7 @@ upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.
 upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"
 upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"
+upsert_env_value "${staged_base_env}" "MFA_TOTP_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"
 upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"

@@ -520,6 +520,7 @@ compose_profiles="$(sanitize_compose_profiles "${configured_compose_profiles}")"
 
 upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"
+upsert_env_value "${staged_base_env}" "MFA_TOTP_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"
 upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"
