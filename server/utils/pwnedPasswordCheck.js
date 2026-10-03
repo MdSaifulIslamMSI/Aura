@@ -30,8 +30,7 @@ const checkPwnedPassword = async (password) => {
         // The hash function is fixed by the HIBP range API protocol: it is a k-anonymity
         // lookup token for an external breach-corpus API, never used to store or verify
         // a password. Accepted in config/security/pqc-allowlist.json (SHA1_SIGNATURE_OR_INTEGRITY).
-        // codeql[js/insufficient-password-hash]
-        const hash = crypto.createHash('sha1').update(password, 'utf8').digest('hex').toUpperCase(); // nosemgrep: security.semgrep.nodejs-sha1 - HIBP protocol hash, not a security primitive
+        const hash = crypto.createHash('sha1').update(password, 'utf8').digest('hex').toUpperCase(); // nosemgrep: security.semgrep.nodejs-sha1 - HIBP protocol hash, not a security primitive // codeql[js/insufficient-password-hash]
         const prefix = hash.slice(0, 5);
         const suffix = hash.slice(5);
 

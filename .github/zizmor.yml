@@ -1,0 +1,13 @@
+# zizmor configuration — consumed when the scanner runs via
+# scripts/security/run-docker-tool.mjs (--config /src/.github/zizmor.yml).
+rules:
+  adhoc-packages:
+    ignore:
+      # Railway CLI global installs cannot be digest-pinned the way container
+      # images can; the version is pinned exactly (@railway/cli@5.63.1) and
+      # the tool only talks to the Railway API with repo-scoped deploy creds.
+      # zizmor's adhoc-packages rule has no npm equivalent of a SHA pin, so
+      # these three are accepted risk, re-reviewed on version bumps.
+      - deploy-netlify.yml
+      - rollback-railway.yml
+      - mobile-release.yml
