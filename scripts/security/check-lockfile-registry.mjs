@@ -77,8 +77,10 @@ for (const workspace of WORKSPACES) {
             messages.push(`${workspace.lockfile}: "${entryPath}" tarball path does not match ${declaredName}@${version}: ${resolved}`);
             continue;
         }
-        if (!/^(sha512|sha1)-/.test(String(entry.integrity || ''))) {
-            messages.push(`${workspace.lockfile}: "${entryPath}" is missing an integrity hash.`);
+        // sha512 only — the PQC policy forbids weaker legacy hash acceptance,
+        // and every entry in all three lockfiles is sha512 (verified 2026-10-02).
+        if (!/^sha512-/.test(String(entry.integrity || ''))) {
+            messages.push(`${workspace.lockfile}: "${entryPath}" is missing a sha512 integrity hash.`);
             continue;
         }
         checked += 1;
