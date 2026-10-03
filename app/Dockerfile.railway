@@ -6,7 +6,7 @@
 # two repo-root inputs outside app/: ../../config/desktopAuthLoopback.cjs and
 # ../../../shared/assistantCapabilities.json. Every other storefront lane builds
 # from the repo root for the same reason.
-FROM node:24-alpine AS build
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
     NPM_CONFIG_FUND=false

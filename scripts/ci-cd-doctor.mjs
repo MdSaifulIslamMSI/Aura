@@ -727,6 +727,27 @@ addCheck(
   'security:sarif-contract script and Security Gates enforcement'
 );
 
+// npm supply-chain hardening: lifecycle-script allowlist, lockfile registry
+// lint, and release cooldown all live in the supply-chain-integrity job.
+addCheck(
+  'npm lifecycle-script allowlist gate remains wired',
+  packageJson.scripts?.['security:install-scripts'] === 'node scripts/security/check-install-scripts-allowlist.mjs' &&
+    securityGatesWorkflow.includes('npm run security:install-scripts'),
+  'security:install-scripts script and Security Gates enforcement'
+);
+addCheck(
+  'lockfile registry lint gate remains wired',
+  packageJson.scripts?.['security:lockfile-registry'] === 'node scripts/security/check-lockfile-registry.mjs' &&
+    securityGatesWorkflow.includes('npm run security:lockfile-registry'),
+  'security:lockfile-registry script and Security Gates enforcement'
+);
+addCheck(
+  'release-cooldown gate remains wired',
+  packageJson.scripts?.['security:lockfile-freshness'] === 'node scripts/security/check-lockfile-freshness.mjs' &&
+    securityGatesWorkflow.includes('npm run security:lockfile-freshness'),
+  'security:lockfile-freshness script and Security Gates enforcement'
+);
+
 // GitHub validates the reusable-workflow permission graph at dispatch: a callee
 // job requesting a permission the caller job does not grant makes the entire
 // caller file invalid (startup_failure, zero jobs run).

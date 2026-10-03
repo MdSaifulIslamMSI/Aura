@@ -1,6 +1,9 @@
 {
   "name": "aura-marketplace-desktop",
   "private": true,
+  "allowScripts": {
+    "electron-winstaller": true
+  },
   "version": "1.0.0",
   "description": "Desktop wrapper for Aura Marketplace",
   "author": "MdSaifulIslamMSI <MdSaifulIslamMSI@users.noreply.github.com>",
@@ -149,6 +152,10 @@
     "security:hadolint": "node scripts/security/run-docker-tool.mjs hadolint",
     "security:iac": "node scripts/security/run-docker-tool.mjs iac",
     "security:supply-chain-pins": "node scripts/security/check-supply-chain-pins.mjs",
+    "security:install-scripts": "node scripts/security/check-install-scripts-allowlist.mjs",
+    "security:lockfile-freshness": "node scripts/security/check-lockfile-freshness.mjs",
+    "security:lockfile-registry": "node scripts/security/check-lockfile-registry.mjs",
+    "security:repair-lockfile": "node scripts/security/repair-lockfile-resolutions.mjs",
     "security:sarif-contract": "node scripts/security/validate-sarif-contract.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
     "security:zizmor": "node scripts/security/run-docker-tool.mjs zizmor",

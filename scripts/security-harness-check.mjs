@@ -78,6 +78,9 @@ const requiredScripts = [
   ['security:malware-runtime', 'node scripts/validate-upload-malware-runtime.mjs'],
   ['security:edge-assets', 'node scripts/validate-edge-security-assets.mjs'],
   ['security:post-merge-smoke', 'node scripts/post-merge-security-smoke.mjs'],
+  ['security:install-scripts', 'node scripts/security/check-install-scripts-allowlist.mjs'],
+  ['security:lockfile-registry', 'node scripts/security/check-lockfile-registry.mjs'],
+  ['security:lockfile-freshness', 'node scripts/security/check-lockfile-freshness.mjs'],
 ];
 
 for (const [scriptName, expectedCommand] of requiredScripts) {

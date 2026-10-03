@@ -1,0 +1,4 @@
+{
+  "$comment": "Release-cooldown exemptions for check-lockfile-freshness.mjs. Each entry: { name, version?, reason, expires }. Expired or reason-less entries FAIL the gate (fail-closed, same contract as pqc-allowlist.json). Add an entry only for urgent fixes (e.g. a security advisory release) and let it expire.",
+  "allowed": []
+}
