@@ -34,6 +34,13 @@
       "match": "sha1",
       "reason": "Existing deterministic product image UID hash; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
+    },
+    {
+      "file": "server/utils/pwnedPasswordCheck.js",
+      "category": "SHA1_SIGNATURE_OR_INTEGRITY",
+      "match": "sha1",
+      "reason": "Hash function is mandated by the Have I Been Pwned k-anonymity range API protocol (prefix lookup against the breach corpus); not used for signatures, integrity, encryption, or secrets.",
+      "expires": "2026-12-31"
     }
   ]
 }
