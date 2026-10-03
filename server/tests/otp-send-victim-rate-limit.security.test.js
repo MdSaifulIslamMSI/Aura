@@ -16,8 +16,6 @@ jest.mock('../controllers/otpController', () => ({
     checkUserExists: jest.fn((_req, res) => res.json({ ok: true })),
 }));
 
-const otpRoutes = require('../routes/otpRoutes');
-
 // createDistributedRateLimit keeps its in-memory window in module scope, and every
 // request in this file shares one source address, so the IP-keyed otpLimiter would
 // be exhausted by the first test. Load a fresh router per test for clean buckets.
