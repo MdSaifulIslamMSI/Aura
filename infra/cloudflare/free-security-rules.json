@@ -36,20 +36,13 @@
   ],
   "rateLimitRules": [
     {
+      "$comment": "ONE rule only: the Cloudflare Free plan allows a single rate-limiting rule, so this is the highest-value one (auth/OTP/password-reset bursts = credential stuffing + SMS cost amplification). The commerce-mutation rule (60 req/60s on ^/api/(orders|payments|cart)) was dropped on 2026-10-02 - those endpoints already carry server-side rate limits, auth, and Turnstile. Restore it if the zone moves to a paid plan.",
       "ref": "aura_rate_limit_auth_and_otp",
       "description": "Rate limit auth, OTP, and password reset bursts",
       "expression": "http.request.method eq \"POST\" and http.request.uri.path in {\"/api/auth/login\" \"/api/otp/send\" \"/api/otp/verify\" \"/api/auth/forgot-password\" \"/api/auth/reset-password\"}",
       "requests_per_period": 20,
       "period": 60,
       "mitigation_timeout": 300
-    },
-    {
-      "ref": "aura_rate_limit_checkout_and_payment_mutations",
-      "description": "Rate limit checkout and payment mutation bursts",
-      "expression": "http.request.method eq \"POST\" and http.request.uri.path matches \"^/api/(orders|payments|cart)\"",
-      "requests_per_period": 60,
-      "period": 60,
-      "mitigation_timeout": 120
     }
   ]
 }
