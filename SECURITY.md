@@ -7,6 +7,7 @@ Aura Marketplace treats security reports as production-sensitive. Please report 
 Security reports are in scope when they affect:
 
 - The code in this repository.
+- The npm packages published from this repository under the `@aurasec` scope (currently `@aurasec/supply-chain-gates` and `@aurasec/route-security-matrix`).
 - The public storefront, gateway, API, auth, checkout, payment, upload, admin, realtime, or release-gate surfaces owned by this project.
 - Secret handling, environment contracts, CI/CD release workflows, deployment automation, or infrastructure policy in this repository.
 
@@ -17,6 +18,7 @@ Only the default branch and the latest deployed production release are actively 
 | Version | Channel | Supported |
 | --- | --- | --- |
 | `main` branch | Rolling (latest deploy from default branch) | Yes |
+| `@aurasec/*` npm packages | Latest published release | Yes |
 | Older tags or forks | Not deployed by maintainers | No |
 
 ## Reporting A Vulnerability

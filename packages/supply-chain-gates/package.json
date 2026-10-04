@@ -1,0 +1,43 @@
+{
+  "name": "@aurasec/supply-chain-gates",
+  "version": "1.0.0",
+  "description": "Fail-closed npm supply-chain gates: lifecycle-script allowlist, lockfile registry lint, and release cooldown for changed lockfile versions.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "aurasec-supply-chain": "bin/aurasec-supply-chain.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "npm",
+    "supply-chain",
+    "security",
+    "lockfile",
+    "cooldown",
+    "allowScripts",
+    "install-scripts",
+    "integrity",
+    "ci",
+    "gate"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MdSaifulIslamMSI/Aura.git",
+    "directory": "packages/supply-chain-gates"
+  },
+  "bugs": {
+    "url": "https://github.com/MdSaifulIslamMSI/Aura/issues"
+  },
+  "homepage": "https://github.com/MdSaifulIslamMSI/Aura/tree/main/packages/supply-chain-gates#readme"
+}

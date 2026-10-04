@@ -1,0 +1,42 @@
+{
+  "name": "@aurasec/route-security-matrix",
+  "version": "1.0.0",
+  "description": "Derive every Express route, require an explicit security posture per state-changing route, and live-probe unauthenticated requests in CI.",
+  "license": "Apache-2.0",
+  "main": "lib/index.js",
+  "files": [
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "express": "^4.21.2",
+    "supertest": "^7.0.0"
+  },
+  "keywords": [
+    "express",
+    "security",
+    "routes",
+    "posture",
+    "authorization",
+    "ci",
+    "gate",
+    "test-harness",
+    "supertest"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MdSaifulIslamMSI/Aura.git",
+    "directory": "packages/route-security-matrix"
+  },
+  "bugs": {
+    "url": "https://github.com/MdSaifulIslamMSI/Aura/issues"
+  },
+  "homepage": "https://github.com/MdSaifulIslamMSI/Aura/tree/main/packages/route-security-matrix#readme"
+}

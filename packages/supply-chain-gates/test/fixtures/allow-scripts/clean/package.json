@@ -1,0 +1,6 @@
+{
+  "name": "fixture-clean",
+  "allowScripts": {
+    "esbuild": true
+  }
+}
