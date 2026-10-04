@@ -614,9 +614,6 @@ jobs:
       - name: Run component tests
         run: npm test -- --shard=${{ matrix.shard }}/2 --reporter=default --reporter=junit --outputFile=test-results/junit-frontend-shard-${{ matrix.shard }}.xml
 
-      - name: Verify generated configs match the routing contract
-        run: npm run configs:sync-check
-
       - name: Upload JUnit to Datadog CI Visibility
         if: always()
         continue-on-error: true

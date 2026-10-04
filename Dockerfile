@@ -29,6 +29,7 @@ COPY --from=deps --chown=node:node /app/server/node_modules ./node_modules
 COPY --chown=node:node server ./
 COPY --chown=node:node shared/assistantCapabilities.json /app/shared/assistantCapabilities.json
 COPY --chown=node:node config/desktopAuthLoopback.cjs /app/config/desktopAuthLoopback.cjs
+COPY --chown=node:node config/backend-origin.json /app/config/backend-origin.json
 COPY --chown=node:node config/security /app/config/security
 RUN mkdir -p uploads /tmp/aura \
     && chown -R node:node uploads /tmp/aura

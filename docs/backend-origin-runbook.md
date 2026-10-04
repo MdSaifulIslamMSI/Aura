@@ -10,8 +10,8 @@ providers.
 `app/config/vercelRoutingContract.mjs` — `DEFAULT_HOSTED_BACKEND_ORIGIN`.
 
 Everything else is generated from it by `app/scripts/sync_vercel_configs.mjs`
-(`npm run configs:sync`), and CI enforces regeneration with `npm run
-configs:sync-check` (frontend-quality job). Deploy-time builds and smoke tests
+(`npm run vercel:routing:sync`), and CI enforces regeneration with `npm run
+vercel:routing:check` (repo-hygiene job). Deploy-time builds and smoke tests
 override the committed default with the GitHub repo variable
 `AURA_BACKEND_ORIGIN` (fallback `AWS_BACKEND_BASE_URL`).
 
@@ -36,8 +36,8 @@ override the committed default with the GitHub repo variable
 1. Set the repo variable:
    `gh variable set AURA_BACKEND_ORIGIN --body "https://<new-origin>"`
 2. Regenerate and commit:
-   `AURA_BACKEND_ORIGIN=https://<new-origin> npm run configs:sync` → one commit
-   containing every generated file (CI's `configs:sync-check` fails if any copy
+   `AURA_BACKEND_ORIGIN=https://<new-origin> npm run vercel:routing:sync` → one commit
+   containing every generated file (the existing `vercel:routing:check` gate fails if any copy
    was missed).
 3. AWS S3/CloudFront lane (infra, not rebuild): re-run
    `infra/aws/bootstrap-frontend-cloudfront.ps1` with
@@ -51,7 +51,7 @@ override the committed default with the GitHub repo variable
 
 ## Guards that keep this honest
 
-- `npm run configs:sync-check` — fails any PR whose committed generated files
+- `npm run vercel:routing:sync-check` — fails any PR whose committed generated files
   drift from the contract (wired into the frontend-quality CI job).
 - `scripts/security/check-csp-drift.mjs` — the seven CSP copies must stay
   byte-identical (app/index.html, vercel.json, netlify.toml, render.yaml,

@@ -27,6 +27,7 @@ COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node server ./
 COPY --chown=node:node shared/assistantCapabilities.json /shared/assistantCapabilities.json
 COPY --chown=node:node config/desktopAuthLoopback.cjs /config/desktopAuthLoopback.cjs
+COPY --chown=node:node config/backend-origin.json /config/backend-origin.json
 RUN mkdir -p uploads && chown -R node:node /app
 
 EXPOSE 5000
