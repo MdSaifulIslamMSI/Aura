@@ -1,0 +1,9 @@
+{
+  "allowed": [
+    {
+      "name": "lodash",
+      "reason": "fixture: long expired",
+      "expires": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

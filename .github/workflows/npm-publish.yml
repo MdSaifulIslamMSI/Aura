@@ -1,0 +1,112 @@
+name: npm publish
+
+# Releases the open-source packages under packages/ to npm as @aurasec/*.
+#
+# Two ways to run:
+#   1. workflow_dispatch — pick the package directory; optionally dry-run.
+#   2. push a tag `publish-<package-dir>-v<semver>` (e.g.
+#      publish-supply-chain-gates-v1.0.0). The tag version must equal the
+#      package.json version.
+#
+# Auth: npm provenance is generated from the workflow's OIDC token
+# (id-token: write). Publishing authenticates with the NPM_TOKEN secret when
+# present; otherwise npm falls back to OIDC trusted publishing, which requires
+# the package to be configured on npmjs.com for this repo+workflow (see
+# packages/README.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory under packages/
+        required: true
+        type: choice
+        options:
+          - supply-chain-gates
+          - route-security-matrix
+      dry_run:
+        description: Run npm publish with --dry-run (no release)
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'publish-supply-chain-gates-v*'
+      - 'publish-route-security-matrix-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish @aurasec package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # npm provenance (OIDC trusted publishing)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          # Publishing workflow: no dependency cache — keeps the zizmor
+          # cache-poisoning audit clean for a job that runs npm publish.
+          package-manager-cache: false
+      - name: Resolve package directory
+        id: pkg
+        env:
+          DISPATCH_PACKAGE: ${{ inputs.package }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            dir="${DISPATCH_PACKAGE}"
+          else
+            dir="${REF_NAME#publish-}"
+            dir="${dir%-v*}"
+          fi
+          case "${dir}" in
+            supply-chain-gates|route-security-matrix) ;;
+            *) echo "unsupported package directory: ${dir}" >&2; exit 2 ;;
+          esac
+          echo "dir=${dir}" >> "${GITHUB_OUTPUT}"
+      - name: Verify release ref matches package.json version
+        if: github.event_name == 'push'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PKG_DIR: ${{ steps.pkg.outputs.dir }}
+        run: |
+          set -euo pipefail
+          tag_version="${REF_NAME##*-v}"
+          pkg_version="$(node -p "require('./packages/' + process.env.PKG_DIR + '/package.json').version")"
+          if [ "${tag_version}" != "${pkg_version}" ]; then
+            echo "tag ${REF_NAME} does not match packages/${PKG_DIR} version ${pkg_version}" >&2
+            exit 1
+          fi
+      - name: Install and test
+        env:
+          PKG_DIR: ${{ steps.pkg.outputs.dir }}
+        run: |
+          set -euo pipefail
+          cd "packages/${PKG_DIR}"
+          if [ -f package-lock.json ]; then
+            npm ci --no-fund --no-audit
+          fi
+          npm test
+      - name: Publish
+        env:
+          PKG_DIR: ${{ steps.pkg.outputs.dir }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "packages/${PKG_DIR}"
+          args=(--provenance --access public)
+          if [ "${DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          npm publish "${args[@]}"

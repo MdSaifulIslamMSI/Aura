@@ -1,0 +1,9 @@
+{
+  "allowed": [
+    {
+      "name": "lodash",
+      "reason": "fixture: urgent security fix",
+      "expires": "2099-01-01T00:00:00.000Z"
+    }
+  ]
+}
