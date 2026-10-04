@@ -72,7 +72,7 @@ test('registry: missing integrity hash fails', () => {
 test('registry: tarball path not matching name@version fails', () => {
     const result = checkRegistry({ lockfiles: [fixture('registry', 'tarball-mismatch', 'package-lock.json')] });
     assert.equal(result.ok, false);
-    assert.match(result.errors[0], /tarball path does not match lodash@4\.17\.21/);
+    assert.match(result.errors[0], /tarball path does not match lodash@4\.18\.0/);
 });
 
 // ---------------------------------------------------------------- freshness

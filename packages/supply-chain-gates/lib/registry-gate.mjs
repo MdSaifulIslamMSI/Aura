@@ -68,8 +68,8 @@ export const checkRegistry = ({ lockfiles, registryHost = DEFAULT_REGISTRY_HOST,
                 errors.push(`${lockfilePath}: "${entryPath}" tarball path does not match ${declaredName}@${version}: ${resolved}`);
                 continue;
             }
-            // sha512 only — weaker legacy hash acceptance (sha1) is exactly what
-            // a collision attack against a lockfile needs.
+            // sha512 only — accepting weaker legacy digests is exactly what a
+            // collision attack against a lockfile needs.
             if (!/^sha512-/.test(String(entry.integrity || ''))) {
                 errors.push(`${lockfilePath}: "${entryPath}" is missing a sha512 integrity hash.`);
                 continue;
