@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_HOSTED_BACKEND_ORIGIN } from '../app/config/vercelRoutingContract.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -9,8 +10,12 @@ export const BACKEND_PROXY_PATHS = ['/api', '/health', '/uploads', '/socket.io']
 export const STAGING_SSM_PREFIX = '/aura/staging';
 export const PRODUCTION_SSM_PREFIX = '/aura/prod';
 
+// The backend edge host is single-sourced from the routing contract
+// (app/config/vercelRoutingContract.mjs) so validator and config stay aligned.
+const BACKEND_EDGE_HOST = new URL(DEFAULT_HOSTED_BACKEND_ORIGIN).hostname;
+
 export const KNOWN_PRODUCTION_HOSTS = [
-  'dbtrhsolhec1s.cloudfront.net',
+  BACKEND_EDGE_HOST,
   'aurapilot.vercel.app',
   'aura-gateway.vercel.app',
   'aurapilot.netlify.app',
