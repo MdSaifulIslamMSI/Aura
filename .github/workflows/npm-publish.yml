@@ -55,6 +55,9 @@ jobs:
           # Publishing workflow: no dependency cache — keeps the zizmor
           # cache-poisoning audit clean for a job that runs npm publish.
           package-manager-cache: false
+          # Writes //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} into the
+          # runner .npmrc — without this line npm ignores NODE_AUTH_TOKEN.
+          registry-url: 'https://registry.npmjs.org'
       - name: Resolve package directory
         id: pkg
         env:
