@@ -16,8 +16,8 @@
     "test": "node --test"
   },
   "devDependencies": {
-    "express": "^4.21.2",
-    "supertest": "^7.0.0"
+    "express": "^5.2.1",
+    "supertest": "^7.3.0"
   },
   "keywords": [
     "express",
