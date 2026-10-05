@@ -283,9 +283,9 @@
     "http-proxy-middleware": "^4.2.0"
   },
   "devDependencies": {
-    "electron": "^44.3.0",
+    "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "knip": "^6.35.1"
+    "knip": "^6.39.0"
   },
   "overrides": {
     "@electron/asar": "^4.2.0",
