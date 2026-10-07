@@ -92,6 +92,13 @@ export default function SettingsSection({
     const recoveryReady = mfaFactorReady && passkeyRecoveryReady && !shouldEnrollRecoveryCodes;
     const mfaEnabledByDeployment = mfaFlags?.enabled !== false;
     const passkeyEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.passkeyEnabled !== false;
+    // WebAuthn credentials are bound to the deployed relying-party ID
+    // (AUTH_WEBAUTHN_RP_ID, aurapilot.vercel.app in production). Browsers
+    // refuse passkey ceremonies on any other origin, so the registration
+    // control is only offered on lanes where it can actually work.
+    const passkeyCapableOnThisOrigin = /(^|\.)aurapilot\.vercel\.app$/i.test(window.location.hostname)
+        || ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const passkeyRegistrationAvailable = passkeyEnabledByDeployment && passkeyCapableOnThisOrigin;
     const totpEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.totpEnabled !== false;
     const trustedDevices = Array.isArray(mfaStatus?.trustedDevices) ? mfaStatus.trustedDevices : [];
     const orderedTrustedDevices = [...trustedDevices].sort((left, right) => {
@@ -402,7 +409,8 @@ export default function SettingsSection({
                                 <button
                                     type="button"
                                     onClick={handleRegisterMfaPasskey}
-                                    disabled={mfaPasskeyWorking || !passkeyEnabledByDeployment || !handleRegisterMfaPasskey}
+                                    disabled={mfaPasskeyWorking || !passkeyRegistrationAvailable || !handleRegisterMfaPasskey}
+                                    title={passkeyRegistrationAvailable ? undefined : 'Passkey enrollment requires the primary storefront lane.'}
                                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     <KeyRound className="h-4 w-4" />

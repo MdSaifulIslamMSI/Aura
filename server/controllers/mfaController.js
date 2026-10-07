@@ -290,6 +290,7 @@ const respondWithAuthenticatedSession = ({
     method,
     message = 'MFA verification successful.',
     deviceVerification = null,
+    recoveryCodes = null,
 } = {}) => {
     recordAuthSecurityEvent({
         event: 'mfa.challenge.consumed',
@@ -307,6 +308,13 @@ const respondWithAuthenticatedSession = ({
             ? {
                 deviceSessionToken: deviceVerification.deviceSessionToken,
                 expiresAt: deviceVerification.expiresAt || null,
+            }
+            : {}),
+        ...(recoveryCodes
+            ? {
+                recoveryCodes: recoveryCodes.codes,
+                recoveryCodeState: recoveryCodes.recoveryCodeState,
+                recoveryReadiness: recoveryCodes.recoveryReadiness || null,
             }
             : {}),
         ...buildSessionPayload({
@@ -637,12 +645,56 @@ const passkeyRegisterVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     assertAdminPasskeyEnrollmentAssurance(req);
     if (!startTrafficBudgetCommit(req, res)) return undefined;
+    // Capture the pre-enrollment state: a transition from "no MFA at all" to
+    // "passkey enrolled" must hand the user recovery codes in the same
+    // response — passkey enrollment otherwise silently binds MFA to this one
+    // browser with no fallback on any other device (2026-10-06 audit).
+    const priorState = await User.findById(req.user?._id, 'mfa.enabled mfa.passkeys').lean();
+    const firstFactorEnrollment = !(priorState?.mfa?.enabled)
+        && !(priorState?.mfa?.passkeys || []).length;
     const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-register' });
     const user = await syncPasskeyMfaState({
         userId: req.user?._id,
         trustedDevice: verification.trustedDevice,
     });
     await persistMfaSession({ req, res, user, method: MFA_METHODS.PASSKEY });
+
+    let recoveryCodes = null;
+    if (firstFactorEnrollment && resolveMfaConfig().recoveryCodesEnabled) {
+        try {
+            const result = await generateRecoveryCodes({
+                userId: String(req.user._id),
+                requirePasskey: true,
+            });
+            recoveryCodes = {
+                codes: result.codes,
+                recoveryCodeState: result.recoveryCodeState,
+                readiness: result.readiness || null,
+            };
+            recordAuthSecurityEvent({
+                event: 'recovery_code',
+                outcome: 'issued',
+                reason: 'none',
+                meta: { reasonCode: 'first_passkey_enrollment' },
+                surface: 'recovery',
+                req,
+                meta: { activeCount: result.recoveryCodeState?.activeCount || 0 },
+            });
+        } catch (error) {
+            // The passkey is already enrolled — failing the whole response
+            // would not un-enroll it. Log loudly; the user can still generate
+            // codes from the security center on this device.
+            recordAuthSecurityEvent({
+                event: 'recovery_code',
+                outcome: 'failed',
+                reason: 'none',
+                surface: 'recovery',
+                req,
+                meta: { error: String(error?.message || error).slice(0, 120) },
+            });
+        }
+    }
+
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(user?.email || '');
     recordAuthSecurityEvent({
@@ -659,6 +711,7 @@ const passkeyRegisterVerify = asyncHandler(async (req, res) => {
         method: MFA_METHODS.PASSKEY,
         message: 'Passkey registered.',
         deviceVerification: verification,
+        recoveryCodes,
     });
 });
 

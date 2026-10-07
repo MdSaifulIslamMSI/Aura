@@ -792,7 +792,13 @@ const verifyWebAuthnAssertion = ({
 
     const nextCounter = Number(authenticatorData.signCount || 0);
     const previousCounter = Number(storedCounter || 0);
-    if (previousCounter > 0 && nextCounter > 0 && nextCounter <= previousCounter) {
+    // Synced (backup-eligible) credentials assert from multiple devices whose
+    // counters legitimately diverge — per WebAuthn guidance their counter is
+    // not a reliable clone signal, so the regression check is skipped for
+    // them. Device-bound credentials keep the strict check.
+    const counterComparable = previousCounter > 0 && nextCounter > 0;
+    const isSyncedCredential = Boolean(authenticatorData.backupEligible);
+    if (counterComparable && !isSyncedCredential && nextCounter <= previousCounter) {
         throw new Error('WebAuthn signature counter regression detected');
     }
 
