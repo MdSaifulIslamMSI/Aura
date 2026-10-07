@@ -1,18 +1,11 @@
 {
   "exceptions": [
     {
-      "reason": "GHSA-vfj7-8cjw-p6xm / CVE-2026-93687 (braces stack-exhaustion ReDoS, CWE-674, CVSS 7.5) affects every braces version including the latest 3.0.3, so no upgraded release exists to pin. braces is only reached through build/proxy tooling (micromatch, http-proxy-middleware) with trusted internal configuration, never from untrusted user-supplied glob patterns. Scoped by advisory id so the transitive micromatch and http-proxy-middleware findings resolve to the same acceptance. Re-evaluate when a patched braces release ships.",
+      "reason": "GHSA-vfj7-8cjw-p6xm / CVE-2026-93687 (braces stack-exhaustion ReDoS, CWE-674, CVSS 7.5) affects every braces version including the latest 3.0.3, so no upgraded release exists to pin (first_patched_version is null). braces is only reached through build/proxy tooling (micromatch, http-proxy-middleware) with trusted internal configuration, never from untrusted user-supplied glob patterns: the only consumer is desktop/runtimeServer.cjs buildProxyOptions(), which passes static proxy options with no pathFilter or glob pattern, so request-controlled input never reaches micromatch brace expansion. Scoped by advisory id so the transitive micromatch and http-proxy-middleware findings resolve to the same acceptance. Expiry matches osv-scanner.toml, app/osv-scanner.toml, and .trivyignore.yaml (2026-12-31); Dependabot alert #63 was dismissed as tolerable_risk on 2026-10-07 to mirror this record. Re-evaluate when a patched braces release ships.",
       "expires": "2026-12-31",
       "advisoryIds": [
         "GHSA-vfj7-8cjw-p6xm"
       ]
-    },
-    {
-      "advisoryIds": [
-        "GHSA-vfj7-8cjw-p6xm"
-      ],
-      "reason": "braces <=3.0.3 stack-exhaustion ReDoS (CVE-2026-93687): no patched release exists yet (first_patched_version null; 3.0.3 is the latest published). Transitive under the root express/http-proxy tree; parser inputs are request URLs of the proxy path with bounded length. Re-evaluate when upstream ships a fix.",
-      "expires": "2027-01-05"
     }
   ]
 }
