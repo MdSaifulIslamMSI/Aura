@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "सुरक्षितं पुनर्प्राप्तिं उद्घाटयतु",
   "profile.settings.security.opening": "उद्घाटन...",
   "profile.settings.security.otpLabel": "ओटीपी रुख",
+  "profile.settings.security.passkeyLaneUnavailable": "पासकी पञ्जीकरणाय प्राथमिक स्टोरफ्रण्ट लेन आवश्यकम्।",
   "profile.settings.security.passkeyRegister": "रजिस्टर पासकी",
   "profile.settings.security.passkeyRegistering": "पञ्जीकरणं...",
   "profile.settings.security.passkeysAndMfaTitle": "पासकीज तथा एमएफए",

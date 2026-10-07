@@ -3184,6 +3184,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "తెరుస్తోంది...",
   "profile.settings.security.openRecovery": "సురక్షితమైన రికవరీని తెరవండి",
   "profile.settings.security.otpLabel": "OTP వైఖరి",
+  "profile.settings.security.passkeyLaneUnavailable": "పాస్‌కీ నమోదు కోసం ప్రధాన స్టోర్‌ఫ్రంట్ లేన్ అవసరం.",
   "profile.settings.security.passkeyRegister": "పాస్‌కీని నమోదు చేయండి",
   "profile.settings.security.passkeyRegistering": "నమోదు చేస్తోంది...",
   "profile.settings.security.passkeysAndMfaTitle": "పాస్‌కీలు మరియు MFA",

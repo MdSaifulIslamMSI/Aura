@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "开幕...",
   "profile.settings.security.openRecovery": "打开安全恢复",
   "profile.settings.security.otpLabel": "OTP姿势",
+  "profile.settings.security.passkeyLaneUnavailable": "注册密钥需要主店面通道。",
   "profile.settings.security.passkeyRegister": "注册密钥",
   "profile.settings.security.passkeyRegistering": "注册...",
   "profile.settings.security.passkeysAndMfaTitle": "万能钥匙和 MFA",

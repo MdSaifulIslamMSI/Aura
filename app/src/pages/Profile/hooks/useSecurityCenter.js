@@ -326,19 +326,35 @@ export function useSecurityCenter({
 
         setMfaPasskeyWorking(true);
         try {
-            await registerMfaPasskey();
+            const result = await registerMfaPasskey();
             await Promise.all([
                 refreshMfaCenter({ silent: true }),
                 refreshProfileDeck({ silent: true }),
             ]);
-            showMsg('success', t('profile.message.passkeyRegistered', {}, 'Passkey MFA registered.'));
+            // A first-factor enrollment (no prior MFA) returns one-time backup
+            // recovery codes: without them the passkey binds MFA to this single
+            // browser with no fallback on any other device.
+            const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
+            if (nextCodes.length) {
+                setVisibleRecoveryCodes(nextCodes);
+                showMsg(
+                    'success',
+                    t(
+                        'profile.message.recoveryCodesGenerated',
+                        { count: nextCodes.length },
+                        `${nextCodes.length} backup recovery codes generated. They are shown once.`,
+                    ),
+                );
+            } else {
+                showMsg('success', t('profile.message.passkeyRegistered', {}, 'Passkey MFA registered.'));
+            }
             trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PASSKEY_ADDED);
         } catch (error) {
             showMsg('error', error.message || t('profile.message.passkeyRegisterFailed', {}, 'Could not register this passkey.'));
         } finally {
             setMfaPasskeyWorking(false);
         }
-    }, [refreshMfaCenter, refreshProfileDeck, registerMfaPasskey, showMsg, t]);
+    }, [refreshMfaCenter, refreshProfileDeck, registerMfaPasskey, setVisibleRecoveryCodes, showMsg, t]);
 
     const applyTrustedDeviceMutation = useCallback(async ({ actionKey, operation, successMessage }) => {
         setTrustedDeviceAction(actionKey);

@@ -679,7 +679,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 127,
+      "messageIdCount": 128,
       "messageIds": [
         "common.cancel",
         "common.confirm",
@@ -751,6 +751,7 @@
         "profile.settings.security.openRecovery",
         "profile.settings.security.opening",
         "profile.settings.security.otpLabel",
+        "profile.settings.security.passkeyLaneUnavailable",
         "profile.settings.security.passkeyRegister",
         "profile.settings.security.passkeyRegistering",
         "profile.settings.security.passkeysAndMfaTitle",
@@ -810,7 +811,7 @@
         "profile.settings.trust.warning"
       ],
       "risk": "high",
-      "stableLiteralCount": 130,
+      "stableLiteralCount": 131,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -4666,7 +4667,7 @@
         "profile.message.trustedDeviceUnavailable"
       ],
       "risk": "low",
-      "stableLiteralCount": 38,
+      "stableLiteralCount": 39,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6150,7 +6151,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-10-03T17:25:52.704Z",
+  "generatedAt": "2026-10-07T13:26:59.510Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -51703,7 +51704,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your security settings could not be loaded. Your factors and devices have not been changed.",
-      "line": 116,
+      "line": 123,
       "reason": ""
     },
     {
@@ -51716,7 +51717,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No recent check timestamp",
-      "line": 158,
+      "line": 165,
       "reason": ""
     },
     {
@@ -51729,7 +51730,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Never",
-      "line": 163,
+      "line": 170,
       "reason": ""
     },
     {
@@ -51742,7 +51743,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown",
-      "line": 165,
+      "line": 172,
       "reason": ""
     },
     {
@@ -51755,7 +51756,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security",
-      "line": 222,
+      "line": 229,
       "reason": ""
     },
     {
@@ -51768,7 +51769,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password",
-      "line": 228,
+      "line": 235,
       "reason": ""
     },
     {
@@ -51781,7 +51782,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password recovery now follows the same email + phone OTP flow as sign-in.",
-      "line": 229,
+      "line": 236,
       "reason": ""
     },
     {
@@ -51794,7 +51795,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add a verified email and registered phone to unlock secure recovery from this panel.",
-      "line": 232,
+      "line": 239,
       "reason": ""
     },
     {
@@ -51807,7 +51808,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Opening...",
-      "line": 242,
+      "line": 249,
       "reason": ""
     },
     {
@@ -51820,7 +51821,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Secure Recovery",
-      "line": 243,
+      "line": 250,
       "reason": ""
     },
     {
@@ -51833,7 +51834,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked sign-in providers",
-      "line": 254,
+      "line": 261,
       "reason": ""
     },
     {
@@ -51846,7 +51847,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attach another provider after signing in with the method that already owns this email.",
-      "line": 257,
+      "line": 264,
       "reason": ""
     },
     {
@@ -51861,7 +51862,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked",
-      "line": 274,
+      "line": 281,
       "reason": ""
     },
     {
@@ -51876,7 +51877,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linking {{provider}}...",
-      "line": 276,
+      "line": 283,
       "reason": ""
     },
     {
@@ -51891,7 +51892,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Link {{provider}}",
-      "line": 277,
+      "line": 284,
       "reason": ""
     },
     {
@@ -51904,7 +51905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading security settings",
-      "line": 292,
+      "line": 299,
       "reason": ""
     },
     {
@@ -51917,7 +51918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking your passkeys, MFA methods, trusted credentials, and remembered browsers.",
-      "line": 295,
+      "line": 302,
       "reason": ""
     },
     {
@@ -51930,7 +51931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security settings could not load",
-      "line": 309,
+      "line": 316,
       "reason": ""
     },
     {
@@ -51945,7 +51946,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reference: {{reference}}",
-      "line": 314,
+      "line": 321,
       "reason": ""
     },
     {
@@ -51958,7 +51959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Showing the last security settings loaded on this page.",
-      "line": 319,
+      "line": 326,
       "reason": ""
     },
     {
@@ -51971,7 +51972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retrying...",
-      "line": 332,
+      "line": 339,
       "reason": ""
     },
     {
@@ -51984,7 +51985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry",
-      "line": 333,
+      "line": 340,
       "reason": ""
     },
     {
@@ -51997,7 +51998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refreshing security settings...",
-      "line": 342,
+      "line": 349,
       "reason": ""
     },
     {
@@ -52010,7 +52011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA ready",
-      "line": 378,
+      "line": 385,
       "reason": ""
     },
     {
@@ -52023,7 +52024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA available",
-      "line": 379,
+      "line": 386,
       "reason": ""
     },
     {
@@ -52036,7 +52037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking factors...",
-      "line": 383,
+      "line": 390,
       "reason": ""
     },
     {
@@ -52052,7 +52053,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{passkeys}} passkeys | {{totp}} authenticator apps",
-      "line": 384,
+      "line": 391,
       "reason": ""
     },
     {
@@ -52065,7 +52066,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passkeys and MFA",
-      "line": 393,
+      "line": 400,
       "reason": ""
     },
     {
@@ -52080,7 +52081,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current policy: {{reason}}",
-      "line": 397,
+      "line": 404,
       "reason": ""
     },
     {
@@ -52093,7 +52094,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passkeys, authenticator app codes, and one-time recovery codes protect sign-in and sensitive account changes.",
-      "line": 398,
+      "line": 405,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Passkey enrollment requires the primary storefront lane.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Passkey enrollment requires the primary storefront lane.",
+      "id": "profile.settings.security.passkeyLaneUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Passkey enrollment requires the primary storefront lane.",
+      "line": 415,
       "reason": ""
     },
     {
@@ -52106,7 +52120,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Registering...",
-      "line": 410,
+      "line": 420,
       "reason": ""
     },
     {
@@ -52119,7 +52133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Register passkey",
-      "line": 411,
+      "line": 421,
       "reason": ""
     },
     {
@@ -52132,7 +52146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Starting...",
-      "line": 421,
+      "line": 431,
       "reason": ""
     },
     {
@@ -52145,7 +52159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rotate app key",
-      "line": 423,
+      "line": 433,
       "reason": ""
     },
     {
@@ -52158,7 +52172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Set up app",
-      "line": 424,
+      "line": 434,
       "reason": ""
     },
     {
@@ -52171,7 +52185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No MFA method enrolled yet",
-      "line": 432,
+      "line": 442,
       "reason": ""
     },
     {
@@ -52184,7 +52198,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Register a passkey or set up an authenticator app to add a second sign-in factor.",
-      "line": 435,
+      "line": 445,
       "reason": ""
     },
     {
@@ -52197,7 +52211,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator setup QR code",
-      "line": 445,
+      "line": 455,
       "reason": ""
     },
     {
@@ -52210,7 +52224,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator pending",
-      "line": 456,
+      "line": 466,
       "reason": ""
     },
     {
@@ -52223,7 +52237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Authenticator code",
-      "line": 469,
+      "line": 479,
       "reason": ""
     },
     {
@@ -52236,7 +52250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "6-digit code",
-      "line": 471,
+      "line": 481,
       "reason": ""
     },
     {
@@ -52249,7 +52263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verifying...",
-      "line": 481,
+      "line": 491,
       "reason": ""
     },
     {
@@ -52262,7 +52276,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify app",
-      "line": 482,
+      "line": 492,
       "reason": ""
     },
     {
@@ -52277,7 +52291,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active",
-      "line": 499,
+      "line": 509,
       "reason": ""
     },
     {
@@ -52290,7 +52304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This browser is identified",
-      "line": 503,
+      "line": 513,
       "reason": ""
     },
     {
@@ -52303,7 +52317,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This session is not bound to a managed device",
-      "line": 507,
+      "line": 517,
       "reason": ""
     },
     {
@@ -52316,7 +52330,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted credentials and remembered browsers",
-      "line": 513,
+      "line": 523,
       "reason": ""
     },
     {
@@ -52329,7 +52343,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 517,
+      "line": 527,
       "reason": ""
     },
     {
@@ -52342,7 +52356,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
-      "line": 518,
+      "line": 528,
       "reason": ""
     },
     {
@@ -52355,7 +52369,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking...",
-      "line": 532,
+      "line": 542,
       "reason": ""
     },
     {
@@ -52370,7 +52384,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm revoke {{count}}",
-      "line": 534,
+      "line": 544,
       "reason": ""
     },
     {
@@ -52383,7 +52397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke all others",
-      "line": 535,
+      "line": 545,
       "reason": ""
     },
     {
@@ -52396,7 +52410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 543,
+      "line": 553,
       "reason": ""
     },
     {
@@ -52409,7 +52423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
-      "line": 553,
+      "line": 563,
       "reason": ""
     },
     {
@@ -52422,7 +52436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No trusted credentials or remembered browsers",
-      "line": 561,
+      "line": 571,
       "reason": ""
     },
     {
@@ -52435,7 +52449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
-      "line": 564,
+      "line": 574,
       "reason": ""
     },
     {
@@ -52448,7 +52462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin passkey",
-      "line": 578,
+      "line": 588,
       "reason": ""
     },
     {
@@ -52461,7 +52475,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA passkey",
-      "line": 580,
+      "line": 590,
       "reason": ""
     },
     {
@@ -52474,7 +52488,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recognition passkey",
-      "line": 581,
+      "line": 591,
       "reason": ""
     },
     {
@@ -52487,7 +52501,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remembered browser - not MFA",
-      "line": 582,
+      "line": 592,
       "reason": ""
     },
     {
@@ -52500,7 +52514,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Synced passkey",
-      "line": 585,
+      "line": 595,
       "reason": ""
     },
     {
@@ -52513,7 +52527,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sync eligible",
-      "line": 587,
+      "line": 597,
       "reason": ""
     },
     {
@@ -52526,7 +52540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device-bound or sync unknown",
-      "line": 588,
+      "line": 598,
       "reason": ""
     },
     {
@@ -52539,7 +52553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Device name",
-      "line": 602,
+      "line": 612,
       "reason": ""
     },
     {
@@ -52554,7 +52568,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Name for {{device}}",
-      "line": 609,
+      "line": 619,
       "reason": ""
     },
     {
@@ -52567,7 +52581,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current",
-      "line": 617,
+      "line": 627,
       "reason": ""
     },
     {
@@ -52582,7 +52596,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last verified {{date}}",
-      "line": 630,
+      "line": 640,
       "reason": ""
     },
     {
@@ -52595,7 +52609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh passkey verification is required before this credential can protect admin actions.",
-      "line": 635,
+      "line": 645,
       "reason": ""
     },
     {
@@ -52608,7 +52622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking this device signs you out and removes its local trust identity.",
-      "line": 640,
+      "line": 650,
       "reason": ""
     },
     {
@@ -52621,7 +52635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saving...",
-      "line": 656,
+      "line": 666,
       "reason": ""
     },
     {
@@ -52634,7 +52648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Save",
-      "line": 656,
+      "line": 666,
       "reason": ""
     },
     {
@@ -52647,7 +52661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel rename",
-      "line": 662,
+      "line": 672,
       "reason": ""
     },
     {
@@ -52660,7 +52674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 665,
+      "line": 675,
       "reason": ""
     },
     {
@@ -52675,7 +52689,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rename {{device}}",
-      "line": 674,
+      "line": 684,
       "reason": ""
     },
     {
@@ -52688,7 +52702,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rename",
-      "line": 677,
+      "line": 687,
       "reason": ""
     },
     {
@@ -52703,7 +52717,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm revoke {{device}}",
-      "line": 686,
+      "line": 696,
       "reason": ""
     },
     {
@@ -52718,7 +52732,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke {{device}}",
-      "line": 687,
+      "line": 697,
       "reason": ""
     },
     {
@@ -52731,7 +52745,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoking...",
-      "line": 691,
+      "line": 701,
       "reason": ""
     },
     {
@@ -52744,7 +52758,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm",
-      "line": 693,
+      "line": 703,
       "reason": ""
     },
     {
@@ -52757,7 +52771,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke & sign out",
-      "line": 695,
+      "line": 705,
       "reason": ""
     },
     {
@@ -52770,7 +52784,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Revoke",
-      "line": 696,
+      "line": 706,
       "reason": ""
     },
     {
@@ -52783,7 +52797,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cancel",
-      "line": 704,
+      "line": 714,
       "reason": ""
     },
     {
@@ -52796,7 +52810,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery ready",
-      "line": 724,
+      "line": 734,
       "reason": ""
     },
     {
@@ -52809,7 +52823,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery action",
-      "line": 725,
+      "line": 735,
       "reason": ""
     },
     {
@@ -52824,7 +52838,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active backup codes",
-      "line": 728,
+      "line": 738,
       "reason": ""
     },
     {
@@ -52837,7 +52851,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MFA backup recovery codes",
-      "line": 737,
+      "line": 747,
       "reason": ""
     },
     {
@@ -52850,7 +52864,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.",
-      "line": 741,
+      "line": 751,
       "reason": ""
     },
     {
@@ -52863,7 +52877,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add a passkey or authenticator app first. Backup recovery codes are available after MFA is enrolled.",
-      "line": 742,
+      "line": 752,
       "reason": ""
     },
     {
@@ -52876,7 +52890,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This account has MFA protection but no backup codes yet. Generate them after a fresh security checkpoint.",
-      "line": 746,
+      "line": 756,
       "reason": ""
     },
     {
@@ -52889,7 +52903,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generating...",
-      "line": 758,
+      "line": 768,
       "reason": ""
     },
     {
@@ -52902,7 +52916,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Regenerate codes",
-      "line": 760,
+      "line": 770,
       "reason": ""
     },
     {
@@ -52915,7 +52929,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Generate codes",
-      "line": 761,
+      "line": 771,
       "reason": ""
     },
     {
@@ -52928,7 +52942,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shown once",
-      "line": 770,
+      "line": 780,
       "reason": ""
     },
     {
@@ -52941,7 +52955,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "These codes are not stored in readable form after this moment. Each one works only once.",
-      "line": 773,
+      "line": 783,
       "reason": ""
     },
     {
@@ -52954,7 +52968,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Copy",
-      "line": 783,
+      "line": 793,
       "reason": ""
     },
     {
@@ -52967,7 +52981,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Download .txt",
-      "line": 791,
+      "line": 801,
       "reason": ""
     },
     {
@@ -52980,7 +52994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hide",
-      "line": 798,
+      "line": 808,
       "reason": ""
     },
     {
@@ -52993,7 +53007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP posture",
-      "line": 817,
+      "line": 827,
       "reason": ""
     },
     {
@@ -53006,7 +53020,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ready",
-      "line": 819,
+      "line": 829,
       "reason": ""
     },
     {
@@ -53019,7 +53033,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Incomplete",
-      "line": 819,
+      "line": 829,
       "reason": ""
     },
     {
@@ -53032,7 +53046,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email and phone are ready for stronger account assurance.",
-      "line": 823,
+      "line": 833,
       "reason": ""
     },
     {
@@ -53045,7 +53059,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add or correct a phone number to unlock stronger identity protection.",
-      "line": 824,
+      "line": 834,
       "reason": ""
     },
     {
@@ -53058,7 +53072,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment posture",
-      "line": 829,
+      "line": 839,
       "reason": ""
     },
     {
@@ -53071,7 +53085,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tokenized",
-      "line": 831,
+      "line": 841,
       "reason": ""
     },
     {
@@ -53084,7 +53098,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review needed",
-      "line": 831,
+      "line": 841,
       "reason": ""
     },
     {
@@ -53099,7 +53113,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} saved payment methods with a default secured method active.",
-      "line": 835,
+      "line": 845,
       "reason": ""
     },
     {
@@ -53114,7 +53128,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} saved payment methods and no trusted default method yet.",
-      "line": 836,
+      "line": 846,
       "reason": ""
     },
     {
@@ -53127,7 +53141,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust & Security Command Center",
-      "line": 846,
+      "line": 856,
       "reason": ""
     },
     {
@@ -53140,7 +53154,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Platform status",
-      "line": 851,
+      "line": 861,
       "reason": ""
     },
     {
@@ -53153,7 +53167,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking...",
-      "line": 854,
+      "line": 864,
       "reason": ""
     },
     {
@@ -53166,7 +53180,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Healthy",
-      "line": 856,
+      "line": 866,
       "reason": ""
     },
     {
@@ -53179,7 +53193,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Degraded",
-      "line": 857,
+      "line": 867,
       "reason": ""
     },
     {
@@ -53192,7 +53206,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity posture",
-      "line": 861,
+      "line": 871,
       "reason": ""
     },
     {
@@ -53205,7 +53219,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fortified",
-      "line": 863,
+      "line": 873,
       "reason": ""
     },
     {
@@ -53218,7 +53232,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Needs attention",
-      "line": 863,
+      "line": 873,
       "reason": ""
     },
     {
@@ -53231,7 +53245,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payment safety",
-      "line": 867,
+      "line": 877,
       "reason": ""
     },
     {
@@ -53244,7 +53258,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tokenized + default",
-      "line": 869,
+      "line": 879,
       "reason": ""
     },
     {
@@ -53257,7 +53271,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review needed",
-      "line": 869,
+      "line": 879,
       "reason": ""
     },
     {
@@ -53270,7 +53284,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last trust sweep",
-      "line": 877,
+      "line": 887,
       "reason": ""
     },
     {
@@ -53287,7 +53301,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Member since {{memberSince}}. Backend status: {{backend}} | DB: {{db}}",
-      "line": 881,
+      "line": 891,
       "reason": ""
     },
     {
@@ -53300,7 +53314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 885,
+      "line": 895,
       "reason": ""
     },
     {
@@ -53313,7 +53327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unknown",
-      "line": 886,
+      "line": 896,
       "reason": ""
     },
     {
@@ -53326,7 +53340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Some live trust checks are degraded. Core account actions still work, but use official support channels if behavior looks suspicious.",
-      "line": 895,
+      "line": 905,
       "reason": ""
     },
     {
@@ -53339,7 +53353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notification posture",
-      "line": 903,
+      "line": 913,
       "reason": ""
     },
     {
@@ -53352,7 +53366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety controls",
-      "line": 911,
+      "line": 921,
       "reason": ""
     },
     {
@@ -53365,7 +53379,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Security Policy",
-      "line": 915,
+      "line": 925,
       "reason": ""
     },
     {
@@ -53378,7 +53392,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Privacy Policy",
-      "line": 918,
+      "line": 928,
       "reason": ""
     },
     {
@@ -53391,7 +53405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Contact Support",
-      "line": 921,
+      "line": 931,
       "reason": ""
     },
     {
@@ -53404,7 +53418,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logout failed. Please try again.",
-      "line": 926,
+      "line": 936,
       "reason": ""
     },
     {
@@ -53417,7 +53431,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Log Out",
-      "line": 932,
+      "line": 942,
       "reason": ""
     },
     {
@@ -56086,7 +56100,22 @@
       "reason": ""
     },
     {
-      "column": 32,
+      "column": 21,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "{{count}} backup recovery codes generated. They are shown once.",
+      "file": "app/src/pages/Profile/hooks/useSecurityCenter.js",
+      "icuDefaultMessage": "{count} backup recovery codes generated. They are shown once.",
+      "id": "profile.message.recoveryCodesGenerated",
+      "interpolationTokens": [
+        "count"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "{{count}} backup recovery codes generated. They are shown once.",
+      "line": 342,
+      "reason": ""
+    },
+    {
+      "column": 36,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Passkey MFA registered.",
       "file": "app/src/pages/Profile/hooks/useSecurityCenter.js",
@@ -56095,7 +56124,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passkey MFA registered.",
-      "line": 334,
+      "line": 349,
       "reason": ""
     },
     {
@@ -56108,7 +56137,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not register this passkey.",
-      "line": 337,
+      "line": 353,
       "reason": ""
     },
     {
@@ -56121,7 +56150,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not update this trusted device.",
-      "line": 357,
+      "line": 373,
       "reason": ""
     },
     {
@@ -56134,7 +56163,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted-device management is unavailable in this session.",
-      "line": 367,
+      "line": 383,
       "reason": ""
     },
     {
@@ -56147,7 +56176,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted device renamed.",
-      "line": 372,
+      "line": 388,
       "reason": ""
     },
     {
@@ -56160,7 +56189,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted-device management is unavailable in this session.",
-      "line": 378,
+      "line": 394,
       "reason": ""
     },
     {
@@ -56173,7 +56202,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This device was revoked. You are being signed out.",
-      "line": 384,
+      "line": 400,
       "reason": ""
     },
     {
@@ -56186,7 +56215,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted device revoked.",
-      "line": 385,
+      "line": 401,
       "reason": ""
     },
     {
@@ -56199,7 +56228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trusted-device management is unavailable in this session.",
-      "line": 391,
+      "line": 407,
       "reason": ""
     },
     {
@@ -56212,7 +56241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Other trusted devices were revoked.",
-      "line": 396,
+      "line": 412,
       "reason": ""
     },
     {
@@ -56225,7 +56254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This browser session was revoked. You are being signed out.",
-      "line": 413,
+      "line": 429,
       "reason": ""
     },
     {
@@ -56238,7 +56267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browser session signed out.",
-      "line": 420,
+      "line": 436,
       "reason": ""
     },
     {
@@ -56251,7 +56280,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not sign out this browser session.",
-      "line": 423,
+      "line": 439,
       "reason": ""
     },
     {
@@ -56266,7 +56295,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} other browser session was signed out.",
-      "line": 440,
+      "line": 456,
       "reason": ""
     },
     {
@@ -56281,7 +56310,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} other browser sessions were signed out.",
-      "line": 445,
+      "line": 461,
       "reason": ""
     },
     {
@@ -56294,7 +56323,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not sign out the other browser sessions.",
-      "line": 453,
+      "line": 469,
       "reason": ""
     },
     {
@@ -56307,7 +56336,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Every browser session was revoked. You are being signed out.",
-      "line": 467,
+      "line": 483,
       "reason": ""
     },
     {
@@ -56320,7 +56349,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not sign out every browser session.",
-      "line": 476,
+      "line": 492,
       "reason": ""
     },
     {
@@ -56333,7 +56362,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backup recovery codes copied.",
-      "line": 492,
+      "line": 508,
       "reason": ""
     },
     {
@@ -56346,7 +56375,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not copy recovery codes from this browser.",
-      "line": 494,
+      "line": 510,
       "reason": ""
     },
     {
@@ -56359,7 +56388,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backup recovery codes downloaded.",
-      "line": 519,
+      "line": 535,
       "reason": ""
     },
     {
@@ -56374,7 +56403,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linking is not available in this build.",
-      "line": 528,
+      "line": 544,
       "reason": ""
     },
     {
@@ -56389,7 +56418,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete {{provider}} linking in the provider window.",
-      "line": 536,
+      "line": 552,
       "reason": ""
     },
     {
@@ -56404,7 +56433,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} is already linked to this account.",
-      "line": 541,
+      "line": 557,
       "reason": ""
     },
     {
@@ -56419,7 +56448,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked to this account.",
-      "line": 542,
+      "line": 558,
       "reason": ""
     },
     {
@@ -56434,7 +56463,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not link {{provider}}.",
-      "line": 544,
+      "line": 560,
       "reason": ""
     },
     {
@@ -60718,14 +60747,14 @@
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 100,
-    "productionStableReferences": 4132,
+    "productionStableReferences": 4134,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
     "sourceFilesScanned": 530,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 153,
-    "uniqueProductionStableIds": 3730,
+    "uniqueProductionStableIds": 3731,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -64088,6 +64117,7 @@
     "profile.settings.security.openRecovery",
     "profile.settings.security.opening",
     "profile.settings.security.otpLabel",
+    "profile.settings.security.passkeyLaneUnavailable",
     "profile.settings.security.passkeyRegister",
     "profile.settings.security.passkeyRegistering",
     "profile.settings.security.passkeysAndMfaTitle",

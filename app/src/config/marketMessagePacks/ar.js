@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "fttH...",
   "profile.settings.security.openRecovery": "ftH lstrdd lamn",
   "profile.settings.security.otpLabel": "mwqf mktb lmd`y l`m",
+  "profile.settings.security.passkeyLaneUnavailable": "تسجيل مفتاح المرور يتطلب المسار الأساسي للمتجر.",
   "profile.settings.security.passkeyRegister": "تسجيل مفتاح المرور",
   "profile.settings.security.passkeyRegistering": "جاري التسجيل...",
   "profile.settings.security.passkeysAndMfaTitle": "مفاتيح المرور وMFA",

@@ -3184,6 +3184,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "খোলা হচ্ছে...",
   "profile.settings.security.openRecovery": "নিরাপদ পুনরুদ্ধার খুলুন",
   "profile.settings.security.otpLabel": "OTP অবস্থান",
+  "profile.settings.security.passkeyLaneUnavailable": "পাসকি নিবন্ধনের জন্য প্রাথমিক স্টোরফ্রন্ট লেন প্রয়োজন।",
   "profile.settings.security.passkeyRegister": "পাসকি নিবন্ধন করুন",
   "profile.settings.security.passkeyRegistering": "নিবন্ধন করা হচ্ছে...",
   "profile.settings.security.passkeysAndMfaTitle": "পাসকি এবং এমএফএ",

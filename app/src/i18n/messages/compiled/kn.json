@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "ಸುರಕ್ಷಿತ ಚೇತರಿಕೆ ತೆರೆಯಿರಿ",
   "profile.settings.security.opening": "ತೆರೆಯಲಾಗುತ್ತಿದೆ...",
   "profile.settings.security.otpLabel": "OTP ನಿಲುವು",
+  "profile.settings.security.passkeyLaneUnavailable": "ಪಾಸ್‌ಕೀ ನೋಂದಾಯಿಸಲು ಮುಖ್ಯ ಸ್ಟೋರ್‌ಫ್ರಂಟ್ ಲೇನ್ ಅಗತ್ಯ.",
   "profile.settings.security.passkeyRegister": "ಪಾಸ್‌ಕೀಯನ್ನು ನೋಂದಾಯಿಸಿ",
   "profile.settings.security.passkeyRegistering": "ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ...",
   "profile.settings.security.passkeysAndMfaTitle": "ಪಾಸ್ಕೀಗಳು ಮತ್ತು MFA",

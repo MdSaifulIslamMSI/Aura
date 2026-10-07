@@ -358,4 +358,292 @@ describe('mfaController passkey response contract', () => {
         expect(consumeMfaChallenge).toHaveBeenCalledTimes(consumeCallsBeforeTimeout);
         expect(refreshBrowserSession).toHaveBeenCalledTimes(refreshCallsBeforeTimeout);
     });
+
+    test('issues recovery codes when a first passkey enrollment activates MFA', async () => {
+        let app;
+        let verifyTrustedDeviceChallenge;
+        let generateRecoveryCodes;
+        const priorUser = {
+            _id: '507f1f77bcf86cd799439015',
+            mfa: { enabled: false, passkeys: [] },
+        };
+        const enrolledUser = {
+            _id: priorUser._id,
+            name: 'First Factor User',
+            email: 'first-factor@example.test',
+            isVerified: true,
+            mfa: { enabled: true, defaultMethod: 'passkey', passkeys: [{ credentialId: 'fixture-new' }] },
+            recoveryCodeState: { activeCount: 2 },
+        };
+        const verifiedTrustedDevice = {
+            deviceId: 'device-passkey-first',
+            label: 'First passkey',
+            method: 'webauthn',
+            webauthnCredentialIdBase64Url: 'fixture-first-credential',
+            webauthnUserVerified: true,
+            credentialScope: 'mfa',
+            adminEligibility: 'none',
+            enrollmentContext: 'mfa_registration',
+        };
+
+        jest.isolateModules(() => {
+            process.env = { ...ORIGINAL_ENV };
+            process.env.MFA_ENABLED = 'true';
+            process.env.MFA_PASSKEY_ENABLED = 'true';
+
+            const priorQuery = {
+                select: jest.fn(() => priorQuery),
+                lean: jest.fn().mockResolvedValue(priorUser),
+            };
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => priorQuery),
+                findOneAndUpdate: jest.fn().mockResolvedValue(enrolledUser),
+            }));
+            verifyTrustedDeviceChallenge = jest.fn().mockResolvedValue({
+                success: true,
+                method: 'webauthn',
+                trustedDevice: verifiedTrustedDevice,
+                deviceSessionToken: 'fixture-enroll-session',
+                expiresAt: '2099-07-18T12:00:00.000Z',
+            });
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn((req) => ({
+                    deviceId: String(req.headers['x-aura-device-id'] || ''),
+                    deviceLabel: 'First passkey',
+                })),
+                getTrustedDeviceRegistration: jest.fn(() => null),
+                issueTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceChallenge,
+            }));
+            generateRecoveryCodes = jest.fn().mockResolvedValue({
+                codes: ['aura-code-one', 'aura-code-two'],
+                recoveryCodeState: { activeCount: 2 },
+                readiness: { ready: true },
+            });
+            jest.doMock('../services/recoveryCodeService', () => ({
+                generateRecoveryCodes,
+            }));
+            jest.doMock('../services/totpMfaService', () => ({}));
+            jest.doMock('../services/mfaChallengeService', () => ({
+                consumeMfaChallenge: jest.fn(),
+                createMfaChallenge: jest.fn(),
+                inspectMfaChallenge: jest.fn(),
+            }));
+            jest.doMock('../services/mfaPolicyService', () => ({
+                MFA_METHODS: { PASSKEY: 'passkey', TOTP: 'totp', RECOVERY_CODE: 'recovery_code' },
+                buildPublicMfaPolicy: jest.fn(),
+                evaluateAction: jest.fn(),
+                evaluateLogin: jest.fn().mockReturnValue({ mfaRequired: false }),
+                hasPasskey: jest.fn(),
+                hasTotp: jest.fn(),
+                isAdminSubject: jest.fn(() => false),
+                isCurrentLegacyAdminPasskeyCandidate: jest.fn(() => false),
+                isEligiblePasskeyMfaDevice: jest.fn(() => true),
+            }));
+            jest.doMock('../config/mfaConfig', () => ({
+                resolveMfaConfig: jest.fn().mockReturnValue({
+                    enabled: true,
+                    passkeyEnabled: true,
+                    recoveryCodesEnabled: true,
+                }),
+            }));
+            jest.doMock('../services/authSecurityTelemetryService', () => ({
+                recordAuthSecurityEvent: jest.fn(),
+            }));
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn(({ status, authSession } = {}) => ({
+                    status,
+                    session: { sessionId: authSession?.sessionId || '' },
+                })),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                refreshBrowserSession: jest.fn().mockResolvedValue({
+                    sessionId: 'session-after-enroll',
+                    deviceId: verifiedTrustedDevice.deviceId,
+                }),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/trustedDeviceAssuranceService', () => ({
+                hasObservedWebAuthnUserVerification: jest.fn((device) => (
+                    device?.webauthnUserVerified === true
+                )),
+            }));
+
+            const { passkeyRegisterVerify } = require('../controllers/mfaController');
+            const { budgetRequestTimeout } = require('../middleware/requestTimeouts');
+            app = express();
+            app.use(express.json());
+            const attachAuthContext = (req, _res, next) => {
+                req.user = priorUser;
+                req.authUid = 'uid-first-factor';
+                req.authToken = { uid: 'uid-first-factor', email: enrolledUser.email, email_verified: true };
+                req.authSession = { sessionId: 'fixture-enroll-session', deviceId: verifiedTrustedDevice.deviceId, amr: ['pwd'] };
+                req.requestId = 'first-factor-enroll';
+                req.trafficBudget = { routeClass: 'AUTH_WEBAUTHN', timeoutMs: 5000 };
+                next();
+            };
+            app.post(
+                '/api/auth/mfa/passkey/register/verify',
+                attachAuthContext,
+                budgetRequestTimeout(),
+                passkeyRegisterVerify
+            );
+            app.use((error, _req, res, _next) => {
+                res.status(error.statusCode || 500).json({ message: error.message });
+            });
+        });
+
+        const enrolled = await request(app)
+            .post('/api/auth/mfa/passkey/register/verify')
+            .set('x-aura-device-id', verifiedTrustedDevice.deviceId)
+            .send({ challengeId: 'fixture-enroll-challenge', token: 'fixture-enroll-token', proof: 'fixture-proof' });
+
+        expect(enrolled.statusCode).toBe(200);
+        expect(enrolled.body.recoveryCodes).toEqual(['aura-code-one', 'aura-code-two']);
+        expect(enrolled.body.recoveryCodeState).toMatchObject({ activeCount: 2 });
+        expect(generateRecoveryCodes).toHaveBeenCalledWith(
+            expect.objectContaining({ userId: '507f1f77bcf86cd799439015', requirePasskey: true })
+        );
+    });
+
+    test('does not issue recovery codes when MFA was already enabled', async () => {
+        let app;
+        let generateRecoveryCodes;
+        const priorUser = {
+            _id: '507f1f77bcf86cd799439015',
+            mfa: { enabled: true, passkeys: [{ credentialId: 'existing' }] },
+        };
+        const enrolledUser = {
+            _id: priorUser._id,
+            name: 'Second Device User',
+            email: 'second-device@example.test',
+            isVerified: true,
+            mfa: { enabled: true, defaultMethod: 'passkey', passkeys: [{ credentialId: 'fixture-new' }, { credentialId: 'existing' }] },
+        };
+        const verifiedTrustedDevice = {
+            deviceId: 'device-passkey-second',
+            method: 'webauthn',
+            webauthnUserVerified: true,
+            credentialScope: 'mfa',
+        };
+
+        jest.isolateModules(() => {
+            process.env = { ...ORIGINAL_ENV };
+            process.env.MFA_ENABLED = 'true';
+            process.env.MFA_PASSKEY_ENABLED = 'true';
+
+            const priorQuery = {
+                select: jest.fn(() => priorQuery),
+                lean: jest.fn().mockResolvedValue(priorUser),
+            };
+            jest.doMock('../models/User', () => ({
+                findById: jest.fn(() => priorQuery),
+                findOneAndUpdate: jest.fn().mockResolvedValue(enrolledUser),
+            }));
+            verifyTrustedDeviceChallenge = jest.fn().mockResolvedValue({
+                success: true,
+                method: 'webauthn',
+                trustedDevice: verifiedTrustedDevice,
+                deviceSessionToken: 'fixture-session',
+                expiresAt: '2099-07-18T12:00:00.000Z',
+            });
+            generateRecoveryCodes = jest.fn();
+            jest.doMock('../services/recoveryCodeService', () => ({
+                generateRecoveryCodes,
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn((req) => ({
+                    deviceId: String(req.headers['x-aura-device-id'] || ''),
+                    deviceLabel: 'Second passkey',
+                })),
+                getTrustedDeviceRegistration: jest.fn(() => null),
+                issueTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceChallenge,
+            }));
+            jest.doMock('../services/totpMfaService', () => ({}));
+            jest.doMock('../services/mfaChallengeService', () => ({
+                consumeMfaChallenge: jest.fn(),
+                createMfaChallenge: jest.fn(),
+                inspectMfaChallenge: jest.fn(),
+            }));
+            jest.doMock('../services/mfaPolicyService', () => ({
+                MFA_METHODS: { PASSKEY: 'passkey', TOTP: 'totp', RECOVERY_CODE: 'recovery_code' },
+                buildPublicMfaPolicy: jest.fn(),
+                evaluateAction: jest.fn(),
+                evaluateLogin: jest.fn().mockReturnValue({ mfaRequired: false }),
+                hasPasskey: jest.fn(),
+                hasTotp: jest.fn(),
+                isAdminSubject: jest.fn(() => false),
+                isCurrentLegacyAdminPasskeyCandidate: jest.fn(() => false),
+                isEligiblePasskeyMfaDevice: jest.fn(() => true),
+            }));
+            jest.doMock('../config/mfaConfig', () => ({
+                resolveMfaConfig: jest.fn().mockReturnValue({
+                    enabled: true,
+                    passkeyEnabled: true,
+                    recoveryCodesEnabled: true,
+                }),
+            }));
+            jest.doMock('../services/authSecurityTelemetryService', () => ({
+                recordAuthSecurityEvent: jest.fn(),
+            }));
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn(({ status, authSession } = {}) => ({
+                    status,
+                    session: { sessionId: authSession?.sessionId || '' },
+                })),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                refreshBrowserSession: jest.fn().mockResolvedValue({ sessionId: 's' }),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/trustedDeviceAssuranceService', () => ({
+                hasObservedWebAuthnUserVerification: jest.fn((device) => (
+                    device?.webauthnUserVerified === true
+                )),
+            }));
+
+            const { passkeyRegisterVerify } = require('../controllers/mfaController');
+            const { budgetRequestTimeout } = require('../middleware/requestTimeouts');
+            app = express();
+            app.use(express.json());
+            const attachAuthContext = (req, _res, next) => {
+                req.user = priorUser;
+                req.authUid = 'uid-second-device';
+                req.authToken = { uid: 'uid-second-device', email: enrolledUser.email, email_verified: true };
+                req.authSession = { sessionId: 'fixture-second', deviceId: verifiedTrustedDevice.deviceId, amr: ['pwd'] };
+                req.requestId = 'second-device-enroll';
+                req.trafficBudget = { routeClass: 'AUTH_WEBAUTHN', timeoutMs: 5000 };
+                next();
+            };
+            app.post(
+                '/api/auth/mfa/passkey/register/verify',
+                attachAuthContext,
+                budgetRequestTimeout(),
+                passkeyRegisterVerify
+            );
+            app.use((error, _req, res, _next) => {
+                res.status(error.statusCode || 500).json({ message: error.message });
+            });
+        });
+
+        const enrolled = await request(app)
+            .post('/api/auth/mfa/passkey/register/verify')
+            .set('x-aura-device-id', 'device-passkey-second')
+            .send({ challengeId: 'fixture-challenge', token: 'fixture-token', proof: 'fixture-proof' });
+
+        expect(enrolled.statusCode).toBe(200);
+        expect(enrolled.body.recoveryCodes).toBeUndefined();
+        expect(generateRecoveryCodes).not.toHaveBeenCalled();
+    });
 });

@@ -394,6 +394,59 @@ describe('webauthnTrustedDeviceService', () => {
         expect(result.counter).toBe(4);
     });
 
+    test('accepts a counter regression from a synced (backup-eligible) credential', () => {
+        const service = require('../services/webauthnTrustedDeviceService');
+        const keyPair = createEcKeyPair();
+        const credentialId = crypto.randomBytes(32);
+        // Synced passkeys (iCloud/Google/Windows account) assert from multiple
+        // devices whose counters diverge; per WebAuthn guidance the counter is
+        // not a meaningful clone signal for them.
+        const result = service.verifyWebAuthnAssertion({
+            credential: buildAssertionCredential({
+                challenge,
+                origin,
+                rpId,
+                credentialId,
+                privateKey: keyPair.privateKey,
+                signCount: 1,
+                backupEligible: true,
+                backedUp: true,
+            }),
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRpId: rpId,
+            storedPublicKeySpkiBase64: keyPair.publicKeySpkiBase64,
+            storedCredentialIdBase64Url: toBase64Url(credentialId),
+            storedCounter: 4,
+        });
+
+        expect(result.counter).toBe(1);
+        expect(result.backupEligible).toBe(true);
+    });
+
+    test('still rejects a counter regression from a device-bound credential', () => {
+        const service = require('../services/webauthnTrustedDeviceService');
+        const keyPair = createEcKeyPair();
+        const credentialId = crypto.randomBytes(32);
+        expect(() => service.verifyWebAuthnAssertion({
+            credential: buildAssertionCredential({
+                challenge,
+                origin,
+                rpId,
+                credentialId,
+                privateKey: keyPair.privateKey,
+                signCount: 2,
+                backupEligible: false,
+            }),
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRpId: rpId,
+            storedPublicKeySpkiBase64: keyPair.publicKeySpkiBase64,
+            storedCredentialIdBase64Url: toBase64Url(credentialId),
+            storedCounter: 4,
+        })).toThrow(/counter regression detected/i);
+    });
+
     test('rejects an assertion with a mismatched user handle', () => {
         const service = require('../services/webauthnTrustedDeviceService');
         const keyPair = createEcKeyPair();

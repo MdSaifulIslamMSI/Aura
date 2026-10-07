@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "o-punsekiyuarikabari",
   "profile.settings.security.opening": "o-puningu...",
   "profile.settings.security.otpLabel": "OTP noZi Shi",
+  "profile.settings.security.passkeyLaneUnavailable": "パスキー登録にはメインのストアフロント レーンが必要です。",
   "profile.settings.security.passkeyRegister": "パスキーを登録する",
   "profile.settings.security.passkeyRegistering": "登録中...",
   "profile.settings.security.passkeysAndMfaTitle": "パスキーとMFA",

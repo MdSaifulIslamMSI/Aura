@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 425
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (104412/104412 required locale/message pairs)
+- Locale key coverage: 100% (104433/104433 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4972
+- Source message keys: 4973
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,12 +16,12 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 93696
-- Unique review locale/id pairs: 93696
+- Total tracked review pairs preserved: 93715
+- Unique review locale/id pairs: 93715
 - Actionable grouped queue entries: 1765
 - Actionable affected locale/message pairs: 29618
-- Native-review audit grouped entries: 3063
-- Native-review audit affected locale/message pairs: 64078
+- Native-review audit grouped entries: 3064
+- Native-review audit affected locale/message pairs: 64097
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -75,25 +75,25 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Locale | Affected pairs |
 | --- | ---: |
-| bn | 3266 |
-| hi | 3320 |
-| te | 3390 |
-| mr | 3396 |
-| ur | 3247 |
-| gu | 3361 |
-| pa | 3375 |
-| ml | 3387 |
-| kn | 3393 |
-| or | 3351 |
-| as | 3408 |
-| sa | 3378 |
-| es | 3402 |
-| fr | 3383 |
-| de | 3382 |
-| ar | 3285 |
-| ja | 3470 |
-| pt | 3408 |
-| zh | 3476 |
+| bn | 3267 |
+| hi | 3321 |
+| te | 3391 |
+| mr | 3397 |
+| ur | 3248 |
+| gu | 3362 |
+| pa | 3376 |
+| ml | 3388 |
+| kn | 3394 |
+| or | 3352 |
+| as | 3409 |
+| sa | 3379 |
+| es | 3403 |
+| fr | 3384 |
+| de | 3383 |
+| ar | 3286 |
+| ja | 3471 |
+| pt | 3409 |
+| zh | 3477 |
 
 ## Files
 
