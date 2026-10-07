@@ -1394,7 +1394,14 @@ const verifyTrustedDeviceChallenge = async ({
                 replaceExistingKey: true,
                 webauthnCredentialIdBase64Url: registration.credentialIdBase64Url,
                 webauthnTransports: registration.transports,
-                webauthnCounter: registration.counter,
+                // Store 0 (unknown baseline), not the attestation counter: platform
+                // authenticators like Windows Hello carry a shared per-site counter
+                // in the attestation that can exceed the new credential's first
+                // assertion, which the verify-path guard would read as a clone
+                // signal and lock the account out (2026-10-02 admin lockout). The
+                // first assertion establishes the real baseline — the 0-guard in
+                // verifyWebAuthnAssertion passes it unconditionally.
+                webauthnCounter: 0,
                 webauthnUserVerification: registration.userVerification,
                 webauthnUserVerified: registration.userVerified,
                 webauthnUserVerifiedAt: registration.userVerified ? new Date() : null,
