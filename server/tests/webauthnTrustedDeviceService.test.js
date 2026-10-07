@@ -321,6 +321,79 @@ describe('webauthnTrustedDeviceService', () => {
         });
     });
 
+    test('rejects an assertion whose signature counter regressed', () => {
+        const service = require('../services/webauthnTrustedDeviceService');
+        const keyPair = createEcKeyPair();
+        const credentialId = crypto.randomBytes(32);
+        expect(() => service.verifyWebAuthnAssertion({
+            credential: buildAssertionCredential({
+                challenge,
+                origin,
+                rpId,
+                credentialId,
+                privateKey: keyPair.privateKey,
+                signCount: 2,
+            }),
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRpId: rpId,
+            storedPublicKeySpkiBase64: keyPair.publicKeySpkiBase64,
+            storedCredentialIdBase64Url: toBase64Url(credentialId),
+            storedCounter: 4,
+        })).toThrow(/counter regression detected/i);
+    });
+
+    test('accepts always-zero counters (Windows Hello) without regression', () => {
+        const service = require('../services/webauthnTrustedDeviceService');
+        const keyPair = createEcKeyPair();
+        const credentialId = crypto.randomBytes(32);
+        const result = service.verifyWebAuthnAssertion({
+            credential: buildAssertionCredential({
+                challenge,
+                origin,
+                rpId,
+                credentialId,
+                privateKey: keyPair.privateKey,
+                signCount: 0,
+            }),
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRpId: rpId,
+            storedPublicKeySpkiBase64: keyPair.publicKeySpkiBase64,
+            storedCredentialIdBase64Url: toBase64Url(credentialId),
+            storedCounter: 0,
+        });
+
+        expect(result.counter).toBe(0);
+    });
+
+    test('retains the stored counter when a counter-less authenticator reports 0', () => {
+        const service = require('../services/webauthnTrustedDeviceService');
+        const keyPair = createEcKeyPair();
+        const credentialId = crypto.randomBytes(32);
+        const result = service.verifyWebAuthnAssertion({
+            credential: buildAssertionCredential({
+                challenge,
+                origin,
+                rpId,
+                credentialId,
+                privateKey: keyPair.privateKey,
+                signCount: 0,
+            }),
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRpId: rpId,
+            storedPublicKeySpkiBase64: keyPair.publicKeySpkiBase64,
+            storedCredentialIdBase64Url: toBase64Url(credentialId),
+            // A TPM/Hello event can reset the hardware counter below the last
+            // stored value; the 0-report must pass and retain the stored floor
+            // rather than throwing regression (2026-10-02 admin lockout).
+            storedCounter: 4,
+        });
+
+        expect(result.counter).toBe(4);
+    });
+
     test('rejects an assertion with a mismatched user handle', () => {
         const service = require('../services/webauthnTrustedDeviceService');
         const keyPair = createEcKeyPair();
