@@ -84,4 +84,15 @@ describe('Vercel Deployment Storage', () => {
         expect(packaging).toContain('pruneSourceMaps(outputDirectory)');
         expect(packaging).toContain('Vercel output still contains');
     });
+
+    it('mirror-checks the Vercel payload against dist while excluding sourcemaps', async () => {
+        const source = await readRepoFile('.github/workflows/deploy-netlify.yml');
+        const step = source.slice(source.indexOf('Verify Vercel output mirrors shared artifact'));
+
+        // A plain `diff -qr app/dist .vercel/output/static` fails the moment the
+        // deploy copy is pruned, so the gate must exclude maps...
+        expect(step).toContain("diff -qr -x '*.map' app/dist .vercel/output/static");
+        // ...and still fail if any map reaches the payload.
+        expect(step).toContain("find .vercel/output -name '*.map'");
+    });
 });

@@ -610,7 +610,20 @@ jobs:
         run: node app/scripts/create_vercel_static_output.mjs
 
       - name: Verify Vercel output mirrors shared artifact
-        run: diff -qr app/dist .vercel/output/static
+        # Sourcemaps are intentionally excluded from the deploy copy: the
+        # build-frontend job already publishes them to Sentry, so shipping them
+        # to Vercel only doubled each retained deployment's payload and served
+        # source from the CDN. Everything else must still mirror dist exactly,
+        # and no sourcemap may reach the payload.
+        run: |
+          set -euo pipefail
+          diff -qr -x '*.map' app/dist .vercel/output/static
+          if find .vercel/output -name '*.map' -print -quit | grep -q .; then
+            echo "::error::Sourcemap leaked into the Vercel payload:"
+            find .vercel/output -name '*.map' -print
+            exit 1
+          fi
+          echo "Vercel payload mirrors dist with 0 sourcemaps."
 
       - name: Create Vercel project metadata
         run: |
