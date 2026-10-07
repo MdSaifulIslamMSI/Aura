@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "സുരക്ഷിതമായ വീണ്ടെടുക്കൽ തുറക്കുക",
   "profile.settings.security.opening": "തുറക്കുന്നു...",
   "profile.settings.security.otpLabel": "OTP നിലപാട്",
+  "profile.settings.security.passkeyLaneUnavailable": "പാസ്കീ രജിസ്റ്റർ ചെയ്യാൻ പ്രധാന സ്റ്റോർഫ്രണ്ട് ലെയിൻ വേണം.",
   "profile.settings.security.passkeyRegister": "പാസ്കീ രജിസ്റ്റർ ചെയ്യുക",
   "profile.settings.security.passkeyRegistering": "രജിസ്റ്റർ ചെയ്യുന്നു...",
   "profile.settings.security.passkeysAndMfaTitle": "പാസ്കീകളും എംഎഫ്എയും",

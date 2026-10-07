@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T17:27:51.841Z",
+  "generatedAt": "2026-10-07T13:27:00.460Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {
@@ -11,7 +11,7 @@
     "delegatedStableIcuFiles": 10,
     "dynamicRuntimeFiles": 18,
     "legacyPackImportFiles": 40,
-    "migratedStableIcuMessageIds": 3486,
+    "migratedStableIcuMessageIds": 3487,
     "productionLegacyStableFiles": 0,
     "residualLegacyMessageIds": 0,
     "runtimeEnumCompatibilityFiles": 0,
@@ -1739,7 +1739,7 @@
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
-      "migratedStableIcuIdCount": 127,
+      "migratedStableIcuIdCount": 128,
       "migratedStableIcuIds": [
         "common.cancel",
         "common.confirm",
@@ -1811,6 +1811,7 @@
         "profile.settings.security.openRecovery",
         "profile.settings.security.opening",
         "profile.settings.security.otpLabel",
+        "profile.settings.security.passkeyLaneUnavailable",
         "profile.settings.security.passkeyRegister",
         "profile.settings.security.passkeyRegistering",
         "profile.settings.security.passkeysAndMfaTitle",

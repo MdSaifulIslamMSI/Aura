@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "Abra a recuperacao segura",
   "profile.settings.security.opening": "Abrindo...",
   "profile.settings.security.otpLabel": "Postura OTP",
+  "profile.settings.security.passkeyLaneUnavailable": "O registro de senha requer a faixa principal da loja.",
   "profile.settings.security.passkeyRegister": "Registrar senha",
   "profile.settings.security.passkeyRegistering": "Registrando...",
   "profile.settings.security.passkeysAndMfaTitle": "Chaves de acesso e MFA",

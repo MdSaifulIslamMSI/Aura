@@ -2920,6 +2920,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "Opening...",
   "profile.settings.security.openRecovery": "Open Secure Recovery",
   "profile.settings.security.otpLabel": "OTP posture",
+  "profile.settings.security.passkeyLaneUnavailable": "Passkey enrollment requires the primary storefront lane.",
   "profile.settings.security.passkeyRegister": "Register passkey",
   "profile.settings.security.passkeyRegistering": "Registering...",
   "profile.settings.security.passkeysAndMfaTitle": "Passkeys and MFA",

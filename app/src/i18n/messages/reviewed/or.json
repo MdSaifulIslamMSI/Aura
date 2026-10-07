@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "ସୁରକ୍ଷିତ ପୁନରୁଦ୍ଧାର ଖୋଲନ୍ତୁ |",
   "profile.settings.security.opening": "ଖୋଲୁଛି ...",
   "profile.settings.security.otpLabel": "OTP ଆଭିମୁଖ୍ୟ |",
+  "profile.settings.security.passkeyLaneUnavailable": "ପାସ୍କି ପଞ୍ଜିକରଣ ପାଇଁ ମୁଖ୍ୟ ଷ୍ଟୋରଫ୍ରଣ୍ଟ ଲେନ ଆବଶ୍ୟକ।",
   "profile.settings.security.passkeyRegister": "ପାସ୍କି ପଞ୍ଜିକରଣ କରନ୍ତୁ |",
   "profile.settings.security.passkeyRegistering": "ପଞ୍ଜିକରଣ ...",
   "profile.settings.security.passkeysAndMfaTitle": "ପାସ୍କି ଏବଂ MFA |",

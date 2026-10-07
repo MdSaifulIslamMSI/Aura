@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "સુરક્ષિત પુનઃપ્રાપ્તિ ખોલો",
   "profile.settings.security.opening": "ખુલી રહ્યું છે...",
   "profile.settings.security.otpLabel": "OTP વલણ",
+  "profile.settings.security.passkeyLaneUnavailable": "પાસકી નોંધણી માટે મુખ્ય સ્ટોરફ્રન્ટ લેન જરૂરી છે.",
   "profile.settings.security.passkeyRegister": "રજીસ્ટર પાસકી",
   "profile.settings.security.passkeyRegistering": "નોંધણી કરી રહ્યું છે...",
   "profile.settings.security.passkeysAndMfaTitle": "પાસકી અને MFA",

@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "Eroffnung...",
   "profile.settings.security.openRecovery": "Offnen Sie Secure Recovery",
   "profile.settings.security.otpLabel": "OTP-Haltung",
+  "profile.settings.security.passkeyLaneUnavailable": "Die Passschlüssel-Registrierung erfordert den primären Storefront-Lane.",
   "profile.settings.security.passkeyRegister": "Passschlüssel registrieren",
   "profile.settings.security.passkeyRegistering": "Registrieren...",
   "profile.settings.security.passkeysAndMfaTitle": "Passkeys und MFA",

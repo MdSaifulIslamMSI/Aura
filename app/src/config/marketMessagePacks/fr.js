@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "Ouverture...",
   "profile.settings.security.openRecovery": "Ouvrir la recuperation securisee",
   "profile.settings.security.otpLabel": "Posture du Bureau du Procureur",
+  "profile.settings.security.passkeyLaneUnavailable": "L'enregistrement du mot de passe nécessite la voie principale de la vitrine.",
   "profile.settings.security.passkeyRegister": "Enregistrer le mot de passe",
   "profile.settings.security.passkeyRegistering": "Enregistrement...",
   "profile.settings.security.passkeysAndMfaTitle": "Clés d'accès et MFA",

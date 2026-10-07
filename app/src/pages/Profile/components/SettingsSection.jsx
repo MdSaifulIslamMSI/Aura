@@ -410,7 +410,9 @@ export default function SettingsSection({
                                     type="button"
                                     onClick={handleRegisterMfaPasskey}
                                     disabled={mfaPasskeyWorking || !passkeyRegistrationAvailable || !handleRegisterMfaPasskey}
-                                    title={passkeyRegistrationAvailable ? undefined : 'Passkey enrollment requires the primary storefront lane.'}
+                                    title={passkeyRegistrationAvailable
+                                        ? undefined
+                                        : t('profile.settings.security.passkeyLaneUnavailable', {}, 'Passkey enrollment requires the primary storefront lane.')}
                                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     <KeyRound className="h-4 w-4" />

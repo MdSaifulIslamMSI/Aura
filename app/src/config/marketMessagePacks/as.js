@@ -3184,6 +3184,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "খোলা...",
   "profile.settings.security.openRecovery": "মুকলি নিৰাপদ আৰোগ্য",
   "profile.settings.security.otpLabel": "অ’টিপিৰ স্থিতি",
+  "profile.settings.security.passkeyLaneUnavailable": "পাছকি পঞ্জীয়নৰ বাবে মূল ষ্ট'ৰ'ফ্ৰণ্ট লেন প্ৰয়োজন।",
   "profile.settings.security.passkeyRegister": "পাছকি পঞ্জীয়ন কৰক",
   "profile.settings.security.passkeyRegistering": "পঞ্জীয়ন...",
   "profile.settings.security.passkeysAndMfaTitle": "পাছকি আৰু এমএফএ",

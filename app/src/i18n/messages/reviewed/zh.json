@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "Da Kai An Quan Hui Fu",
   "profile.settings.security.opening": "Kai Mu ...",
   "profile.settings.security.otpLabel": "OTPZi Shi",
+  "profile.settings.security.passkeyLaneUnavailable": "注册密钥需要主店面通道。",
   "profile.settings.security.passkeyRegister": "注册密钥",
   "profile.settings.security.passkeyRegistering": "注册...",
   "profile.settings.security.passkeysAndMfaTitle": "万能钥匙和 MFA",

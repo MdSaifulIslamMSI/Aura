@@ -675,10 +675,12 @@ const passkeyRegisterVerify = asyncHandler(async (req, res) => {
                 event: 'recovery_code',
                 outcome: 'issued',
                 reason: 'none',
-                meta: { reasonCode: 'first_passkey_enrollment' },
+                meta: {
+                    activeCount: result.recoveryCodeState?.activeCount || 0,
+                    reasonCode: 'first_passkey_enrollment',
+                },
                 surface: 'recovery',
                 req,
-                meta: { activeCount: result.recoveryCodeState?.activeCount || 0 },
             });
         } catch (error) {
             // The passkey is already enrolled — failing the whole response

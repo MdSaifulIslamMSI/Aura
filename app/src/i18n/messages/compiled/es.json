@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "Abrir recuperacion segura",
   "profile.settings.security.opening": "Abriendo...",
   "profile.settings.security.otpLabel": "Postura de la OTP",
+  "profile.settings.security.passkeyLaneUnavailable": "El registro de la clave de acceso requiere el carril principal de la tienda.",
   "profile.settings.security.passkeyRegister": "Registrar clave de acceso",
   "profile.settings.security.passkeyRegistering": "Registrando...",
   "profile.settings.security.passkeysAndMfaTitle": "Claves de acceso y MFA",

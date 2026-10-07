@@ -15738,6 +15738,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "OTP posture",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.settings.security.passkeyLaneUnavailable": {
+        id: "profile.settings.security.passkeyLaneUnavailable",
+        defaultMessage: "Passkey enrollment requires the primary storefront lane.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.settings.security.passkeyRegister": {
         id: "profile.settings.security.passkeyRegister",
         defaultMessage: "Register passkey",

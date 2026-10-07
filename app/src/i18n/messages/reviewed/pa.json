@@ -4131,6 +4131,7 @@
   "profile.settings.security.openRecovery": "ਸੁਰੱਖਿਅਤ ਰਿਕਵਰੀ ਖੋਲ੍ਹੋ",
   "profile.settings.security.opening": "ਖੋਲ੍ਹਿਆ ਜਾ ਰਿਹਾ ਹੈ...",
   "profile.settings.security.otpLabel": "OTP ਰੁਖ",
+  "profile.settings.security.passkeyLaneUnavailable": "ਪਾਸਕੁੰਜੀ ਰਜਿਸਟਰ ਕਰਨ ਲਈ ਮੁੱਖ ਸਟੋਰਫ੍ਰੰਟ ਲੇਨ ਲੋੜੀਦਾ ਹੈ।",
   "profile.settings.security.passkeyRegister": "ਪਾਸਕੁੰਜੀ ਰਜਿਸਟਰ ਕਰੋ",
   "profile.settings.security.passkeyRegistering": "ਰਜਿਸਟਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
   "profile.settings.security.passkeysAndMfaTitle": "ਪਾਸਕੀਜ਼ ਅਤੇ MFA",

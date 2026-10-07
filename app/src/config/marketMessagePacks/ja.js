@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "オープニング...",
   "profile.settings.security.openRecovery": "オープンセキュアリカバリ",
   "profile.settings.security.otpLabel": "OTP の姿勢",
+  "profile.settings.security.passkeyLaneUnavailable": "パスキー登録にはメインのストアフロント レーンが必要です。",
   "profile.settings.security.passkeyRegister": "パスキーを登録する",
   "profile.settings.security.passkeyRegistering": "登録中...",
   "profile.settings.security.passkeysAndMfaTitle": "パスキーとMFA",

@@ -3184,6 +3184,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "کھل رہا ہے...",
   "profile.settings.security.openRecovery": "محفوظ ریکوری کھولیں۔",
   "profile.settings.security.otpLabel": "OTP موقف",
+  "profile.settings.security.passkeyLaneUnavailable": "پاسکی رجسٹر کرنے کے لیے بنیادی اسٹور فرنٹ لین درکار ہے۔",
   "profile.settings.security.passkeyRegister": "پاسکی رجسٹر کریں۔",
   "profile.settings.security.passkeyRegistering": "رجسٹر ہو رہا ہے...",
   "profile.settings.security.passkeysAndMfaTitle": "پاسکیز اور ایم ایف اے",

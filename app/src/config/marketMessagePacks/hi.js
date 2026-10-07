@@ -3166,6 +3166,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.settings.security.opening": "खुल रहा है...",
   "profile.settings.security.openRecovery": "सुरक्षित पुनर्प्राप्ति खोलें",
   "profile.settings.security.otpLabel": "ओटीपी स्थिति",
+  "profile.settings.security.passkeyLaneUnavailable": "पासकी पंजीकरण के लिए प्राथमिक स्टोरफ्रंट लेन आवश्यक है।",
   "profile.settings.security.passkeyRegister": "पासकी पंजीकृत करें",
   "profile.settings.security.passkeyRegistering": "पंजीकरण हो रहा है...",
   "profile.settings.security.passkeysAndMfaTitle": "पासकीज़ और एमएफए",
