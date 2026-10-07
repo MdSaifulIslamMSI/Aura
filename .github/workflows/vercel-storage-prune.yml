@@ -26,9 +26,15 @@ on:
         required: false
         default: ''
         type: string
+      audit:
+        description: Rank every team project by retained deployments (read-only)
+        required: false
+        default: false
+        type: boolean
   schedule:
     # Weekly, off the hour to avoid the top-of-hour scheduling stampede.
     - cron: '23 4 * * 1'
+  # Full per-project audit; see the workflow_dispatch `audit` input.
 
 permissions:
   contents: read
@@ -63,6 +69,7 @@ jobs:
           APPLY: ${{ inputs.apply }}
           KEEP: ${{ inputs.keep }}
           CONFIRM: ${{ inputs.confirm }}
+          AUDIT: ${{ inputs.audit }}
         run: |
           set -euo pipefail
           if [ -z "${VERCEL_TOKEN}" ]; then
@@ -72,6 +79,9 @@ jobs:
           echo "::add-mask::${VERCEL_TOKEN}"
 
           ARGS=(--keep="${KEEP}")
+          if [ "${AUDIT}" = "true" ]; then
+            ARGS+=(--audit)
+          fi
           # The scheduled run reports; deletion needs an explicit human opt-in.
           if [ "${APPLY}" = "true" ]; then
             ARGS+=(--apply --confirm="${CONFIRM}")
