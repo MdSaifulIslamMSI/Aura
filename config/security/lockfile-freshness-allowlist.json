@@ -1,4 +1,11 @@
 {
   "$comment": "Release-cooldown exemptions for check-lockfile-freshness.mjs. Each entry: { name, version?, reason, expires }. Expired or reason-less entries FAIL the gate (fail-closed, same contract as pqc-allowlist.json). Add an entry only for urgent fixes (e.g. a security advisory release) and let it expire.",
-  "allowed": []
+  "allowed": [
+    {
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "reason": "Security advisory fix: event-loop DoS via indexed source-map section offsets (vulnerable <1.2.2). 1.2.2 published 2026-09-30; allowlisted to clear the 7d cooldown for this urgent app-lane fix.",
+      "expires": "2026-10-21"
+    }
+  ]
 }
