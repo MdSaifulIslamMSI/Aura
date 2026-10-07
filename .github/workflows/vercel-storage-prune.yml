@@ -1,0 +1,86 @@
+name: Vercel Storage Prune
+
+# The team is on Vercel's free tier, where Deployment Storage is a hard 10 GB
+# cap shared by every project in the team and deployments never expire on their
+# own. PR previews used to accumulate until the account locked; the deploy
+# workflows now delete their own preview, and this job prunes whatever backlog
+# or orphaned history remains.
+#
+# Dry run unless --confirm=prune is passed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Actually delete deployments (default is report only)
+        required: false
+        default: false
+        type: boolean
+      keep:
+        description: Newest previews to retain per project
+        required: false
+        default: 5
+        type: string
+      confirm:
+        description: Must be exactly "prune" to allow deletion
+        required: false
+        default: ''
+        type: string
+  schedule:
+    # Weekly, off the hour to avoid the top-of-hour scheduling stampede.
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-storage-prune
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+  VERCEL_SCOPE: mdsaifulislammsis-projects
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Prune retained Vercel preview deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          APPLY: ${{ inputs.apply }}
+          KEEP: ${{ inputs.keep }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::error::GitHub secret VERCEL_TOKEN is empty; cannot prune."
+            exit 1
+          fi
+          echo "::add-mask::${VERCEL_TOKEN}"
+
+          ARGS=(--keep="${KEEP}")
+          # The scheduled run reports; deletion needs an explicit human opt-in.
+          if [ "${APPLY}" = "true" ]; then
+            ARGS+=(--apply --confirm="${CONFIRM}")
+          fi
+          node scripts/vercel/prune-deployments.mjs "${ARGS[@]}" \
+            | tee "${RUNNER_TEMP}/vercel-prune.txt"
+
+          {
+            echo "### Vercel Storage Prune"
+            echo
+            cat "${RUNNER_TEMP}/vercel-prune.txt"
+          } >> "${GITHUB_STEP_SUMMARY}"

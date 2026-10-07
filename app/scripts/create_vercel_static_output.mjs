@@ -2,6 +2,8 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { collectSourceMaps, pruneSourceMaps } from './lib/prune-sourcemaps.mjs';
+
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(currentDirectory, '..');
 const repoRoot = path.resolve(appRoot, '..');
@@ -35,6 +37,14 @@ if (!/^https?:\/\//i.test(backendOrigin)) {
 await rm(outputDirectory, { force: true, recursive: true });
 await mkdir(staticDirectory, { recursive: true });
 await cp(distDirectory, staticDirectory, { recursive: true });
+
+// Prune only the deploy copy. app/dist keeps its maps for local debugging and
+// the build-frontend job already published them to Sentry.
+const { bytes: sourceMapBytes, count: sourceMapCount } = await pruneSourceMaps(outputDirectory);
+
+if (sourceMapCount > 0) {
+    console.log(`Pruned ${sourceMapCount} sourcemap(s), ${(sourceMapBytes / (1024 * 1024)).toFixed(2)} MB, from the Vercel payload.`);
+}
 
 const config = {
     version: 3,
@@ -112,6 +122,11 @@ await writeFile(path.join(outputDirectory, 'config.json'), `${JSON.stringify(con
 const indexHtml = await readFile(path.join(staticDirectory, 'index.html'), 'utf8');
 if (!indexHtml.includes('aura-release-id')) {
     throw new Error('Vercel static output is missing Aura release metadata.');
+}
+
+const remainingSourceMaps = await collectSourceMaps(outputDirectory);
+if (remainingSourceMaps.length > 0) {
+    throw new Error(`Vercel output still contains ${remainingSourceMaps.length} sourcemap(s): ${remainingSourceMaps.join(', ')}`);
 }
 
 console.log(`Created Vercel static output from ${path.relative(repoRoot, distDirectory)}.`);
