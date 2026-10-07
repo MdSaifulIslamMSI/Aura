@@ -610,7 +610,20 @@ jobs:
         run: node app/scripts/create_vercel_static_output.mjs
 
       - name: Verify Vercel output mirrors shared artifact
-        run: diff -qr app/dist .vercel/output/static
+        # Sourcemaps are intentionally excluded from the deploy copy: the
+        # build-frontend job already publishes them to Sentry, so shipping them
+        # to Vercel only doubled each retained deployment's payload and served
+        # source from the CDN. Everything else must still mirror dist exactly,
+        # and no sourcemap may reach the payload.
+        run: |
+          set -euo pipefail
+          diff -qr -x '*.map' app/dist .vercel/output/static
+          if find .vercel/output -name '*.map' -print -quit | grep -q .; then
+            echo "::error::Sourcemap leaked into the Vercel payload:"
+            find .vercel/output -name '*.map' -print
+            exit 1
+          fi
+          echo "Vercel payload mirrors dist with 0 sourcemaps."
 
       - name: Create Vercel project metadata
         run: |
@@ -924,6 +937,7 @@ jobs:
       pull-requests: write
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
+      deployment_id: ${{ steps.deploy.outputs.deployment_id }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -972,6 +986,11 @@ jobs:
             exit 1
           fi
           printf 'deploy_url=%s\n' "${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+          # Free-tier Deployment Storage is a 10 GB team-wide cap, so the
+          # cleanup job needs the immutable deployment id, not just the URL.
+          DEPLOY_ID="$(npx vercel inspect "${DEPLOY_URL}" --token "${SANITIZED_VERCEL_TOKEN}" --format=json 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.id||"")})' || true)"
+          printf 'deployment_id=%s\n' "${DEPLOY_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Add Vercel preview to job summary
         env:
@@ -2253,4 +2272,77 @@ jobs:
       parent_holds_production_lock: true
     secrets:
       GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+
+  cleanup-vercel-preview:
+    # Vercel free tier caps Deployment Storage at 10 GB per team and nothing
+    # expires a preview on its own, so every PR preview would accumulate until
+    # the account locks. verify-preview-coherence is the last consumer of this
+    # preview, so delete it here to keep retained storage flat. Never touches
+    # production: the id below only exists when the preview job ran.
+    needs:
+      - deploy-vercel-preview
+      - verify-preview-coherence
+    if: >-
+      always() &&
+      needs.deploy-vercel-preview.outputs.deployment_id != '' &&
+      (needs.verify-preview-coherence.result == 'success' ||
+       needs.verify-preview-coherence.result == 'failure' ||
+       needs.verify-preview-coherence.result == 'cancelled')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Delete the ephemeral Vercel preview deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_ID: ${{ needs.deploy-vercel-preview.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          SANITIZED_VERCEL_TOKEN="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${SANITIZED_VERCEL_TOKEN}" ]; then
+            echo "::warning::Vercel token absent; skipping preview cleanup."
+            exit 0
+          fi
+          echo "::add-mask::${SANITIZED_VERCEL_TOKEN}"
+
+          # Fail closed on anything that is not a plain dpl_ id so a malformed
+          # value can never be interpolated into an unexpected path.
+          case "${DEPLOYMENT_ID}" in
+            dpl_*) ;;
+            *)
+              echo "::warning::Unexpected deployment id '${DEPLOYMENT_ID}'; skipping cleanup."
+              exit 0
+              ;;
+          esac
+
+          # Never delete a deployment that is currently serving production.
+          ALIAS_HOST="${VERCEL_PRODUCTION_URL#https://}"
+          ALIAS_HOST="${ALIAS_HOST%%/*}"
+          ALIAS_STATE="$(curl -sS --max-time 30 \
+            -H "Authorization: Bearer ${SANITIZED_VERCEL_TOKEN}" \
+            "https://api.vercel.com/v4/aliases/${ALIAS_HOST}" || true)"
+          PROTECTED_ID="$(printf '%s' "${ALIAS_STATE}" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.deploymentId||j.deployment?.id||"")}catch{}})' || true)"
+          if [ -n "${PROTECTED_ID}" ] && [ "${PROTECTED_ID}" = "${DEPLOYMENT_ID}" ]; then
+            echo "::warning::Deployment ${DEPLOYMENT_ID} holds the production alias; refusing to delete."
+            exit 0
+          fi
+
+          HTTP_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 -X DELETE \
+            -H "Authorization: Bearer ${SANITIZED_VERCEL_TOKEN}" \
+            "https://api.vercel.com/v13/deployments/${DEPLOYMENT_ID}" || true)"
+          case "${HTTP_CODE}" in
+            200|204)
+              echo "Deleted ephemeral Vercel preview deployment ${DEPLOYMENT_ID}."
+              ;;
+            404)
+              echo "Preview deployment ${DEPLOYMENT_ID} was already gone."
+              ;;
+            *)
+              echo "::warning::Vercel preview cleanup for ${DEPLOYMENT_ID} returned HTTP ${HTTP_CODE}."
+              exit 0
+              ;;
+          esac
 

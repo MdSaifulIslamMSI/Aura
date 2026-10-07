@@ -137,6 +137,14 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `inspect_url=${inspect[1]}\n`);
           }
           EOF
+          # The team's free-tier Deployment Storage cap is 10 GB, so the
+          # cleanup step below needs the immutable deployment id, not the URL.
+          DEPLOY_URL="$(sed -n 's/^deploy_url=//p' "${GITHUB_OUTPUT}" | tail -n 1)"
+          DEPLOYMENT_ID="$(npx vercel inspect "${DEPLOY_URL}" --token "${VERCEL_TOKEN}" --format=json 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.id||"")})' || true)"
+          if [ -n "${DEPLOYMENT_ID}" ]; then
+            printf 'deployment_id=%s\n' "${DEPLOYMENT_ID}" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Add preview to job summary
         env:
@@ -196,6 +204,50 @@ jobs:
                 body,
               });
             }
+
+      - name: Delete the ephemeral gateway preview deployment
+        # Gateway previews are consumed only by this job, so deleting them here
+        # keeps the team's retained Deployment Storage flat. Placed last so the
+        # summary and PR comment above still resolve a live URL.
+        if: always() && steps.deploy.outputs.deployment_id != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
+          VERCEL_GATEWAY_ALIAS: ${{ env.VERCEL_GATEWAY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::warning::Vercel token absent; skipping gateway preview cleanup."
+            exit 0
+          fi
+          # Fail closed on anything that is not a plain dpl_ id.
+          case "${DEPLOYMENT_ID}" in
+            dpl_*) ;;
+            *)
+              echo "::warning::Unexpected deployment id '${DEPLOYMENT_ID}'; skipping cleanup."
+              exit 0
+              ;;
+          esac
+
+          # Never delete whatever currently serves the production gateway.
+          ALIAS_STATE="$(curl -sS --max-time 30 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v4/aliases/${VERCEL_GATEWAY_ALIAS}" || true)"
+          PROTECTED_ID="$(printf '%s' "${ALIAS_STATE}" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(j.deploymentId||j.deployment?.id||"")}catch{}})' || true)"
+          if [ -n "${PROTECTED_ID}" ] && [ "${PROTECTED_ID}" = "${DEPLOYMENT_ID}" ]; then
+            echo "::warning::Deployment ${DEPLOYMENT_ID} holds the gateway production alias; refusing to delete."
+            exit 0
+          fi
+
+          HTTP_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 -X DELETE \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v13/deployments/${DEPLOYMENT_ID}" || true)"
+          case "${HTTP_CODE}" in
+            200|204) echo "Deleted ephemeral gateway preview deployment ${DEPLOYMENT_ID}." ;;
+            404) echo "Gateway preview deployment ${DEPLOYMENT_ID} was already gone." ;;
+            *) echo "::warning::Gateway preview cleanup for ${DEPLOYMENT_ID} returned HTTP ${HTTP_CODE}." ;;
+          esac
 
   deploy-production:
     # Production gateway deploys only run through the command center (dispatch
