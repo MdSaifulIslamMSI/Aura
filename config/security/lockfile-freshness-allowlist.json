@@ -4,8 +4,8 @@
     {
       "name": "source-map-js",
       "version": "1.2.2",
-      "reason": "Security advisory fix: event-loop DoS via indexed source-map section offsets (vulnerable <1.2.2). 1.2.2 published 2026-09-30; allowlisted to clear the 7d cooldown for this urgent app-lane fix.",
-      "expires": "2026-10-21"
+      "reason": "GHSA-68fv-2mgg-jv7q high-severity event-loop DoS (CVSS 7.5); official maintainer patch applied as urgent security fix to the /app dev lockfile",
+      "expires": "2026-10-20"
     }
   ]
 }
