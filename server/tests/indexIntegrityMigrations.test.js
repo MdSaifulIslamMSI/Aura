@@ -115,9 +115,11 @@ describe('migration registry', () => {
         expect(emailTtl).toBeTruthy();
         expect(emailTtl.expireAfterSeconds).toBe(90 * 24 * 60 * 60);
 
-        // The v1-drop migration is registered and stays applied across reruns.
+        // The v1-drop migrations are registered and stay applied across reruns.
         expect(registry.map((migration) => migration.id))
             .toContain('2026-10-09-drop-blind-index-v1-indexes');
+        expect(registry.map((migration) => migration.id))
+            .toContain('2026-10-09-drop-legacy-ciphertext-indexes');
 
         const secondRun = await runMigrations({ registry });
         expect(secondRun.ok).toBe(true);
@@ -156,6 +158,34 @@ describe('migration registry', () => {
 
         // Idempotent: safe to run even when the targets never existed.
         await expect(dropMigration.up()).resolves.toBeUndefined();
+
+        // Step 4b: the inert ciphertext indexes (users phone_1_*, email log
+        // recipientEmail_1) drop through their own migration entry.
+        await mongoose.connection.collection('emaildeliverylogs').createIndex(
+            { recipientEmail: 1 },
+            { name: 'recipientEmail_1' }
+        );
+        const ciphertextMigration = registry.find(
+            (migration) => migration.id === '2026-10-09-drop-legacy-ciphertext-indexes'
+        );
+        expect(ciphertextMigration).toBeTruthy();
+        await ciphertextMigration.up();
+
+        const logIndexesAfter = await collectionIndexes('emaildeliverylogs');
+        expect(logIndexesAfter.find((index) => index.name === 'recipientEmail_1'))
+            .toBeUndefined();
+        // The live v2 email index survives.
+        expect(logIndexesAfter.find((index) => index.name === 'recipientEmailHashV2_1'))
+            .toBeTruthy();
+
+        const userIndexesAfter = await collectionIndexes('users');
+        expect(userIndexesAfter.find((index) => index.name === 'phone_1_partial_unique_nonempty'))
+            .toBeUndefined();
+        expect(userIndexesAfter.find((index) => index.name === 'phoneHashV2_1_partial_unique_nonempty'))
+            .toBeTruthy();
+
+        // Idempotent across reruns.
+        await expect(ciphertextMigration.up()).resolves.toBeUndefined();
 
         // The schema carries uniqueness forward on v2, so the E11000
         // duplicate-signup backstop still fires after the v1 index is gone.

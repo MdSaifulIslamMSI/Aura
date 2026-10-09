@@ -13,8 +13,6 @@ const {
     computeEmailBlindIndex,
     computePhoneBlindIndexV2,
     computeEmailBlindIndexV2,
-    phoneBlindIndexCandidates,
-    emailBlindIndexCandidates,
 } = require('../services/blindIndexService');
 
 // Pin the secrets explicitly. The repo's .env sets these variables, so relying
@@ -86,38 +84,20 @@ describe('blind index v2 (HKDF-derived)', () => {
 });
 
 
-describe('dual-read query helpers', () => {
-    beforeAll(() => {
-        process.env.PHONE_BLIND_INDEX_SECRET = TEST_PHONE_SECRET;
-        process.env.EMAIL_BLIND_INDEX_SECRET = TEST_EMAIL_SECRET;
+describe('retired dual-read helpers (step-4 retirement)', () => {
+    test('the *Candidates helpers are removed from the service surface', () => {
+        const service = require('../services/blindIndexService');
+        expect(service.phoneBlindIndexCandidates).toBeUndefined();
+        expect(service.emailBlindIndexCandidates).toBeUndefined();
     });
 
-    test('phone candidates include BOTH versions so pre-backfill rows still match', () => {
-        const candidates = phoneBlindIndexCandidates('+919876543210');
-        expect(candidates).toContain(computePhoneBlindIndex('+919876543210'));
-        expect(candidates).toContain(computePhoneBlindIndexV2('+919876543210'));
-        expect(candidates).toHaveLength(2);
-    });
-
-    test('email candidates include BOTH versions and normalize first', () => {
-        const candidates = emailBlindIndexCandidates('A@B.com');
-        expect(candidates).toContain(computeEmailBlindIndex('a@b.com'));
-        expect(candidates).toContain(computeEmailBlindIndexV2('a@b.com'));
-        expect(candidates).toHaveLength(2);
-    });
-
-    test('candidates are de-duplicated', () => {
-        // Distinct contexts guarantee distinct hashes, so no dupes today — but the
-        // helper must not emit them if a future change makes v1 and v2 coincide.
-        const candidates = phoneBlindIndexCandidates('+919876543210');
-        expect(new Set(candidates).size).toBe(candidates.length);
-    });
-
-    test('empty/blank input yields no candidates', () => {
-        expect(phoneBlindIndexCandidates('')).toEqual([]);
-        expect(phoneBlindIndexCandidates(null)).toEqual([]);
-        expect(phoneBlindIndexCandidates(undefined)).toEqual([]);
-        expect(emailBlindIndexCandidates('   ')).toEqual([]);
-        expect(emailBlindIndexCandidates(null)).toEqual([]);
+    test('v1 compute functions stay exported, frozen, for the migration tooling', () => {
+        // scripts/backfill-blind-indexes.js verifies stored v1 hashes against
+        // these; request-path code must never call them again.
+        const service = require('../services/blindIndexService');
+        expect(typeof service.computePhoneBlindIndex).toBe('function');
+        expect(typeof service.computeEmailBlindIndex).toBe('function');
+        expect(computePhoneBlindIndex('+919876543210'))
+            .toBe(computePhoneBlindIndex('+919876543210'));
     });
 });

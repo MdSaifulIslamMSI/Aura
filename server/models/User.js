@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const { defineEncryptedField } = require('./utils/encryptedField');
-const { computePhoneBlindIndex, computePhoneBlindIndexV2 } = require('../services/blindIndexService');
+const { computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 
 const normalizeOptionalPhone = (value) => {
     if (value === undefined || value === null) return undefined;
@@ -156,11 +156,12 @@ const userSchema = mongoose.Schema({
     email: { type: String, required: true, unique: true },
     authUid: { type: String, trim: true },
     phone: { type: String, required: false, set: normalizeOptionalPhone },
-    // HMAC blind index over the stored phone: equality lookups + uniqueness on
-    // the encrypted value. Maintained by the model hooks below, never client-set.
+    // Legacy v1 HMAC blind index (bare-HMAC derivation). FROZEN: no longer
+    // written or queried since the step-4 retirement — kept only so historical
+    // rows stay interpretable and pre-retirement rollback builds can read them.
     phoneHash: { type: String, required: false, default: null, select: false },
-    // v2 blind index (HKDF-derived). Dual-written alongside phoneHash during the
-    // v1 → v2 migration; reads match either. See services/blindIndexService.js.
+    // v2 blind index (HKDF-derived): the live equality-lookup and uniqueness
+    // surface for the encrypted phone. See services/blindIndexService.js.
     phoneHashV2: { type: String, required: false, default: null, select: false },
     avatar: { type: String, default: '' },           // Durable URL, with legacy data-URI read fallback during migration
     avatarMedia: {
@@ -267,23 +268,10 @@ const userSchema = mongoose.Schema({
 // ── Indexes ──────────────────────────────────────────────────
 // NOTE: OTP lifecycle TTL is handled by OtpSession model, not User documents.
 
-// Unique phone only when a non-empty phone number is present. Legacy plaintext
-// index: kept until the field-encryption backfill migrates values, then dropped
-// by scripts/backfill-field-encryption.js --drop-legacy-phone-indexes.
-userSchema.index(
-    { phone: 1 },
-    {
-        unique: true,
-        name: 'phone_1_partial_unique_nonempty',
-        partialFilterExpression: {
-            $and: [
-                { phone: { $exists: true } },
-                { phone: { $type: 'string' } },
-                { phone: { $gt: '' } },
-            ],
-        },
-    }
-);
+// No index on the raw phone: at rest it is IV-randomized ciphertext, so a
+// unique index on it never conflicts (it enforces nothing) and equality
+// lookups cannot target it. Duplicate-phone uniqueness lives on phoneHashV2
+// below, which hashes the plaintext before encryption.
 
 // Equality-searchable identity for the encrypted phone: an HMAC blind index.
 // Deterministic, so uniqueness of the hash == uniqueness of the stored phone,
@@ -326,14 +314,11 @@ userSchema.index(
     }
 );
 
-// Compound index for the most frequent query pattern: phone + isVerified
-// Used by checkUserExists, sendOtp (login/forgot-password), verifyOtp.
-// Legacy plaintext compound kept alongside the phoneHash variant until the
-// backfill completes; queries read phoneHash first with a phone fallback.
-// phoneHash was the pre-migration write path; its field is still dual-written
-// (rollback keeps old readers working) but the v1 indexes are gone — every
-// lookup that matters runs on phoneHashV2 now.
-userSchema.index({ phone: 1, isVerified: 1 });
+// Compound index for the most frequent query pattern: phoneHashV2 + isVerified
+// (login/forgot-password/signup lookups via buildPhoneMatchFilter). The legacy
+// phone and phoneHash compounds are gone: plaintext phone is ciphertext here
+// (an unindexed collscan that can never match), and the v1 hash was retired
+// with the step-4 migration.
 userSchema.index({ phoneHashV2: 1, isVerified: 1 });
 
 // Index for authMiddleware email lookup (most called path)
@@ -357,32 +342,28 @@ defineEncryptedField(addressSchema, 'phone');
 defineEncryptedField(addressSchema, 'address');
 defineEncryptedField(userSchema, 'phone');
 
-// Keep phoneHash in lockstep with phone on every write path. save() flows run
+// Keep phoneHashV2 in lockstep with phone on every write path. save() flows run
 // through validation; update flows (findOneAndUpdate/updateOne with $set or
 // $unset on phone) are patched here so call sites never maintain the hash.
 // Hash the POST-setter value so the index always matches what is stored.
-// Both v1 and v2 are written so lookups work before and after the backfill.
-const syncPhoneHashFromPhone = (phone) => ({
-    phoneHash: computePhoneBlindIndex(normalizeOptionalPhone(phone)),
-    phoneHashV2: computePhoneBlindIndexV2(normalizeOptionalPhone(phone)),
-});
+// The legacy v1 phoneHash is no longer written (step-4 retirement); the
+// $unset branch below still clears a stale one alongside the live v2 hash.
+const syncPhoneHashV2FromPhone = (phone) => computePhoneBlindIndexV2(normalizeOptionalPhone(phone));
 
 userSchema.pre('validate', function syncPhoneHashValidate() {
-    const synced = syncPhoneHashFromPhone(this.phone);
-    this.phoneHash = synced.phoneHash;
-    this.phoneHashV2 = synced.phoneHashV2;
+    this.phoneHashV2 = syncPhoneHashV2FromPhone(this.phone);
 });
 
 const syncPhoneHashInUpdate = (query) => {
     const update = query.getUpdate() || {};
     // mongoose 9 casts timestamps into $set before hooks run, so the update can
-    // be MIXED (flat phone alongside a $set doc). Patch both hash versions in the
-    // same shape wherever the phone itself lives — in-place mutation survives.
+    // be MIXED (flat phone alongside a $set doc). Patch the hash in the same
+    // shape wherever the phone itself lives — in-place mutation survives.
     if (Object.prototype.hasOwnProperty.call(update, 'phone')) {
-        Object.assign(update, syncPhoneHashFromPhone(update.phone));
+        update.phoneHashV2 = syncPhoneHashV2FromPhone(update.phone);
     }
     if (update.$set && Object.prototype.hasOwnProperty.call(update.$set, 'phone')) {
-        Object.assign(update.$set, syncPhoneHashFromPhone(update.$set.phone));
+        update.$set.phoneHashV2 = syncPhoneHashV2FromPhone(update.$set.phone);
     }
     // Clearing the phone must clear both hashes, or the row stays findable by a
     // number the account no longer owns.

@@ -1,7 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const User = require('../models/User');
-const { phoneBlindIndexCandidates } = require('../services/blindIndexService');
+const { computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Listing = require('../models/Listing');
@@ -289,10 +289,9 @@ const listAdminUsers = asyncHandler(async (req, res) => {
             { email: { $regex: escapedSearch, $options: 'i' } },
             { phone: { $regex: escapedSearch, $options: 'i' } },
             // phone is encrypted at rest: full-value matches resolve through
-            // the HMAC blind index; partial phone searches fall back to the
-            // other fields. Both hash versions are matched so rows not yet
-            // backfilled to v2 stay findable.
-            { phoneHash: { $in: phoneBlindIndexCandidates(search) } },
+            // the v2 HMAC blind index; partial phone searches fall back to the
+            // other fields. (The legacy v1 hash was retired post-backfill.)
+            { phoneHashV2: { $in: [computePhoneBlindIndexV2(search)].filter(Boolean) } },
         ];
     }
 

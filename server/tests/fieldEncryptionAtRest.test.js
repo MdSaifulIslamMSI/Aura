@@ -45,7 +45,7 @@ describe('field encryption at rest (storage representation)', () => {
         expect(user.addresses[0].address).toBe('42 Confidential Lane');
     });
 
-    test('user phone is ciphertext with a matching blind index through save() and updates', async () => {
+    test('user phone is ciphertext with a matching v2 blind index through save() and updates', async () => {
         const user = new User({
             email: 'phone-at-rest@example.com',
             name: 'Phone At Rest',
@@ -55,37 +55,41 @@ describe('field encryption at rest (storage representation)', () => {
 
         let raw = user.toObject({ getters: false });
         expect(raw.phone).toMatch(/^v1\./);
-        expect(raw.phoneHash).toMatch(/^[0-9a-f]{64}$/);
+        expect(raw.phoneHashV2).toMatch(/^[0-9a-f]{64}$/);
+        // Step-4 retirement: the legacy v1 hash is no longer written.
+        expect(raw.phoneHash).toBeNull();
         expect(user.phone).toBe('+919876543210');
-        const savedHash = raw.phoneHash;
+        const savedHash = raw.phoneHashV2;
 
-        // findOneAndUpdate-style flow: the model hook injects phoneHash into $set
-        // at execution time (pre hooks run on exec; the DB is unreachable here,
-        // but the mutation happens before the connection attempt).
+        // findOneAndUpdate-style flow: the model hook injects phoneHashV2 into
+        // $set at execution time (pre hooks run on exec; the DB is unreachable
+        // here, but the mutation happens before the connection attempt).
         const query = User.findOneAndUpdate(
             { email: 'phone-at-rest@example.com' },
             { $set: { phone: '+919999999999' } }
         );
         await query.exec().catch(() => {});
         const update = query.getUpdate();
-        expect(update.$set.phoneHash).toMatch(/^[0-9a-f]{64}$/);
-        expect(update.$set.phoneHash).not.toBe(savedHash);
+        expect(update.$set.phoneHashV2).toMatch(/^[0-9a-f]{64}$/);
+        expect(update.$set.phoneHashV2).not.toBe(savedHash);
+        expect(update.$set.phoneHash).toBeUndefined();
 
         // Flat (non-$set) updates keep working: mongoose normalizes them into
-        // $set during exec, and the hook lands phoneHash there.
+        // $set during exec, and the hook lands phoneHashV2 there.
         const flatQuery = User.updateOne({ email: 'x@example.com' }, { phone: '+918888888888' });
         await flatQuery.exec().catch(() => {});
         const flatUpdate = flatQuery.getUpdate();
-        const flatHash = flatUpdate.phoneHash ?? flatUpdate.$set?.phoneHash;
+        const flatHash = flatUpdate.phoneHashV2 ?? flatUpdate.$set?.phoneHashV2;
         expect(flatHash).toMatch(/^[0-9a-f]{64}$/);
 
-        // $unset of phone also unsets the index.
+        // $unset of phone also unsets the live index (and clears any legacy
+        // v1 hash left by a pre-retirement writer).
         const unsetQuery = User.updateOne({ email: 'x@example.com' }, { $unset: { phone: '' } });
         await unsetQuery.exec().catch(() => {});
-        expect(unsetQuery.getUpdate().$unset.phoneHash).toBe('');
+        expect(unsetQuery.getUpdate().$unset.phoneHashV2).toBe('');
     });
 
-    test('email delivery log recipient email is ciphertext with a matching blind index', async () => {
+    test('email delivery log recipient email is ciphertext with a matching v2 blind index', async () => {
         const EmailDeliveryLog = require('../models/EmailDeliveryLog');
         const entry = new EmailDeliveryLog({
             deliveryId: 'edl_at_rest_1',
@@ -98,11 +102,13 @@ describe('field encryption at rest (storage representation)', () => {
 
         const raw = entry.toObject({ getters: false });
         expect(raw.recipientEmail).toMatch(/^v1\./);
-        expect(raw.recipientEmailHash).toMatch(/^[0-9a-f]{64}$/);
+        expect(raw.recipientEmailHashV2).toMatch(/^[0-9a-f]{64}$/);
+        // Step-4 retirement: the legacy v1 hash is no longer written.
+        expect(raw.recipientEmailHash).toBeNull();
         expect(entry.recipientEmail).toBe('Customer@Example.com');
 
-        const { computeEmailBlindIndex } = require('../services/blindIndexService');
-        expect(raw.recipientEmailHash).toBe(computeEmailBlindIndex('customer@example.com'));
+        const { computeEmailBlindIndexV2 } = require('../services/blindIndexService');
+        expect(raw.recipientEmailHashV2).toBe(computeEmailBlindIndexV2('customer@example.com'));
     });
 
     test('order shipping street line is ciphertext; pricing fields stay plaintext', () => {
