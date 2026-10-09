@@ -8,6 +8,11 @@ const DEFAULT_AWS_PARAMETER_KEYS = [
     'JWT_SECRET',
     'SESSION_SECRET',
     'SESSION_HASH_SECRET',
+    // Present in `/aura/prod` but previously absent here, so the app never loaded
+    // them and the process ran with its in-code defaults instead.
+    // (FIELD_ENCRYPTION_KMS_KEY_ID is already listed further down.)
+    'SECURITY_LOG_HASH_KEY',
+    'FIELD_ENCRYPTION_ENABLED',
     'ACCOUNT_CURSOR_SIGNING_SECRET',
     'OBSERVABILITY_HASH_SECRET',
     'FIREBASE_SERVICE_ACCOUNT',
