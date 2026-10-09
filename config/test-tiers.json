@@ -66,6 +66,7 @@
       "tests/backupArchiveCrypto.test.js",
       "tests/blindIndexService.test.js",
       "tests/blindIndexV2Migration.test.js",
+      "tests/backfillBlindIndexes.test.js",
       "tests/cryptoKdfHardening.test.js",
       "tests/cryptoMigrationCompatibility.test.js",
       "tests/cryptoSeparationPolicy.test.js",
