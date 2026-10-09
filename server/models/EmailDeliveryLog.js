@@ -59,12 +59,13 @@ const emailDeliveryLogSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
-    // HMAC blind index over the normalized recipient email: keeps exact-match
-    // search working on the encrypted value (see emailOpsAdminService).
+    // v1 blind index — index dropped by migration
+    // 2026-10-09-drop-blind-index-v1-indexes. The field is still dual-written
+    // and dual-read so rollback stays possible; the HKDF-derived
+    // recipientEmailHashV2 below carries lookups now.
     recipientEmailHash: {
         type: String,
         default: null,
-        index: true,
     },
     // v2 blind index (HKDF-derived), dual-written during the v1 → v2 migration.
     // Lookups match either version; see services/blindIndexService.js.

@@ -141,6 +141,49 @@ const registry = [
             });
         },
     })),
+    {
+        // Step 4 of the blind-index migration runbook. Preflight against the
+        // live database showed 0 duplicate phoneHashV2 values and 0 rows with
+        // a v1 hash but no v2, so v2 uniquely identifies the same phones the
+        // v1 unique backstop guarded — and the E11000 duplicate-signup path in
+        // otpController keeps firing (it matches on code only). The unique v2
+        // declaration lives in server/models/User.js; this entry only removes
+        // what the schema no longer declares.
+        id: '2026-10-09-drop-blind-index-v1-indexes',
+        description: 'Drop the v1 blind-index indexes (users: phoneHash unique partial + phoneHash/isVerified compound; emaildeliverylogs: recipientEmailHash) now that v2 carries lookups and uniqueness.',
+        up: async () => {
+            const dropTargets = {
+                users: [
+                    'phoneHash_1_partial_unique_nonempty',
+                    'phoneHash_1_isVerified_1',
+                ],
+                emaildeliverylogs: [
+                    'recipientEmailHash_1',
+                ],
+            };
+            let dropped = 0;
+            for (const [collectionName, names] of Object.entries(dropTargets)) {
+                const collection = mongoose.connection.collection(collectionName);
+                for (const name of names) {
+                    try {
+                        await collection.dropIndex(name);
+                        dropped += 1;
+                    } catch (error) {
+                        // Missing index (27) or missing collection (26) both
+                        // mean the target state is already achieved — boot-time
+                        // User.syncIndexes() may have dropped them first.
+                        if (
+                            error?.codeName !== 'IndexNotFound'
+                            && error?.codeName !== 'NamespaceNotFound'
+                            && error?.code !== 27
+                            && error?.code !== 26
+                        ) throw error;
+                    }
+                }
+            }
+            logger.info('migrations.dropped_blind_index_v1', { dropped });
+        },
+    },
 ];
 
 module.exports = { registry };

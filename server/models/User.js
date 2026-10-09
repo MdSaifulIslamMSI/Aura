@@ -288,16 +288,23 @@ userSchema.index(
 // Equality-searchable identity for the encrypted phone: an HMAC blind index.
 // Deterministic, so uniqueness of the hash == uniqueness of the stored phone,
 // and `phoneHash: { $in: hashes }` mirrors `phone: { $in: values }` exactly.
+//
+// v1 (bare-HMAC phoneHash) carried this backstop until the v2 rollout. The v1
+// indexes were dropped after the backfill proved 0 duplicates and 0 coverage
+// gaps (migration 2026-10-09-drop-blind-index-v1-indexes); the HKDF-derived
+// phoneHashV2 below carries uniqueness now. The v1 *field* is still
+// dual-written and dual-read so rollback stays possible — only the indexes
+// are gone.
 userSchema.index(
-    { phoneHash: 1 },
+    { phoneHashV2: 1 },
     {
         unique: true,
-        name: 'phoneHash_1_partial_unique_nonempty',
+        name: 'phoneHashV2_1_partial_unique_nonempty',
         partialFilterExpression: {
             $and: [
-                { phoneHash: { $exists: true } },
-                { phoneHash: { $type: 'string' } },
-                { phoneHash: { $gt: '' } },
+                { phoneHashV2: { $exists: true } },
+                { phoneHashV2: { $type: 'string' } },
+                { phoneHashV2: { $gt: '' } },
             ],
         },
     }
@@ -323,11 +330,10 @@ userSchema.index(
 // Used by checkUserExists, sendOtp (login/forgot-password), verifyOtp.
 // Legacy plaintext compound kept alongside the phoneHash variant until the
 // backfill completes; queries read phoneHash first with a phone fallback.
+// phoneHash was the pre-migration write path; its field is still dual-written
+// (rollback keeps old readers working) but the v1 indexes are gone — every
+// lookup that matters runs on phoneHashV2 now.
 userSchema.index({ phone: 1, isVerified: 1 });
-userSchema.index({ phoneHash: 1, isVerified: 1 });
-// v2 blind index. Non-unique on purpose: adding the UNIQUE constraint is a
-// separate deliberate step once the backfill has proven there are no duplicate
-// phones hiding behind mismatched hash versions.
 userSchema.index({ phoneHashV2: 1, isVerified: 1 });
 
 // Index for authMiddleware email lookup (most called path)

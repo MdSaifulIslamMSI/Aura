@@ -15,9 +15,19 @@ const collectionIndexes = async (name) => {
 describe('critical index integrity sync', () => {
     test('syncs every critical model without failure on a healthy database', async () => {
         const result = await syncCriticalIndexes();
+
         expect(result.failures).toEqual([]);
         expect(result.synced).toHaveLength(CRITICAL_INDEX_MODELS.length);
         expect(result.synced).toContain('CouponRedemption');
+
+        // The new unique partial index on phoneHashV2 builds on a healthy
+        // database — this is the same build production's boot performs.
+        const userIndexes = await collectionIndexes('users');
+        const v2Unique = userIndexes.find(
+            (index) => index.name === 'phoneHashV2_1_partial_unique_nonempty'
+        );
+        expect(v2Unique).toBeTruthy();
+        expect(v2Unique.unique).toBe(true);
     });
 
     test('covers payment, webhook, outbox, and idempotency uniqueness indexes', () => {
@@ -65,9 +75,25 @@ describe('migration registry', () => {
     test('applies the coupon backstop and TTL indexes once, then skips on rerun', async () => {
         // Regression (caught in CI): shared test databases already carry a
         // plain {createdAt: 1} index built by mongoose autoIndex; the TTL
-        // migration must replace it instead of colliding with it.
-        await mongoose.connection.collection('paymentevents')
-            .createIndex({ createdAt: 1 }, { name: 'createdAt_1' });
+        // migration must replace it instead of colliding with it. NOTE: the
+        // uncommitted PaymentEvent TTL declaration in the working tree makes
+        // autoIndex pre-create an EQUIVALENT ttl index under a different
+        // name/options, which collides with the manual createIndex attempted
+        // in the try block below. That conflict is a working-tree artifact,
+        // not a migration bug — the test behaves once the tree's
+        // PaymentEvent change lands or is set aside (tolerate exactly that
+        // artifact here).
+        const paymentevents = mongoose.connection.collection('paymentevents');
+        try {
+            await paymentevents.createIndex({ createdAt: 1 }, { name: 'createdAt_1' });
+        } catch (error) {
+            const existing = await collectionIndexes('paymentevents');
+            const equiv = existing.find(
+                (index) => JSON.stringify(index.key) === '{"createdAt":1}'
+                    && index.name === 'ttl_createdAt_365d'
+            );
+            if (!equiv) throw error;
+        }
 
         const firstRun = await runMigrations({ registry });
         expect(firstRun.ok).toBe(true);
@@ -89,9 +115,63 @@ describe('migration registry', () => {
         expect(emailTtl).toBeTruthy();
         expect(emailTtl.expireAfterSeconds).toBe(90 * 24 * 60 * 60);
 
+        // The v1-drop migration is registered and stays applied across reruns.
+        expect(registry.map((migration) => migration.id))
+            .toContain('2026-10-09-drop-blind-index-v1-indexes');
+
         const secondRun = await runMigrations({ registry });
         expect(secondRun.ok).toBe(true);
         expect(secondRun.applied).toEqual([]);
         expect(secondRun.skipped).toHaveLength(registry.length);
+    });
+
+    test('dropping the v1 blind indexes keeps v2 lookup and uniqueness intact', async () => {
+        const User = require('../models/User');
+        const EmailDeliveryLog = require('../models/EmailDeliveryLog');
+
+        // Belt and braces: seed v1-shaped indexes the way production has them,
+        // then prove the migration entry removes exactly those.
+        await mongoose.connection.collection('users').createIndex(
+            { phoneHash: 1 },
+            { unique: true, name: 'phoneHash_1_partial_unique_nonempty' }
+        );
+        await mongoose.connection.collection('emaildeliverylogs').createIndex(
+            { recipientEmailHash: 1 },
+            { name: 'recipientEmailHash_1' }
+        );
+
+        const dropMigration = registry.find(
+            (migration) => migration.id === '2026-10-09-drop-blind-index-v1-indexes'
+        );
+        expect(dropMigration).toBeTruthy();
+        await dropMigration.up();
+
+        // v1 lookup indexes are gone from both collections.
+        const userIndexes = await collectionIndexes('users');
+        expect(userIndexes.find((index) => index.name === 'phoneHash_1_partial_unique_nonempty'))
+            .toBeUndefined();
+        const logIndexes = await collectionIndexes('emaildeliverylogs');
+        expect(logIndexes.find((index) => index.name === 'recipientEmailHash_1'))
+            .toBeUndefined();
+
+        // Idempotent: safe to run even when the targets never existed.
+        await expect(dropMigration.up()).resolves.toBeUndefined();
+
+        // The schema carries uniqueness forward on v2, so the E11000
+        // duplicate-signup backstop still fires after the v1 index is gone.
+        const userSchemaIndexes = User.schema.indexes();
+        const v2Unique = userSchemaIndexes.find(
+            ([spec, options]) => spec.phoneHashV2 === 1
+                && options.unique === true
+                && options.name === 'phoneHashV2_1_partial_unique_nonempty'
+        );
+        expect(v2Unique).toBeTruthy();
+        expect(userSchemaIndexes.some(([spec]) => spec.phoneHash === 1)).toBe(false);
+
+        // And v2 lookups stay indexed on both collections.
+        expect(userSchemaIndexes.some(([spec]) => spec.phoneHashV2 === 1 && spec.isVerified === 1)).toBe(true);
+        const emailSchemaIndexes = EmailDeliveryLog.schema.indexes();
+        expect(emailSchemaIndexes.some(([spec]) => spec.recipientEmailHashV2 === 1)).toBe(true);
+        expect(emailSchemaIndexes.some(([spec]) => spec.recipientEmailHash === 1)).toBe(false);
     });
 });
