@@ -184,6 +184,50 @@ const registry = [
             logger.info('migrations.dropped_blind_index_v1', { dropped });
         },
     },
+    {
+        // Step 4b: dead indexes on ciphertext. At rest, phone and recipientEmail
+        // are IV-randomized ciphertext, so an index on them can never be
+        // targeted by a plaintext equality lookup and (for the unique phone
+        // index) never conflicts — it enforced nothing. Duplicate-phone
+        // uniqueness and every lookup live on the blind-index v2 fields. The
+        // users indexes are also declared gone from the schema (boot-time
+        // syncIndexes drops them); emaildeliverylogs is outside the critical
+        // sync list, so this entry is what removes recipientEmail_1.
+        id: '2026-10-09-drop-legacy-ciphertext-indexes',
+        description: 'Drop the inert indexes on encrypted fields (users: phone_1_partial_unique_nonempty + phone_1_isVerified_1; emaildeliverylogs: recipientEmail_1); lookups and uniqueness live on the blind-index v2 fields.',
+        up: async () => {
+            const dropTargets = {
+                users: [
+                    'phone_1_partial_unique_nonempty',
+                    'phone_1_isVerified_1',
+                ],
+                emaildeliverylogs: [
+                    'recipientEmail_1',
+                ],
+            };
+            let dropped = 0;
+            for (const [collectionName, names] of Object.entries(dropTargets)) {
+                const collection = mongoose.connection.collection(collectionName);
+                for (const name of names) {
+                    try {
+                        await collection.dropIndex(name);
+                        dropped += 1;
+                    } catch (error) {
+                        // Missing index (27) or missing collection (26) both
+                        // mean the target state is already achieved — boot-time
+                        // syncIndexes may have dropped the users ones first.
+                        if (
+                            error?.codeName !== 'IndexNotFound'
+                            && error?.codeName !== 'NamespaceNotFound'
+                            && error?.code !== 27
+                            && error?.code !== 26
+                        ) throw error;
+                    }
+                }
+            }
+            logger.info('migrations.dropped_legacy_ciphertext_indexes', { dropped });
+        },
+    },
 ];
 
 module.exports = { registry };

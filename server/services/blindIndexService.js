@@ -20,12 +20,15 @@ const { deriveHmacKey } = require('../utils/cryptoKdf');
 // domain separation: the index key is no longer byte-identical to the secret
 // used anywhere else, so recovering one capability no longer yields another.
 //
-// Migrating v1 → v2 is a data migration, not a code change, and is staged:
-//   1. dual-write both fields      (model hooks, this file)
-//   2. dual-read either field      (the *Candidates query helpers below)
-//   3. backfill existing rows      (scripts/backfill-blind-indexes.js)
-//   4. drop the v1 field + index   (separate, deliberate, after verification)
-// Rolling back at any step is safe because reads accept both versions.
+// Migrating v1 → v2 was a data migration, staged and now COMPLETE:
+//   1. dual-write both fields      (model hooks, this file)      — done
+//   2. dual-read either field      (the *Candidates query helpers) — retired
+//   3. backfill existing rows      (scripts/backfill-blind-indexes.js) — done
+//   4. drop the v1 field + index   (migrations 2026-10-09-drop-blind-index-*
+//                                    v1-indexes / -legacy-ciphertext-indexes) — done
+// Since step 4, only v2 is written and queried. The v1 compute functions stay
+// exported, FROZEN, for the migration tooling (the backfill verifies stored
+// v1 hashes against them); no request-path code may call them again.
 
 // Frozen HKDF contexts. Never edited once shipped; a future change means v3.
 const PHONE_INDEX_CONTEXT = 'blind-index.phone.v2';
@@ -132,34 +135,17 @@ const computeEmailBlindIndexV2 = (email) => {
         : null;
 };
 
-// ── Query helpers (dual-read) ───────────────────────────────────────────────
-
-/**
- * Every hash a stored phone could be indexed under.
- *
- * Equality lookups must keep finding rows that only carry a v1 hash (not yet
- * backfilled) as well as rows that only carry v2, so queries test both.
- */
-const phoneBlindIndexCandidates = (phone) => {
-    if (phone === undefined || phone === null || phone === '') return [];
-    const candidates = [computePhoneBlindIndex(phone), computePhoneBlindIndexV2(phone)];
-    return [...new Set(candidates.filter(Boolean))];
-};
-
-const emailBlindIndexCandidates = (email) => {
-    const normalized = normalizeEmailForIndex(email);
-    if (!normalized) return [];
-    const candidates = [computeEmailBlindIndex(normalized), computeEmailBlindIndexV2(normalized)];
-    return [...new Set(candidates.filter(Boolean))];
-};
+// ── Query helpers ────────────────────────────────────────────────────────────
+// The dual-read *Candidates helpers that lived here were removed with the
+// step-4 retirement: every query site matches phoneHashV2 /
+// recipientEmailHashV2 directly (see buildPhoneMatchFilter,
+// listAdminUsers, buildSearchQuery in emailOpsAdminService).
 
 module.exports = {
     computePhoneBlindIndex,
     computeEmailBlindIndex,
     computePhoneBlindIndexV2,
     computeEmailBlindIndexV2,
-    phoneBlindIndexCandidates,
-    emailBlindIndexCandidates,
     normalizeEmailForIndex,
     assertBlindIndexSecretIsolation,
     PHONE_INDEX_CONTEXT,

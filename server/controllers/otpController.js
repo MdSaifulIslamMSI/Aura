@@ -7,7 +7,7 @@ const OtpSession = require('../models/OtpSession');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms, normalizePhoneE164 } = require('../services/sms');
-const { phoneBlindIndexCandidates } = require('../services/blindIndexService');
+const { computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 const { decryptValue } = require('../models/utils/encryptedField');
 const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../services/authProfileVault');
 const AppError = require('../utils/AppError');
@@ -146,19 +146,13 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
     return Array.from(candidates).filter(Boolean);
 };
 
-// Phone is encrypted at rest with an HMAC blind index (User.phoneHash), so
-// equality lookups run against the hash only. The production backfill has
-// completed (every user row carries phoneHash) and the legacy plaintext
-// phone indexes are dropped, so a plaintext branch would be an unindexed
-// collection scan that can never match.
-//
-// Both hash versions are matched: rows not yet backfilled to v2 still carry only
-// phoneHash, and rows written after the v2 rollout carry both. Removing the v1
-// term is a post-backfill step.
+// Phone is encrypted at rest with an HMAC blind index (User.phoneHashV2), so
+// equality lookups run against the v2 hash only — the legacy v1 hash was
+// retired once the backfill proved every row carries a correct v2.
 const buildPhoneMatchFilter = (candidates) => {
     const list = (Array.isArray(candidates) ? candidates : [candidates]).filter(Boolean);
-    const hashes = [...new Set(list.flatMap((phone) => phoneBlindIndexCandidates(phone)))];
-    return { phoneHash: { $in: hashes } };
+    const hashes = [...new Set(list.map((phone) => computePhoneBlindIndexV2(phone)).filter(Boolean))];
+    return { phoneHashV2: { $in: hashes } };
 };
 
 const normalizePurpose = (value) => (

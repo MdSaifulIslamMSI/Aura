@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 
 const { defineEncryptedField } = require('./utils/encryptedField');
-const { computeEmailBlindIndex, computeEmailBlindIndexV2 } = require('../services/blindIndexService');
+const { computeEmailBlindIndexV2 } = require('../services/blindIndexService');
 
 const webhookEventSchema = new mongoose.Schema({
     eventId: { type: String, default: '' },
@@ -143,8 +143,9 @@ emailDeliveryLogSchema.index({ lifecycleStatus: 1, createdAt: -1 });
 // lookup, recipientMask keeps partial/domain search and display.
 defineEncryptedField(emailDeliveryLogSchema, 'recipientEmail');
 
+// v2 only since the step-4 retirement: the legacy v1 recipientEmailHash field
+// is no longer written (kept on the schema so historical rows stay readable).
 const syncRecipientHash = (doc) => {
-    doc.recipientEmailHash = computeEmailBlindIndex(doc.recipientEmail);
     doc.recipientEmailHashV2 = computeEmailBlindIndexV2(doc.recipientEmail);
 };
 
