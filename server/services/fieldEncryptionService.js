@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { deriveAes256GcmKey } = require('../utils/cryptoKdf');
 const logger = require('../utils/logger');
 
 // Envelope encryption for sensitive fields at rest.
@@ -57,9 +58,17 @@ const buildPreviousKeys = () => {
     return map;
 };
 
+// Fixed-salt scrypt is retained ONLY for records already written with the local
+// master key. It is not a password KDF (the input is a high-entropy master key,
+// not a human passphrase), but a constant salt still means every deployment that
+// picked the same master key derives the same DEK, so one deployment's dump is
+// readable by another. New local keys derive through HKDF with a frozen context
+// instead; the scrypt path stays alive purely to read existing v1 ciphertext.
+const LOCAL_KEY_HKDF_CONTEXT = 'field-encryption.local-dek';
+
 const normalizeKeyMaterial = (material) => {
     const raw = Buffer.from(String(material || ''), 'utf8');
-    // Accept raw 32 bytes, base64/hex encoded 32 bytes, or derive via scrypt.
+    // Accept raw 32 bytes, base64/hex encoded 32 bytes, or derive via HKDF.
     if (raw.length === DEK_BYTES) return raw;
     try {
         const decoded = Buffer.from(String(material || ''), 'base64');
@@ -67,8 +76,25 @@ const normalizeKeyMaterial = (material) => {
     } catch {
         // fall through to KDF
     }
-    return crypto.scryptSync(String(material || ''), 'aura-field-encryption-kdf', DEK_BYTES);
+    try {
+        const decoded = Buffer.from(String(material || ''), 'hex');
+        if (decoded.length === DEK_BYTES) return decoded;
+    } catch {
+        // fall through to KDF
+    }
+    return deriveAes256GcmKey({
+        secret: String(material || ''),
+        context: LOCAL_KEY_HKDF_CONTEXT,
+    });
 };
+
+// Frozen: reproduces the old fixed-salt scrypt derivation so local v1 ciphertext
+// still decrypts. Never used for new writes.
+const normalizeLegacyKeyMaterial = (material) => crypto.scryptSync(
+    String(material || ''),
+    'aura-field-encryption-kdf',
+    DEK_BYTES
+);
 
 const assertEnablementContract = () => {
     if (!isFieldEncryptionEnabled()) return;
@@ -187,6 +213,14 @@ const primeFieldEncryption = async () => {
             key = loadLocalDataKey();
             keyVersion = String(process.env.FIELD_ENCRYPTION_KEY_VERSION || '').trim() || 'local';
             if (keyVersion === 'local' && previousKeys.has('local')) previousKeys.delete('local');
+
+            // Register the frozen fixed-salt derivation under its own version so
+            // local ciphertext written before the HKDF switch still decrypts,
+            // without letting it be used for new writes.
+            const legacyKey = normalizeLegacyKeyMaterial(resolveLocalMasterKey());
+            if (!legacyKey.equals(key)) {
+                previousKeys.set('local-legacy-scrypt', legacyKey);
+            }
         }
         kmsDataKey = { keyVersion, key };
         logger.info('field_encryption.primed', { keyVersion, provider: resolveKmsKeyId() ? 'kms' : 'local' });
@@ -228,6 +262,15 @@ const encrypt = (plaintext) => {
     ].join('.');
 };
 
+const decryptWithKey = (ciphertext, key) => {
+    const [, , ivRaw, tagRaw, ctRaw] = ciphertext.split('.');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivRaw, 'base64url'), {
+        authTagLength: TAG_BYTES,
+    });
+    decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+    return Buffer.concat([decipher.update(Buffer.from(ctRaw, 'base64url')), decipher.final()]).toString('utf8');
+};
+
 const decrypt = (ciphertext) => {
     if (ciphertext === undefined || ciphertext === null || ciphertext === '') return ciphertext;
     if (typeof ciphertext !== 'string') return ciphertext;
@@ -237,26 +280,28 @@ const decrypt = (ciphertext) => {
     if (version !== FORMAT_VERSION || !keyVersionRaw || !ivRaw || !tagRaw || !ctRaw) return null;
 
     const keyVersion = Buffer.from(keyVersionRaw, 'base64url').toString('utf8');
-    let key = null;
-    if (kmsDataKey && kmsDataKey.keyVersion === keyVersion) {
-        key = kmsDataKey.key;
-    } else if (previousKeys.has(keyVersion)) {
-        key = previousKeys.get(keyVersion);
-    } else if (kmsDataKey) {
-        key = kmsDataKey.key; // tolerate mismatched versions after untracked rotation
-    }
-    if (!key) return null;
 
-    try {
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivRaw, 'base64url'), {
-            authTagLength: TAG_BYTES,
-        });
-        decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
-        const decrypted = Buffer.concat([decipher.update(Buffer.from(ctRaw, 'base64url')), decipher.final()]);
-        return decrypted.toString('utf8');
-    } catch {
-        return null;
+    // Ordered candidates: exact version match first, then any previous key, then
+    // the current key as a last resort. GCM authentication decides which is
+    // correct, so trying several cannot yield a wrong plaintext.
+    const candidates = [];
+    if (kmsDataKey && kmsDataKey.keyVersion === keyVersion) candidates.push(kmsDataKey.key);
+    if (previousKeys.has(keyVersion)) candidates.push(previousKeys.get(keyVersion));
+    if (kmsDataKey) candidates.push(kmsDataKey.key);
+    for (const previousKey of previousKeys.values()) candidates.push(previousKey);
+
+    const seen = new Set();
+    for (const candidate of candidates) {
+        if (!candidate || seen.has(candidate)) continue;
+        seen.add(candidate);
+        try {
+            return decryptWithKey(ciphertext, candidate);
+        } catch {
+            // Wrong key: the auth tag rejected it. Try the next candidate.
+        }
     }
+
+    return null;
 };
 
 const isEncrypted = (value) => typeof value === 'string' && value.startsWith(`${FORMAT_VERSION}.`);
@@ -264,6 +309,72 @@ const isEncrypted = (value) => typeof value === 'string' && value.startsWith(`${
 const isPrimed = () => Boolean(kmsDataKey);
 
 const assertFieldEncryptionConfig = () => assertEnablementContract();
+
+/**
+ * Snapshot of the at-rest encryption posture, for logs and health output.
+ *
+ * `mode` is the honest answer to "is PII encrypted in this process":
+ *  - 'kms'         encrypted, keys from AWS KMS
+ *  - 'local'       encrypted, local master key (never valid in production)
+ *  - 'disabled'    pass-through no-op — plaintext at rest
+ */
+const getFieldEncryptionStatus = () => {
+    const enabled = isFieldEncryptionEnabled();
+    const provider = resolveKmsKeyId() ? 'kms' : (enabled && resolveLocalMasterKey() ? 'local' : null);
+    const explicitPlaintextOverride = parseBoolean(
+        process.env.ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION,
+        false
+    );
+
+    let mode = 'disabled';
+    if (enabled) mode = resolveKmsKeyId() ? 'kms' : 'local';
+    else if (isProduction()) mode = explicitPlaintextOverride ? 'disabled_acknowledged' : 'disabled';
+
+    return {
+        enabled,
+        mode,
+        provider,
+        primed: isPrimed(),
+        plaintextAtRest: !enabled,
+        // True when production is knowingly running without encryption at rest.
+        acknowledgedPlaintextAtRest: isProduction() && !enabled && explicitPlaintextOverride,
+    };
+};
+
+/**
+ * Production must not silently store PII in plaintext.
+ *
+ * `assertEnablementContract` above validates configuration *given* the flag, but
+ * deliberately returns early when the flag is off — so a production deploy with
+ * FIELD_ENCRYPTION_ENABLED unset boots happily with every address and phone
+ * number readable in a database dump. That silent default is the gap this closes.
+ *
+ * Fails closed. The single escape hatch is ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION,
+ * which exists so an urgent hotfix is never blocked by a config change; it is
+ * logged at ERROR level on every boot so the decision is greppable and auditable
+ * rather than invisible.
+ */
+const assertFieldEncryptionProductionReadiness = () => {
+    if (!isProduction()) return getFieldEncryptionStatus();
+
+    const status = getFieldEncryptionStatus();
+    if (status.enabled) return status;
+
+    if (status.acknowledgedPlaintextAtRest) {
+        logger.error('field_encryption.plaintext_at_rest_acknowledged', {
+            reason: 'ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION is set; PII fields are stored in plaintext',
+            remediation: 'Set FIELD_ENCRYPTION_ENABLED=true with FIELD_ENCRYPTION_KMS_KEY_ID, then run scripts/backfill-field-encryption.js',
+        });
+        return status;
+    }
+
+    throw new Error(
+        'Production refuses to start with encryption at rest disabled. '
+        + 'Set FIELD_ENCRYPTION_ENABLED=true and configure FIELD_ENCRYPTION_KMS_KEY_ID '
+        + '(then run `node scripts/backfill-field-encryption.js --dry-run`), '
+        + 'or explicitly acknowledge plaintext at rest with ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION=true.'
+    );
+};
 
 module.exports = {
     primeFieldEncryption,
@@ -273,4 +384,6 @@ module.exports = {
     isFieldEncryptionEnabled,
     isPrimed,
     assertFieldEncryptionConfig,
+    assertFieldEncryptionProductionReadiness,
+    getFieldEncryptionStatus,
 };

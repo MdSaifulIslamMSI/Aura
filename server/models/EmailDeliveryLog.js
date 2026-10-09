@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 
 const { defineEncryptedField } = require('./utils/encryptedField');
-const { computeEmailBlindIndex } = require('../services/blindIndexService');
+const { computeEmailBlindIndex, computeEmailBlindIndexV2 } = require('../services/blindIndexService');
 
 const webhookEventSchema = new mongoose.Schema({
     eventId: { type: String, default: '' },
@@ -62,6 +62,13 @@ const emailDeliveryLogSchema = new mongoose.Schema({
     // HMAC blind index over the normalized recipient email: keeps exact-match
     // search working on the encrypted value (see emailOpsAdminService).
     recipientEmailHash: {
+        type: String,
+        default: null,
+        index: true,
+    },
+    // v2 blind index (HKDF-derived), dual-written during the v1 → v2 migration.
+    // Lookups match either version; see services/blindIndexService.js.
+    recipientEmailHashV2: {
         type: String,
         default: null,
         index: true,
@@ -137,6 +144,7 @@ defineEncryptedField(emailDeliveryLogSchema, 'recipientEmail');
 
 const syncRecipientHash = (doc) => {
     doc.recipientEmailHash = computeEmailBlindIndex(doc.recipientEmail);
+    doc.recipientEmailHashV2 = computeEmailBlindIndexV2(doc.recipientEmail);
 };
 
 emailDeliveryLogSchema.pre('validate', function syncRecipientHashValidate() {

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const AdminNotification = require('../models/AdminNotification');
 const logger = require('../utils/logger');
 
@@ -98,7 +99,7 @@ const summarizePathKey = (path = '') => {
     return normalized.replace(/[^a-z0-9:/_-]/gi, '_').toLowerCase();
 };
 
-const buildNotificationId = () => `adm_ntf_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+const buildNotificationId = () => `adm_ntf_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
 
 const pushHighlight = (items, value) => {
     const normalized = trim(value);

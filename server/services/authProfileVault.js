@@ -4,9 +4,30 @@ const crypto = require('crypto');
 const logger = require('../utils/logger');
 
 const VAULT_DIR = path.join(__dirname, '..', 'data');
-// Only used to decrypt legacy records written before per-record salts; never for new ciphertext.
+// Frozen: only used to decrypt legacy records written before per-record salts; never for new ciphertext.
 const LEGACY_KEY_DERIVATION_SALT = 'aura-salt';
 const CURRENT_KEY_VERSION = String(process.env.AUTH_VAULT_SECRET_VERSION || 'v1').trim() || 'v1';
+
+// scrypt cost parameters, pinned explicitly.
+//
+// Node's `scryptSync` defaults to N=16384/r=8/p=1. That is below the N=2^17
+// work factor normally recommended for password-based KDFs, so relying on the
+// default silently under-provisions cost. These values are part of the on-disk
+// format: v1 records were written with Node's defaults, so they must keep
+// decrypting with those defaults. New records are written as v2.
+const SCRYPT_PARAMS_V1 = { N: 16384, r: 8, p: 1 };
+const SCRYPT_PARAMS_V2 = { N: 131072, r: 8, p: 1 };
+// 128 * N * r = 128 MiB of addressable memory at N=2^17. Node's default maxmem
+// (32 MiB) would reject it, so it is raised explicitly for the v2 path only.
+const SCRYPT_MAXMEM_BYTES = 192 * 1024 * 1024;
+const VAULT_FORMAT_VERSION = 'v2';
+
+const scryptKey = (secret, salt, params) => crypto.scryptSync(
+    secret,
+    salt,
+    32,
+    { N: params.N, r: params.r, p: params.p, maxmem: SCRYPT_MAXMEM_BYTES }
+);
 
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -71,12 +92,12 @@ const encrypt = (text, secret) => {
     try {
         const salt = crypto.randomBytes(16);
         const iv = crypto.randomBytes(12);
-        const key = crypto.scryptSync(secret, salt, 32);
+        const key = scryptKey(secret, salt, SCRYPT_PARAMS_V2);
         const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         let encrypted = cipher.update(text, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         const authTag = cipher.getAuthTag().toString('hex');
-        return `v1:${salt.toString('hex')}:${iv.toString('hex')}:${authTag}:${encrypted}`;
+        return `${VAULT_FORMAT_VERSION}:${salt.toString('hex')}:${iv.toString('hex')}:${authTag}:${encrypted}`;
     } catch (error) {
         logger.error('vault.encrypt_failed', { error: error.message });
         throw error;
@@ -91,17 +112,24 @@ const decrypt = (data, secret) => {
         let iv;
         let authTag;
         let encrypted;
-        if (parts.length === 5 && parts[0] === 'v1') {
+        if (parts.length === 5 && parts[0] === VAULT_FORMAT_VERSION) {
             const salt = Buffer.from(parts[1], 'hex');
             iv = Buffer.from(parts[2], 'hex');
             authTag = Buffer.from(parts[3], 'hex');
             encrypted = parts[4];
-            key = crypto.scryptSync(secret, salt, 32);
+            key = scryptKey(secret, salt, SCRYPT_PARAMS_V2);
+        } else if (parts.length === 5 && parts[0] === 'v1') {
+            // Pre-existing records: Node's default scrypt cost. Frozen for read.
+            const salt = Buffer.from(parts[1], 'hex');
+            iv = Buffer.from(parts[2], 'hex');
+            authTag = Buffer.from(parts[3], 'hex');
+            encrypted = parts[4];
+            key = scryptKey(secret, salt, SCRYPT_PARAMS_V1);
         } else if (parts.length === 3) {
             iv = Buffer.from(parts[0], 'hex');
             authTag = Buffer.from(parts[1], 'hex');
             encrypted = parts[2];
-            key = crypto.scryptSync(secret, LEGACY_KEY_DERIVATION_SALT, 32);
+            key = scryptKey(secret, LEGACY_KEY_DERIVATION_SALT, SCRYPT_PARAMS_V1);
         } else {
             return null;
         }
@@ -241,7 +269,11 @@ const decryptField = (value, keyVersion, secretsByVersion) => {
     }
 
     logger.error('vault.decrypt_failed', { keyVersion });
-    return { value, usedVersion: keyVersion || null, encrypted: true };
+    // Fail closed. Returning the ciphertext here used to leak an unreadable
+    // `v2:...` blob to callers as if it were a real profile value, so a key
+    // mismatch would silently surface ciphertext into the UI/logs. An empty
+    // string is unambiguously "no value", which is what we actually know.
+    return { value: '', usedVersion: keyVersion || null, encrypted: true, decryptFailed: true };
 };
 
 const buildEncryptedProfile = (normalized, secret) => ({
@@ -286,6 +318,14 @@ const getAuthProfileSnapshotByEmail = async (email) => {
         const decryptedPhone = decryptField(profile.phone, profile.keyVersion, secretsByVersion);
         const decryptedEmail = decryptField(profile.email, profile.keyVersion, secretsByVersion);
 
+        // If any field failed to authenticate we do not know its plaintext, so we
+        // must NOT re-encrypt this record: `buildEncryptedProfile` would happily
+        // persist the empty placeholders and destroy the only copy of the data.
+        // Leave the ciphertext untouched and let an operator re-key explicitly.
+        const anyDecryptFailed = decryptedName.decryptFailed
+            || decryptedPhone.decryptFailed
+            || decryptedEmail.decryptFailed;
+
         const decryptedProfile = {
             ...profile,
             keyVersion: profile.keyVersion || CURRENT_KEY_VERSION,
@@ -294,11 +334,13 @@ const getAuthProfileSnapshotByEmail = async (email) => {
             email: decryptedEmail.value,
         };
 
-        const shouldRotateKey = !profile.keyVersion
+        const shouldRotateKey = !anyDecryptFailed && (
+            !profile.keyVersion
             || profile.keyVersion !== CURRENT_KEY_VERSION
             || decryptedName.usedVersion !== CURRENT_KEY_VERSION
             || decryptedPhone.usedVersion !== CURRENT_KEY_VERSION
-            || decryptedEmail.usedVersion !== CURRENT_KEY_VERSION;
+            || decryptedEmail.usedVersion !== CURRENT_KEY_VERSION
+        );
 
         if (shouldRotateKey) {
             vault[normalizedEmail] = buildEncryptedProfile(
@@ -310,6 +352,18 @@ const getAuthProfileSnapshotByEmail = async (email) => {
                 currentSecret
             );
             await writeVault(enforceVaultSize(vault));
+        }
+
+        if (anyDecryptFailed) {
+            logger.error('vault.profile_unreadable', {
+                keyVersion: profile.keyVersion || null,
+                fields: [
+                    decryptedName.decryptFailed ? 'name' : '',
+                    decryptedPhone.decryptFailed ? 'phone' : '',
+                    decryptedEmail.decryptFailed ? 'email' : '',
+                ].filter(Boolean),
+            });
+            return null;
         }
 
         return decryptedProfile;
