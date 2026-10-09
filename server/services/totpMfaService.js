@@ -2,13 +2,13 @@ const crypto = require('crypto');
 const qrcode = require('qrcode');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
-const { getMfaEncryptionKey, resolveMfaConfig } = require('../config/mfaConfig');
+const { getMfaEncryptionKey, getMfaEncryptionKeyCandidates, resolveMfaConfig } = require('../config/mfaConfig');
 const { SENSITIVE_ACTION_CATEGORIES } = require('../config/sensitiveActionPolicy');
 const { generateRecoveryCodesForUser } = require('./authRecoveryCodeService');
 const { evaluateAction } = require('./mfaPolicyService');
 
 const TOTP_ISSUER = 'Aura';
-const TOTP_ENCRYPTION_VERSION = 'v1';
+const TOTP_ENCRYPTION_VERSION = 'v2';
 const TOTP_DIGITS = 6;
 const TOTP_PERIOD_SECONDS = 30;
 const TOTP_WINDOW = 1;
@@ -80,7 +80,7 @@ const generateTotpCode = ({ secret = '', timestamp = Date.now() } = {}) => {
 };
 
 const encryptTotpSecret = (secret, env = process.env) => {
-    const key = getMfaEncryptionKey(env);
+    const [key] = getMfaEncryptionKeyCandidates(env);
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
     const ciphertext = Buffer.concat([
@@ -96,14 +96,14 @@ const encryptTotpSecret = (secret, env = process.env) => {
     ].join('.');
 };
 
-const decryptTotpSecret = (encrypted, env = process.env) => {
-    const [version, ivEncoded, tagEncoded, ciphertextEncoded] = String(encrypted || '').split('.');
-    if (version !== TOTP_ENCRYPTION_VERSION || !ivEncoded || !tagEncoded || !ciphertextEncoded) {
-        throw new AppError('TOTP secret is not readable', 500);
-    }
+// GCM authentication is what tells us a candidate key is right, so "try each
+// key and see which one authenticates" is safe here: a wrong key fails the tag
+// check rather than returning garbage plaintext.
+const decryptTotpSecretWithKey = (encrypted, key) => {
+    const [, ivEncoded, tagEncoded, ciphertextEncoded] = String(encrypted || '').split('.');
     const decipher = crypto.createDecipheriv(
         'aes-256-gcm',
-        getMfaEncryptionKey(env),
+        key,
         Buffer.from(ivEncoded, 'base64url'),
         { authTagLength: 16 }
     );
@@ -112,6 +112,55 @@ const decryptTotpSecret = (encrypted, env = process.env) => {
         decipher.update(Buffer.from(ciphertextEncoded, 'base64url')),
         decipher.final(),
     ]).toString('utf8');
+};
+
+const decryptTotpSecret = (encrypted, env = process.env) => {
+    const [version, ivEncoded, tagEncoded, ciphertextEncoded] = String(encrypted || '').split('.');
+    if (!ivEncoded || !tagEncoded || !ciphertextEncoded) {
+        throw new AppError('TOTP secret is not readable', 500);
+    }
+
+    if (version !== TOTP_ENCRYPTION_VERSION) {
+        // v1 ciphertext predates the HKDF switch and only ever used the
+        // legacy derivation, so consult that key alone.
+        try {
+            return decryptTotpSecretWithKey(encrypted, getMfaEncryptionKey(env));
+        } catch {
+            throw new AppError('TOTP secret is not readable', 500);
+        }
+    }
+
+    const keys = getMfaEncryptionKeyCandidates(env);
+    let lastError = null;
+    for (const key of keys) {
+        try {
+            return decryptTotpSecretWithKey(encrypted, key);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    if (lastError) throw new AppError('TOTP secret is not readable', 500);
+    throw new AppError('TOTP secret is not readable', 500);
+};
+
+/**
+ * Re-encrypt a decrypted TOTP secret under the current format version.
+ *
+ * Called after a successful v1 read so secrets migrate forward the next time
+ * the user actually authenticates, instead of needing a separate backfill job.
+ */
+const reencryptTotpSecretIfNeeded = async (userId, storedCiphertext, plaintextSecret, env = process.env) => {
+    if (!userId || !storedCiphertext || !plaintextSecret) return;
+    if (String(storedCiphertext).split('.')[0] === TOTP_ENCRYPTION_VERSION) return;
+
+    try {
+        await User.updateOne(
+            { _id: userId, 'mfa.totp.secretEncrypted': storedCiphertext },
+            { $set: { 'mfa.totp.secretEncrypted': encryptTotpSecret(plaintextSecret, env) } }
+        );
+    } catch {
+        // Migration is best-effort; a failure only means we retry next time.
+    }
 };
 
 const generateTotpSecret = () => base32Encode(crypto.randomBytes(20));
@@ -272,6 +321,17 @@ const verifyEnabledTotpForUser = async ({ userId, code } = {}) => {
         throw new AppError('Authenticator app code is invalid.', 401);
     }
 
+    // Opportunistic forward-migration of pre-HKDF ciphertext. Fire-and-forget:
+    // the code above already verified, so a failed write must not fail login.
+    const storedCiphertext = user?.mfa?.totp?.secretEncrypted;
+    if (storedCiphertext && String(storedCiphertext).split('.')[0] !== TOTP_ENCRYPTION_VERSION) {
+        try {
+            void reencryptTotpSecretIfNeeded(userId, storedCiphertext, decryptTotpSecret(storedCiphertext));
+        } catch {
+            // Already-verified session; retry on the next authentication.
+        }
+    }
+
     const now = new Date();
     return User.findByIdAndUpdate(
         user._id,
@@ -355,6 +415,7 @@ module.exports = {
     generateTotpCode,
     generateTotpSecret,
     getPendingTotpSetup,
+    reencryptTotpSecretIfNeeded,
     rotateTotpSecret,
     verifyEnabledTotpForUser,
     verifyTotpCode,

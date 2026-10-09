@@ -117,11 +117,16 @@ const {
     primeFieldEncryption,
     isFieldEncryptionEnabled,
     assertFieldEncryptionConfig,
+    assertFieldEncryptionProductionReadiness,
+    getFieldEncryptionStatus,
 } = require('./services/fieldEncryptionService');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
 const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
 const { assertTrustedDeviceV2RolloutConfig } = require('./config/trustedDeviceV2Rollout');
+const { assertCryptoSeparationConfig } = require('./config/cryptoSeparationPolicy');
+const { validateMfaEnvironment } = require('./config/mfaConfig');
+const { loadCryptoPolicy } = require('./config/cryptoPolicy');
 const {
     startPaymentOutboxWorker,
     stopPaymentOutboxWorker,
@@ -501,7 +506,13 @@ app.use(helmet({
     crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     crossOriginResourcePolicy: { policy: 'same-site' },
     referrerPolicy: { policy: 'no-referrer' },
-    strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+    // `preload` opts the apex domain into the browser preload list, so a
+    // first-ever visit over plain HTTP is impossible rather than merely
+    // discouraged. It is intentionally gated: preload submission is hard to
+    // undo, so operators opt in explicitly once every hostname serves HTTPS.
+    strictTransportSecurity: process.env.HSTS_ENABLE_PRELOAD === 'true'
+        ? { maxAge: 63072000, includeSubDomains: true, preload: true }
+        : { maxAge: 31536000, includeSubDomains: true },
 }));
 app.use(compression());
 app.use(cors({
@@ -951,6 +962,51 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
+// MFA key-strength contract. validateMfaEnvironment already rejects placeholder
+// and short keys; this just promotes its verdict to a hard startup failure so a
+// weak MFA_SECRET_ENCRYPTION_KEY cannot quietly ship with TOTP enabled.
+const assertMfaCryptoConfig = () => {
+    const report = validateMfaEnvironment();
+    if (report.ok) return;
+    throw new Error(`MFA crypto configuration is invalid: ${report.failures.join('; ')}`);
+};
+
+// Surface the crypto policy at boot. This is observational, not enforcement —
+// it records which version of config/security/post-quantum-policy.json the
+// process is running under so a drift between the file and a deploy is visible
+// in logs instead of only in the policy test suite.
+const logCryptoPolicyAtStartup = () => {
+    try {
+        const policy = loadCryptoPolicy({ logger });
+        logger.info('crypto_policy.active', {
+            policyVersion: policy.policyVersion,
+            minimumTlsVersion: policy.minimumTlsVersion,
+            allowedSymmetricCrypto: policy.allowedSymmetricCrypto,
+        });
+    } catch (error) {
+        logger.warn('crypto_policy.unavailable', { reason: error.message });
+    }
+};
+
+// Record the at-rest encryption posture on every boot. This is what makes a
+// plaintext deployment visible in log search instead of only failing a boot check.
+const logFieldEncryptionPostureAtStartup = () => {
+    const status = getFieldEncryptionStatus();
+    if (status.plaintextAtRest) {
+        logger.error('field_encryption.plaintext_at_rest', {
+            mode: status.mode,
+            acknowledged: status.acknowledgedPlaintextAtRest,
+            remediation: 'FIELD_ENCRYPTION_ENABLED=true + FIELD_ENCRYPTION_KMS_KEY_ID, then backfill-field-encryption.js',
+        });
+        return;
+    }
+    logger.info('field_encryption.active', {
+        mode: status.mode,
+        provider: status.provider,
+        primed: status.primed,
+    });
+};
+
 if (require.main === module) {
 // Production security: Ensure all signing secrets are present before startup
     assertInvisibleFabricConfig();
@@ -965,10 +1021,13 @@ assertProductionOtpSmsConfig();
 assertProductionRedisConfig();
     assertAuthVaultConfig();
     assertFieldEncryptionConfig();
+    assertFieldEncryptionProductionReadiness();
     assertAuthEnvironmentConfig();
     assertTrustedDeviceConfig();
     assertAdminSecurityConfig();
     assertTrustedDeviceV2RolloutConfig();
+    assertCryptoSeparationConfig();
+    assertMfaCryptoConfig();
 
     connectDB().then(() => {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.
@@ -977,6 +1036,8 @@ assertProductionRedisConfig();
         const httpServer = server.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
             logger.info('server.startup_bind_success', { port: PORT, env: NODE_ENV });
+            logCryptoPolicyAtStartup();
+            logFieldEncryptionPostureAtStartup();
 
             try {
                 startFxRateScheduler();

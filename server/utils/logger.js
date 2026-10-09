@@ -53,7 +53,7 @@ const sanitizeStringForKey = (key, value) => {
     return REDACTED_PLACEHOLDER;
 };
 
-const redactSensitiveData = (value, key = '') => {
+const redactSensitiveData = (value, key = '', options = {}) => {
     if (value === null || value === undefined) return value;
 
     const normalizedKey = String(key || '');
@@ -62,7 +62,7 @@ const redactSensitiveData = (value, key = '') => {
     }
 
     if (Array.isArray(value)) {
-        return value.map((item) => redactSensitiveData(item, key));
+        return value.map((item) => redactSensitiveData(item, key, options));
     }
 
     if (value instanceof Date) {
@@ -79,7 +79,7 @@ const redactSensitiveData = (value, key = '') => {
 
     if (typeof value === 'object') {
         return Object.entries(value).reduce((acc, [entryKey, entryValue]) => {
-            acc[entryKey] = redactSensitiveData(entryValue, entryKey);
+            acc[entryKey] = redactSensitiveData(entryValue, entryKey, options);
             return acc;
         }, {});
     }
@@ -87,6 +87,9 @@ const redactSensitiveData = (value, key = '') => {
     if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
         const normalizedValue = String(value || '').trim();
         if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
+        // No usable key: drop the identifier rather than hash it under something
+        // an attacker could also compute.
+        if (options.skipPseudonymisation) return REDACTED_PLACEHOLDER;
         return hashSecurityValue(value);
     }
     if (URL_LIKE_KEY_PATTERN.test(normalizedKey)) {
@@ -99,7 +102,16 @@ const redactSensitiveData = (value, key = '') => {
 };
 
 const formatMessage = (level, message, meta = {}) => {
-    const sanitizedMeta = redactSensitiveData(meta);
+    // Pseudonymisation needs a configured key. If it is missing we must not emit
+    // a forgeable pseudonym, but we also must not let a logging concern take down
+    // a request — so fall back to plain redaction, which drops the identifier
+    // entirely rather than hashing it under a weak or shared key.
+    let sanitizedMeta;
+    try {
+        sanitizedMeta = redactSensitiveData(meta);
+    } catch {
+        sanitizedMeta = redactSensitiveData(meta, '', { skipPseudonymisation: true });
+    }
 
     return JSON.stringify({
         timestamp: new Date().toISOString(),

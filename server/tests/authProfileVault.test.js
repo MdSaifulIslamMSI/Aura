@@ -16,6 +16,12 @@ const loadVaultService = () => {
     return require('../services/authProfileVault');
 };
 
+// The vault derives keys with scrypt N=2^17 (see authProfileVault.js), and these
+// tests perform several encrypt/decrypt cycles — three fields per profile, plus
+// rotation passes. That is deliberate production hardening, so the tests opt into
+// a longer timeout rather than the KDF being weakened for them.
+const SCRYPT_TEST_TIMEOUT_MS = 30000;
+
 describe('authProfileVault key rotation', () => {
     afterEach(async () => {
         const vaultFile = process.env.AUTH_VAULT_FILE;
@@ -52,7 +58,7 @@ describe('authProfileVault key rotation', () => {
         const rawVault = JSON.parse(await fs.readFile(resolveVaultFile(), 'utf8'));
         expect(rawVault['user@email.com'].keyVersion).toBe('v2');
         expect(rawVault['user@email.com'].name).toContain(':');
-    });
+    }, SCRYPT_TEST_TIMEOUT_MS);
 
     test('can decrypt with previous key and rotates record to current key', async () => {
         makeVaultEnv('rotation-migrate');
@@ -75,7 +81,7 @@ describe('authProfileVault key rotation', () => {
 
         const rawVault = JSON.parse(await fs.readFile(vaultService.resolveVaultFile(), 'utf8'));
         expect(rawVault['rotate@example.com'].keyVersion).toBe('v2');
-    });
+    }, SCRYPT_TEST_TIMEOUT_MS);
 });
 
 describe('authProfileVault ciphertext format', () => {
@@ -97,7 +103,7 @@ describe('authProfileVault ciphertext format', () => {
         jest.restoreAllMocks();
     });
 
-    test('encrypts with a per-record salt under the v1 payload format', async () => {
+    test('encrypts with a per-record salt under the v2 payload format', async () => {
         makeVaultEnv('format-salt');
         process.env.AUTH_VAULT_SECRET = '0123456789abcdef0123456789abcdef'; // nosemgrep: generic.secrets.security.detected-generic-secret.detected-generic-secret -- deterministic test-only vault key
 
@@ -110,10 +116,11 @@ describe('authProfileVault ciphertext format', () => {
         const second = rawVault['salt2@example.com'].name.split(':');
 
         expect(first).toHaveLength(5);
-        expect(first[0]).toBe('v1');
-        expect(second[0]).toBe('v1');
+        // New records use the v2 format (scrypt N=2^17); v1 is read-only.
+        expect(first[0]).toBe('v2');
+        expect(second[0]).toBe('v2');
         expect(first[1]).not.toBe(second[1]);
-    });
+    }, SCRYPT_TEST_TIMEOUT_MS);
 
     test('still decrypts legacy records written with the original static derivation salt', async () => {
         makeVaultEnv('format-legacy');

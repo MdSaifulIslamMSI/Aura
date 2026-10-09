@@ -1,16 +1,47 @@
 const crypto = require('crypto');
+const { isProduction } = require('../utils/cryptoKdf');
 
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|set-cookie|token|otp|password|secret|api[_-]?key|apikey|card|cvv|pan|private|rawbody|payload|signature|credential|proof)/i;
 const LONG_SECRET_PATTERN = /\b(sk_(live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 const SECURITY_HASH_CONTEXT = 'aura-security-log-pseudonym-v1';
 
-const getSecurityHashKey = () => String(
-    process.env.SECURITY_LOG_HASH_KEY
-    || process.env.OTP_FLOW_SECRET
-    || process.env.SESSION_SECRET
-    || process.env.JWT_SECRET
-    || 'aura-local-security-log-key'
-).trim();
+// Security-log pseudonyms must not be forgeable. Previously an unconfigured
+// environment silently fell back to a hardcoded string, which meant anyone who
+// read the source could mint valid-looking pseudonyms and correlate logs
+// across tenants. Outside production we now derive from an ephemeral random key
+// instead: pseudonyms stay stable within a process (so one request's logs still
+// correlate) but are worthless across restarts. Production fails closed.
+const DEV_FALLBACK_KEY = crypto.randomBytes(32).toString('hex');
+
+let missingKeyWarned = false;
+
+const getSecurityHashKey = () => {
+    const configured = String(
+        process.env.SECURITY_LOG_HASH_KEY
+        || process.env.OTP_FLOW_SECRET
+        || process.env.SESSION_SECRET
+        || process.env.JWT_SECRET
+        || ''
+    ).trim();
+
+    if (configured) return configured;
+
+    if (isProduction()) {
+        throw new Error(
+            'Security log pseudonymisation requires SECURITY_LOG_HASH_KEY (or OTP_FLOW_SECRET/SESSION_SECRET/JWT_SECRET) in production'
+        );
+    }
+
+    if (!missingKeyWarned) {
+        missingKeyWarned = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+            '[security] SECURITY_LOG_HASH_KEY is not configured; using an ephemeral per-process key. '
+            + 'Log pseudonyms will not be stable across restarts.'
+        );
+    }
+    return DEV_FALLBACK_KEY;
+};
 
 const buildSecurityHmacKey = (value = '') => `${getSecurityHashKey()}:${String(value || '')}`;
 

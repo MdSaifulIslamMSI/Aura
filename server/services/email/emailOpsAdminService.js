@@ -1,5 +1,5 @@
 const EmailDeliveryLog = require('../../models/EmailDeliveryLog');
-const { computeEmailBlindIndex } = require('../blindIndexService');
+const { computeEmailBlindIndex, computeEmailBlindIndexV2 } = require('../blindIndexService');
 const { flags: emailFlags } = require('../../config/emailFlags');
 const { flags: activityEmailFlags } = require('../../config/activityEmailFlags');
 const { sendTransactionalEmail } = require('./index');
@@ -23,8 +23,10 @@ const buildSearchQuery = (search) => {
             { provider: { $regex: value, $options: 'i' } },
             // recipientEmail is encrypted at rest: exact addresses resolve
             // through the HMAC blind index, partial searches match the mask
-            // (first-2-chars + domain) instead of the ciphertext.
+            // (first-2-chars + domain) instead of the ciphertext. Both hash
+            // versions are matched so pre-backfill rows stay findable.
             { recipientEmailHash: computeEmailBlindIndex(value) },
+            { recipientEmailHashV2: computeEmailBlindIndexV2(value) },
             { recipientMask: { $regex: value, $options: 'i' } },
             { requestId: { $regex: value, $options: 'i' } },
             { subject: { $regex: value, $options: 'i' } },

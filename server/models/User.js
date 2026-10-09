@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const { defineEncryptedField } = require('./utils/encryptedField');
-const { computePhoneBlindIndex } = require('../services/blindIndexService');
+const { computePhoneBlindIndex, computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 
 const normalizeOptionalPhone = (value) => {
     if (value === undefined || value === null) return undefined;
@@ -159,6 +159,9 @@ const userSchema = mongoose.Schema({
     // HMAC blind index over the stored phone: equality lookups + uniqueness on
     // the encrypted value. Maintained by the model hooks below, never client-set.
     phoneHash: { type: String, required: false, default: null, select: false },
+    // v2 blind index (HKDF-derived). Dual-written alongside phoneHash during the
+    // v1 → v2 migration; reads match either. See services/blindIndexService.js.
+    phoneHashV2: { type: String, required: false, default: null, select: false },
     avatar: { type: String, default: '' },           // Durable URL, with legacy data-URI read fallback during migration
     avatarMedia: {
         storageKey: { type: String, default: '' },
@@ -322,6 +325,10 @@ userSchema.index(
 // backfill completes; queries read phoneHash first with a phone fallback.
 userSchema.index({ phone: 1, isVerified: 1 });
 userSchema.index({ phoneHash: 1, isVerified: 1 });
+// v2 blind index. Non-unique on purpose: adding the UNIQUE constraint is a
+// separate deliberate step once the backfill has proven there are no duplicate
+// phones hiding behind mismatched hash versions.
+userSchema.index({ phoneHashV2: 1, isVerified: 1 });
 
 // Index for authMiddleware email lookup (most called path)
 userSchema.index({ email: 1, isVerified: 1 });
@@ -348,26 +355,35 @@ defineEncryptedField(userSchema, 'phone');
 // through validation; update flows (findOneAndUpdate/updateOne with $set or
 // $unset on phone) are patched here so call sites never maintain the hash.
 // Hash the POST-setter value so the index always matches what is stored.
-const syncPhoneHashFromPhone = (phone) => computePhoneBlindIndex(normalizeOptionalPhone(phone));
+// Both v1 and v2 are written so lookups work before and after the backfill.
+const syncPhoneHashFromPhone = (phone) => ({
+    phoneHash: computePhoneBlindIndex(normalizeOptionalPhone(phone)),
+    phoneHashV2: computePhoneBlindIndexV2(normalizeOptionalPhone(phone)),
+});
 
 userSchema.pre('validate', function syncPhoneHashValidate() {
-    this.phoneHash = syncPhoneHashFromPhone(this.phone);
+    const synced = syncPhoneHashFromPhone(this.phone);
+    this.phoneHash = synced.phoneHash;
+    this.phoneHashV2 = synced.phoneHashV2;
 });
 
 const syncPhoneHashInUpdate = (query) => {
     const update = query.getUpdate() || {};
     // mongoose 9 casts timestamps into $set before hooks run, so the update can
-    // be MIXED (flat phone alongside a $set doc). Patch phoneHash in the same
-    // shape wherever the phone itself lives — in-place mutation survives.
+    // be MIXED (flat phone alongside a $set doc). Patch both hash versions in the
+    // same shape wherever the phone itself lives — in-place mutation survives.
     if (Object.prototype.hasOwnProperty.call(update, 'phone')) {
-        update.phoneHash = syncPhoneHashFromPhone(update.phone);
+        Object.assign(update, syncPhoneHashFromPhone(update.phone));
     }
     if (update.$set && Object.prototype.hasOwnProperty.call(update.$set, 'phone')) {
-        update.$set.phoneHash = syncPhoneHashFromPhone(update.$set.phone);
+        Object.assign(update.$set, syncPhoneHashFromPhone(update.$set.phone));
     }
+    // Clearing the phone must clear both hashes, or the row stays findable by a
+    // number the account no longer owns.
     if (update.$unset && Object.prototype.hasOwnProperty.call(update.$unset, 'phone')
         && !Object.prototype.hasOwnProperty.call(update.$unset, 'phoneHash')) {
         update.$unset.phoneHash = '';
+        update.$unset.phoneHashV2 = '';
     }
     return query;
 };

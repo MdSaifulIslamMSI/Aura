@@ -7,10 +7,11 @@ const OtpSession = require('../models/OtpSession');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms, normalizePhoneE164 } = require('../services/sms');
-const { computePhoneBlindIndex } = require('../services/blindIndexService');
+const { phoneBlindIndexCandidates } = require('../services/blindIndexService');
 const { decryptValue } = require('../models/utils/encryptedField');
 const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../services/authProfileVault');
 const AppError = require('../utils/AppError');
+const cryptoKdf = require('../utils/cryptoKdf');
 const logger = require('../utils/logger');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
 const { inspectOtpFlowToken, issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
@@ -150,9 +151,14 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
 // completed (every user row carries phoneHash) and the legacy plaintext
 // phone indexes are dropped, so a plaintext branch would be an unindexed
 // collection scan that can never match.
+//
+// Both hash versions are matched: rows not yet backfilled to v2 still carry only
+// phoneHash, and rows written after the v2 rollout carry both. Removing the v1
+// term is a post-backfill step.
 const buildPhoneMatchFilter = (candidates) => {
     const list = (Array.isArray(candidates) ? candidates : [candidates]).filter(Boolean);
-    return { phoneHash: { $in: list.map(computePhoneBlindIndex) } };
+    const hashes = [...new Set(list.flatMap((phone) => phoneBlindIndexCandidates(phone)))];
+    return { phoneHash: { $in: hashes } };
 };
 
 const normalizePurpose = (value) => (
@@ -499,6 +505,23 @@ const getOtpHashSecret = () => {
     if (secret) return secret;
     if (process.env.NODE_ENV === 'test') return 'aura-test-otp-hash-secret';
     throw new AppError('OTP hash secret is not configured', 500);
+};
+
+// The OTP pepper must be its own secret. Sharing it with the OTP *flow* secret
+// means an attacker who ever recovers one learns the other, and sharing it with
+// JWT_SECRET would let a single token-signing leak turn into offline brute force
+// of every stored OTP hash. The derivation of stored hashes is unchanged, so
+// this only tightens which env var is acceptable in production.
+const assertOtpHashSecretIsolation = () => {
+    if (!cryptoKdf.isProduction()) return;
+
+    const dedicated = String(process.env.OTP_HASH_SECRET || '').trim();
+    if (dedicated) return;
+
+    throw new AppError(
+        'OTP_HASH_SECRET must be configured in production instead of reusing the shared OTP-flow/JWT secret',
+        500
+    );
 };
 
 const OTP_HASH_PREFIX = 'hmac-sha256:';
@@ -2273,4 +2296,4 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     return sendGenericAccountDiscoveryResponse(res, responseStartedAt);
 });
 
-module.exports = { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };
+module.exports = { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists, assertOtpHashSecretIsolation };
