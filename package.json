@@ -328,6 +328,7 @@
       }
     ],
     "files": [
+      "config/backend-origin.json",
       "desktop/**/*",
       "!desktop/**/*.test.cjs",
       "!desktop/assets/**",
@@ -354,6 +355,10 @@
       {
         "from": "app/public/assets/icon-512.png",
         "to": "app-icon.png"
+      },
+      {
+        "from": "config/backend-origin.json",
+        "to": "config/backend-origin.json"
       }
     ],
     "win": {
