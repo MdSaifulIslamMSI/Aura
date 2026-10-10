@@ -102,7 +102,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      refs_json: ${{ steps.resolve.outputs.refs_json }}
+      refs_json: ${{ steps.fetch.outputs.refs_json }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,6 +130,13 @@ jobs:
 
       - name: Fetch and validate the pointer
         id: fetch
+        # This step reads AWS_PARAMETER_STORE_PATH_PREFIX under `set -u`, and
+        # step env blocks do NOT inherit from earlier steps, so it must be
+        # declared here as well. Declaring it only on the previous step made
+        # every `rollback_refs_json=last-known-good` dispatch die with
+        # "AWS_PARAMETER_STORE_PATH_PREFIX: unbound variable".
+        env:
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
         run: |
           set -euo pipefail
           PARAMETER_NAME="${AWS_PARAMETER_STORE_PATH_PREFIX}/prod/last-known-good"
