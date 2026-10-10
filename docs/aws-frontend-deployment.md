@@ -65,7 +65,7 @@ present in the backend runtime config. `infra/aws/bootstrap-instance-user-data.s
 adding a lane:
 
 ```text
-CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://dbtrhsolhec1s.cloudfront.net,https://aura-storefront.onrender.com,https://aurapilot.aws.app,https://aura-storefront.pages.dev,https://mdsaifulislammsi.github.io,https://aura-storefront-production.up.railway.app,https://aura-mdsaifulislammsiss-projects.vercel.app
+CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://dip82eloip5zb.cloudfront.net,https://aura-storefront.onrender.com,https://aurapilot.aws.app,https://aura-storefront.pages.dev,https://mdsaifulislammsi.github.io,https://aura-storefront-production.up.railway.app,https://aura-mdsaifulislammsiss-projects.vercel.app
 ```
 
 Existing instances do not re-run bootstrap: update `/opt/aura/shared/base.env` on the host and

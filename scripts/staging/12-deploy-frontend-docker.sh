@@ -62,8 +62,8 @@ const fs = require('fs');
 const indexPath = process.argv[2];
 let html = fs.readFileSync(indexPath, 'utf8');
 const sanitized = html
-  .replace(/\s+https:\/\/dbtrhsolhec1s\.cloudfront\.net\b/g, '')
-  .replace(/\s+wss:\/\/dbtrhsolhec1s\.cloudfront\.net\b/g, '');
+  .replace(/\s+https:\/\/dip82eloip5zb\.cloudfront\.net\b/g, '')
+  .replace(/\s+wss:\/\/dip82eloip5zb\.cloudfront\.net\b/g, '');
 if (sanitized !== html) {
   fs.writeFileSync(indexPath, sanitized);
 }
@@ -74,7 +74,7 @@ const fs = require('fs');
 const path = require('path');
 const dist = process.argv[2];
 const forbidden = [
-  'dbtrhsolhec1s.cloudfront.net',
+  'dip82eloip5zb.cloudfront.net',
   '/aura/prod',
 ];
 const files = [];

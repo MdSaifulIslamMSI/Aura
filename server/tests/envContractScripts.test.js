@@ -394,7 +394,7 @@ describe('repo environment contract scripts', () => {
     test('staging env validation fails when SMOKE_BASE_URL points to production', () => {
         const result = validate({
             SMOKE_TARGET_ENV: 'staging',
-            SMOKE_BASE_URL: 'https://dbtrhsolhec1s.cloudfront.net',
+            SMOKE_BASE_URL: 'https://dip82eloip5zb.cloudfront.net',
             STAGING_API_BASE_URL: 'https://api.staging.example.test',
             STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
             STAGING_SSM_PREFIX: '/aura/staging',
@@ -455,7 +455,7 @@ describe('repo environment contract scripts', () => {
     test('production smoke fails unless explicitly allowed', () => {
         const result = validate({
             SMOKE_TARGET_ENV: 'production',
-            SMOKE_BASE_URL: 'https://dbtrhsolhec1s.cloudfront.net',
+            SMOKE_BASE_URL: 'https://dip82eloip5zb.cloudfront.net',
         });
 
         expect(result.safe).toBe(false);
@@ -914,7 +914,7 @@ describe('repo environment contract scripts', () => {
             import { join } from 'node:path';
             const root = mkdtempSync(join(tmpdir(), 'aura-staging-fallback-'));
             mkdirSync(join(root, 'scripts', 'staging'), { recursive: true });
-            writeFileSync(join(root, 'scripts', 'staging', 'bad.mjs'), 'const stagingUrl = "https://dbtrhsolhec1s.cloudfront.net";\\n');
+            writeFileSync(join(root, 'scripts', 'staging', 'bad.mjs'), 'const stagingUrl = "https://dip82eloip5zb.cloudfront.net";\\n');
             console.log(JSON.stringify(scanNoStagingProdFallbacks({ root })));
         `);
 
@@ -958,7 +958,7 @@ describe('repo environment contract scripts', () => {
         expect(cloudFrontBootstrap).toContain('Key=Environment,Value=staging');
         expect(cloudFrontBootstrap).toContain('Key=ManagedBy,Value=codex-staging-bootstrap');
         expect(cloudFrontBootstrap).not.toContain('E34Z9POGIQYOCS');
-        expect(cloudFrontBootstrap).not.toContain('dbtrhsolhec1s.cloudfront.net');
+        expect(cloudFrontBootstrap).not.toContain('dip82eloip5zb.cloudfront.net');
 
         const backupScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13-backup-staging.sh'), 'utf8');
         expect(backupScript).toMatch(/assert_staging_bucket_safe/);
@@ -1094,7 +1094,7 @@ describe('repo environment contract scripts', () => {
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
         expect(frontendDockerScript).toMatch(/curl -fsS .*2>\/dev\/null/);
-        const sanitizerIndex = frontendDockerScript.indexOf('wss:\\/\\/dbtrhsolhec1s\\.cloudfront\\.net');
+        const sanitizerIndex = frontendDockerScript.indexOf('wss:\\/\\/dip82eloip5zb\\.cloudfront\\.net');
         const guardIndex = frontendDockerScript.indexOf('Refusing to deploy staging frontend with production signals');
         expect(sanitizerIndex).toBeGreaterThan(-1);
         expect(sanitizerIndex).toBeLessThan(guardIndex);

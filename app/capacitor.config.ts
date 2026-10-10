@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
       'aura-storefront.onrender.com',
       'aura-storefront.pages.dev',
       'mdsaifulislammsi.github.io',
-      'dbtrhsolhec1s.cloudfront.net',
+      'dip82eloip5zb.cloudfront.net',
       // Concrete fleet hosts only: allowNavigation origins get the native
       // bridge injected, so a wildcard like *.up.railway.app would grant any
       // attacker-rentable Railway subdomain a trusted in-app WebView.

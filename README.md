@@ -144,7 +144,7 @@ Details: [CI/CD and command center](docs/ci-cd.md) · [rollback runbook](docs/ro
 | Gateway | [aura-gateway.vercel.app](https://aura-gateway.vercel.app) | Public gateway and launch surface. |
 | Storefront — Vercel | [aurapilot.vercel.app](https://aurapilot.vercel.app) | Primary hosted React storefront. |
 | Storefront — Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same artifact on Netlify. |
-| Storefront — AWS CloudFront | [dbtrhsolhec1s.cloudfront.net](https://dbtrhsolhec1s.cloudfront.net) | AWS-hosted surface and same-origin backend proxy target. |
+| Storefront — AWS CloudFront | [dip82eloip5zb.cloudfront.net](https://dip82eloip5zb.cloudfront.net) | AWS-hosted surface and same-origin backend proxy target. |
 | Storefront — Render | [aura-storefront.onrender.com](https://aura-storefront.onrender.com) | Same artifact on Render with backend rewrites. |
 | Storefront — Railway | [aura-storefront-production.up.railway.app](https://aura-storefront-production.up.railway.app) | Same artifact rebuilt on Railway with the CI build-env contract. |
 | Storefront — Cloudflare Pages | [aura-storefront.pages.dev](https://aura-storefront.pages.dev) | Same artifact uploaded directly to Cloudflare Pages. |

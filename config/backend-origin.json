@@ -1,5 +1,5 @@
 {
-    "origin": "https://dbtrhsolhec1s.cloudfront.net",
+    "origin": "https://dip82eloip5zb.cloudfront.net",
     "source": "app/config/vercelRoutingContract.mjs DEFAULT_HOSTED_BACKEND_ORIGIN",
     "generator": "app/scripts/sync_vercel_configs.mjs"
 }
