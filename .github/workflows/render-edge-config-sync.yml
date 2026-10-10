@@ -1,0 +1,61 @@
+name: Render Edge Config Sync
+
+# The production deploy job only PUTs env vars and starts a build, so Render
+# never re-reads the Blueprint. That let the committed `render.yaml` move to the
+# new backend edge while the live service kept serving the old one: stale
+# security headers AND stale proxy routes, leaving the retired CloudFront
+# distribution on the critical path for the Render lane.
+#
+# Render exposes full-replacement endpoints for both rule sets, so this pushes
+# `render.yaml` to the live service instead of relying on a dashboard
+# Blueprint re-apply. Check-only by default; `--apply` mutates and always backs
+# up the live rules first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Push render.yaml to the live Render service (backs up live rules first)
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aura-render-edge-config
+  cancel-in-progress: false
+
+jobs:
+  sync-render-edge-config:
+    name: Sync Render edge config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Sync render.yaml to the live Render service
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            node scripts/render/sync-render-edge-config.mjs --apply
+          else
+            node scripts/render/sync-render-edge-config.mjs
+          fi
