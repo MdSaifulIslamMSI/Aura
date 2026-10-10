@@ -35,6 +35,7 @@ const postOpaqueFormNavigation = (targetUrl, body, headerOverrides = {}) => new 
 });
 
 const {
+    BACKEND_ORIGIN_FALLBACK,
     buildProxyOptions,
     applyLocalFrontendCachePolicy,
     applyDesktopAuthCors,
@@ -152,6 +153,46 @@ test('desktop default backend origin matches the hosted backend routing contract
 
     assert.equal(DEFAULT_BACKEND_ORIGIN, HOSTED_BACKEND_ORIGIN);
     assert.doesNotMatch(DEFAULT_BACKEND_ORIGIN, /3\.109\.181\.238/);
+});
+
+// Desktop 1.0.195 shipped a build that crashed on launch with an uncaught
+// ENOENT for config/backend-origin.json. The value assertion above passed the
+// whole time because it runs from the repo tree, where the file exists — it
+// never proved the file reaches the packaged asar, and electron-builder ships
+// only what build.files allows. Both halves are asserted here.
+test('desktop packaging ships the generated backend-origin artifact', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const { build } = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+    assert.ok(Array.isArray(build?.files), 'electron-builder build.files must be an array');
+    assert.ok(
+        build.files.includes('config/backend-origin.json'),
+        'electron-builder build.files should ship config/backend-origin.json as defence in depth',
+    );
+
+    // The guaranteed mechanism: extraResources is an explicit from/to copy with
+    // no glob semantics, so it behaves the same on Windows and Linux. This is
+    // the copy runtimeServer.cjs falls back to via process.resourcesPath.
+    const extraResources = build?.extraResources || [];
+    assert.ok(
+        extraResources.some((entry) => entry.from === 'config/backend-origin.json'),
+        'electron-builder build.extraResources must copy config/backend-origin.json; without it a packaged app cannot resolve the backend origin and crashes on launch',
+    );
+
+    const generated = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'config', 'backend-origin.json'), 'utf8'),
+    );
+    assert.equal(generated.origin, DEFAULT_BACKEND_ORIGIN);
+});
+
+test('desktop committed backend-origin fallback cannot drift from the contract', async () => {
+    const { HOSTED_BACKEND_ORIGIN } = await import('../app/config/vercelRoutingContract.mjs');
+
+    assert.equal(
+        BACKEND_ORIGIN_FALLBACK,
+        HOSTED_BACKEND_ORIGIN,
+        'BACKEND_ORIGIN_FALLBACK is only a crash guard, but if it drifts the app silently proxies to the wrong edge whenever the generated artifact is missing',
+    );
 });
 
 test('desktop proxy strips browser-only CORS headers before forwarding to AWS', () => {

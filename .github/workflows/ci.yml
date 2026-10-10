@@ -782,6 +782,13 @@ jobs:
       - name: Package Linux desktop directory smoke test
         run: npx electron-builder --linux dir --publish never
 
+      # Packaging succeeding only proves electron-builder did not error. Desktop
+      # 1.0.195 shipped an app that crashed on launch because
+      # config/backend-origin.json was never packaged, so assert the built
+      # artifact actually carries it and that the runtime module loads.
+      - name: Assert packaged app carries the backend-origin artifact
+        run: node scripts/desktop/verify-packaged-runtime.mjs
+
   android-shell:
     name: Android shell compile
     needs: changes
