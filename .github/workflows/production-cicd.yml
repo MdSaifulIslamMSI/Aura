@@ -146,15 +146,29 @@ jobs:
           }
           REFS_JSON="$(ROLLBACK_REFS_JSON="${PARAMETER_VALUE}" node <<'NODE'
           const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'railway', 'cloudflare', 'github-pages', 'gateway']);
-          let refs;
+          let pointer;
           try {
-            refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
+            pointer = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
           } catch (error) {
             console.error(`last-known-good pointer is not valid JSON: ${error.message}`);
             process.exit(1);
           }
-          if (!refs || Array.isArray(refs) || typeof refs !== 'object') {
+          if (!pointer || Array.isArray(pointer) || typeof pointer !== 'object') {
             console.error('last-known-good pointer must be a JSON object.');
+            process.exit(1);
+          }
+          // The recording job writes { recorded_at, sha, run_id, refs: {...} }.
+          // This resolver used to validate the whole object against the provider
+          // allowlist and so rejected every pointer it had ever written, with
+          // "unsupported provider 'recorded_at'". Read the nested refs map, and
+          // still accept a bare flat map for pointers recorded before that shape.
+          const refs = pointer.refs && typeof pointer.refs === 'object' && !Array.isArray(pointer.refs)
+            ? pointer.refs
+            : pointer;
+          const metadata = Object.keys(pointer).filter((key) => !['refs'].includes(key));
+          console.error(`last-known-good pointer recorded ${metadata.join(', ')}; using ${Object.keys(refs).length} provider refs.`);
+          if (Object.keys(refs).length === 0) {
+            console.error('last-known-good pointer contains no provider refs.');
             process.exit(1);
           }
           for (const [key, value] of Object.entries(refs)) {
