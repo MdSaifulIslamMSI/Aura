@@ -50,11 +50,17 @@ jobs:
 
       - name: Sync render.yaml to the live Render service
         env:
+          # Route the dispatch input through the environment instead of
+          # interpolating ${{ inputs.apply }} straight into the script body.
+          # `inputs` is github-context data and must be treated as untrusted:
+          # inlining it into `run:` is the workflow command-injection pattern
+          # (yaml.github-actions.security.run-shell-injection).
+          APPLY: ${{ inputs.apply }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.apply }}" = "true" ]; then
+          if [ "$APPLY" = "true" ]; then
             node scripts/render/sync-render-edge-config.mjs --apply
           else
             node scripts/render/sync-render-edge-config.mjs
