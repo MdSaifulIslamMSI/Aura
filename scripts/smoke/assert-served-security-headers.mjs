@@ -113,21 +113,38 @@ const main = async () => {
 
     const failures = [];
     const metaOnly = [];
+    const attempts = Number(process.env.HEADER_CHECK_ATTEMPTS || 4);
+    const delayMs = Number(process.env.HEADER_CHECK_DELAY_MS || 15000);
 
     for (const lane of lanes) {
         let result;
 
-        try {
-            result = await checkLane(lane, expectedOrigin);
-        } catch (error) {
-            result = {
-                label: lane.label,
-                url: lane.url,
-                status: 0,
-                mode: 'error',
-                cspLength: 0,
-                findings: [`${lane.label} (${lane.url}) could not be probed: ${error?.message || error}`],
-            };
+        // This gate is blocking, so it must not fail a release while a lane is
+        // still mid-deploy and serving the previous header set. Retry before
+        // recording a finding; a lane that is genuinely stale will keep failing.
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+            try {
+                result = await checkLane(lane, expectedOrigin);
+            } catch (error) {
+                result = {
+                    label: lane.label,
+                    url: lane.url,
+                    status: 0,
+                    mode: 'error',
+                    cspLength: 0,
+                    findings: [`${lane.label} (${lane.url}) could not be probed: ${error?.message || error}`],
+                };
+            }
+
+            if (result.findings.length === 0 || attempt === attempts) {
+                if (result.findings.length > 0 && attempt > 1) {
+                    console.log(`  ${lane.label}: still failing after ${attempt}/${attempts} attempts`);
+                }
+                break;
+            }
+
+            console.log(`  ${lane.label}: attempt ${attempt}/${attempts} found drift, retrying in ${delayMs / 1000}s`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
 
         console.log(`  ${result.mode.padEnd(9)} HTTP ${result.status}  ${result.url}`);
@@ -154,8 +171,9 @@ const main = async () => {
         console.error('');
         console.error('A lane can pass the in-repo CSP drift gate and still serve a stale or missing');
         console.error('CSP header, because that gate only reads committed files. Regenerating config');
-        console.error('does not re-apply a host-side header: Render needs its Blueprint re-applied, and');
-        console.error('Cloudflare Pages only picks up _headers on a new upload.');
+        console.error('does not re-apply a host-side header on its own: Render routes and headers now');
+        console.error('come from scripts/render/sync-render-edge-config.mjs, and Cloudflare Pages');
+        console.error('only picks up _headers on a new upload.');
         process.exit(1);
     }
 

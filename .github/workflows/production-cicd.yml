@@ -1649,15 +1649,10 @@ jobs:
 
       # Served-header contract: the in-repo CSP drift gate only reads committed
       # files, so a lane can regenerate every copy and still serve a stale or
-      # missing CSP header in production. Cloudflare Pages only picks up
-      # `_headers` on a new upload, and Render only re-applies `render.yaml`
-      # headers when its Blueprint is re-applied — CI never triggers either.
-      #
-      # Advisory for now: Render's header is still pinned to the previous
-      # origin until its Blueprint is re-applied in the Render dashboard.
-      # Promote to blocking (drop continue-on-error) once that is done.
+      # missing CSP header in production. Blocking since 2026-10-10, once every
+      # lane was verified serving the current origin. The probe retries so a
+      # lane still propagating a just-finished deploy cannot fail a release.
       - name: Assert served CSP headers name the current backend origin
-        continue-on-error: true
         env:
           EXPECTED_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
           LANE_URLS: |
