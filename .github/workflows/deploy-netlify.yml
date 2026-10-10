@@ -1458,6 +1458,7 @@ jobs:
     outputs:
       site_url: ${{ steps.deploy.outputs.site_url }}
       deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+      cloudflare_pages_rollback_ref: ${{ steps.deploy.outputs.rollback_ref }}
 
     steps:
       - name: Mark Cloudflare Pages production mutation attempt
@@ -1536,6 +1537,29 @@ jobs:
           fi
           echo "deploy_url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
           echo "site_url=${CLOUDFLARE_PAGES_PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
+
+          # Capture the Cloudflare Pages deployment id so the last-known-good
+          # pointer can restore this lane. This job declared no rollback_ref
+          # output at all, so `cloudflare_pages_rollback_ref` was always empty,
+          # the recorded pointer never contained a cloudflare entry, and every
+          # frontend-multihost rollback failed closed with
+          # "frontend-multihost rollback requires rollback_refs_json.cloudflare".
+          # That made the multihost rollback unrunnable, and invisibly so,
+          # because the plan gate never failed until a rollback was requested.
+          ROLLBACK_REF=""
+          DEPLOYMENTS_JSON="$(curl --fail --show-error --silent --location --max-time 30 \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?env=production&per_page=1" \
+            || true)"
+          if [ -n "${DEPLOYMENTS_JSON}" ]; then
+            ROLLBACK_REF="$(printf '%s' "${DEPLOYMENTS_JSON}" | jq -r '.result[0].id // empty' 2>/dev/null | tr -d '\r' || true)"
+          fi
+          if [ -z "${ROLLBACK_REF}" ]; then
+            echo "Could not resolve the Cloudflare Pages deployment id; the multihost rollback will not be able to restore this lane." >&2
+          else
+            echo "cloudflare rollback_ref=${ROLLBACK_REF}"
+            echo "rollback_ref=${ROLLBACK_REF}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Wait for Cloudflare Pages to serve the app shell
         env:
