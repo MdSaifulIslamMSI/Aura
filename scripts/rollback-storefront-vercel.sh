@@ -110,12 +110,18 @@ if [[ -n "${rollback_ref}" && -n "${current_production_deployment}" && "${curren
   echo "Production alias already serves ${rollback_ref}; nothing to roll back."
 elif [[ -n "${rollback_ref}" ]]; then
   echo "Requesting Vercel storefront rollback to ${rollback_ref}."
-  if npx vercel rollback "${rollback_ref}" \
-    --cwd "${project_directory}" \
-    --token "${VERCEL_TOKEN}" \
-    --timeout 120s; then
-    : # rollback accepted
+  # Capture the CLI output so a tier limit can be reported as such. This is
+  # still a hard failure on purpose: vercel-storefront is not in the multihost
+  # required-ref set, so silently skipping it would report a partial rollback as
+  # clean. Diagnose loudly instead of degrading quietly.
+  vercel_rollback_output=""
+  if vercel_rollback_output="$(npx vercel rollback "${rollback_ref}" \
+      --cwd "${project_directory}" \
+      --token "${VERCEL_TOKEN}" \
+      --timeout 120s 2>&1)"; then
+    printf '%s\n' "${vercel_rollback_output}"
   else
+    printf '%s\n' "${vercel_rollback_output}" >&2
     # Tolerate the already-current race: Vercel rejects such a rollback
     # with 422. Re-resolve the alias; succeed only if it serves the target.
     rollback_exit=1
@@ -125,6 +131,18 @@ elif [[ -n "${rollback_ref}" ]]; then
       rollback_exit=0
     fi
     if [[ "${rollback_exit}" -ne 0 ]]; then
+      if grep -q 'upgrade to pro' <<<"${vercel_rollback_output}"; then
+        cat >&2 <<'TIER'
+Vercel refused this rollback on account-plan grounds, not on a bad ref.
+  On Hobby, only the immediately previous production deployment is a valid
+  rollback target, so a last-known-good ref that has since been overtaken by
+  further deploys can no longer be restored.
+  Production was left serving its current deployment; nothing was half-restored.
+  Options: roll forward to the current alias, re-record the pointer from a run
+  immediately after the release you want to return to, or upgrade the Vercel
+  plan. Do NOT "fix" this by skipping the lane.
+TIER
+      fi
       echo "Vercel storefront rollback to ${rollback_ref} failed and the production alias serves '${current_production_deployment:-<unknown>}'." >&2
       exit 1
     fi
