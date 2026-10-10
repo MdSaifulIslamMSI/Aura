@@ -90,13 +90,22 @@ stayed green:
   dashboard. The effective policy is then the intersection of a stale header
   and the current meta tag, which is stricter than intended.
 
-`scripts/smoke/assert-served-security-headers.mjs` now probes every production
+`scripts/smoke/assert-served-security-headers.mjs` probes every production
 lane and fails when a CSP header is present but does not name the current
-origin, or still names a retired one. It runs in the production smoke job and is
-**advisory** (`continue-on-error`) until the Render Blueprint is re-applied;
-promote it to blocking once Render serves the current origin. A lane with no CSP
-header at all (GitHub Pages cannot set headers) is reported, not failed — those
-lanes rely on the meta CSP, which the drift gate keeps in sync.
+origin, or still names a retired one. It runs **blocking** in the production
+smoke job (promoted from advisory on 2026-10-10 once every lane was verified
+serving the current origin), and retries a failing lane before recording the
+finding so a storefront still propagating a just-finished deploy cannot fail a
+release. A lane with no CSP header at all (GitHub Pages cannot set headers) is
+reported, not failed — those lanes rely on the meta CSP, which the drift gate
+keeps in sync.
+
+Render's routes and headers are pushed from the same committed `render.yaml`
+by `scripts/render/sync-render-edge-config.mjs`, driven by the
+`Render Edge Config Sync` workflow. That workflow is check-only unless
+`apply` is set, and it backs up the live rules before replacing them. Run it
+after any origin change that lands in `render.yaml`, otherwise the Render lane
+keeps serving the previous edge even though every committed file is correct.
 
 ## Notes
 
