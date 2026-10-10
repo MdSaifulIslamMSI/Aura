@@ -394,15 +394,43 @@ jobs:
           # Cloudflare Pages rollback re-serves a previous deployment snapshot
           # via its REST API, so the target is the deployment id currently
           # active on the production environment.
+          #
+          # The original filter required both `.env == "production"` and
+          # `.latest_stage.status == "success"`. Cloudflare does not guarantee
+          # either spelling on the list-deployments payload, so the filter could
+          # match nothing against a perfectly healthy project. That left this
+          # ref silently absent, every recorded pointer without a `cloudflare`
+          # entry, and every frontend-multihost rollback failing closed on
+          # "requires rollback_refs_json.cloudflare" -- while
+          # allow_missing_rollback_target=true turned the breakage into silence.
+          #
+          # Resolve with explicit fallbacks and report which one won, so a
+          # future miss is diagnosable from the log instead of invisible.
           cloudflare_ref=""
+          cloudflare_ref_source=""
           if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
             cloudflare_deployments="$(mktemp)"
-            if curl --fail --show-error --silent --location \
-                --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-                "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?per_page=10" \
-                > "${cloudflare_deployments}" 2>/dev/null; then
-              cloudflare_ref="$(jq -r '[.result[]?] | map(select(.env == "production" and .latest_stage.status == "success")) | .[0].id // empty' "${cloudflare_deployments}" 2>/dev/null || true)"
-            fi
+            cloudflare_http_code="$(curl --silent --location --max-time 30 \
+              --output "${cloudflare_deployments}" --write-out '%{http_code}' \
+              --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?env=production&per_page=10" \
+              || true)"
+            cloudflare_success="$(jq -r '.success // false' "${cloudflare_deployments}" 2>/dev/null || echo false)"
+            cloudflare_result_count="$(jq -r '.result | if type == "array" then length else 0 end' "${cloudflare_deployments}" 2>/dev/null || echo 0)"
+            echo "Cloudflare Pages capture: http=${cloudflare_http_code} success=${cloudflare_success} results=${cloudflare_result_count}"
+            for cloudflare_filter in \
+              '[.result[]? | select((.env // "") == "production" and (.latest_stage.status? // "success") == "success")][0].id' \
+              '[.result[]? | select(((.env // "") | ascii_downcase) == "production")][0].id' \
+              '[.result[]? | select(((.latest_stage.status? // "success") | ascii_downcase) == "success")][0].id' \
+              '.result[0].id'; do
+              if [ -z "${cloudflare_ref}" ]; then
+                cloudflare_ref="$(jq -r "${cloudflare_filter} // empty" "${cloudflare_deployments}" 2>/dev/null | tr -d '\r' || true)"
+                if [ -n "${cloudflare_ref}" ]; then
+                  cloudflare_ref_source="${cloudflare_filter}"
+                fi
+              fi
+            done
+            echo "Cloudflare Pages rollback target: '${cloudflare_ref}' (via ${cloudflare_ref_source:-no filter matched})"
           fi
           if [ -z "${cloudflare_ref}" ]; then
             if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
@@ -1458,7 +1486,6 @@ jobs:
     outputs:
       site_url: ${{ steps.deploy.outputs.site_url }}
       deployment_attempted: ${{ steps.mutation.outputs.attempted }}
-      cloudflare_pages_rollback_ref: ${{ steps.deploy.outputs.rollback_ref }}
 
     steps:
       - name: Mark Cloudflare Pages production mutation attempt
@@ -1537,29 +1564,6 @@ jobs:
           fi
           echo "deploy_url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
           echo "site_url=${CLOUDFLARE_PAGES_PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
-
-          # Capture the Cloudflare Pages deployment id so the last-known-good
-          # pointer can restore this lane. This job declared no rollback_ref
-          # output at all, so `cloudflare_pages_rollback_ref` was always empty,
-          # the recorded pointer never contained a cloudflare entry, and every
-          # frontend-multihost rollback failed closed with
-          # "frontend-multihost rollback requires rollback_refs_json.cloudflare".
-          # That made the multihost rollback unrunnable, and invisibly so,
-          # because the plan gate never failed until a rollback was requested.
-          ROLLBACK_REF=""
-          DEPLOYMENTS_JSON="$(curl --fail --show-error --silent --location --max-time 30 \
-            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?env=production&per_page=1" \
-            || true)"
-          if [ -n "${DEPLOYMENTS_JSON}" ]; then
-            ROLLBACK_REF="$(printf '%s' "${DEPLOYMENTS_JSON}" | jq -r '.result[0].id // empty' 2>/dev/null | tr -d '\r' || true)"
-          fi
-          if [ -z "${ROLLBACK_REF}" ]; then
-            echo "Could not resolve the Cloudflare Pages deployment id; the multihost rollback will not be able to restore this lane." >&2
-          else
-            echo "cloudflare rollback_ref=${ROLLBACK_REF}"
-            echo "rollback_ref=${ROLLBACK_REF}" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Wait for Cloudflare Pages to serve the app shell
         env:
