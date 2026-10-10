@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildCloudflarePagesHeaders,
     buildFrontendSecurityHeaders,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
@@ -20,6 +21,22 @@ const appRoot = path.resolve(currentDirectory, '..', '..');
 const repoRoot = path.resolve(appRoot, '..');
 const deployWorkflowPath = path.join(repoRoot, '.github', 'workflows', 'deploy-backend-aws.yml');
 const netlifyConfigPath = path.join(repoRoot, 'netlify.toml');
+
+const parseCloudflareHeaderBlocks = (contents) => contents
+    .split('\n')
+    .reduce((blocks, line) => {
+        if (/^\S/.test(line)) {
+            blocks.push({ path: line.trim(), headers: [] });
+        } else if (blocks.length > 0) {
+            const match = line.match(/^\s+([A-Za-z-]+):\s*(.*)$/);
+
+            if (match) {
+                blocks[blocks.length - 1].headers.push({ key: match[1], value: match[2].trim() });
+            }
+        }
+
+        return blocks;
+    }, []);
 
 const readJson = async (targetPath) => JSON.parse(await readFile(targetPath, 'utf8'));
 
@@ -88,6 +105,60 @@ describe('vercel routing contract', () => {
         expect(csp).toContain(stagingOrigin);
         expect(csp).toContain(stagingSocketOrigin);
         expect(csp).not.toContain(DEFAULT_HOSTED_BACKEND_ORIGIN);
+    });
+
+    it('emits each Cloudflare Pages security header exactly once across matching blocks', async () => {
+        // Cloudflare Pages appends values from every matching `_headers` block
+        // instead of letting the most specific block win. `/*`, `/`, and
+        // `/index.html` all match a document request, so repeating the full
+        // security set on each one concatenates the ~3 KB CSP past Cloudflare's
+        // header limit and Cloudflare drops Content-Security-Policy entirely.
+        // That regression shipped silently: the lane fell back to the weaker
+        // meta CSP with no failing check.
+        const contents = await readFile(path.join(repoRoot, 'cloudflare', '_headers'), 'utf8');
+        const blocks = parseCloudflareHeaderBlocks(contents);
+        const occurrences = new Map();
+
+        for (const block of blocks) {
+            for (const { key } of block.headers) {
+                occurrences.set(key, (occurrences.get(key) || 0) + 1);
+            }
+        }
+
+        expect(blocks.length).toBeGreaterThan(0);
+        expect(blocks.map(({ path }) => path)).toContain('/*');
+
+        for (const [key, count] of occurrences) {
+            // Cache-Control is the one header that is intentionally repeated —
+            // it carries the per-tier cache policy. Every other (security)
+            // header must appear exactly once, on `/*`.
+            expect({ key, count }).toEqual({ key, count: key === 'Cache-Control' ? 4 : 1 });
+        }
+
+        const rootBlock = blocks.find(({ path }) => path === '/*');
+
+        expect(rootBlock.headers.length).toBeGreaterThan(0);
+        expect(rootBlock.headers.map(({ key }) => key)).toContain('Content-Security-Policy');
+
+        for (const block of blocks.filter(({ path }) => path !== '/*')) {
+            for (const { key } of block.headers) {
+                expect(key).toBe('Cache-Control');
+            }
+        }
+    });
+
+    it('keeps the Cloudflare Pages cache tiers intact after splitting header blocks', () => {
+        const blocks = parseCloudflareHeaderBlocks(buildCloudflarePagesHeaders(DEFAULT_HOSTED_BACKEND_ORIGIN));
+        const cacheControlFor = (blockPath) => blocks
+            .find(({ path }) => path === blockPath)
+            ?.headers
+            ?.find(({ key }) => key === 'Cache-Control')
+            ?.value;
+
+        expect(cacheControlFor('/assets/*')).toBe(FRONTEND_ASSET_CACHE_CONTROL);
+        expect(cacheControlFor('/sw.js')).toBe(FRONTEND_SERVICE_WORKER_CACHE_CONTROL);
+        expect(cacheControlFor('/')).toBe(FRONTEND_DOCUMENT_CACHE_CONTROL);
+        expect(cacheControlFor('/index.html')).toBe(FRONTEND_DOCUMENT_CACHE_CONTROL);
     });
 
     it('keeps browser cache recovery headers aligned for Vercel deployments', () => {

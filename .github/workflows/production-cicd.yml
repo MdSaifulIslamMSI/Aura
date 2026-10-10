@@ -1647,6 +1647,29 @@ jobs:
             fi
           fi
 
+      # Served-header contract: the in-repo CSP drift gate only reads committed
+      # files, so a lane can regenerate every copy and still serve a stale or
+      # missing CSP header in production. Cloudflare Pages only picks up
+      # `_headers` on a new upload, and Render only re-applies `render.yaml`
+      # headers when its Blueprint is re-applied — CI never triggers either.
+      #
+      # Advisory for now: Render's header is still pinned to the previous
+      # origin until its Blueprint is re-applied in the Render dashboard.
+      # Promote to blocking (drop continue-on-error) once that is done.
+      - name: Assert served CSP headers name the current backend origin
+        continue-on-error: true
+        env:
+          EXPECTED_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          LANE_URLS: |
+            cloudfront=${{ needs.deploy-frontend-netlify.outputs.aws_frontend_production_url || vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+            netlify=${{ needs.deploy-frontend-netlify.outputs.netlify_production_url || vars.NETLIFY_PRODUCTION_URL || '' }}
+            vercel=${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_production_url || vars.VERCEL_PRODUCTION_URL || '' }}
+            render=${{ needs.deploy-frontend-netlify.outputs.render_production_url || vars.RENDER_PRODUCTION_URL || '' }}
+            railway=${{ needs.deploy-frontend-netlify.outputs.railway_production_url || vars.RAILWAY_PRODUCTION_URL || '' }}
+            cloudflare-pages=${{ needs.deploy-frontend-netlify.outputs.cloudflare_pages_production_url || vars.CLOUDFLARE_PAGES_PRODUCTION_URL || '' }}
+            github-pages=${{ needs.deploy-frontend-netlify.outputs.github_pages_production_url || vars.GH_PAGES_PRODUCTION_URL || '' }}
+        run: node scripts/smoke/assert-served-security-headers.mjs
+
   record-last-known-good:
     name: Record last-known-good rollback pointer
     runs-on: ubuntu-latest
