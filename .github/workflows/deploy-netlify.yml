@@ -418,9 +418,13 @@ jobs:
             cloudflare_success="$(jq -r '.success // false' "${cloudflare_deployments}" 2>/dev/null || echo false)"
             cloudflare_result_count="$(jq -r '.result | if type == "array" then length else 0 end' "${cloudflare_deployments}" 2>/dev/null || echo 0)"
             echo "Cloudflare Pages capture: http=${cloudflare_http_code} success=${cloudflare_success} results=${cloudflare_result_count}"
+            # Cloudflare names this field `environment`, not `env`; the `env`
+            # spelling only ever appears as the *query* parameter. Matching on
+            # `.env` could therefore never succeed, which is why the original
+            # capture always came back empty.
             for cloudflare_filter in \
-              '[.result[]? | select((.env // "") == "production" and (.latest_stage.status? // "success") == "success")][0].id' \
-              '[.result[]? | select(((.env // "") | ascii_downcase) == "production")][0].id' \
+              '[.result[]? | select((.environment // "") == "production" and (.latest_stage.status? // "success") == "success")][0].id' \
+              '[.result[]? | select(((.environment // "") | ascii_downcase) == "production")][0].id' \
               '[.result[]? | select(((.latest_stage.status? // "success") | ascii_downcase) == "success")][0].id' \
               '.result[0].id'; do
               if [ -z "${cloudflare_ref}" ]; then

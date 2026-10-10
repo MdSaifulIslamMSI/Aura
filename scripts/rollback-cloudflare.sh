@@ -57,6 +57,24 @@ fi
 
 echo "Restoring Cloudflare Pages deployment ${rollback_ref}."
 
+# Tolerate the already-current case before mutating. Pages rejects a rollback
+# whose target is already the live production deployment, so re-running the
+# drill after a successful restore fails with a 400 even though production is
+# already in exactly the requested state. Every sibling hook (netlify, render,
+# railway, github-pages) already tolerates this; Cloudflare was the only one
+# that treated the success condition as a failure.
+current_file="$(mktemp)"
+if curl --fail --silent --location --max-time 30 \
+    --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    "${api_base}/deployments?env=production&per_page=1" \
+    > "${current_file}"; then
+  current_production_deployment="$(jq -r '[.result[]? | select((.environment // "") == "production")][0].id // empty' "${current_file}" 2>/dev/null || true)"
+  if [ -n "${current_production_deployment}" ] && [ "${current_production_deployment}" = "${rollback_ref}" ]; then
+    echo "Production already serves ${rollback_ref}; nothing to roll back."
+    exit 0
+  fi
+fi
+
 rollback_file="$(mktemp)"
 curl --fail --show-error --silent --location \
   --request POST \
