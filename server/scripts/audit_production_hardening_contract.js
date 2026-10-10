@@ -128,7 +128,7 @@ for (const [name, content] of [
     ['deploy-netlify.yml', deployNetlifyWorkflow],
     ['deploy-frontend-aws.yml', deployFrontendAwsWorkflow],
 ]) {
-    if (/942679464475|arn:aws:iam::\d{12}:role|E34Z9POGIQYOCS|dbtrhsolhec1s\.cloudfront\.net|aura-(backend|frontend)-[a-z0-9-]*\d{12}/i.test(content)) {
+    if (/942679464475|517353742644|arn:aws:iam::\d{12}:role|E34Z9POGIQYOCS|EZZ7ARQ9QFQ71|dbtrhsolhec1s\.cloudfront\.net|dip82eloip5zb\.cloudfront\.net|aura-(backend|frontend)-[a-z0-9-]*\d{12}/i.test(content)) {
         addFailure(`${name} must not contain account-specific production deploy defaults.`);
     }
 }

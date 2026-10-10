@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_HOSTED_BACKEND_ORIGIN,
   FRONTEND_CONNECT_SRC,
   FRONTEND_CONTENT_SECURITY_POLICY,
   FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY,
@@ -28,6 +29,9 @@ const getDirectiveSources = (policy = '', name = '') => getDirective(policy, nam
   .split(/\s+/)
   .slice(1);
 
+const hostedBackendOrigin = DEFAULT_HOSTED_BACKEND_ORIGIN.replace(/\/+$/, '');
+const hostedBackendSocketOrigin = hostedBackendOrigin.replace(/^https:/i, 'wss:');
+
 const expectHardenedConnectSrc = (policy = '', {
   requiresHostedBackend = true,
   allowLocalDevelopmentSources = false,
@@ -36,11 +40,11 @@ const expectHardenedConnectSrc = (policy = '', {
 
   expect(sources).toContain("'self'");
   if (requiresHostedBackend) {
-    expect(sources).toContain('https://dbtrhsolhec1s.cloudfront.net');
-    expect(sources).toContain('wss://dbtrhsolhec1s.cloudfront.net');
+    expect(sources).toContain(hostedBackendOrigin);
+    expect(sources).toContain(hostedBackendSocketOrigin);
   } else {
-    expect(sources).not.toContain('https://dbtrhsolhec1s.cloudfront.net');
-    expect(sources).not.toContain('wss://dbtrhsolhec1s.cloudfront.net');
+    expect(sources).not.toContain(hostedBackendOrigin);
+    expect(sources).not.toContain(hostedBackendSocketOrigin);
   }
   if (allowLocalDevelopmentSources) {
     expect(sources).toContain('http://localhost:*');

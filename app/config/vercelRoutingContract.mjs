@@ -17,7 +17,7 @@ const assertAbsoluteHttpUrl = (value) => {
 // hosted production routing files when CI variables are unavailable. Preview
 // deployments that use this origin are frontend previews only, not backend
 // staging; staging smoke must use an isolated STAGING_API_BASE_URL instead.
-export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
+export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dip82eloip5zb.cloudfront.net';
 
 export const assertDeployableHostedBackendOrigin = (origin) => {
     const parsed = new URL(origin);

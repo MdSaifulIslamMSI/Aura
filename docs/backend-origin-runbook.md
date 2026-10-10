@@ -27,11 +27,18 @@ override the committed default with the GitHub repo variable
 | `app/index.html` + committed mobile copies (meta CSP) | generated |
 | `gateway/index.html` (portal links) | generated |
 | `app/capacitor.config.ts` (allowNavigation) | generated |
-| `config/generated/backend-origin.json` | generated — consumed by `server/index.js` (backend CSP) and `desktop/runtimeServer.cjs` (desktop proxy default) |
+| `config/backend-origin.json` | generated — consumed by `server/index.js` (backend CSP) and `desktop/runtimeServer.cjs` (desktop proxy default) |
 | `scripts/env-contract-lib.mjs` `KNOWN_PRODUCTION_HOSTS` | imports the contract directly |
 | CI builds, Vercel prebuilt config, Render parity env, Railway env push | repo variable `AURA_BACKEND_ORIGIN` |
 
 ## Swap procedure
+
+**Order matters.** The generator rewrites the hand-maintained files
+(`gateway/index.html`, `app/capacitor.config.ts`) by searching for the
+*currently committed* `DEFAULT_HOSTED_BACKEND_ORIGIN`. Edit the constant first
+and those two files silently keep the old origin, because there is nothing left
+to match. So set the repo variable and regenerate **before** committing the new
+constant.
 
 1. Set the repo variable:
    `gh variable set AURA_BACKEND_ORIGIN --body "https://<new-origin>"`
@@ -39,19 +46,22 @@ override the committed default with the GitHub repo variable
    `AURA_BACKEND_ORIGIN=https://<new-origin> npm run vercel:routing:sync` → one commit
    containing every generated file (the existing `vercel:routing:check` gate fails if any copy
    was missed).
-3. AWS S3/CloudFront lane (infra, not rebuild): re-run
+3. Update the committed constant `DEFAULT_HOSTED_BACKEND_ORIGIN` in
+   `app/config/vercelRoutingContract.mjs` to the same value, then confirm
+   `npm run vercel:routing:check` is a no-op.
+4. AWS S3/CloudFront lane (infra, not rebuild): re-run
    `infra/aws/bootstrap-frontend-cloudfront.ps1` with
    `-BackendOrigin https://<new-origin>` so the distro's `/api`, `/socket.io`,
    `/health`, and `/uploads` behaviors target the new edge.
-4. Deploy: command center → `deploy_targets=frontend-multihost` (and `backend`
+5. Deploy: command center → `deploy_targets=frontend-multihost` (and `backend`
    if the edge itself moved). The byte-coherence gate verifies all seven lanes
    serve identical bundles; auto-rollback protects the release.
-5. Verify: `curl https://dbtrhsolhec1s.cloudfront.net/health/live` (or the new
+6. Verify: `curl https://dip82eloip5zb.cloudfront.net/health/live` (or the new
    router), plus the production smoke tests in the deploy run.
 
 ## Guards that keep this honest
 
-- `npm run vercel:routing:sync-check` — fails any PR whose committed generated files
+- `npm run vercel:routing:check` — fails any PR whose committed generated files
   drift from the contract (wired into the frontend-quality CI job).
 - `scripts/security/check-csp-drift.mjs` — the seven CSP copies must stay
   byte-identical (app/index.html, vercel.json, netlify.toml, render.yaml,
