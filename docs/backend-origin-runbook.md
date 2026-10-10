@@ -69,6 +69,35 @@ constant.
 - `app/config/vercelRoutingContract.mjs` — rejects non-HTTPS and `*.sslip.io`
   origins for hosted deployments (`assertDeployableHostedBackendOrigin`).
 
+## Host-side headers do not follow a repo change
+
+Regenerating config proves the *committed files* agree. It does not prove a host
+serves them. Two lanes failed that way on 2026-10-10 while every in-repo gate
+stayed green:
+
+- **Cloudflare Pages** merges every matching `_headers` block by appending
+  values rather than letting the most specific block win. Emitting the full
+  security set on `/*`, `/`, and `/index.html` concatenated the ~3 KB CSP past
+  Cloudflare's header limit and Cloudflare dropped `Content-Security-Policy`
+  entirely, so the lane silently fell back to the weaker meta CSP. The
+  generator now emits disjoint blocks (security headers on `/*` only, cache
+  tiers only on their own paths), guarded by a test that asserts every security
+  header appears exactly once.
+- **Render** only re-applies `render.yaml` `headers:` when its Blueprint is
+  re-applied, which CI never triggers — the deploy job only PUTs env vars and
+  starts a build. After an origin swap the served CSP header stays pinned to the
+  previous origin until someone re-applies the Blueprint in the Render
+  dashboard. The effective policy is then the intersection of a stale header
+  and the current meta tag, which is stricter than intended.
+
+`scripts/smoke/assert-served-security-headers.mjs` now probes every production
+lane and fails when a CSP header is present but does not name the current
+origin, or still names a retired one. It runs in the production smoke job and is
+**advisory** (`continue-on-error`) until the Render Blueprint is re-applied;
+promote it to blocking once Render serves the current origin. A lane with no CSP
+header at all (GitHub Pages cannot set headers) is reported, not failed — those
+lanes rely on the meta CSP, which the drift gate keeps in sync.
+
 ## Notes
 
 - Hosted lanes (Vercel/Netlify/Render/Railway/AWS) call the API **same-origin**
