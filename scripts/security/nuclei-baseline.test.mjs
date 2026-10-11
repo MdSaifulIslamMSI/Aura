@@ -123,6 +123,61 @@ test('SARIF report drops suppressed rules and keeps live ones', (t) => {
   assert.deepEqual(readSarifRuleIds(sarifPath), ['cves-2024-1234']);
 });
 
+test('an exception written with a port also suppresses the SARIF result', (t) => {
+  // Nuclei's SARIF export records only the hostname, while the JSONL export
+  // records the full URL with the port. An exception authored against the JSONL
+  // host must suppress both, or the uploaded SARIF re-reports an accepted
+  // exception as a live code-scanning alert.
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const sarifPath = path.join(dir, 'nuclei-report.sarif');
+  writeFileSync(sarifPath, `${JSON.stringify({
+    version: '4.25.0',
+    runs: [{
+      tool: { driver: { name: 'nuclei' } },
+      results: [{
+        ruleId: 'generic-env',
+        message: { text: 'Generic Env File Disclosure (generic-env) found on host.docker.internal' },
+        locations: [{ message: { text: 'host.docker.internal' } }],
+      }],
+    }],
+  }, null, 2)}\n`);
+
+  const jsonlPath = writeJsonl(dir, [
+    { templateID: 'generic-env', matchedAt: 'http://host.docker.internal:8099/.env', info: { severity: 'high' } },
+  ]);
+
+  const scoped = exception({ template: 'generic-env', host: 'host.docker.internal:8099' });
+
+  assert.equal(filterNucleiJsonlReport(jsonlPath, [scoped]), 1);
+  assert.equal(filterNucleiSarifReport(sarifPath, [scoped]), 1);
+  assert.deepEqual(readSarifRuleIds(sarifPath), []);
+});
+
+test('a host-scoped exception still does not suppress a different host in SARIF', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const sarifPath = path.join(dir, 'nuclei-report.sarif');
+  writeFileSync(sarifPath, `${JSON.stringify({
+    version: '4.25.0',
+    runs: [{
+      tool: { driver: { name: 'nuclei' } },
+      results: [{
+        ruleId: 'generic-env',
+        message: { text: 'Generic Env File Disclosure (generic-env) found on staging.aura-marketplace.example' },
+        locations: [{ message: { text: 'staging.aura-marketplace.example' } }],
+      }],
+    }],
+  }, null, 2)}\n`);
+
+  const scoped = exception({ template: 'generic-env', host: 'host.docker.internal:8099' });
+
+  assert.equal(filterNucleiSarifReport(sarifPath, [scoped]), 0);
+  assert.deepEqual(readSarifRuleIds(sarifPath), ['generic-env']);
+});
+
 test('missing reports and malformed exception files are handled', (t) => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
