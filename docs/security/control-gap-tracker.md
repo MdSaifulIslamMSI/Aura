@@ -25,6 +25,8 @@ This tracker connects threats to controls, tests, CI gates, logs, alerts, playbo
 | Abuse/fraud behavior | ATO, impossible travel, spraying, signup/OTP abuse, webhook replay | Auth/rate-limit/webhook/business-logic tests | Focused Security Tests | `auth.impossible_travel.detected`, `signup.abuse_detected` | Abuse anomaly threshold | `account-takeover.md` | Partial |
 | Security regression depth | API fuzzing, auth bypass, tenant, SSRF, upload, permission matrix | Security regression suite and fuzz report | Focused Security Tests | security test failures | Fuzz finding or bypass failure | `production-regression.md` | Partial |
 | Incident evidence gap | Severity, on-call, timeline, evidence preservation, forensics, notification templates, tabletop | Tabletop drill | Manual release evidence | incident timeline and evidence bundle | Postmortem action overdue | Incident response doc | Partial |
+| Known exposure / misconfiguration drift | Nuclei template scans (CVE signatures, exposed assets, default logins) on the running app | `npm run security:nuclei` | `nuclei-scan.yml` scheduled and dispatch (non-blocking until baseline is clean) | `nuclei-report.jsonl` / SARIF under the `nuclei` category | Scan report triage | `nuclei-policy.md` | Partial |
+| Authenticated surface abuse | Authenticated ZAP scan of staging as a seeded disposable smoke user | `npm run security:zap:auth` | `authenticated-security-testing.yml` scheduled and dispatch (staging only, production origins refused) | `zap-auth-report.html` artifact | Scan report triage | pentest report | Partial |
 
 ## Current Hard Gates
 
@@ -41,3 +43,8 @@ This tracker connects threats to controls, tests, CI gates, logs, alerts, playbo
 ## Baseline Run
 
 See [baseline-scan-results.md](./baseline-scan-results.md) for the latest local baseline command results and scanner availability gaps.
+
+## Scheduled Live Scans (non-blocking until baselines are clean)
+
+- `nuclei-scan.yml` — Nuclei template scan of a local preview or staging origin. Reports all findings, uploads SARIF, and exits zero until the triaged baseline in `nuclei-exceptions.json` is clean; then promotes to a blocking gate via `security:nuclei:strict` (see [nuclei-policy.md](./nuclei-policy.md)).
+- `authenticated-security-testing.yml` — authenticated ZAP scan of staging as a seeded smoke user, closing the NOT EXECUTED batteries in the 2026-09-07 black-box pentest report. Requires `vars.STAGING_URL`, `secrets.SMOKE_USER_EMAIL/PASSWORD`, and `vars.ZAP_AUTH_FIREBASE_API_KEY` (or `vars.VITE_FIREBASE_API_KEY`); skips quietly when unconfigured.

@@ -1,0 +1,86 @@
+# AURA Marketplace — authenticated ZAP Automation Framework plan.
+#
+# Closes the authenticated-surface gap recorded in
+# security-reports/pentest-blackbox-unauthenticated-2026-09-07.md (session,
+# cookie flags, IDOR/BOLA, authenticated payment and upload flows could not be
+# exercised without credentials). Runs only against staging or a disposable
+# preview via the runner in scripts/security/run-docker-tool.mjs (`zap:auth`),
+# which enforces the production denylist before this plan ever starts.
+#
+# All values resolve from environment variables (ZAP AF `${VAR}` syntax), so no
+# credentials live in this file:
+#   ZAP_AUTH_TARGET           origin under test
+#   ZAP_AUTH_USERNAME         seeded smoke-account email
+#   ZAP_AUTH_PASSWORD         seeded smoke-account password
+#   ZAP_AUTH_FIREBASE_API_KEY public Firebase Web API key of the target project
+#   ZAP_AUTH_SYNC_PATH        session-establishing route (default /api/auth/sync)
+
+env:
+  contexts:
+    - name: aura-authenticated
+      urls:
+        - ${ZAP_AUTH_TARGET}
+      includePaths:
+        - ${ZAP_AUTH_TARGET}.*
+      authentication:
+        method: script
+        parameters:
+          script: /zap/wrk/scripts/security/zap-auth-script.js
+          scriptEngine: GraalJS
+          firebaseApiKey: ${ZAP_AUTH_FIREBASE_API_KEY}
+          syncPath: ${ZAP_AUTH_SYNC_PATH}
+        verification:
+          method: response
+          loggedInRegex: '"status"\s*:\s*"authenticated"'
+          loggedOutRegex: '"status"\s*:\s*"unauthenticated"'
+      sessionManagement:
+        method: cookie
+      users:
+        - name: aura-smoke-user
+          credentials:
+            username: ${ZAP_AUTH_USERNAME}
+            password: ${ZAP_AUTH_PASSWORD}
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # Discover the authenticated surface first (the seeded user can reach routes
+  # the unauthenticated spider never sees).
+  - type: spider
+    parameters:
+      context: aura-authenticated
+      user: aura-smoke-user
+      maxDuration: 5
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # Active scanning as the seeded user: throttled and capped so the staging
+  # deployment, its seeded data, and its rate limits stay healthy.
+  - type: activeScan
+    parameters:
+      context: aura-authenticated
+      user: aura-smoke-user
+      policy: Default Policy
+      maxScanDurationInMins: 15
+      maxRuleDurationInMins: 2
+      maxAlertsPerRule: 10
+      threadPerHost: 2
+      delayInMs: 200
+      handleAntiCSRFTokens: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html-plus
+      reportDir: /zap/wrk/security-reports
+      reportFile: zap-auth-report.html
+      reportTitle: AURA Marketplace Authenticated DAST
+      reportDescription: Authenticated ZAP scan of the AURA staging surface as the seeded smoke user.
+      displayReport: false

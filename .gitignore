@@ -51,6 +51,7 @@ security-reports/
 reports/
 artifacts/
 .trivycache/
+.nucleicache/
 infra/labs/pqc/*.key
 infra/labs/pqc/*.pem
 infra/labs/pqc/*.crt
