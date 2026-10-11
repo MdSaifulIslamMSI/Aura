@@ -19,22 +19,22 @@ env:
   contexts:
     - name: aura-authenticated
       urls:
-        - ${ZAP_AUTH_TARGET}
+        # The API has no HTML root (GET / is 404), so seed with a known-200
+        # endpoint; the spider job fails the plan on a non-200 seed.
+        - ${ZAP_AUTH_TARGET}/health/live
       includePaths:
         - ${ZAP_AUTH_TARGET}.*
-      authentication:
-        method: script
-        parameters:
-          script: /zap/wrk/scripts/security/zap-auth-script.js
-          scriptEngine: GraalJS
-          firebaseApiKey: ${ZAP_AUTH_FIREBASE_API_KEY}
-          syncPath: ${ZAP_AUTH_SYNC_PATH}
-        verification:
-          method: response
-          loggedInRegex: '"status"\s*:\s*"authenticated"'
-          loggedOutRegex: '"status"\s*:\s*"unauthenticated"'
+      # The bearer token is minted by the runner (npm run security:zap:auth)
+      # using the same Firebase REST sign-in the storefront performs, then
+      # injected as ZAP_AUTH_TOKEN. Header-based session management is used
+      # instead of script-based authentication because the stable ZAP image
+      # ships the GraalJS engine only as an unenabled alpha add-on, so a
+      # script auth method cannot be loaded there.
       sessionManagement:
-        method: cookie
+        method: headers
+        parameters:
+          # Header-based session management takes a header-name -> value map.
+          Authorization: "Bearer ${ZAP_AUTH_TOKEN}"
       users:
         - name: aura-smoke-user
           credentials:
@@ -46,6 +46,10 @@ env:
     progressToStdout: true
 
 jobs:
+  # The API exposes no crawlable links and the bundled requestor add-on in the
+  # pinned image does not accept the documented `requests` parameter (verified),
+  # so seeds stay in the context urls above. Add known-200 endpoints there for
+  # deeper coverage; the spider job fails the plan on a non-200 seed.
   # Discover the authenticated surface first (the seeded user can reach routes
   # the unauthenticated spider never sees).
   - type: spider

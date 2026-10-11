@@ -6,8 +6,10 @@ name: Authenticated Security Testing
 # could not exercise authenticated batteries: session/cookie behavior, cross-user
 # IDOR/BOLA, authenticated payment flows, upload evasion, and authenticated rate
 # limits. The Jest security suites cover the corresponding server logic, but this
-# workflow is the live, authenticated counterpart: ZAP spiders and scans staging
-# as a seeded smoke user (scripts/security/zap-auth-plan.yaml + zap-auth-script.js).
+# workflow is the live, authenticated counterpart: the runner mints a Firebase
+# token for the seeded smoke user and ZAP spiders/scans the target with it
+# (scripts/security/zap-auth-plan.yaml, header-based session management).
+# See docs/security/authenticated-dast-local-runbook.md for the local bring-up.
 #
 # Safety rails (enforced by scripts/security/run-docker-tool.mjs zap:auth before
 # Docker is invoked):
@@ -138,7 +140,7 @@ jobs:
           ZAP_AUTH_USERNAME: ${{ secrets.SMOKE_USER_EMAIL }}
           ZAP_AUTH_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
           ZAP_AUTH_FIREBASE_API_KEY: ${{ vars.ZAP_AUTH_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}
-          ZAP_AUTH_SYNC_PATH: ${{ vars.ZAP_AUTH_SYNC_PATH || '/api/auth/sync' }}
+          ZAP_AUTH_FIREBASE_ORIGIN: ${{ vars.ZAP_AUTH_FIREBASE_ORIGIN || 'https://identitytoolkit.googleapis.com' }}
         run: npm run security:zap:auth -- "$ZAP_AUTH_TARGET"
 
       - name: Upload authenticated scan report

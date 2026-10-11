@@ -766,11 +766,40 @@ const isKnownProductionHost = (targetUrl) => {
 // (PRODUCTION_TOKEN_PATTERN) so "products" in a hostname is not rejected.
 const productionTokenPattern = /(^|[^a-z0-9])(prod|production|live)([^a-z0-9]|$)/i;
 
-const runZapAuth = () => {
+// Mint a Firebase ID token with the same REST exchange the storefront uses, so
+// the scan context can authenticate with a bearer header. Done host-side with
+// plain fetch: no SDK, and no ZAP script engine (the stable image does not
+// enable the GraalJS alpha add-on that script-based authentication requires).
+const mintFirebaseIdToken = async ({ apiKey, origin, email, password }) => {
+  // The Auth Emulator serves the same REST surface under an explicit
+  // /identitytoolkit.googleapis.com path prefix; the hosted endpoint has that
+  // host in the origin already.
+  const base = origin.includes('identitytoolkit.googleapis.com')
+    ? origin
+    : `${origin.replace(/\/+$/, '')}/identitytoolkit.googleapis.com`;
+  const url = `${base}/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`Firebase sign-in failed with HTTP ${response.status}`);
+  }
+  const body = await response.json();
+  const idToken = String(body?.idToken || '');
+  if (!idToken) {
+    throw new Error('Firebase sign-in response contained no idToken');
+  }
+  return idToken;
+};
+
+const runZapAuth = async () => {
   const targetUrl = extraArgs[0] || process.env.ZAP_AUTH_TARGET || '';
   const username = process.env.ZAP_AUTH_USERNAME || '';
   const password = process.env.ZAP_AUTH_PASSWORD || '';
   const firebaseApiKey = process.env.ZAP_AUTH_FIREBASE_API_KEY || '';
+  const firebaseOrigin = process.env.ZAP_AUTH_FIREBASE_ORIGIN || '';
   const syncPath = process.env.ZAP_AUTH_SYNC_PATH || '/api/auth/sync';
 
   if (!targetUrl) {
@@ -799,6 +828,25 @@ const runZapAuth = () => {
   const reportPath = path.join(reportDir, 'zap-auth-report.html');
   fs.rmSync(reportPath, { recursive: true, force: true });
 
+  const tokenOrigin = firebaseOrigin || 'https://identitytoolkit.googleapis.com';
+  let idToken = process.env.ZAP_AUTH_TOKEN || '';
+  if (!idToken) {
+    console.log(`Signing in the seeded account via ${tokenOrigin} to mint a scan token`);
+    try {
+      idToken = await mintFirebaseIdToken({
+        apiKey: firebaseApiKey,
+        origin: tokenOrigin,
+        email: username,
+        password,
+      });
+    } catch (error) {
+      console.error(`[security:zap:auth] ${error.message}`);
+      process.exit(1);
+    }
+  } else {
+    console.log('Using the pre-supplied ZAP_AUTH_TOKEN (no sign-in performed)');
+  }
+
   console.log(`Running authenticated OWASP ZAP scan against ${scanTarget}`);
   // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
   // Fixed ZAP invocation with an allowlisted, pinned image and shell disabled.
@@ -806,21 +854,29 @@ const runZapAuth = () => {
     'run', '--rm',
     '--add-host=host.docker.internal:host-gateway',
     '--user', '0:0',
-    '-v', repoMount,
+    // The plan and the report destination both live under the repo root, so
+    // mount it at /zap/wrk (the path the plan references).
+    '-v', `${hostPath(repoRoot)}:/zap/wrk`,
     '-e', `ZAP_AUTH_TARGET=${scanTarget}`,
-    '-e', `ZAP_AUTH_USERNAME=${username}`,
-    '-e', `ZAP_AUTH_PASSWORD=${password}`,
-    '-e', `ZAP_AUTH_FIREBASE_API_KEY=${firebaseApiKey}`,
-    '-e', `ZAP_AUTH_SYNC_PATH=${syncPath}`,
+    '-e', `ZAP_AUTH_TOKEN=${idToken}`,
+    // The zaproxy image exposes no entrypoint, so -cmd would be exec'd as a
+    // binary. Invoke zap.sh explicitly for the Automation Framework plan.
+    // (All docker run options must precede the image name.)
+    '--entrypoint', '/bin/bash',
     images.zap,
-    '-cmd',
-    '-autorun', '/zap/wrk/scripts/security/zap-auth-plan.yaml',
+    '-c',
+    // zap.sh forwards remaining args to ZAP; -cmd keeps it headless and exits.
+    '/zap/zap.sh -cmd -autorun /zap/wrk/scripts/security/zap-auth-plan.yaml',
   ], { encoding: 'utf8' });
 
   if (result.error) {
     console.error(`docker failed: ${result.error.message}`);
     process.exit(1);
   }
+  // Surface ZAP's own diagnostics: without this a plan/script failure exits
+  // silently and the operator has nothing to triage.
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
   // ZAP exit codes: 0 clean, 1 plan errors, 2 plan warnings. Warnings still
   // produce a usable report (e.g. a deprecated job parameter), so only hard
   // plan errors fail this runner.
@@ -988,4 +1044,4 @@ if (!commands[tool]) {
   process.exit(2);
 }
 
-commands[tool]();
+await commands[tool]();
