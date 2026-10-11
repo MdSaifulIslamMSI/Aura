@@ -102,11 +102,13 @@ Rules:
 
 ## Runtime characteristics (verified 2026-10-11 against nuclei v3.11.1)
 
-- The `projectdiscovery/nuclei` image **does not bundle templates**. The runner syncs them first (`-update-templates`) into `.nucleicache/` (gitignored), which is mounted at `/root/nuclei-templates` inside the container.
+- The `projectdiscovery/nuclei` image **does not bundle templates**. The runner syncs them into `.nucleicache/` (gitignored), mounted at `/root/nuclei-templates` inside the container.
+- **Templates are only synced when the cache is empty.** `-update-templates` against a full ~14k-template set was observed hanging for 12+ minutes (no cache growth while GitHub was reachable), which would stall the whole gate. Set `NUCLEI_SYNC_TEMPLATES=1` to force a refresh; CI restores the cache via `actions/cache`.
 - Do **not** pass `-duc` on the template-update step: in v3.11 it suppresses the template update as well as the engine update check. `-duc` is still used on the scan itself for determinism.
 - `HOME` is pinned to `/root` inside the container so a Windows developer's `HOME` cannot redirect the template directory.
-- A full first-run template sync takes several minutes and adds a few thousand requests' worth of time to the scan. The `nuclei-scan.yml` workflow caches `.nucleicache` between nightly runs; locally the cache persists in the workspace. Budget the workflow at 40 minutes; a local scan of a SPA (every route returning 200) can exceed 15 minutes.
+- A scan of a SPA takes ~2 minutes at ~25 RPS (verified: 1129 templates, 3516 requests, 99% complete). The workflow allows 60 minutes for cold-cache runs.
 - The pinned image tag is verified by digest on first pull (`sha256:582d5546902e67052097cb2d07296c642d50a1afc5e44623cb038845df9a32eb` for `v3.11.1`); bump via `NUCLEI_IMAGE` with the digest checked, matching the scanner-pin policy.
+- The target/flag split tolerates `--strict` on either side of the URL, so `npm run security:nuclei:strict -- http://127.0.0.1:4173` works.
 
 ## Verification
 

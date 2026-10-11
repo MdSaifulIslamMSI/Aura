@@ -645,7 +645,11 @@ const runZap = () => {
 };
 
 const runNuclei = () => {
-  const targetUrl = extraArgs[0] || process.env.NUCLEI_TARGET || 'http://host.docker.internal:4173';
+  // Flags may appear before or after the target (`npm run security:nuclei:strict -- <url>`
+  // appends --strict after it), so select the first positional argument.
+  const nucleiFlags = extraArgs.filter((arg) => String(arg).startsWith('--'));
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.NUCLEI_TARGET || 'http://host.docker.internal:4173';
   if (!isZapTargetAllowed(targetUrl)) {
     console.error(`Refusing Nuclei scan for non-local/non-staging target: ${targetUrl}`);
     process.exit(2);
@@ -654,7 +658,7 @@ const runNuclei = () => {
     .replaceAll('localhost', 'host.docker.internal')
     .replaceAll('127.0.0.1', 'host.docker.internal');
 
-  const strict = extraArgs.includes('--strict') || process.env.NUCLEI_STRICT === '1';
+  const strict = nucleiFlags.includes('--strict') || process.env.NUCLEI_STRICT === '1';
   const jsonlReport = path.join(reportDir, 'nuclei-report.jsonl');
   const sarifReport = path.join(reportDir, 'nuclei-report.sarif');
   const tableReport = path.join(reportDir, 'nuclei-report.txt');
@@ -671,16 +675,31 @@ const runNuclei = () => {
 
   // Pin HOME so the host's Windows HOME does not leak into the container; nuclei
   // resolves its template directory from HOME (/root/nuclei-templates).
-  // Do NOT pass -duc here: in v3.11 it also suppresses the template update.
   const dockerOverrides = ['-e', 'HOME=/root'];
 
-  runDocker([
-    'run', '--rm',
-    '-v', nucleiTemplateMount,
-    ...dockerOverrides,
-    images.nuclei,
-    '-update-templates',
-  ]);
+  // Sync templates only when the cache is empty. `-update-templates` against a
+  // full 14k-template set can hang for many minutes (observed: 12+ min with no
+  // cache growth while GitHub was reachable), and on CI the cache is restored
+  // from actions/cache anyway. Set NUCLEI_SYNC_TEMPLATES=1 to force a refresh.
+  const hasCachedTemplates = fs.existsSync(path.join(nucleiCacheDir, 'http'));
+  const forceTemplateSync = ['1', 'true', 'yes'].includes(
+    String(process.env.NUCLEI_SYNC_TEMPLATES || '').toLowerCase()
+  );
+
+  if (!hasCachedTemplates || forceTemplateSync) {
+    console.log(forceTemplateSync
+      ? 'Nuclei templates: syncing (NUCLEI_SYNC_TEMPLATES requested)'
+      : 'Nuclei templates: no local cache, syncing');
+    runDocker([
+      'run', '--rm',
+      '-v', nucleiTemplateMount,
+      ...dockerOverrides,
+      images.nuclei,
+      '-update-templates',
+    ]);
+  } else {
+    console.log('Nuclei templates: using cached set (set NUCLEI_SYNC_TEMPLATES=1 to refresh)');
+  }
 
   console.log(`Running Nuclei ${images.nuclei} against ${scanTarget} (${strict ? 'strict' : 'baseline'} mode)`);
   runDocker([
@@ -795,7 +814,9 @@ const mintFirebaseIdToken = async ({ apiKey, origin, email, password }) => {
 };
 
 const runZapAuth = async () => {
-  const targetUrl = extraArgs[0] || process.env.ZAP_AUTH_TARGET || '';
+  // Same flag/target split as nuclei: tolerate extra flags before or after the URL.
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.ZAP_AUTH_TARGET || '';
   const username = process.env.ZAP_AUTH_USERNAME || '';
   const password = process.env.ZAP_AUTH_PASSWORD || '';
   const firebaseApiKey = process.env.ZAP_AUTH_FIREBASE_API_KEY || '';
