@@ -1,4 +1,11 @@
 {
   "$comment": "Nuclei baseline exceptions. Each entry suppresses a single template finding per host with a business reason and an expiry date. Expired entries stop suppressing automatically. Synced with docs/security/nuclei-policy.md.",
-  "exceptions": []
+  "exceptions": [
+    {
+      "template": "mongodb-exporter-metrics",
+      "host": "host.docker.internal",
+      "reason": "Prometheus /metrics is a monitoring endpoint reachable on the local DAST stack; it has no auth (index.js:661) and cannot be disabled because staging-aws-deploy.yml scrapes it for release verification. Verified it leaks no hostname, database name, or internal topology. Authenticate it at the edge before this entry is promoted.",
+      "expiresOn": "2027-01-31"
+    }
+  ]
 }
