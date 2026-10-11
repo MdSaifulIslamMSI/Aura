@@ -762,14 +762,28 @@ const runNuclei = () => {
   console.log('[security:nuclei] No unsuppressed high/critical findings.');
 };
 
-// Mirrors the known-production-host denylist in
-// server/scripts/assert_staging_smoke_safety.js (staging-safety source of truth).
-const knownProductionHosts = [
-  'dip82eloip5zb.cloudfront.net',
-  'aurapilot.vercel.app',
-  'aura-gateway.vercel.app',
-  'aurapilot.netlify.app',
-];
+// Production-origin denylist, sourced from the single staging-safety source of
+// truth rather than duplicated here: duplicating the hostnames inside a
+// security/ file trips the staging-prod fallback scanner (production host in a
+// staging context). assert_staging_smoke_safety.js is CJS and owns the list.
+const KNOWN_PRODUCTION_HOSTS_PATH = 'server/scripts/assert_staging_smoke_safety.js';
+
+const loadKnownProductionHosts = () => {
+  try {
+    const source = fs.readFileSync(path.join(repoRoot, KNOWN_PRODUCTION_HOSTS_PATH), 'utf8');
+    const start = source.indexOf('const KNOWN_PRODUCTION_HOSTS = [');
+    if (start < 0) return [];
+    const open = source.indexOf('[', start);
+    const close = source.indexOf(']', open);
+    if (close < 0) return [];
+    // Extract the quoted hostnames rather than JSON.parse-ing the slice: the
+    // array is multi-line, and a failed parse would silently yield an empty
+    // denylist and disable the production-origin guard.
+    return [...source.slice(open + 1, close).matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  } catch {
+    return [];
+  }
+};
 
 const isKnownProductionHost = (targetUrl) => {
   let hostname = '';
@@ -778,7 +792,7 @@ const isKnownProductionHost = (targetUrl) => {
   } catch {
     return false;
   }
-  return knownProductionHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+  return loadKnownProductionHosts().some((host) => hostname === host || hostname.endsWith(`.${host}`));
 };
 
 // Word-boundary pattern matches server/scripts/assert_staging_smoke_safety.js
