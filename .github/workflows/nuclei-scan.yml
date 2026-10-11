@@ -1,9 +1,17 @@
 name: Nuclei Scan
 
 # Template-driven live vulnerability scanning (known CVEs, exposed assets,
-# misconfigurations) against the AURA storefront. OWASP ZAP covers passive
+# misconfigurations) against the AURA backend. OWASP ZAP covers passive
 # spider findings; Nuclei covers template-matched exposures and known-CVE
 # signatures against the running application.
+#
+# Target selection: an operator override, else staging if STAGING_URL is set,
+# else the real Express backend brought up locally via docker compose (the same
+# recipe docker.yml build-and-smoke runs on every PR). Staging does not exist,
+# so scanning a static Vite SPA instead was the previous behaviour and produced
+# nothing: the SPA has no server software for the CVE and exposure templates to
+# fingerprint. The backend exposes /health, /metrics and the /api/* surface,
+# which is where these templates can actually match.
 #
 # Gate policy (docs/security/nuclei-policy.md): runs are non-blocking until the
 # triaged baseline in nuclei-exceptions.json is clean. Promotion to a blocking
@@ -42,9 +50,9 @@ jobs:
   nuclei-scan:
     name: Nuclei Template Scan
     runs-on: ubuntu-latest
-    # Template sync (~10 min on a cold cache) + a full tag-set scan of a SPA
-    # (verified locally: >15 minutes, every route returns 200 so every template
-    # fires). Do not tighten below this without a scope reduction.
+    # Compose stack boot (image build + mongo + redis + api) plus a template
+    # sync on a cold cache. The scan itself is ~3 min against a single host;
+    # the remainder is stack bring-up and image build time.
     timeout-minutes: 60
     permissions:
       contents: read
@@ -91,31 +99,36 @@ jobs:
             echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
             echo "mode=external-staging" >> "$GITHUB_OUTPUT"
           else
-            echo "target=http://127.0.0.1:4173" >> "$GITHUB_OUTPUT"
-            echo "mode=local-preview" >> "$GITHUB_OUTPUT"
+            # No staging exists, so the previous default scanned a static Vite
+            # SPA on :4173 with no server software to fingerprint: 1129 templates
+            # ran, 0 matched. Bring up the real Express backend instead, using
+            # the compose recipe docker.yml already proves on every PR, and scan
+            # the surface that actually has CVE/exposure signatures to match.
+            echo "target=http://127.0.0.1:5000" >> "$GITHUB_OUTPUT"
+            echo "mode=local-backend" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install frontend dependencies
-        if: steps.nuclei-target.outputs.mode == 'local-preview'
-        run: npm --prefix app ci
+      # docker.yml build-and-smoke boots this exact stack and curls /health/live,
+      # so the recipe is already proven in CI. NODE_ENV stays non-production
+      # (compose sets development) so the boot asserts are skipped; Mongo and
+      # Redis make /health report 200 ok rather than 503 degraded.
+      - name: Start local backend stack
+        if: steps.nuclei-target.outputs.mode == 'local-backend'
+        run: docker compose up -d --build mongo redis aura-api
 
-      - name: Build local frontend preview
-        if: steps.nuclei-target.outputs.mode == 'local-preview'
-        run: npm --prefix app run build
-
-      - name: Start local frontend preview
-        if: steps.nuclei-target.outputs.mode == 'local-preview'
+      - name: Wait for backend liveness
+        if: steps.nuclei-target.outputs.mode == 'local-backend'
         shell: bash
         run: |
-          npm --prefix app run preview -- --host 0.0.0.0 --port 4173 > "$RUNNER_TEMP/aura-vite-preview.log" 2>&1 &
-          echo "$!" > "$RUNNER_TEMP/aura-vite-preview.pid"
-          for attempt in {1..30}; do
-            if curl -fsS "http://127.0.0.1:4173" > /dev/null; then
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/health/live >/dev/null; then
               exit 0
             fi
-            sleep 2
+            docker compose ps
+            sleep 5
           done
-          cat "$RUNNER_TEMP/aura-vite-preview.log"
+          docker compose logs aura-api
           exit 1
 
       # Baseline mode reports every finding but exits zero; strict mode (enforce
@@ -151,3 +164,9 @@ jobs:
         with:
           sarif_file: security-reports/nuclei-report.sarif
           category: nuclei
+
+      # Teardown last so the stack survives the scan and both uploads; `always`
+      # so a failed scan still releases the runner's Mongo/Redis/API containers.
+      - name: Stop local backend stack
+        if: always() && steps.nuclei-target.outputs.mode == 'local-backend'
+        run: docker compose down -v

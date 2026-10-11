@@ -178,6 +178,42 @@ test('a host-scoped exception still does not suppress a different host in SARIF'
   assert.deepEqual(readSarifRuleIds(sarifPath), ['generic-env']);
 });
 
+test('a real backend finding is suppressible by template and host', (t) => {
+  // Mirrors the first finding the real-backend target produced: the local DAST
+  // stack exposes an unauthenticated /metrics (index.js:661) and nuclei matches
+  // it as mongodb-exporter-metrics. The exception is scoped to the local host so
+  // it stops suppressing once the endpoint is protected at the edge.
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const jsonlPath = writeJsonl(dir, [
+    {
+      templateID: 'mongodb-exporter-metrics',
+      matchedAt: 'http://host.docker.internal:5000/metrics',
+      host: 'host.docker.internal',
+      info: { name: 'MongoDB Exporter - Detect', severity: 'medium' },
+    },
+  ]);
+  const sarifPath = path.join(dir, 'nuclei-report.sarif');
+  writeFileSync(sarifPath, `${JSON.stringify({
+    version: '4.25.0',
+    runs: [{
+      tool: { driver: { name: 'nuclei' } },
+      results: [{
+        ruleId: 'mongodb-exporter-metrics',
+        message: { text: 'MongoDB exporter was detected on host.docker.internal' },
+        locations: [{ message: { text: 'host.docker.internal' } }],
+      }],
+    }],
+  }, null, 2)}\n`);
+
+  const scoped = exception({ template: 'mongodb-exporter-metrics', host: 'host.docker.internal' });
+
+  assert.equal(filterNucleiJsonlReport(jsonlPath, [scoped]), 1);
+  assert.equal(filterNucleiSarifReport(sarifPath, [scoped]), 1);
+  assert.deepEqual(readSarifRuleIds(sarifPath), []);
+});
+
 test('missing reports and malformed exception files are handled', (t) => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
