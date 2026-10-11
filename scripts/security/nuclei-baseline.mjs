@@ -35,6 +35,20 @@ export const nucleiMatchedHost = (finding) => String(
   finding?.matchedAt || finding?.['matched-at'] || finding?.matched_at || finding?.host || ''
 );
 
+// Nuclei's SARIF export records only the hostname in the result message and
+// location, while the JSONL export records the full URL including the port. An
+// exception written against the JSONL host ("host.docker.internal:8099") must
+// still match the SARIF text ("host.docker.internal"), otherwise the finding is
+// suppressed in the JSONL gate but reappears as a live alert in the uploaded
+// SARIF. Compare on the host portion of the exception, with and without its port.
+const hostMatchesException = (text, host) => {
+  if (!host) return true;
+  const haystack = String(text || '');
+  if (haystack.includes(host)) return true;
+  const hostWithoutPort = host.replace(/:\d+$/, '');
+  return Boolean(hostWithoutPort) && hostWithoutPort !== host && haystack.includes(hostWithoutPort);
+};
+
 export const isAcceptedNucleiFinding = (finding, exceptions) => exceptions.some((exception) => {
   if (isExpiredNucleiException(exception)) return false;
   // Fail closed on malformed entries: the policy (docs/security/nuclei-policy.md)
@@ -46,7 +60,7 @@ export const isAcceptedNucleiFinding = (finding, exceptions) => exceptions.some(
   if (template !== nucleiTemplateId(finding)) return false;
   const host = String(exception?.host || '').trim();
   if (!host) return true;
-  return nucleiMatchedHost(finding).includes(host);
+  return hostMatchesException(nucleiMatchedHost(finding), host);
 });
 
 export const readNucleiJsonlFindings = (reportPath) => {
@@ -90,7 +104,12 @@ export const filterNucleiSarifReport = (reportPath, exceptions) => {
     if (!Array.isArray(runReport.results)) continue;
     runReport.results = runReport.results.filter((result) => {
       const ruleId = String(result.ruleId || result.rule?.id || '');
-      const resultText = String(result.message?.text || '');
+      // The SARIF host appears in the message text and again in the first
+      // location; check both so a host-scoped exception matches either way.
+      const resultText = [
+        String(result.message?.text || ''),
+        ...(result.locations || []).map((location) => String(location?.message?.text || '')),
+      ].join(' ');
       const accepted = exceptions.some((exception) => {
         if (isExpiredNucleiException(exception)) return false;
         const template = String(exception?.template || '').trim();
@@ -99,7 +118,7 @@ export const filterNucleiSarifReport = (reportPath, exceptions) => {
         if (!template || !reason || !expiresOn) return false;
         if (template !== ruleId) return false;
         const host = String(exception?.host || '').trim();
-        return !host || resultText.includes(host);
+        return hostMatchesException(resultText, host);
       });
       if (accepted) removed += 1;
       return !accepted;
