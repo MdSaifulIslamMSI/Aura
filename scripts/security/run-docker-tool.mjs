@@ -2,6 +2,16 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { extractJsonReport } from './report-utils.mjs';
+import {
+  countNucleiGatingFindings,
+  filterNucleiJsonlReport,
+  filterNucleiSarifReport,
+  isAcceptedNucleiFinding,
+  loadNucleiExceptions,
+  nucleiMatchedHost,
+  nucleiTemplateId,
+  readNucleiJsonlFindings,
+} from './nuclei-baseline.mjs';
 
 const tool = process.argv[2] || '';
 const extraArgs = process.argv.slice(3);
@@ -67,6 +77,7 @@ const images = {
   tfsec: process.env.TFSEC_IMAGE || 'aquasec/tfsec:v1.28.14',
   terrascan: process.env.TERRASCAN_IMAGE || 'tenable/terrascan:1.19.9',
   zizmor: process.env.ZIZMOR_IMAGE || 'ghcr.io/zizmorcore/zizmor:1.29.0',
+  nuclei: process.env.NUCLEI_IMAGE || 'projectdiscovery/nuclei:v3.11.1',
 };
 
 const acceptedCheckovFindings = [
@@ -271,6 +282,11 @@ const filterAcceptedSemgrepFindings = ({ jsonReport, sarifReport }) => {
     console.log(`[security:semgrep] Filtered accepted Semgrep baseline findings: json=${removedJson}, sarif=${removedSarif}`);
   }
 };
+
+// Baseline exception/expiry rules live in the unit-testable module
+// (node --test scripts/security/nuclei-baseline.test.mjs) so they can be
+// exercised without a Docker engine.
+const loadNucleiExceptionsWithPath = () => loadNucleiExceptions(path.join(repoRoot, 'nuclei-exceptions.json'));
 
 const runDocker = (args, options = {}) => run('docker', args, options);
 
@@ -628,6 +644,293 @@ const runZap = () => {
   ]);
 };
 
+const runNuclei = () => {
+  // Flags may appear before or after the target (`npm run security:nuclei:strict -- <url>`
+  // appends --strict after it), so select the first positional argument.
+  const nucleiFlags = extraArgs.filter((arg) => String(arg).startsWith('--'));
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.NUCLEI_TARGET || 'http://host.docker.internal:4173';
+  if (!isZapTargetAllowed(targetUrl)) {
+    console.error(`Refusing Nuclei scan for non-local/non-staging target: ${targetUrl}`);
+    process.exit(2);
+  }
+  const scanTarget = targetUrl
+    .replaceAll('localhost', 'host.docker.internal')
+    .replaceAll('127.0.0.1', 'host.docker.internal');
+
+  const strict = nucleiFlags.includes('--strict') || process.env.NUCLEI_STRICT === '1';
+  const jsonlReport = path.join(reportDir, 'nuclei-report.jsonl');
+  const sarifReport = path.join(reportDir, 'nuclei-report.sarif');
+  const tableReport = path.join(reportDir, 'nuclei-report.txt');
+  const nucleiReportMount = `${hostPath(reportDir)}:/reports`;
+  // The nuclei image does not bundle templates; sync them into a host cache so
+  // repeat runs (local and CI) do not re-download the full set every time.
+  const nucleiCacheDir = path.join(repoRoot, '.nucleicache');
+  fs.mkdirSync(nucleiCacheDir, { recursive: true });
+  const nucleiTemplateMount = `${hostPath(nucleiCacheDir)}:/root/nuclei-templates`;
+
+  for (const reportPath of [jsonlReport, sarifReport, tableReport]) {
+    fs.rmSync(reportPath, { recursive: true, force: true });
+  }
+
+  // Pin HOME so the host's Windows HOME does not leak into the container; nuclei
+  // resolves its template directory from HOME (/root/nuclei-templates).
+  const dockerOverrides = ['-e', 'HOME=/root'];
+
+  // Sync templates only when the cache is empty. `-update-templates` against a
+  // full 14k-template set can hang for many minutes (observed: 12+ min with no
+  // cache growth while GitHub was reachable), and on CI the cache is restored
+  // from actions/cache anyway. Set NUCLEI_SYNC_TEMPLATES=1 to force a refresh.
+  const hasCachedTemplates = fs.existsSync(path.join(nucleiCacheDir, 'http'));
+  const forceTemplateSync = ['1', 'true', 'yes'].includes(
+    String(process.env.NUCLEI_SYNC_TEMPLATES || '').toLowerCase()
+  );
+
+  if (!hasCachedTemplates || forceTemplateSync) {
+    console.log(forceTemplateSync
+      ? 'Nuclei templates: syncing (NUCLEI_SYNC_TEMPLATES requested)'
+      : 'Nuclei templates: no local cache, syncing');
+    runDocker([
+      'run', '--rm',
+      '-v', nucleiTemplateMount,
+      ...dockerOverrides,
+      images.nuclei,
+      '-update-templates',
+    ]);
+  } else {
+    console.log('Nuclei templates: using cached set (set NUCLEI_SYNC_TEMPLATES=1 to refresh)');
+  }
+
+  console.log(`Running Nuclei ${images.nuclei} against ${scanTarget} (${strict ? 'strict' : 'baseline'} mode)`);
+  runDocker([
+    'run', '--rm',
+    '--add-host=host.docker.internal:host-gateway',
+    '--user', '0:0',
+    '-v', nucleiReportMount,
+    '-v', nucleiTemplateMount,
+    ...dockerOverrides,
+    images.nuclei,
+    '-target', scanTarget,
+    '-tags', 'cves,exposures,misconfiguration,default-login,exposure',
+    '-etags', 'intrusive,dos,fuzz,headless,oast',
+    '-severity', 'critical,high,medium',
+    // No OAST callbacks, no unsigned templates, no auto-update checks.
+    '-ni',
+    '-dut',
+    '-duc',
+    '-or',
+    '-rl', '25',
+    '-c', '10',
+    '-timeout', '5',
+    '-stats', '-si', '0',
+    '-silent',
+    '-jsonl-export', '/reports/nuclei-report.jsonl',
+    '-sarif-export', '/reports/nuclei-report.sarif',
+    '-o', '/reports/nuclei-report.txt',
+  ]);
+
+  if (!fs.existsSync(jsonlReport)) {
+    fs.writeFileSync(tableReport, 'Nuclei scan did not produce a JSONL report.\n');
+    console.error('[security:nuclei] Scan did not produce security-reports/nuclei-report.jsonl');
+    process.exit(1);
+  }
+
+  const exceptions = loadNucleiExceptionsWithPath();
+  const removedJson = filterNucleiJsonlReport(jsonlReport, exceptions);
+  const removedSarif = filterNucleiSarifReport(sarifReport, exceptions);
+  if (removedJson > 0 || removedSarif > 0) {
+    console.log(`[security:nuclei] Filtered accepted baseline findings: jsonl=${removedJson}, sarif=${removedSarif}`);
+  }
+
+  const gatingFindings = countNucleiGatingFindings(jsonlReport);
+  const tablePath = path.join(reportDir, 'nuclei-report.txt');
+  if (fs.existsSync(tablePath) && fs.readFileSync(tablePath, 'utf8').trim()) {
+    process.stdout.write(fs.readFileSync(tablePath, 'utf8'));
+  }
+  if (gatingFindings.length > 0) {
+    console.error(`[security:nuclei] ${gatingFindings.length} unsuppressed high/critical finding(s):`);
+    for (const finding of gatingFindings.slice(0, 20)) {
+      console.error(`- [${finding?.info?.severity}] ${nucleiTemplateId(finding)} ${nucleiMatchedHost(finding)}`);
+    }
+    console.error('Triage each finding and add a justified, expiring entry to nuclei-exceptions.json.');
+    if (strict) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  console.log('[security:nuclei] No unsuppressed high/critical findings.');
+};
+
+// Production-origin denylist, sourced from the single staging-safety source of
+// truth rather than duplicated here: duplicating the hostnames inside a
+// security/ file trips the staging-prod fallback scanner (production host in a
+// staging context). assert_staging_smoke_safety.js is CJS and owns the list.
+const KNOWN_PRODUCTION_HOSTS_PATH = 'server/scripts/assert_staging_smoke_safety.js';
+
+const loadKnownProductionHosts = () => {
+  try {
+    const source = fs.readFileSync(path.join(repoRoot, KNOWN_PRODUCTION_HOSTS_PATH), 'utf8');
+    const start = source.indexOf('const KNOWN_PRODUCTION_HOSTS = [');
+    if (start < 0) return [];
+    const open = source.indexOf('[', start);
+    const close = source.indexOf(']', open);
+    if (close < 0) return [];
+    // Extract the quoted hostnames rather than JSON.parse-ing the slice: the
+    // array is multi-line, and a failed parse would silently yield an empty
+    // denylist and disable the production-origin guard.
+    return [...source.slice(open + 1, close).matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  } catch {
+    return [];
+  }
+};
+
+const isKnownProductionHost = (targetUrl) => {
+  let hostname = '';
+  try {
+    hostname = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return loadKnownProductionHosts().some((host) => hostname === host || hostname.endsWith(`.${host}`));
+};
+
+// Word-boundary pattern matches server/scripts/assert_staging_smoke_safety.js
+// (PRODUCTION_TOKEN_PATTERN) so "products" in a hostname is not rejected.
+const productionTokenPattern = /(^|[^a-z0-9])(prod|production|live)([^a-z0-9]|$)/i;
+
+// Mint a Firebase ID token with the same REST exchange the storefront uses, so
+// the scan context can authenticate with a bearer header. Done host-side with
+// plain fetch: no SDK, and no ZAP script engine (the stable image does not
+// enable the GraalJS alpha add-on that script-based authentication requires).
+const mintFirebaseIdToken = async ({ apiKey, origin, email, password }) => {
+  // The Auth Emulator serves the same REST surface under an explicit
+  // /identitytoolkit.googleapis.com path prefix; the hosted endpoint has that
+  // host in the origin already.
+  const base = origin.includes('identitytoolkit.googleapis.com')
+    ? origin
+    : `${origin.replace(/\/+$/, '')}/identitytoolkit.googleapis.com`;
+  const url = `${base}/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`Firebase sign-in failed with HTTP ${response.status}`);
+  }
+  const body = await response.json();
+  const idToken = String(body?.idToken || '');
+  if (!idToken) {
+    throw new Error('Firebase sign-in response contained no idToken');
+  }
+  return idToken;
+};
+
+const runZapAuth = async () => {
+  // Same flag/target split as nuclei: tolerate extra flags before or after the URL.
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.ZAP_AUTH_TARGET || '';
+  const username = process.env.ZAP_AUTH_USERNAME || '';
+  const password = process.env.ZAP_AUTH_PASSWORD || '';
+  const firebaseApiKey = process.env.ZAP_AUTH_FIREBASE_API_KEY || '';
+  const firebaseOrigin = process.env.ZAP_AUTH_FIREBASE_ORIGIN || '';
+  const syncPath = process.env.ZAP_AUTH_SYNC_PATH || '/api/auth/sync';
+
+  if (!targetUrl) {
+    console.error('Refusing authenticated ZAP scan: ZAP_AUTH_TARGET is not set.');
+    process.exit(2);
+  }
+  if (!isZapTargetAllowed(targetUrl)) {
+    console.error(`Refusing authenticated ZAP scan for non-local/non-staging target: ${targetUrl}`);
+    process.exit(2);
+  }
+  if (productionTokenPattern.test(targetUrl) || isKnownProductionHost(targetUrl)) {
+    console.error(`Refusing authenticated ZAP scan for known production target: ${targetUrl}`);
+    process.exit(2);
+  }
+  if (!username || !password || !firebaseApiKey) {
+    console.error('Refusing authenticated ZAP scan: ZAP_AUTH_USERNAME, ZAP_AUTH_PASSWORD, and ZAP_AUTH_FIREBASE_API_KEY must all be set (seeded smoke account).');
+    process.exit(2);
+  }
+
+  let scanTarget = targetUrl.replace(/\/+$/, '');
+  scanTarget = scanTarget.replace(/:443$/, '').replace(/:80$/, '');
+  scanTarget = scanTarget
+    .replaceAll('localhost', 'host.docker.internal')
+    .replaceAll('127.0.0.1', 'host.docker.internal');
+
+  const reportPath = path.join(reportDir, 'zap-auth-report.html');
+  fs.rmSync(reportPath, { recursive: true, force: true });
+
+  const tokenOrigin = firebaseOrigin || 'https://identitytoolkit.googleapis.com';
+  let idToken = process.env.ZAP_AUTH_TOKEN || '';
+  if (!idToken) {
+    console.log(`Signing in the seeded account via ${tokenOrigin} to mint a scan token`);
+    try {
+      idToken = await mintFirebaseIdToken({
+        apiKey: firebaseApiKey,
+        origin: tokenOrigin,
+        email: username,
+        password,
+      });
+    } catch (error) {
+      console.error(`[security:zap:auth] ${error.message}`);
+      process.exit(1);
+    }
+  } else {
+    console.log('Using the pre-supplied ZAP_AUTH_TOKEN (no sign-in performed)');
+  }
+
+  console.log(`Running authenticated OWASP ZAP scan against ${scanTarget}`);
+  // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+  // Fixed ZAP invocation with an allowlisted, pinned image and shell disabled.
+  const result = spawnSync('docker', [
+    'run', '--rm',
+    '--add-host=host.docker.internal:host-gateway',
+    '--user', '0:0',
+    // The plan and the report destination both live under the repo root, so
+    // mount it at /zap/wrk (the path the plan references).
+    '-v', `${hostPath(repoRoot)}:/zap/wrk`,
+    '-e', `ZAP_AUTH_TARGET=${scanTarget}`,
+    '-e', `ZAP_AUTH_TOKEN=${idToken}`,
+    // The zaproxy image exposes no entrypoint, so -cmd would be exec'd as a
+    // binary. Invoke zap.sh explicitly for the Automation Framework plan.
+    // (All docker run options must precede the image name.)
+    '--entrypoint', '/bin/bash',
+    images.zap,
+    '-c',
+    // zap.sh forwards remaining args to ZAP; -cmd keeps it headless and exits.
+    '/zap/zap.sh -cmd -autorun /zap/wrk/scripts/security/zap-auth-plan.yaml',
+  ], { encoding: 'utf8' });
+
+  if (result.error) {
+    console.error(`docker failed: ${result.error.message}`);
+    process.exit(1);
+  }
+  // Surface ZAP's own diagnostics: without this a plan/script failure exits
+  // silently and the operator has nothing to triage.
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  // ZAP exit codes: 0 clean, 1 plan errors, 2 plan warnings. Warnings still
+  // produce a usable report (e.g. a deprecated job parameter), so only hard
+  // plan errors fail this runner.
+  if (result.status === 1) {
+    console.error('[security:zap:auth] ZAP reported plan errors.');
+    process.exit(1);
+  }
+  if (result.status !== 0 && result.status !== 2) {
+    process.exit(result.status);
+  }
+  if (!fs.existsSync(reportPath)) {
+    console.error('[security:zap:auth] Authenticated scan did not produce security-reports/zap-auth-report.html');
+    process.exit(1);
+  }
+  if (result.status === 2) {
+    console.log('[security:zap:auth] ZAP reported warnings; the report was still produced. Review it before promotion.');
+  }
+};
+
 const runHadolint = () => {
   const dockerfile = fs.existsSync(path.join(repoRoot, 'Dockerfile'))
     ? path.join(repoRoot, 'Dockerfile')
@@ -766,6 +1069,8 @@ const commands = {
   hadolint: runHadolint,
   iac: runIac,
   zizmor: runZizmor,
+  nuclei: runNuclei,
+  'zap:auth': runZapAuth,
 };
 
 if (!commands[tool]) {
@@ -774,4 +1079,4 @@ if (!commands[tool]) {
   process.exit(2);
 }
 
-commands[tool]();
+await commands[tool]();

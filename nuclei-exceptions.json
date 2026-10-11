@@ -1,0 +1,4 @@
+{
+  "$comment": "Nuclei baseline exceptions. Each entry suppresses a single template finding per host with a business reason and an expiry date. Expired entries stop suppressing automatically. Synced with docs/security/nuclei-policy.md.",
+  "exceptions": []
+}

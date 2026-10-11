@@ -16,6 +16,8 @@ This project uses free/open-source software and GitHub-native features for secur
 | OSV-Scanner | Open-source | Vulnerable open-source dependencies | `osv-scanner -r .` | Existing free scanner workflow can run it through binary or container. |
 | Gitleaks | Open-source | Secret leakage | `gitleaks detect` or `npm run security:gitleaks` | Existing security gates run secret scanning. |
 | cryptodeps | Open-source where locally installed | Crypto dependency inventory | `cryptodeps .` | Optional in `npm run security:free-stack:ci`; missing local tools are documented. |
+| Nuclei | Open-source | Live template scanning: known CVEs, exposed assets, misconfigurations, default credentials on the running app | `npm run security:nuclei -- http://127.0.0.1:4173` | Scheduled/dispatch only in `nuclei-scan.yml`; reports baseline findings and uploads SARIF under the `nuclei` category until the baseline is clean, then can be promoted to a blocking gate with `security:nuclei:strict`. See [nuclei-policy.md](./nuclei-policy.md). |
+| OWASP ZAP (authenticated mode) | Open-source | Authenticated live scan of a deployed environment as a seeded disposable smoke user, covering session, ownership, and authenticated route coverage | `npm run security:zap:auth -- <target-origin>` with `ZAP_AUTH_TARGET/USERNAME/PASSWORD/FIREBASE_API_KEY` set | Scheduled/dispatch only in `authenticated-security-testing.yml`; refuses production origins, uploads the HTML report for triage. |
 
 ## Local Commands
 

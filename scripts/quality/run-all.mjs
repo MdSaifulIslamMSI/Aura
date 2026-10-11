@@ -19,6 +19,7 @@ const commands = [
   'quality:dockerfile',
   'quality:shell',
   'quality:actions',
+  'test:nuclei-baseline',
   'quality:sonar',
 ];
 

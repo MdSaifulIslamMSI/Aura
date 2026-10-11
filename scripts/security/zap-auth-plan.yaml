@@ -1,0 +1,90 @@
+# AURA Marketplace — authenticated ZAP Automation Framework plan.
+#
+# Closes the authenticated-surface gap recorded in
+# security-reports/pentest-blackbox-unauthenticated-2026-09-07.md (session,
+# cookie flags, IDOR/BOLA, authenticated payment and upload flows could not be
+# exercised without credentials). Runs only against staging or a disposable
+# preview via the runner in scripts/security/run-docker-tool.mjs (`zap:auth`),
+# which enforces the production denylist before this plan ever starts.
+#
+# All values resolve from environment variables (ZAP AF `${VAR}` syntax), so no
+# credentials live in this file:
+#   ZAP_AUTH_TARGET           origin under test
+#   ZAP_AUTH_USERNAME         seeded smoke-account email
+#   ZAP_AUTH_PASSWORD         seeded smoke-account password
+#   ZAP_AUTH_FIREBASE_API_KEY public Firebase Web API key of the target project
+#   ZAP_AUTH_SYNC_PATH        session-establishing route (default /api/auth/sync)
+
+env:
+  contexts:
+    - name: aura-authenticated
+      urls:
+        # The API has no HTML root (GET / is 404), so seed with a known-200
+        # endpoint; the spider job fails the plan on a non-200 seed.
+        - ${ZAP_AUTH_TARGET}/health/live
+      includePaths:
+        - ${ZAP_AUTH_TARGET}.*
+      # The bearer token is minted by the runner (npm run security:zap:auth)
+      # using the same Firebase REST sign-in the storefront performs, then
+      # injected as ZAP_AUTH_TOKEN. Header-based session management is used
+      # instead of script-based authentication because the stable ZAP image
+      # ships the GraalJS engine only as an unenabled alpha add-on, so a
+      # script auth method cannot be loaded there.
+      sessionManagement:
+        method: headers
+        parameters:
+          # Header-based session management takes a header-name -> value map.
+          Authorization: "Bearer ${ZAP_AUTH_TOKEN}"
+      users:
+        - name: aura-smoke-user
+          credentials:
+            username: ${ZAP_AUTH_USERNAME}
+            password: ${ZAP_AUTH_PASSWORD}
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # The API exposes no crawlable links and the bundled requestor add-on in the
+  # pinned image does not accept the documented `requests` parameter (verified),
+  # so seeds stay in the context urls above. Add known-200 endpoints there for
+  # deeper coverage; the spider job fails the plan on a non-200 seed.
+  # Discover the authenticated surface first (the seeded user can reach routes
+  # the unauthenticated spider never sees).
+  - type: spider
+    parameters:
+      context: aura-authenticated
+      user: aura-smoke-user
+      maxDuration: 5
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # Active scanning as the seeded user: throttled and capped so the staging
+  # deployment, its seeded data, and its rate limits stay healthy.
+  - type: activeScan
+    parameters:
+      context: aura-authenticated
+      user: aura-smoke-user
+      policy: Default Policy
+      maxScanDurationInMins: 15
+      maxRuleDurationInMins: 2
+      maxAlertsPerRule: 10
+      threadPerHost: 2
+      delayInMs: 200
+      handleAntiCSRFTokens: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html-plus
+      reportDir: /zap/wrk/security-reports
+      reportFile: zap-auth-report.html
+      reportTitle: AURA Marketplace Authenticated DAST
+      reportDescription: Authenticated ZAP scan of the AURA staging surface as the seeded smoke user.
+      displayReport: false
