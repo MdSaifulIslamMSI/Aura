@@ -79,14 +79,22 @@ describe('Vercel Deployment Storage', () => {
         const vite = await readRepoFile('app/vite.config.js');
         const netlify = await readRepoFile('.github/workflows/deploy-netlify.yml');
         const aws = await readRepoFile('.github/workflows/deploy-frontend-aws.yml');
+        const postbuild = await readRepoFile('app/scripts/strip-deploy-sourcemaps.mjs');
 
-        // Sourcemaps are opt-in: only the Sentry release pipeline builds with
-        // VITE_BUILD_SOURCEMAP=true (deploy-netlify.yml), so ordinary
-        // production builds ship no .map files at all — unminified source is
-        // otherwise publicly downloadable and no host config blocks
-        // /assets/*.map.
-        expect(vite).toContain('VITE_BUILD_SOURCEMAP');
-        expect(netlify).toContain("VITE_BUILD_SOURCEMAP: 'true'");
+        // Sourcemaps are always emitted (comment included) so every build of a
+        // commit is byte-identical — render, railway and vercel build from
+        // source and the coherence gate compares content-hashed filenames.
+        // The .map FILES are the leak (unminified source is publicly
+        // downloadable, no host config blocks /assets/*.map), so the postbuild
+        // strips them from every build except the Sentry release pipeline.
+        expect(vite).toContain('sourcemap: true');
+        expect(vite).not.toContain('VITE_BUILD_SOURCEMAP');
+        // The keep-maps flag must NOT be VITE_-prefixed: Vite inlines VITE_*
+        // vars into import.meta.env, so a CI-only flag would change the bundle
+        // bytes and break byte-parity with the source-building lanes.
+        expect(netlify).toContain("AURA_KEEP_SOURCEMAPS: 'true'");
+        expect(aws).toContain("AURA_KEEP_SOURCEMAPS: 'true'");
+        expect(postbuild).toContain('AURA_KEEP_SOURCEMAPS');
         // The Sentry upload publishes maps but never deletes them, so both
         // deploy paths must strip them before the artifact leaves the job.
         // Regression: without this the maps rode the artifact into the

@@ -142,8 +142,10 @@ jobs:
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
           # This build publishes sourcemaps to Sentry before deploy, so emit
-          # them here; every other build ships without .map files.
-          VITE_BUILD_SOURCEMAP: 'true'
+          # them here; the postbuild keeps the .map files for the upload and
+          # every other build strips them. Non-VITE_ name on purpose: Vite
+          # inlines VITE_* vars into the bundle, which would change its bytes.
+          AURA_KEEP_SOURCEMAPS: 'true'
         run: npm run build
 
       - name: Publish Sentry release and sourcemaps
