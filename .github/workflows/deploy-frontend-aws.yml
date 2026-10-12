@@ -141,6 +141,9 @@ jobs:
           # Org site: US5 (matches the RUM application).
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
+          # This build publishes sourcemaps to Sentry before deploy, so emit
+          # them here; every other build ships without .map files.
+          VITE_BUILD_SOURCEMAP: 'true'
         run: npm run build
 
       - name: Publish Sentry release and sourcemaps

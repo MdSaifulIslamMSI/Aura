@@ -178,6 +178,56 @@ test('a host-scoped exception still does not suppress a different host in SARIF'
   assert.deepEqual(readSarifRuleIds(sarifPath), ['generic-env']);
 });
 
+test('host matching is token-exact and never matches a suffix or substring of another domain', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const scoped = exception({ host: 'example.com' });
+
+  // The exception host itself still matches.
+  assert.equal(isAcceptedNucleiFinding(
+    { templateID: 'http-missing-security-headers', matchedAt: 'https://example.com/' },
+    [scoped],
+  ), true);
+
+  // A longer domain that merely CONTAINS the exception host must not be
+  // suppressed: substring matching previously let 'example.com' suppress
+  // findings on 'evil-example.com' and 'host.example.com'.
+  for (const matchedAt of [
+    'https://evil-example.com/',
+    'https://host.example.com/',
+    'https://example.com.attacker.example/',
+  ]) {
+    assert.equal(isAcceptedNucleiFinding(
+      { templateID: 'http-missing-security-headers', matchedAt },
+      [scoped],
+    ), false, `expected no suppression for ${matchedAt}`);
+  }
+});
+
+test('host matching is token-exact in SARIF result text too', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const sarifPath = path.join(dir, 'nuclei-report.sarif');
+  writeFileSync(sarifPath, `${JSON.stringify({
+    version: '4.25.0',
+    runs: [{
+      tool: { driver: { name: 'nuclei' } },
+      results: [{
+        ruleId: 'generic-env',
+        message: { text: 'found on host.example.com' },
+        locations: [{ message: { text: 'host.example.com' } }],
+      }],
+    }],
+  }, null, 2)}\n`);
+
+  const scoped = exception({ template: 'generic-env', host: 'example.com' });
+
+  assert.equal(filterNucleiSarifReport(sarifPath, [scoped]), 0);
+  assert.deepEqual(readSarifRuleIds(sarifPath), ['generic-env']);
+});
+
 test('a real backend finding is suppressible by template and host', (t) => {
   // Mirrors the first finding the real-backend target produced: the local DAST
   // stack exposes an unauthenticated /metrics (index.js:661) and nuclei matches

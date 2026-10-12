@@ -1,4 +1,5 @@
 const { signInWithEmailPassword } = require('./lib/firebaseEmailAuth');
+const crypto = require('crypto');
 const budgets = require('../../docs/performance-budgets.json');
 
 const parseArgs = () => process.argv.slice(2).reduce((acc, arg) => {
@@ -79,6 +80,10 @@ const fetchJson = async (pathname, {
         headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+            // Auth Shield replay guard: fail-closed admin.* actions require a
+            // fresh nonce and timestamp, as the browser client sends.
+            'x-aura-nonce': `load-${crypto.randomBytes(12).toString('hex')}`,
+            'x-aura-timestamp': String(Math.floor(Date.now() / 1000)),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
     });

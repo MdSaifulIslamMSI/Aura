@@ -58,6 +58,11 @@ jobs:
         run: npm ci
       - name: Verify security evidence map
         run: npm run security:evidence
+      # The nuclei exception/expiry rules are unit-testable without Docker;
+      # wire them into CI so baseline regressions fail the PR path instead of
+      # surfacing only when a scan runs.
+      - name: Run nuclei baseline unit tests
+        run: npm run test:nuclei-baseline
 
   dependency-scan:
     name: Dependency Scan
@@ -218,6 +223,17 @@ jobs:
           cache: npm
       - name: Run Checkov, tfsec, and Terrascan
         run: npm run security:iac
+      # Dockerfile hardening was previously only reachable via
+      # security:toolchain, which no workflow referenced — Hadolint never ran
+      # in CI. It is a docker tool, so it belongs with the IaC scanners.
+      - name: Run Hadolint Dockerfile lint
+        run: npm run security:hadolint
+      # The invisible-fabric controls (invisible route exposure, frontend
+      # secretless scan, authz coverage, internal exposure) were documented
+      # controls with zero CI wiring. They are node-based, so they run here
+      # without Docker and gate the PR path.
+      - name: Run invisible fabric security checks
+        run: npm run security:invisible-fabric
       - name: Upload Checkov SARIF
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always() && hashFiles('security-reports/checkov-report.sarif') != ''

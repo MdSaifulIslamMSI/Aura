@@ -1040,6 +1040,40 @@ const runIac = () => {
       if (error.code !== 'EEXIST') throw error;
     }
   }
+
+  // Gating: --soft-fail keeps scanner reports intact for triage and SARIF
+  // upload, but a finding that survives baseline filtering must still turn
+  // the build red. Previously every unaccepted finding was uploaded to code
+  // scanning and the job stayed green — even a crashed scanner passed. A
+  // report that is missing, unparseable, or a no-report stub (the scanner
+  // produced nothing at all) fails closed rather than silently passing.
+  const countIacReportFindings = (reportPath, extractor) => {
+    if (!fs.existsSync(reportPath)) return { count: 0, unparseable: true };
+    try {
+      const parsed = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      if (parsed?.status === 'no-report-produced') return { count: 0, unparseable: true };
+      const count = Number(extractor(parsed) || 0);
+      if (!Number.isFinite(count) || count < 0) return { count: 0, unparseable: true };
+      return { count, unparseable: false };
+    } catch {
+      return { count: 0, unparseable: true };
+    }
+  };
+
+  const iacCounts = {
+    checkov: countIacReportFindings(checkovReport, (report) => report?.results?.failed_checks?.length),
+    tfsec: countIacReportFindings(tfsecReport, (report) => report?.results?.length),
+    terrascan: countIacReportFindings(terrascanReport, (report) => report?.results?.violations?.length),
+  };
+  const iacUnparseable = Object.values(iacCounts).some((entry) => entry.unparseable);
+  const iacTotal = iacCounts.checkov.count + iacCounts.tfsec.count + iacCounts.terrascan.count;
+
+  if (iacUnparseable || iacTotal > 0) {
+    console.error(`[security:iac] ${iacTotal} unaccepted finding(s) — checkov=${iacCounts.checkov.count}, tfsec=${iacCounts.tfsec.count}, terrascan=${iacCounts.terrascan.count}${iacUnparseable ? ' (unparseable or missing report)' : ''}`);
+    throw new Error(`IaC scan failed: ${iacTotal} unaccepted finding(s). Triage them or add justified, expiring entries to the security-audit exceptions.`);
+  }
+
+  console.log('[security:iac] No unaccepted findings.');
 };
 
 const runZizmor = () => {

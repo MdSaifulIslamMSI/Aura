@@ -879,8 +879,16 @@ jobs:
 
           echo "No obvious committed secret patterns found."
 
+      # The manual production-dispatch path previously ran only the grep-level
+      # scan above plus a production-deps-only audit — a much weaker bar than
+      # the canonical main-push gate. Run the same Gitleaks-grade secret scan
+      # and the canonical dependency audit (high severity, all manifests,
+      # including dev dependencies) so both production paths enforce one bar.
+      - name: Run canonical secret scan
+        run: npm run security:secrets
+
       - name: NPM production dependency audit
-        run: npm run security:audit
+        run: npm run security:deps
 
       - name: Generate npm SBOMs
         run: |
