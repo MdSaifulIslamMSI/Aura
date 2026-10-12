@@ -107,10 +107,17 @@ const {
     expireStalePaymentIntents,
 } = require('../services/payments/paymentOperationsService');
 
-const makeChain = (result) => ({
-    select: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(result),
-});
+const makeChain = (result) => {
+    // Dual-shape mock: the Auth Shield resource resolver chains
+    // findById().select().lean(), while controllers await findById()
+    // directly. A thenable chain satisfies both.
+    const chain = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(result),
+        then: (onFulfilled, onRejected) => Promise.resolve(result).then(onFulfilled, onRejected),
+    };
+    return chain;
+};
 
 const makeFindChain = (result) => ({
     select: jest.fn().mockReturnThis(),
@@ -152,6 +159,14 @@ const makeOrderDoc = (overrides = {}) => ({
 const buildTestApp = () => {
     const app = express();
     app.use(express.json());
+    // The shipped client sends replay-guard headers on every request; every
+    // admin.* action is fail-closed in the Auth Shield, so each request needs
+    // a unique nonce. Inject them here the way the browser client does.
+    app.use((req, _res, next) => {
+        req.headers['x-aura-nonce'] = `nonce-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+        req.headers['x-aura-timestamp'] = String(Math.floor(Date.now() / 1000));
+        next();
+    });
     app.use('/api/admin/payments', adminPaymentRoutes);
     app.use(notFound);
     app.use(errorHandler);
@@ -268,7 +283,7 @@ describe('Admin payment routes integration', () => {
             }],
             total: [{ count: 1 }],
         }]);
-        Order.findById.mockResolvedValue(makeOrderDoc());
+        Order.findById.mockReturnValue(makeChain(makeOrderDoc()));
     });
 
     test('GET /api/admin/payments returns paginated payment operations', async () => {
@@ -347,7 +362,7 @@ describe('Admin payment routes integration', () => {
 
     test('PATCH /api/admin/payments/refunds/ledger/:orderId/:requestId/reference marks approved refund as processed', async () => {
         const order = makeOrderDoc();
-        Order.findById.mockResolvedValue(order);
+        Order.findById.mockReturnValue(makeChain(order));
 
         const res = await request(app)
             .patch('/api/admin/payments/refunds/ledger/69cc00000000000000000001/refund_req_1/reference')

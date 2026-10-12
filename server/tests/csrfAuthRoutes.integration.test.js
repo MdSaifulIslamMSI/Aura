@@ -18,7 +18,7 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         if (!token && cookie.includes('aura_sid=session-cookie-a')) {
             req.authUid = 'uid-user-a';
-            req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
+            req.authToken = { email: 'user-a@example.com', email_verified: true, auth_time: Math.floor(Date.now() / 1000) };
             req.user = { _id: 'uid-user-a', id: 'uid-user-a', email: 'user-a@example.com' };
             req.authSession = { sessionId: 'session-cookie-a' };
             req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
@@ -27,7 +27,7 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         if (token === 'token-user-a') {
             req.authUid = 'uid-user-a';
-            req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
+            req.authToken = { email: 'user-a@example.com', email_verified: true, auth_time: Math.floor(Date.now() / 1000) };
             req.user = { _id: 'uid-user-a', id: 'uid-user-a', email: 'user-a@example.com' };
             req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
             return next();
@@ -35,7 +35,7 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         if (token === 'token-user-b') {
             req.authUid = 'uid-user-b';
-            req.authToken = { email: 'user-b@example.com', auth_time: Math.floor(Date.now() / 1000) };
+            req.authToken = { email: 'user-b@example.com', email_verified: true, auth_time: Math.floor(Date.now() / 1000) };
             req.user = { _id: 'uid-user-b', id: 'uid-user-b', email: 'user-b@example.com' };
             req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
             return next();
@@ -43,7 +43,7 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         if (token === 'token-user-stale') {
             req.authUid = 'uid-user-stale';
-            req.authToken = { email: 'user-stale@example.com', auth_time: Math.floor(Date.now() / 1000) - 3600 };
+            req.authToken = { email: 'user-stale@example.com', email_verified: true, auth_time: Math.floor(Date.now() / 1000) - 3600 };
             req.user = { _id: 'uid-user-stale', id: 'uid-user-stale', email: 'user-stale@example.com' };
             req.authzPosture = { fresh: false, authAgeSeconds: 3600, stepUpFresh: false };
             return next();
@@ -53,7 +53,7 @@ jest.mock('../middleware/authMiddleware', () => ({
     },
     protectPhoneFactorProof: (req, _res, next) => {
         req.authUid = 'uid-phone-factor-a';
-        req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
+        req.authToken = { email: 'user-a@example.com', email_verified: true, auth_time: Math.floor(Date.now() / 1000) };
         req.user = { id: 'uid-phone-factor-a', email: 'user-a@example.com' };
         req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
         next();
@@ -62,7 +62,7 @@ jest.mock('../middleware/authMiddleware', () => ({
         const cookie = String(req.headers.cookie || '');
         if (cookie.includes('aura_sid=session-cookie-a')) {
             req.authUid = 'uid-user-a';
-            req.authToken = { email: 'user-a@example.com' };
+            req.authToken = { email: 'user-a@example.com', email_verified: true };
             req.user = { id: 'uid-user-a', email: 'user-a@example.com' };
             req.authSession = { sessionId: 'session-cookie-a' };
         }
@@ -135,6 +135,16 @@ jest.mock('../config/redis', () => {
         getRedisClient: () => ({
             setEx: async (key, ttl, value) => {
                 mockCsrfRedisStore.set(key, { value, expiresAt: Date.now() + (ttl * 1000) });
+                return 'OK';
+            },
+            // The Auth Shield replay guard stores nonces with SET NX EX.
+            set: async (key, value, options = {}) => {
+                const existing = mockCsrfRedisStore.get(key);
+                if (options?.NX && existing && existing.expiresAt >= Date.now()) {
+                    return null;
+                }
+                const ttlSeconds = Number(options?.EX || 300);
+                mockCsrfRedisStore.set(key, { value, expiresAt: Date.now() + (ttlSeconds * 1000) });
                 return 'OK';
             },
             get: async (key) => {
@@ -378,9 +388,11 @@ describe('CSRF auth route integration', () => {
             .post('/api/auth/complete-phone-factor-login')
             .set('Authorization', 'Bearer token-user-a')
             .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-nonce', buildRuntimeValue('nonce'))
+            .set('x-aura-timestamp', String(Math.floor(Date.now() / 1000)))
             .send({
                 email: 'user-a@example.com',
-                phone: '+919876543210',
+                phone: '+919****3210',
             });
 
         expect(res.statusCode).toBe(200);
@@ -393,10 +405,12 @@ describe('CSRF auth route integration', () => {
             .post('/api/auth/complete-phone-factor-verification')
             .set('Authorization', 'Bearer token-phone-factor-a')
             .set('x-aura-device-id', 'device-test-1234')
+            .set('x-aura-nonce', buildRuntimeValue('nonce'))
+            .set('x-aura-timestamp', String(Math.floor(Date.now() / 1000)))
             .send({
                 purpose: 'forgot-password',
                 email: 'user-a@example.com',
-                phone: '+919876543210',
+                phone: '+919****3210',
             });
 
         expect(res.statusCode).toBe(200);
@@ -431,7 +445,11 @@ describe('CSRF auth route integration', () => {
         const requestBuilder = request(app)[method](path)
             .set('Authorization', 'Bearer token-user-stale')
             .set('User-Agent', 'test-agent-stale')
-            .set('Host', 'localhost:3000');
+            .set('Host', 'localhost:3000')
+            // The shipped client sends replay-guard headers on every request;
+            // with the Auth Shield enforced, critical actions require them.
+            .set('x-aura-nonce', buildRuntimeValue('nonce'))
+            .set('x-aura-timestamp', String(Math.floor(Date.now() / 1000)));
         const res = method === 'get' ? await requestBuilder : await requestBuilder.send({});
 
         expect([401, 403]).toContain(res.statusCode);
@@ -445,6 +463,8 @@ describe('CSRF auth route integration', () => {
             .set('Authorization', 'Bearer token-user-a')
             .set('User-Agent', 'test-agent-a')
             .set('Host', 'localhost:3000')
+            .set('x-aura-nonce', buildRuntimeValue('nonce'))
+            .set('x-aura-timestamp', String(Math.floor(Date.now() / 1000)))
             .send({});
 
         expect(totpRes.statusCode).toBe(201);
@@ -455,6 +475,8 @@ describe('CSRF auth route integration', () => {
             .set('Authorization', 'Bearer token-user-a')
             .set('User-Agent', 'test-agent-a')
             .set('Host', 'localhost:3000')
+            .set('x-aura-nonce', buildRuntimeValue('nonce'))
+            .set('x-aura-timestamp', String(Math.floor(Date.now() / 1000)))
             .send({});
 
         expect(passkeyRes.statusCode).toBe(200);

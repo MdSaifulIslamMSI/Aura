@@ -133,10 +133,17 @@ const makeFindChain = (result) => ({
     lean: jest.fn().mockResolvedValue(result),
 });
 
-const makeFindByIdChain = (result) => ({
-    select: jest.fn().mockReturnThis(),
-    lean: jest.fn().mockResolvedValue(result),
-});
+const makeFindByIdChain = (result) => {
+    // Dual-shape mock: the Auth Shield resource resolver chains
+    // findById().select().lean(), while admin controllers await findById()
+    // directly. A thenable chain satisfies both.
+    const chain = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(result),
+        then: (onFulfilled, onRejected) => Promise.resolve(result).then(onFulfilled, onRejected),
+    };
+    return chain;
+};
 
 const makeGovernanceLogChain = (result) => ({
     sort: jest.fn().mockReturnThis(),
@@ -147,6 +154,14 @@ const makeGovernanceLogChain = (result) => ({
 const buildTestApp = () => {
     const app = express();
     app.use(express.json());
+    // The shipped client sends replay-guard headers on every request; every
+    // admin.* action is fail-closed in the Auth Shield, so each request needs
+    // a unique nonce. Inject them here the way the browser client does.
+    app.use((req, _res, next) => {
+        req.headers['x-aura-nonce'] = `nonce-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+        req.headers['x-aura-timestamp'] = String(Math.floor(Date.now() / 1000));
+        next();
+    });
     app.use('/api/admin/users', adminUserRoutes);
     app.use(notFound);
     app.use(errorHandler);
@@ -237,7 +252,7 @@ describe('Admin user routes integration', () => {
 
     test('POST /api/admin/users/:id/warn issues a warning through the real route', async () => {
         const user = makeUserDoc();
-        User.findById.mockResolvedValue(user);
+        User.findById.mockReturnValue(makeFindByIdChain(user));
 
         const res = await request(app)
             .post(`/api/admin/users/${user._id}/warn`)
@@ -254,7 +269,7 @@ describe('Admin user routes integration', () => {
 
     test('POST /api/admin/users/:id/suspend suspends the user through the real route', async () => {
         const user = makeUserDoc();
-        User.findById.mockResolvedValue(user);
+        User.findById.mockReturnValue(makeFindByIdChain(user));
 
         const res = await request(app)
             .post(`/api/admin/users/${user._id}/suspend`)
@@ -280,7 +295,7 @@ describe('Admin user routes integration', () => {
                 suspendedUntil: new Date(Date.now() + 60 * 60 * 1000),
             },
         });
-        User.findById.mockResolvedValue(user);
+        User.findById.mockReturnValue(makeFindByIdChain(user));
 
         const res = await request(app)
             .post(`/api/admin/users/${user._id}/dismiss-warning`)
@@ -300,7 +315,7 @@ describe('Admin user routes integration', () => {
                 suspendedBy: 'admin-id',
             },
         });
-        User.findById.mockResolvedValue(user);
+        User.findById.mockReturnValue(makeFindByIdChain(user));
 
         const res = await request(app)
             .post(`/api/admin/users/${user._id}/reactivate`)
@@ -319,7 +334,7 @@ describe('Admin user routes integration', () => {
             addresses: [{ city: 'Kolkata' }],
             wishlist: [{ product: '2' }],
         });
-        User.findById.mockResolvedValue(user);
+        User.findById.mockReturnValue(makeFindByIdChain(user));
 
         const res = await request(app)
             .post(`/api/admin/users/${user._id}/delete`)

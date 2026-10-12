@@ -38,8 +38,14 @@ const parseActionList = (value, fallback = DEFAULT_FAIL_CLOSED_ACTIONS) => {
 };
 
 const resolveAuthShieldConfig = (env = process.env) => ({
-    enabled: parseBoolean(env.AUTH_SHIELD_ENABLED, false),
-    shadowMode: parseBoolean(env.AUTH_SHIELD_SHADOW_MODE, true),
+    // Fail-safe defaults: the authorization PDP runs ENFORCED unless an
+    // operator explicitly opts into shadow observation. The previous defaults
+    // (disabled + shadow) meant every deployment silently shipped the whole
+    // sensitive-action authorization layer as observe-only. Explicit
+    // AUTH_SHIELD_ENABLED=false or AUTH_SHIELD_SHADOW_MODE=true in production
+    // is refused by the auth environment contract (authEnvironment.js).
+    enabled: parseBoolean(env.AUTH_SHIELD_ENABLED, true),
+    shadowMode: parseBoolean(env.AUTH_SHIELD_SHADOW_MODE, false),
     auditEnabled: parseBoolean(env.AUTH_SHIELD_AUDIT_ENABLED, true),
     auditFailClosedForCritical: parseBoolean(env.AUTH_SHIELD_AUDIT_FAIL_CLOSED_CRITICAL, false),
     replayGuardEnabled: parseBoolean(env.AUTH_SHIELD_REPLAY_GUARD_ENABLED, true),
