@@ -50,6 +50,11 @@ const DEDICATED_SECRETS = Object.freeze([
         fallbacks: ['OTP_FLOW_SECRET', 'SESSION_SECRET', 'JWT_SECRET'],
     },
     {
+        variable: 'ACCOUNT_CURSOR_SIGNING_SECRET',
+        label: 'account activity cursor signing',
+        fallbacks: ['SESSION_SECRET', 'JWT_SECRET'],
+    },
+    {
         variable: 'MFA_SECRET_ENCRYPTION_KEY',
         label: 'TOTP secret encryption',
         fallbacks: [],

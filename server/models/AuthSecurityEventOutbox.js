@@ -18,12 +18,20 @@ const authSecurityEventOutboxSchema = new mongoose.Schema({
 
 authSecurityEventOutboxSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
 authSecurityEventOutboxSchema.index({ 'payload.userId': 1, 'payload.event': 1, createdAt: -1 });
+// Retention: every row expires on the declared short_operational_window
+// (180 days). The previous index was partial on status:'published', but no
+// publisher exists in the codebase — every row is written 'pending' and never
+// transitions — so that TTL could never fire and the collection grew without
+// bound. Subject lookup (accountSecurityActivityService, adminAssurance-
+// OverviewService, authNewDeviceAlertService) requires the raw payload.userId,
+// which is also what the privacy inventory's delete-by-subject erasure
+// contract needs; bounded retention, not identifier hashing, is the control
+// here.
 authSecurityEventOutboxSchema.index(
     { createdAt: 1 },
     {
         expireAfterSeconds: 180 * 24 * 60 * 60,
-        partialFilterExpression: { status: 'published' },
-        name: 'published_auth_security_retention',
+        name: 'auth_security_event_retention',
     }
 );
 
