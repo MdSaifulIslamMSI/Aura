@@ -271,11 +271,11 @@ const randomHex = (length) => {
   } else if (typeof crypto?.getRandomValues === 'function') {
     crypto.getRandomValues(bytes);
   } else {
-    // Last-resort fallback only (no Web Crypto at all); Math.random is not
-    // cryptographically secure.
-    for (let index = 0; index < bytes.length; index += 1) {
-      bytes[index] = Math.floor(Math.random() * 256);
-    }
+    // No CSPRNG: fail closed. The device id is a security-relevant identity
+    // sent on every request (X-Aura-Device-Id); a Math.random-derived id is
+    // predictable and would let an attacker spoof another device's
+    // fingerprint and defeat device-binding checks.
+    throw new Error('Cryptographically secure randomness is unavailable; cannot mint a trusted device id.');
   }
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, length);
 };
@@ -813,7 +813,15 @@ export const resetTrustedDeviceIdentity = async () => {
 };
 
 export const getTrustedDeviceHeaders = () => {
-  const deviceId = getTrustedDeviceId();
+  let deviceId = '';
+  try {
+    deviceId = getTrustedDeviceId();
+  } catch {
+    // No CSPRNG in this browser: omit the device identity entirely rather
+    // than send a predictable one. Device-bound server checks fail closed;
+    // ordinary requests continue without the device signal.
+    return {};
+  }
   const deviceSessionToken = getTrustedDeviceSessionToken();
   const clientOrigin = getTrustedDeviceClientOrigin();
 

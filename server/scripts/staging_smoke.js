@@ -58,6 +58,12 @@ const buildHeaders = (token = '', body = false, extraHeaders = {}) => {
     const headers = { ...extraHeaders };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body) headers['Content-Type'] = 'application/json';
+    // The Auth Shield replay guard enforces a fresh nonce and timestamp for
+    // fail-closed actions (every admin.* action), exactly like the shipped
+    // browser client sends on every request. Without these the smoke run is
+    // denied with 403 "Action is not allowed.".
+    headers['x-aura-nonce'] = `smoke-${crypto.randomBytes(12).toString('hex')}`;
+    headers['x-aura-timestamp'] = String(Math.floor(Date.now() / 1000));
     return headers;
 };
 

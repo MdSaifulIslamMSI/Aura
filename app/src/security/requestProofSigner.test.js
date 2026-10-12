@@ -22,16 +22,12 @@ describe('requestProofSigner', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns empty headers when proof mode is disabled', async () => {
+  it('always builds proof headers (replay guard enforces nonce and timestamp)', async () => {
     vi.stubEnv('VITE_AUTH_SHIELD_DPOP_ENABLED', 'false');
     stubCrypto();
-    await expect(buildRequestProofHeaders({ method: 'GET', url: '/api/cart' })).resolves.toEqual({});
-  });
-
-  it('returns empty headers when env flag is missing', async () => {
-    vi.stubEnv('VITE_AUTH_SHIELD_DPOP_ENABLED', '');
-    stubCrypto();
-    await expect(buildRequestProofHeaders()).resolves.toEqual({});
+    const headers = await buildRequestProofHeaders({ method: 'GET', url: '/api/cart' });
+    expect(headers['X-Aura-Nonce']).toBeTruthy();
+    expect(Number(headers['X-Aura-Timestamp'])).toBeGreaterThan(0);
   });
 
   it('builds shadow proof headers with nonce, timestamp and intent', async () => {

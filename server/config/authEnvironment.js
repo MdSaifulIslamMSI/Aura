@@ -2,6 +2,11 @@ const DEFAULT_ALLOWED_CLOCK_SKEW_SECONDS = 60;
 const MAX_ALLOWED_CLOCK_SKEW_SECONDS = 300;
 const DEFAULT_AUTH_COOKIE_NAME = 'aura_sid';
 const SUPPORTED_AUTH_PROVIDERS = new Set(['legacy', 'keycloak']);
+// Matches the staging-detection convention in
+// server/scripts/assert_staging_smoke_safety.js: staging runs NODE_ENV=production
+// but deliberately observes the PDP in shadow, so production-only refusals
+// must not apply to it.
+const STAGING_ENV_VALUES = new Set(['stage', 'staging', 'smoke-staging']);
 const {
     resolveMfaConfig,
     validateMfaEnvironment,
@@ -216,6 +221,26 @@ const validateAuthEnvironment = ({
     // visible until clients bind.
     if (production && safeString(env.AUTH_DPOP_REQUIRED).toLowerCase() !== 'true') {
         warnings.push('AUTH_DPOP_REQUIRED is not enabled; bound sessions verify proofs but unbound tokens remain bearer tokens');
+    }
+
+    // The authorization PDP (Auth Shield) must run enforced in production.
+    // Its code defaults are now fail-safe (enabled, non-shadow), so this only
+    // refuses an EXPLICIT downgrade: an operator who deliberately disables the
+    // PDP or asks for shadow mode in production must remove that line, not
+    // inherit it. Relationship authz, replay guarding and risk evaluation on
+    // admin/payment/auth mutations depend on this staying enforced.
+    // Staging (APP_ENV=staging, which runs NODE_ENV=production) deliberately
+    // observes in shadow so policy regressions surface before production —
+    // the refusal applies to true production only.
+    const isStagingTarget = STAGING_ENV_VALUES.has(safeString(env.APP_ENV).toLowerCase());
+    const productionEnforcement = production && !isStagingTarget;
+    const authShieldEnabledRaw = safeString(env.AUTH_SHIELD_ENABLED).toLowerCase();
+    if (productionEnforcement && ['0', 'false', 'no', 'off'].includes(authShieldEnabledRaw)) {
+        failures.push('AUTH_SHIELD_ENABLED=false is forbidden in production; the authorization PDP must stay enforced');
+    }
+    const authShieldShadowRaw = safeString(env.AUTH_SHIELD_SHADOW_MODE).toLowerCase();
+    if (productionEnforcement && ['1', 'true', 'yes', 'on'].includes(authShieldShadowRaw)) {
+        failures.push('AUTH_SHIELD_SHADOW_MODE=true is forbidden in production; shadow observation must not ship to production');
     }
 
     const mfaValidation = validateMfaEnvironment({

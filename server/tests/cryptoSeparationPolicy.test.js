@@ -71,6 +71,22 @@ describe('cryptoSeparationPolicy', () => {
             expect(inspectCryptoSeparation(env).ok).toBe(true);
         });
 
+        test('flags the account cursor secret borrowing the session or JWT secret', () => {
+            const env = fullEnv();
+            delete env.ACCOUNT_CURSOR_SIGNING_SECRET;
+            env.SESSION_SECRET = STRONG;
+            delete env.JWT_SECRET;
+
+            const report = inspectCryptoSeparation(env);
+            expect(report.ok).toBe(false);
+            expect(report.shared).toHaveLength(1);
+            expect(report.shared[0]).toContain('ACCOUNT_CURSOR_SIGNING_SECRET');
+            expect(report.collisions[0]).toEqual({
+                variable: 'ACCOUNT_CURSOR_SIGNING_SECRET',
+                with: 'SESSION_SECRET',
+            });
+        });
+
         test('requires the MFA key when TOTP is enabled', () => {
             const env = fullEnv();
             delete env.MFA_SECRET_ENCRYPTION_KEY;

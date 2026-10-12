@@ -77,10 +77,16 @@ describe('Vercel Deployment Storage', () => {
     it('excludes sourcemaps from the deploy payload but keeps them for Sentry', async () => {
         const packaging = await readRepoFile('app/scripts/create_vercel_static_output.mjs');
         const vite = await readRepoFile('app/vite.config.js');
+        const netlify = await readRepoFile('.github/workflows/deploy-netlify.yml');
 
-        // Vite still emits maps so the Sentry release step can upload them.
-        expect(vite).toContain('sourcemap: true');
-        // ...but they never enter the Vercel payload.
+        // Sourcemaps are opt-in: only the Sentry release pipeline builds with
+        // VITE_BUILD_SOURCEMAP=true (deploy-netlify.yml), so ordinary
+        // production builds ship no .map files at all — unminified source is
+        // otherwise publicly downloadable and no host config blocks
+        // /assets/*.map.
+        expect(vite).toContain('VITE_BUILD_SOURCEMAP');
+        expect(netlify).toContain("VITE_BUILD_SOURCEMAP: 'true'");
+        // ...and when they are built, they still never enter the payload.
         expect(packaging).toContain('pruneSourceMaps(outputDirectory)');
         expect(packaging).toContain('Vercel output still contains');
     });

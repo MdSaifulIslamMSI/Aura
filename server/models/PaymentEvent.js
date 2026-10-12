@@ -18,5 +18,16 @@ const paymentEventSchema = new mongoose.Schema({
 
 paymentEventSchema.index({ intentId: 1, receivedAt: -1 });
 
+// TTL retention (365d, money-data class) owned by the 2026-09-09 migration
+// registry entry — but this model is in CRITICAL_INDEX_MODELS, so boot-time
+// syncIndexes() drops any index not declared here. The paymentevents TTL was
+// silently lost that way twice (2026-10-06, re-lost after the 2026-10-07
+// deploy) before db:doctor caught it; declaring it in the model keeps boot
+// sync and the migration registry converged on the same index.
+paymentEventSchema.index(
+    { createdAt: 1 },
+    { name: 'ttl_createdAt_365d', expireAfterSeconds: 365 * 24 * 60 * 60 }
+);
+
 module.exports = mongoose.model('PaymentEvent', paymentEventSchema);
 

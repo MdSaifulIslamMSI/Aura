@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Marketplace — Security Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    svg {
+      width: 100%;
+      min-width: 1000px;
+      display: block;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .card ul {
+      list-style: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .card li {
+      margin-bottom: 0.375rem;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #475569;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>Aura Marketplace — Security Architecture</h1>
+      </div>
+      <p class="subtitle">Edge → API → authN/authZ → payments → data · read-only posture audit · October 2026</p>
+    </div>
+
+    <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1480 1040" xmlns="http://www.w3.org/2000/svg">
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrowhead-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+          <marker id="arrowhead-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <marker id="arrowhead-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb923c" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- AWS Region boundary -->
+        <rect x="480" y="20" width="790" height="695" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="494" y="38" fill="#fbbf24" font-size="10" font-weight="600">AWS Region — VPC · production runtime</text>
+        <text x="494" y="52" fill="#94a3b8" font-size="7">SaaS providers shown as external dependencies</text>
+
+        <!-- ================= ARROWS (behind boxes) ================= -->
+
+        <!-- Users -> Gateway -->
+        <line x1="180" y1="70" x2="226" y2="70" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="203" y="62" fill="#94a3b8" font-size="8" text-anchor="middle">HTTPS</text>
+
+        <!-- Users -> Static hosts -->
+        <path d="M 180 102 Q 204 138 226 148" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Gateway -> Static hosts -->
+        <line x1="335" y1="112" x2="335" y2="126" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Static hosts -> CloudFront -->
+        <line x1="335" y1="202" x2="335" y2="216" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="344" y="213" fill="#94a3b8" font-size="8">API origin</text>
+
+        <!-- CloudFront -> request security stack (ingress) -->
+        <path d="M 440 268 Q 570 70 702 118" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+        <text x="528" y="140" fill="#22d3ee" font-size="8">TLS 1.3</text>
+
+        <!-- HMAC-signed risk signals back to edge -->
+        <line x1="712" y1="78" x2="444" y2="244" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead-rose)"/>
+        <text x="618" y="166" fill="#fb7185" font-size="8">HMAC risk signals</text>
+
+        <!-- Security stack -> API -->
+        <line x1="835" y1="208" x2="835" y2="222" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="843" y="218" fill="#94a3b8" font-size="7">all traffic</text>
+
+        <!-- API -> Auth Shield PDP -->
+        <line x1="835" y1="288" x2="835" y2="304" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead-rose)"/>
+        <text x="844" y="300" fill="#fb7185" font-size="7">decision</text>
+
+        <!-- API -> auth providers -->
+        <path d="M 710 252 Q 688 320 682 378" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead-rose)"/>
+        <text x="655" y="288" fill="#fb7185" font-size="8" text-anchor="middle">OIDC · passkeys</text>
+        <text x="655" y="300" fill="#fb7185" font-size="8" text-anchor="middle">2FA · MFA</text>
+
+        <!-- API -> MongoDB -->
+        <path d="M 960 238 Q 970 170 986 104" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead-violet)"/>
+
+        <!-- API -> Redis -->
+        <path d="M 960 254 Q 974 212 986 164" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead-violet)"/>
+
+        <!-- API -> Payment core -->
+        <line x1="960" y1="262" x2="986" y2="274" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead-orange)"/>
+
+        <!-- Provider webhooks -> Payment core -->
+        <line x1="1308" y1="250" x2="1264" y2="250" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead-orange)"/>
+        <text x="1385" y="226" fill="#fb923c" font-size="8" text-anchor="middle">Stripe · Razorpay</text>
+        <text x="1385" y="238" fill="#94a3b8" font-size="8" text-anchor="middle">webhooks · svix</text>
+
+        <!-- Uploads -> S3 -->
+        <path d="M 960 540 Q 974 470 986 404" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+
+        <!-- Telemetry to observability -->
+        <path d="M 835 570 Q 910 615 986 498" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+        <text x="900" y="610" fill="#94a3b8" font-size="8" text-anchor="middle">traces · logs · metrics</text>
+
+        <!-- Private subnets boundary -->
+        <rect x="698" y="48" width="274" height="532" rx="8" fill="none" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="706" y="62" fill="#fb7185" font-size="8">private subnets — no direct ingress</text>
+
+        <!-- ================= COMPONENTS ================= -->
+
+        <!-- Users (frontend) -->
+        <g>
+          <rect x="30" y="40" width="150" height="120" rx="6" fill="#0f172a"/>
+          <rect x="30" y="40" width="150" height="120" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="105" y="64" fill="white" font-size="11" font-weight="600" text-anchor="middle">Users</text>
+          <text x="105" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">Web SPA (React)</text>
+          <text x="105" y="96" fill="#94a3b8" font-size="9" text-anchor="middle">Capacitor mobile</text>
+          <text x="105" y="110" fill="#94a3b8" font-size="9" text-anchor="middle">Electron desktop</text>
+          <text x="105" y="132" fill="#22d3ee" font-size="8" text-anchor="middle">httpOnly cookies + CSRF</text>
+        </g>
+
+        <!-- Aura Gateway (external) -->
+        <g>
+          <rect x="230" y="40" width="210" height="70" rx="6" fill="#0f172a"/>
+          <rect x="230" y="40" width="210" height="70" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="335" y="64" fill="white" font-size="11" font-weight="600" text-anchor="middle">Aura Gateway</text>
+          <text x="335" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">Vercel entry surface</text>
+          <text x="335" y="98" fill="#94a3b8" font-size="8" text-anchor="middle">releases · availability</text>
+        </g>
+
+        <!-- Static hosts (external) -->
+        <g>
+          <rect x="230" y="130" width="210" height="70" rx="6" fill="#0f172a"/>
+          <rect x="230" y="130" width="210" height="70" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="335" y="154" fill="white" font-size="11" font-weight="600" text-anchor="middle">Static hosts</text>
+          <text x="335" y="172" fill="#94a3b8" font-size="9" text-anchor="middle">Vercel · Netlify · CF Pages</text>
+          <text x="335" y="188" fill="#94a3b8" font-size="8" text-anchor="middle">SPA bundles (no secrets)</text>
+        </g>
+
+        <!-- CloudFront + WAF (cloud) -->
+        <g>
+          <rect x="230" y="220" width="210" height="110" rx="6" fill="#0f172a"/>
+          <rect x="230" y="220" width="210" height="110" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="335" y="244" fill="white" font-size="11" font-weight="600" text-anchor="middle">CloudFront + AWS WAF</text>
+          <text x="335" y="262" fill="#94a3b8" font-size="9" text-anchor="middle">CDN · OAC origin</text>
+          <text x="335" y="278" fill="#94a3b8" font-size="9" text-anchor="middle">AWS managed rules</text>
+          <text x="335" y="292" fill="#94a3b8" font-size="9" text-anchor="middle">rate-based rules</text>
+          <text x="335" y="312" fill="#fbbf24" font-size="8" text-anchor="middle">login WAF verification</text>
+        </g>
+
+        <!-- Request security stack (security) -->
+        <g>
+          <rect x="710" y="68" width="250" height="140" rx="6" fill="#0f172a"/>
+          <rect x="710" y="68" width="250" height="140" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="835" y="88" fill="white" font-size="11" font-weight="600" text-anchor="middle">Request security stack</text>
+          <text x="835" y="106" fill="#94a3b8" font-size="9" text-anchor="middle">helmet CSP + HSTS</text>
+          <text x="835" y="120" fill="#94a3b8" font-size="9" text-anchor="middle">origin protection · trusted edge</text>
+          <text x="835" y="134" fill="#94a3b8" font-size="9" text-anchor="middle">CSRF double-submit</text>
+          <text x="835" y="148" fill="#94a3b8" font-size="9" text-anchor="middle">invisible fabric · honeypot</text>
+          <text x="835" y="162" fill="#94a3b8" font-size="9" text-anchor="middle">traffic budgets · load shedding</text>
+          <text x="835" y="176" fill="#94a3b8" font-size="9" text-anchor="middle">auth risk engine + HMAC signals</text>
+          <text x="835" y="190" fill="#94a3b8" font-size="9" text-anchor="middle">body size + timeout guards</text>
+        </g>
+
+        <!-- Aura API (backend) -->
+        <g>
+          <rect x="710" y="224" width="250" height="64" rx="6" fill="#0f172a"/>
+          <rect x="710" y="224" width="250" height="64" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+          <text x="835" y="248" fill="white" font-size="12" font-weight="600" text-anchor="middle">Aura API</text>
+          <text x="835" y="266" fill="#94a3b8" font-size="9" text-anchor="middle">Express 5 · REST</text>
+          <text x="835" y="280" fill="#94a3b8" font-size="8" text-anchor="middle">40+ route groups</text>
+        </g>
+
+        <!-- Auth Shield PDP (security, enforced) -->
+        <g>
+          <rect x="710" y="308" width="250" height="110" rx="6" fill="#0f172a"/>
+          <rect x="710" y="308" width="250" height="110" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="835" y="330" fill="white" font-size="11" font-weight="600" text-anchor="middle">Auth Shield PDP</text>
+          <text x="835" y="348" fill="#94a3b8" font-size="9" text-anchor="middle">identity · DPoP · device trust</text>
+          <text x="835" y="362" fill="#94a3b8" font-size="9" text-anchor="middle">step-up · replay · authz</text>
+          <text x="835" y="376" fill="#94a3b8" font-size="9" text-anchor="middle">risk engine</text>
+          <text x="835" y="396" fill="#34d399" font-size="8" text-anchor="middle">ENFORCED — prod contract</text>
+          <text x="835" y="408" fill="#34d399" font-size="8" text-anchor="middle">refuses shadow / disabled</text>
+        </g>
+
+        <!-- Worker (backend) -->
+        <g>
+          <rect x="710" y="438" width="120" height="56" rx="6" fill="#0f172a"/>
+          <rect x="710" y="438" width="120" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+          <text x="770" y="460" fill="white" font-size="11" font-weight="600" text-anchor="middle">Worker</text>
+          <text x="770" y="478" fill="#94a3b8" font-size="8" text-anchor="middle">jobs · outbox</text>
+        </g>
+
+        <!-- Socket.io (backend) -->
+        <g>
+          <rect x="840" y="438" width="120" height="56" rx="6" fill="#0f172a"/>
+          <rect x="840" y="438" width="120" height="56" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+          <text x="900" y="460" fill="white" font-size="11" font-weight="600" text-anchor="middle">Socket.io</text>
+          <text x="900" y="478" fill="#94a3b8" font-size="8" text-anchor="middle">realtime · redis adapter</text>
+        </g>
+
+        <!-- Uploads API + ClamAV (security) -->
+        <g>
+          <rect x="710" y="514" width="250" height="56" rx="6" fill="#0f172a"/>
+          <rect x="710" y="514" width="250" height="56" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="835" y="536" fill="white" font-size="11" font-weight="600" text-anchor="middle">Uploads API + ClamAV</text>
+          <text x="835" y="554" fill="#94a3b8" font-size="8" text-anchor="middle">malware scan · quarantine</text>
+        </g>
+
+        <!-- Firebase Admin (security) -->
+        <g>
+          <rect x="500" y="380" width="180" height="56" rx="6" fill="#0f172a"/>
+          <rect x="500" y="380" width="180" height="56" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="590" y="402" fill="white" font-size="11" font-weight="600" text-anchor="middle">Firebase Admin</text>
+          <text x="590" y="420" fill="#94a3b8" font-size="9" text-anchor="middle">email · phone auth</text>
+        </g>
+
+        <!-- Keycloak OIDC (security) -->
+        <g>
+          <rect x="500" y="446" width="180" height="56" rx="6" fill="#0f172a"/>
+          <rect x="500" y="446" width="180" height="56" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="590" y="468" fill="white" font-size="11" font-weight="600" text-anchor="middle">Keycloak OIDC</text>
+          <text x="590" y="486" fill="#94a3b8" font-size="9" text-anchor="middle">enterprise SSO</text>
+        </g>
+
+        <!-- Duo Security (security) -->
+        <g>
+          <rect x="500" y="512" width="180" height="56" rx="6" fill="#0f172a"/>
+          <rect x="500" y="512" width="180" height="56" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="590" y="534" fill="white" font-size="11" font-weight="600" text-anchor="middle">Duo Security</text>
+          <text x="590" y="552" fill="#94a3b8" font-size="9" text-anchor="middle">2FA · OIDC</text>
+        </g>
+
+        <!-- Passkeys + TOTP (security) -->
+        <g>
+          <rect x="500" y="578" width="180" height="56" rx="6" fill="#0f172a"/>
+          <rect x="500" y="578" width="180" height="56" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="590" y="600" fill="white" font-size="11" font-weight="600" text-anchor="middle">Passkeys · TOTP</text>
+          <text x="590" y="618" fill="#94a3b8" font-size="8" text-anchor="middle">admin require-passkey</text>
+        </g>
+
+        <!-- AI providers (external) -->
+        <g>
+          <rect x="500" y="644" width="180" height="56" rx="6" fill="#0f172a"/>
+          <rect x="500" y="644" width="180" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="590" y="666" fill="white" font-size="11" font-weight="600" text-anchor="middle">AI providers</text>
+          <text x="590" y="684" fill="#94a3b8" font-size="8" text-anchor="middle">OpenAI · Voyage · LiveKit</text>
+        </g>
+
+        <!-- MongoDB (database) -->
+        <g>
+          <rect x="990" y="60" width="270" height="56" rx="6" fill="#0f172a"/>
+          <rect x="990" y="60" width="270" height="56" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="1125" y="82" fill="white" font-size="11" font-weight="600" text-anchor="middle">MongoDB</text>
+          <text x="1125" y="100" fill="#94a3b8" font-size="9" text-anchor="middle">catalog · orders · users</text>
+        </g>
+
+        <!-- Redis (database) -->
+        <g>
+          <rect x="990" y="126" width="270" height="56" rx="6" fill="#0f172a"/>
+          <rect x="990" y="126" width="270" height="56" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="1125" y="148" fill="white" font-size="11" font-weight="600" text-anchor="middle">Redis</text>
+          <text x="1125" y="166" fill="#94a3b8" font-size="9" text-anchor="middle">sessions · rate limits · sockets</text>
+        </g>
+
+        <!-- Payment core (message bus / payments) -->
+        <g>
+          <rect x="990" y="192" width="270" height="160" rx="6" fill="#0f172a"/>
+          <rect x="990" y="192" width="270" height="160" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="1125" y="214" fill="white" font-size="11" font-weight="600" text-anchor="middle">Payment core</text>
+          <text x="1125" y="232" fill="#94a3b8" font-size="9" text-anchor="middle">Stripe · Razorpay</text>
+          <text x="1125" y="246" fill="#94a3b8" font-size="8" text-anchor="middle">svix webhooks · timing-safe</text>
+          <text x="1125" y="260" fill="#94a3b8" font-size="8" text-anchor="middle">server-computed totals</text>
+          <text x="1125" y="282" fill="#94a3b8" font-size="9" text-anchor="middle">OpenBao vault · Postgres</text>
+          <text x="1125" y="296" fill="#94a3b8" font-size="9" text-anchor="middle">Temporal · Redpanda (Kafka)</text>
+          <text x="1125" y="310" fill="#94a3b8" font-size="8" text-anchor="middle">outbox · idempotency</text>
+          <text x="1125" y="334" fill="#fb923c" font-size="8" text-anchor="middle">payment-prometheus</text>
+        </g>
+
+        <!-- S3 (cloud) -->
+        <g>
+          <rect x="990" y="372" width="130" height="56" rx="6" fill="#0f172a"/>
+          <rect x="990" y="372" width="130" height="56" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="1055" y="394" fill="white" font-size="11" font-weight="600" text-anchor="middle">S3</text>
+          <text x="1055" y="412" fill="#94a3b8" font-size="8" text-anchor="middle">media · uploads</text>
+        </g>
+
+        <!-- KMS + SSM (cloud) -->
+        <g>
+          <rect x="1130" y="372" width="130" height="56" rx="6" fill="#0f172a"/>
+          <rect x="1130" y="372" width="130" height="56" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="1195" y="394" fill="white" font-size="11" font-weight="600" text-anchor="middle">KMS · SSM</text>
+          <text x="1195" y="412" fill="#94a3b8" font-size="8" text-anchor="middle">keys · secrets</text>
+        </g>
+
+        <!-- Observability caption -->
+        <text x="1125" y="452" fill="#22d3ee" font-size="9" text-anchor="middle">Observability and telemetry</text>
+
+        <!-- Sentry (external) -->
+        <g>
+          <rect x="990" y="460" width="270" height="50" rx="6" fill="#0f172a"/>
+          <rect x="990" y="460" width="270" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1125" y="480" fill="white" font-size="11" font-weight="600" text-anchor="middle">Sentry</text>
+          <text x="1125" y="498" fill="#94a3b8" font-size="8" text-anchor="middle">error tracking</text>
+        </g>
+
+        <!-- Datadog (external) -->
+        <g>
+          <rect x="990" y="520" width="270" height="50" rx="6" fill="#0f172a"/>
+          <rect x="990" y="520" width="270" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1125" y="540" fill="white" font-size="11" font-weight="600" text-anchor="middle">Datadog</text>
+          <text x="1125" y="558" fill="#94a3b8" font-size="8" text-anchor="middle">dd-trace · browser RUM</text>
+        </g>
+
+        <!-- OTel collector (external) -->
+        <g>
+          <rect x="990" y="580" width="270" height="50" rx="6" fill="#0f172a"/>
+          <rect x="990" y="580" width="270" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1125" y="600" fill="white" font-size="11" font-weight="600" text-anchor="middle">OTel collector</text>
+          <text x="1125" y="618" fill="#94a3b8" font-size="8" text-anchor="middle">traces pipeline</text>
+        </g>
+
+        <!-- Prometheus · Loki · Grafana (external) -->
+        <g>
+          <rect x="990" y="640" width="270" height="50" rx="6" fill="#0f172a"/>
+          <rect x="990" y="640" width="270" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1125" y="660" fill="white" font-size="11" font-weight="600" text-anchor="middle">Prometheus · Loki · Grafana</text>
+          <text x="1125" y="678" fill="#94a3b8" font-size="8" text-anchor="middle">metrics · logs · dashboards</text>
+        </g>
+
+        <!-- ================= CI SECURITY GATES ================= -->
+        <text x="30" y="748" fill="white" font-size="10" font-weight="600">CI security gates — GitHub Actions workflows</text>
+
+        <g>
+          <rect x="30" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="30" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="94" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">nuclei</text>
+          <text x="94" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">DAST · real backend</text>
+        </g>
+        <g>
+          <rect x="166" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="166" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="230" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">OWASP ZAP</text>
+          <text x="230" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">authenticated DAST</text>
+        </g>
+        <g>
+          <rect x="302" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="302" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="366" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">semgrep</text>
+          <text x="366" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">SAST rules</text>
+        </g>
+        <g>
+          <rect x="438" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="438" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="502" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">trivy</text>
+          <text x="502" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">SCA · IaC · images</text>
+        </g>
+        <g>
+          <rect x="574" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="574" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="638" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">gitleaks</text>
+          <text x="638" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">secret scanning</text>
+        </g>
+        <g>
+          <rect x="710" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="710" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="774" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">CodeQL</text>
+          <text x="774" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">code scanning</text>
+        </g>
+        <g>
+          <rect x="846" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="846" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="910" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">OSF Scorecard</text>
+          <text x="910" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">supply chain</text>
+        </g>
+        <g>
+          <rect x="982" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="982" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1046" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">PQC policy</text>
+          <text x="1046" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">crypto inventory</text>
+        </g>
+        <g>
+          <rect x="1118" y="760" width="128" height="56" rx="6" fill="#0f172a"/>
+          <rect x="1118" y="760" width="128" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="1182" y="780" fill="white" font-size="10" font-weight="600" text-anchor="middle">pins + audits</text>
+          <text x="1182" y="798" fill="#94a3b8" font-size="8" text-anchor="middle">lockfile integrity</text>
+        </g>
+
+        <!-- ================= LEGEND ================= -->
+        <text x="30" y="880" fill="white" font-size="10" font-weight="600">Legend</text>
+
+        <rect x="30" y="888" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="54" y="897" fill="#94a3b8" font-size="8">Frontend / clients</text>
+
+        <rect x="210" y="888" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="234" y="897" fill="#94a3b8" font-size="8">Backend services</text>
+
+        <rect x="400" y="888" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="424" y="897" fill="#94a3b8" font-size="8">Datastores</text>
+
+        <rect x="560" y="888" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="584" y="897" fill="#94a3b8" font-size="8">Cloud / AWS</text>
+
+        <rect x="30" y="904" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="54" y="913" fill="#94a3b8" font-size="8">Security / auth</text>
+
+        <rect x="210" y="904" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="234" y="913" fill="#94a3b8" font-size="8">External / SaaS</text>
+
+        <rect x="400" y="904" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
+        <text x="424" y="913" fill="#94a3b8" font-size="8">Payments / message bus</text>
+
+        <rect x="560" y="904" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="584" y="913" fill="#94a3b8" font-size="8">Security / authz control</text>
+
+        <line x1="30" y1="926" x2="46" y2="926" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="54" y="929" fill="#94a3b8" font-size="8">Auth / policy flow</text>
+
+        <line x1="210" y1="926" x2="226" y2="926" stroke="#64748b" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="234" y="929" fill="#94a3b8" font-size="8">Telemetry</text>
+
+        <line x1="400" y1="926" x2="416" y2="926" stroke="#fb923c" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="424" y="929" fill="#94a3b8" font-size="8">Payment webhooks</text>
+
+        <text x="560" y="929" fill="#94a3b8" font-size="8">Rose = enforced security control</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Strongest controls (file:line verified)</h3>
+        </div>
+        <ul>
+          <li>• HKDF-SHA256 subkeys, frozen per-purpose contexts — server/utils/cryptoKdf.js:39</li>
+          <li>• Dedicated OTP pepper; prod rejects shared secrets — server/controllers/otpController.js:509</li>
+          <li>• 20+ fail-closed startup asserts — server/index.js:1012-1030</li>
+          <li>• CSP without unsafe-inline in script-src — server/index.js:286</li>
+          <li>• Digest-pinned non-root containers — Dockerfile:3,37</li>
+          <li>• Timing-safe compares on every secret path — cryptoKdf.js:82</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>Residual watch items</h3>
+        </div>
+        <ul>
+          <li>• Auth Shield now ENFORCED — prod contract refuses shadow/disabled (fixed 2026-10-12)</li>
+          <li>• DPoP · device trust · step-up implemented, still disabled — server/security/authShield/config.js:52-54</li>
+          <li>• style-src-attr unsafe-inline; img-src allows https: — server/index.js:300-302</li>
+          <li>• Trusted-device challenge defaults to off — server/config/authTrustedDeviceFlags.js:26</li>
+          <li>• Device-ID CSPRNG now fails closed — app/src/services/deviceTrustClient.js:274</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>Continuous verification surface</h3>
+        </div>
+        <ul>
+          <li>• nuclei DAST aimed at the real backend target — workflows/nuclei-scan.yml</li>
+          <li>• ZAP authenticated scans + SARIF contract — workflows/authenticated-security-testing.yml</li>
+          <li>• gitleaks · semgrep · trivy · CodeQL · Scorecard — workflows/quality.yml</li>
+          <li>• Dependency audits · supply-chain pins · lockfile checks — package.json security scripts</li>
+          <li>• Prod hardening audit + backup/restore drills — server/scripts/audit_production_hardening_contract.js</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="footer">
+      Aura Marketplace · aura-security-architecture.html · read-only assessment — no files changed
+    </p>
+  </div>
+</body>
+</html>

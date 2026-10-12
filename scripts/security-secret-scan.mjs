@@ -231,10 +231,49 @@ if (gitleaksVersion.status === 0) {
   }
   const gitleaksRun = run('gitleaks', gitleaksArgs);
   rmSync(gitleaksScanRoot, { recursive: true, force: true });
+
+  // The working-tree scan copies files into a temp root, so gitleaks' own
+  // --baseline-path matching never fires (its fingerprints carry the temp
+  // paths). Re-apply the accepted-findings baseline here by mapping each
+  // finding back to its repo-relative path, so a PR touching a file with an
+  // already-triaged finding does not fail the fast gate. Full git-history
+  // scanning with the baseline runs in the security-gates secret-scan job
+  // (npm run security:gitleaks).
+  let gitleaksFindings = [];
+  try {
+    const parsed = JSON.parse(readFileSync(gitleaksReportPath, 'utf8'));
+    gitleaksFindings = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    gitleaksFindings = [];
+  }
+  let baselineSuppressed = 0;
+  const gitleaksBaselinePath = path.join(repoRoot, '.gitleaks-baseline.json');
+  if (existsSync(gitleaksBaselinePath)) {
+    try {
+      const baseline = new Set(
+        JSON.parse(readFileSync(gitleaksBaselinePath, 'utf8'))
+          .map((entry) => `${entry.RuleID}:${String(entry.File || '').replace(/\\/g, '/')}:${entry.StartLine}`)
+      );
+      gitleaksFindings = gitleaksFindings.filter((finding) => {
+        const relativeFile = String(finding.File || '')
+          .replace(`${gitleaksScanRoot}${path.sep}`, '')
+          .replace(/\\/g, '/');
+        if (!baseline.has(`${finding.RuleID}:${relativeFile}:${finding.StartLine}`)) return true;
+        baselineSuppressed += 1;
+        return false;
+      });
+      writeFileSync(gitleaksReportPath, `${JSON.stringify(gitleaksFindings, null, 2)}\n`);
+    } catch {
+      // A malformed baseline must not suppress findings: fail closed with the
+      // unfiltered result.
+    }
+  }
+
   gitleaks = {
     available: true,
-    status: gitleaksRun.status === 0 ? 'passed' : 'failed',
+    status: gitleaksFindings.length === 0 ? 'passed' : 'failed',
     exitCode: gitleaksRun.status,
+    baselineSuppressed: baselineSuppressed || undefined,
   };
 }
 

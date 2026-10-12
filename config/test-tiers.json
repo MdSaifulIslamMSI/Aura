@@ -8,6 +8,7 @@
       "tests/statusWebhookDuplicateDelivery.test.js",
       "tests/adaptiveRateLimit.memorySafety.test.js",
       "tests/adminAbuseRoutes.test.js",
+      "tests/adminAuthorizationPolicyCoverage.test.js",
       "tests/adminResponseEnvelope.test.js",
       "tests/adminPrivilegedAccessRoutes.integration.test.js",
       "tests/adminTrustDecisionCoverage.test.js",

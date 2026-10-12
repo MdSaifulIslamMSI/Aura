@@ -37,7 +37,12 @@ const buildHarness = ({
     jest.doMock('../controllers/otpController', () => controllers);
     jest.doMock('../middleware/distributedRateLimit', () => ({
         createDistributedRateLimit: jest.fn(({ name }) => {
-            const limiter = limiterOverrides[name] || passThrough();
+            // The reset-password scanner limiter was converted from
+            // express-rate-limit to a distributed limiter (W8): it now arrives
+            // through this factory under its own name instead of the
+            // express-rate-limit mock below.
+            const limiter = limiterOverrides[name]
+                || (name === 'otp_reset_password_scanner' ? scannerLimiter : passThrough());
             distributedLimiters.set(name, limiter);
             return limiter;
         }),

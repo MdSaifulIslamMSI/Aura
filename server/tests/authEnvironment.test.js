@@ -1,4 +1,5 @@
 const {
+    assertAuthEnvironmentConfig,
     buildKeycloakJwksUrl,
     normalizeProvider,
     resolveAuthEnvironment,
@@ -300,5 +301,70 @@ describe('authEnvironment', () => {
         });
 
         expect(result.safe).toBe(true);
+    });
+
+    test('forbids disabling the Auth Shield PDP in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_SHIELD_ENABLED: 'false',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures.join('\n')).toMatch(/AUTH_SHIELD_ENABLED=false is forbidden in production/);
+    });
+
+    test('forbids shadow-mode observation of the Auth Shield in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_SHIELD_SHADOW_MODE: 'true',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures.join('\n')).toMatch(/AUTH_SHIELD_SHADOW_MODE=true is forbidden in production/);
+    });
+
+    test('assertAuthEnvironmentConfig throws for a shadow-mode production contract', () => {
+        expect(() => assertAuthEnvironmentConfig({
+            NODE_ENV: 'production',
+            AUTH_SHIELD_SHADOW_MODE: 'true',
+        })).toThrow(/auth_environment_invalid/);
+    });
+
+    test('staging keeps deliberate shadow observation under NODE_ENV=production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                APP_ENV: 'staging',
+                AUTH_SHIELD_ENABLED: 'true',
+                AUTH_SHIELD_SHADOW_MODE: 'true',
+            },
+            runtimeEnv: 'production',
+        });
+
+        // The point of this contract: staging must NOT be refused for the
+        // deliberate shadow downgrade (other production rules may still fire
+        // for this minimal env — they are not what this test covers).
+        expect(result.failures.join('\n')).not.toMatch(/AUTH_SHIELD_SHADOW_MODE=true is forbidden/);
+        expect(result.failures.join('\n')).not.toMatch(/AUTH_SHIELD_ENABLED=false is forbidden/);
+    });
+
+    test('production (not staging) still refuses shadow even with APP_ENV set', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                APP_ENV: 'production',
+                AUTH_SHIELD_SHADOW_MODE: 'true',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures.join('\n')).toMatch(/AUTH_SHIELD_SHADOW_MODE=true is forbidden in production/);
     });
 });

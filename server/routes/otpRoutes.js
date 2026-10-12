@@ -1,6 +1,5 @@
 const express = require('express');
 const crypto = require('crypto');
-const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
 const { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
@@ -102,12 +101,12 @@ const resetPasswordNetworkLimiter = createDistributedRateLimit({
     message: 'Too many password reset attempts from this network. Please wait before trying again.',
 });
 
-const resetPasswordScannerRateLimit = rateLimit({
+const resetPasswordScannerRateLimit = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    securityCritical: true,
+    name: 'otp_reset_password_scanner',
     windowMs: RESET_PASSWORD_WINDOW_MS,
-    limit: process.env.NODE_ENV === 'development' ? 1000 : RESET_PASSWORD_NETWORK_MAX * 2,
-    standardHeaders: 'draft-8',
-    legacyHeaders: false,
-    skip: () => process.env.NODE_ENV === 'test',
+    max: process.env.NODE_ENV === 'development' ? 1000 : RESET_PASSWORD_NETWORK_MAX * 2,
     message: { message: 'Too many password reset attempts. Please wait before trying again.' },
 });
 

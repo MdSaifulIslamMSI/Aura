@@ -63,7 +63,15 @@ const routeSensitiveAction = ({
                 ? 'high'
                 : 'medium',
         resourceResolver: resolveAuthShieldResourceResolver({ action, resourceType }),
-        allowAuthenticatedWithoutResource: ['ai', 'ai_session', 'email_operation', 'analytics', 'payment'].includes(resourceType),
+        // Self-scoped or create-shaped actions must not fail closed when no
+        // resource resolves: creating your own order/listing, self-service
+        // auth-factor and recovery changes, and support moderation (whose
+        // ticket relationship is not modelled by any resolver). Route-level
+        // authorization — role middleware, authorizeOrderOwner,
+        // authorizeListingOwner, requireTrustDecision — remains the
+        // authoritative gate for these flows; the shield's relationship check
+        // is defence-in-depth that applies once a resource actually resolves.
+        allowAuthenticatedWithoutResource: ['ai', 'ai_session', 'email_operation', 'analytics', 'payment', 'auth', 'auth_factor', 'order', 'listing', 'support_ticket'].includes(resourceType),
         requireFreshAuth: riskLevel === RISK_LEVELS.CRITICAL || riskLevel === RISK_LEVELS.HIGH,
         requireDeviceProof: action === 'payment.refund.create' || action === 'payment.payout.change',
         requireReplayNonce: riskLevel === RISK_LEVELS.CRITICAL,

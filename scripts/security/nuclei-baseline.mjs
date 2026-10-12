@@ -40,13 +40,26 @@ export const nucleiMatchedHost = (finding) => String(
 // exception written against the JSONL host ("host.docker.internal:8099") must
 // still match the SARIF text ("host.docker.internal"), otherwise the finding is
 // suppressed in the JSONL gate but reappears as a live alert in the uploaded
-// SARIF. Compare on the host portion of the exception, with and without its port.
+// SARIF. Compare on the host portion of the exception, with and without its
+// port, matched as a WHOLE token: plain substring matching lets an exception
+// for "example.com" suppress findings on "evil-example.com" or
+// "host.example.com", so the candidate must be bounded by characters that
+// cannot appear inside a hostname.
 const hostMatchesException = (text, host) => {
   if (!host) return true;
   const haystack = String(text || '');
-  if (haystack.includes(host)) return true;
+  const candidates = [host];
   const hostWithoutPort = host.replace(/:\d+$/, '');
-  return Boolean(hostWithoutPort) && hostWithoutPort !== host && haystack.includes(hostWithoutPort);
+  if (hostWithoutPort && hostWithoutPort !== host) candidates.push(hostWithoutPort);
+
+  return candidates.some((candidate) => {
+    const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Leading and trailing boundaries exclude hostname characters (letters,
+    // digits, dots, hyphens) so the host never matches as a suffix or
+    // substring of a longer domain.
+    const pattern = new RegExp(`(^|[^a-z0-9.-])${escaped}([^a-z0-9.-]|$)`, 'i');
+    return pattern.test(haystack);
+  });
 };
 
 export const isAcceptedNucleiFinding = (finding, exceptions) => exceptions.some((exception) => {

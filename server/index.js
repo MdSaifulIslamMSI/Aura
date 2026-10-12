@@ -75,6 +75,11 @@ const orderRoutes = require('./routes/orderRoutes');
 const checkoutRoutes = require('./routes/checkoutRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const otpRoutes = require('./routes/otpRoutes');
+// OTP pepper isolation is asserted at startup even though
+// cryptoSeparationPolicy already covers the same collision — the dedicated
+// assert fails closed with an OTP-specific message if either guard is ever
+// relaxed independently.
+const { assertOtpHashSecretIsolation } = require('./controllers/otpController');
 const listingRoutes = require('./routes/listingRoutes');
 const tradeInRoutes = require('./routes/tradeInRoutes');
 const priceAlertRoutes = require('./routes/priceAlertRoutes');
@@ -1027,6 +1032,7 @@ assertProductionRedisConfig();
     assertAdminSecurityConfig();
     assertTrustedDeviceV2RolloutConfig();
     assertCryptoSeparationConfig();
+    assertOtpHashSecretIsolation();
     assertMfaCryptoConfig();
 
     connectDB().then(() => {

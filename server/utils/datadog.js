@@ -11,6 +11,8 @@ let tracerModule = null;
 let initState = { enabled: false, apiKeyConfigured: false, tracerLoaded: false };
 let initialized = false;
 
+const logger = require('./logger');
+
 const trimValue = (value = '') => (typeof value === 'string' ? value.trim() : '');
 
 const clampSampleRate = (value, fallback = 0.1) => {
@@ -132,18 +134,23 @@ const logToDatadog = async (level = 'error', message = '', context = {}) => {
         if (!config.enabled || !config.logsEnabled) return false;
         const status = level === 'warn' || level === 'warning' ? 'warn' : level === 'error' ? 'error' : 'info';
         const error = context.error instanceof Error ? context.error : null;
+        // Every forwarded field goes through the logger's redaction layer so
+        // the Datadog intake receives exactly what Sentry's beforeSend would
+        // emit: emails, phones, card numbers and keyed PII are scrubbed from
+        // messages, routes and raw error stacks before they leave the process.
+        const scrub = (value) => logger.redactSensitiveData(String(value ?? ''));
         const payload = {
-            message: String(message || (error && error.message) || 'Datadog log').slice(0, 4000),
+            message: scrub(message || (error && error.message) || 'Datadog log').slice(0, 4000),
             status,
             service: config.service,
             ddsource: 'nodejs',
             ddtags: `env:${config.environment},version:${config.version}`,
-            route: String(context.route || '').slice(0, 200),
+            route: scrub(context.route || '').slice(0, 200),
             request_id: String(context.requestId || '').slice(0, 100),
             http_method: String(context.method || '').slice(0, 16),
             http_status_code: context.statusCode,
             error_kind: error ? String(error.name || 'Error').slice(0, 100) : undefined,
-            error_stack: error ? String(error.stack || '').slice(0, 4000) : undefined,
+            error_stack: error ? scrub(error.stack || '').slice(0, 4000) : undefined,
         };
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 1500);
