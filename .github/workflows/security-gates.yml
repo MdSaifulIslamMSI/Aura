@@ -221,6 +221,13 @@ jobs:
         with:
           node-version: 24.x
           cache: npm
+      # The invisible-fabric checks below are node-based (security:authz runs
+      # the server test suite via cross-env), so this job must install
+      # dependencies like the other security jobs do.
+      - name: Install dependencies
+        run: npm ci
+      - name: Install server dependencies
+        run: npm --prefix server ci
       - name: Run Checkov, tfsec, and Terrascan
         run: npm run security:iac
       # Dockerfile hardening was previously only reachable via
