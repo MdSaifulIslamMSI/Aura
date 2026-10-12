@@ -167,6 +167,9 @@ jobs:
           npx --yes -p @sentry/cli@3.4.2 node scripts/student-pack-sentry-release.mjs
 
       - name: Strip sourcemaps from the deploy payload
+        # Run at the repo root so app/dist resolves regardless of the job's
+        # working-directory default.
+        working-directory: .
         # The build emits maps only for the Sentry upload above; the release
         # script uploads them but never deletes them, and it exits early when
         # Sentry secrets are absent. Strip them here so the S3 sync and the
