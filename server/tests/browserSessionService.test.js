@@ -682,6 +682,77 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('SameSite=None');
     });
 
+    test('never grants SameSite=None to an unlisted origin, even when the env default says none', async () => {
+        // Regression: the AWS bootstrap set AUTH_SESSION_SAME_SITE=none, and
+        // resolveSameSite fell through to that default after the allowlist
+        // refused the origin — handing an attacker page the None session the
+        // allowlist just denied. None is granted only by the allowlist.
+        process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
+        process.env.AUTH_SESSION_SAME_SITE = 'none';
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-unlisted-1',
+                    deviceLabel: 'Unlisted Browser',
+                }),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: {
+                host: 'api.aura-aws.internal',
+                origin: 'https://evil-example.com',
+                'x-forwarded-proto': 'https',
+            },
+            secure: true,
+        };
+        const res = createResponseStub();
+
+        await browserSessionService.createBrowserSession({
+            req,
+            res,
+            user: {
+                _id: '507f1f77bcf86cd799439014',
+                email: 'unlisted@example.com',
+                name: 'Unlisted User',
+                phone: '+919****3213',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                authAssurance: 'none',
+            },
+            authUid: 'firebase-unlisted-1',
+            authToken: {
+                email: 'unlisted@example.com',
+                email_verified: true,
+                name: 'Unlisted User',
+                phone_number: '+919****3213',
+                auth_time: nowSeconds - 15,
+                iat: nowSeconds - 15,
+                exp: nowSeconds + 3600,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
+        });
+
+        const setCookieHeader = res.getHeader('Set-Cookie');
+
+        expect(setCookieHeader[0]).toContain('Secure');
+        expect(setCookieHeader[0]).toContain('SameSite=Lax');
+        expect(setCookieHeader[0]).not.toContain('SameSite=None');
+    });
+
     test('uses SameSite=None for secure hosted frontends talking to a different API origin', async () => {
         process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
         // The hosted SPA origin must be explicitly allowlisted for cross-site

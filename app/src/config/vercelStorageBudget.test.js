@@ -78,6 +78,7 @@ describe('Vercel Deployment Storage', () => {
         const packaging = await readRepoFile('app/scripts/create_vercel_static_output.mjs');
         const vite = await readRepoFile('app/vite.config.js');
         const netlify = await readRepoFile('.github/workflows/deploy-netlify.yml');
+        const aws = await readRepoFile('.github/workflows/deploy-frontend-aws.yml');
 
         // Sourcemaps are opt-in: only the Sentry release pipeline builds with
         // VITE_BUILD_SOURCEMAP=true (deploy-netlify.yml), so ordinary
@@ -86,6 +87,14 @@ describe('Vercel Deployment Storage', () => {
         // /assets/*.map.
         expect(vite).toContain('VITE_BUILD_SOURCEMAP');
         expect(netlify).toContain("VITE_BUILD_SOURCEMAP: 'true'");
+        // The Sentry upload publishes maps but never deletes them, so both
+        // deploy paths must strip them before the artifact leaves the job.
+        // Regression: without this the maps rode the artifact into the
+        // Netlify/AWS publish and were publicly downloadable.
+        expect(netlify).toContain('Strip sourcemaps from the deploy payload');
+        expect(aws).toContain('Strip sourcemaps from the deploy payload');
+        expect(netlify).toMatch(/find app\/dist -name '\*\.map' -type f -print -delete/);
+        expect(aws).toMatch(/find app\/dist -name '\*\.map' -type f -print -delete/);
         // ...and when they are built, they still never enter the payload.
         expect(packaging).toContain('pruneSourceMaps(outputDirectory)');
         expect(packaging).toContain('Vercel output still contains');

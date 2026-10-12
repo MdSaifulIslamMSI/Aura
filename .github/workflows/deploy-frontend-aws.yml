@@ -166,6 +166,21 @@ jobs:
           # npx -p puts sentry-cli on PATH for the release script without a new dependency.
           npx --yes -p @sentry/cli@3.4.2 node scripts/student-pack-sentry-release.mjs
 
+      - name: Strip sourcemaps from the deploy payload
+        # The build emits maps only for the Sentry upload above; the release
+        # script uploads them but never deletes them, and it exits early when
+        # Sentry secrets are absent. Strip them here so the S3 sync and the
+        # artifact never carry a .map — unminified source is otherwise
+        # publicly downloadable from the CloudFront origin.
+        run: |
+          set -euo pipefail
+          find app/dist -name '*.map' -type f -print -delete
+          if find app/dist -name '*.map' -print -quit | grep -q .; then
+            echo "sourcemaps still present after prune" >&2
+            exit 1
+          fi
+          echo "Deploy payload contains 0 sourcemaps."
+
       - name: Upload AWS frontend dist bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
