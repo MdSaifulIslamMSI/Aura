@@ -176,3 +176,118 @@ describe('logging and alert safety', () => {
         }
     });
 });
+
+describe('logger PII coverage (addresses, names, IPs, free-text identifiers)', () => {
+    const piiMeta = () => ({
+        address: '221B Baker Street, London',
+        fullName: 'John Q Public',
+        recipientName: 'Jane Doe',
+        city: 'Bengaluru',
+        pincode: '560001',
+        postalCode: '560001',
+        state: 'Karnataka',
+        country: 'IN',
+        ip: '203.0.113.45',
+        clientIp: '203.0.113.45',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        mobile: '+919876543210',
+        dob: '1990-01-15',
+        nested: {
+            shippingAddress: { street: '12 MG Road', zip: '560001' },
+        },
+    });
+
+    const rawPii = [
+        '221B Baker Street',
+        'John Q Public',
+        'Jane Doe',
+        'Bengaluru',
+        '560001',
+        '203.0.113.45',
+        'Mozilla/5.0',
+        '+919876543210',
+        '1990-01-15',
+        '12 MG Road',
+    ];
+
+    test('redacts PII-bearing keys at every nesting level', () => {
+        const redacted = logger.redactSensitiveData(piiMeta());
+        const serialized = JSON.stringify(redacted);
+
+        expect(redacted.address).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.fullName).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.city).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.ip).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.clientIp).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.userAgent).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.mobile).toBe(logger.REDACTED_PLACEHOLDER);
+        // A parent key that contains a PII family ('shippingAddress' contains
+        // 'address') redacts the whole subtree, matching the existing
+        // authToken/credentials behavior.
+        expect(redacted.nested.shippingAddress).toBe(logger.REDACTED_PLACEHOLDER);
+
+        for (const raw of rawPii) {
+            expect(serialized).not.toContain(raw);
+        }
+    });
+
+    test('redacts emails, phone numbers and card numbers embedded in free text', () => {
+        const redacted = logger.redactSensitiveData({
+            note: 'checkout failed for user@example.test with card 4111 1111 1111 1111',
+            phone: 'call +919876543210 before retry',
+        });
+        const serialized = JSON.stringify(redacted);
+
+        expect(serialized).not.toContain('user@example.test');
+        expect(serialized).not.toContain('4111 1111 1111 1111');
+        expect(serialized).not.toContain('+919876543210');
+        expect(redacted.note).toContain(logger.REDACTED_PLACEHOLDER);
+    });
+
+    test('redacts arrays of PII values passed without a wrapping key', () => {
+        const redacted = logger.redactSensitiveData(['user@example.test', '+919876543210']);
+        const serialized = JSON.stringify(redacted);
+
+        expect(serialized).not.toContain('user@example.test');
+        expect(serialized).not.toContain('+919876543210');
+    });
+
+    test('preserves email and phone masking for keyed values', () => {
+        const redacted = logger.redactSensitiveData({
+            email: 'alice@example.test',
+            phone: '+919876543210',
+        });
+
+        expect(redacted.email).toMatch(/al\*\*\*@example\.test$/);
+        expect(redacted.phone).toBe('***3210');
+    });
+
+    test('structured logger output excludes PII meta and message content', () => {
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        // Message-level redaction covers embedded identifiers (emails, phones,
+        // cards); addresses are defended by key-based redaction of meta.
+        logger.error('address validation failed for user@example.test with phone +919876543210', piiMeta());
+        const output = errorSpy.mock.calls.map((call) => call.join(' ')).join('\n');
+        errorSpy.mockRestore();
+
+        for (const raw of [...rawPii.filter((raw) => raw !== '221B Baker Street' && raw !== '12 MG Road'), 'user@example.test', '+919876543210']) {
+            expect(output).not.toContain(raw);
+        }
+        expect(output).toContain(logger.REDACTED_PLACEHOLDER);
+    });
+
+    test('does not redact benign keys that merely contain PII-like substrings', () => {
+        const redacted = logger.redactSensitiveData({
+            productName: 'Aura Wireless Mouse',
+            description: 'Ergonomic mouse with 3 buttons',
+            orderCount: 7,
+            category: 'Electronics',
+        });
+
+        expect(redacted.productName).toBe('Aura Wireless Mouse');
+        expect(redacted.description).toBe('Ergonomic mouse with 3 buttons');
+        expect(redacted.orderCount).toBe(7);
+        expect(redacted.category).toBe('Electronics');
+    });
+});

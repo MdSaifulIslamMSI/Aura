@@ -180,4 +180,32 @@ describe('datadog util config', () => {
         expect(offline).toEqual({ ok: false, status: 0, reason: 'socket hang up' });
         expect(datadog.isDatadogEnabled()).toBe(false);
     });
+
+    test('scrubs PII from forwarded messages, routes and error stacks', async () => {
+        const realFetch = global.fetch;
+        global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+        try {
+            setEnv({ NODE_ENV: 'production', DATADOG_API_KEY: 'dummy-key', DD_SITE: 'us5.datadoghq.com' });
+
+            const piiError = new Error('validation failed for user@example.test card 4111 1111 1111 1111');
+            await datadog.logToDatadog('error', 'checkout failed for user@example.test with phone +919876543210', {
+                error: piiError,
+                route: '/api/checkout?email=user@example.test',
+                requestId: 'req-123',
+                method: 'POST',
+                statusCode: 500,
+            });
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            const [, options] = global.fetch.mock.calls[0];
+            const body = options.body;
+
+            expect(body).not.toContain('user@example.test');
+            expect(body).not.toContain('+919876543210');
+            expect(body).not.toContain('4111 1111 1111 1111');
+            expect(body).toContain('[REDACTED]');
+        } finally {
+            global.fetch = realFetch;
+        }
+    });
 });

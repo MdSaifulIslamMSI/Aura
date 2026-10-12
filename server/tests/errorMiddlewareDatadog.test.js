@@ -1,12 +1,18 @@
 // Integration: a 5xx through errorMiddleware forwards to the Datadog log
 // intake (mocked fetch); 4xx never forwards. Datadog is enabled here via an
 // explicit test env — production stays untouched.
-jest.mock('../utils/logger', () => ({
-    debug: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-}));
+jest.mock('../utils/logger', () => {
+    // Console methods stay mocked; redactSensitiveData must delegate to the
+    // real implementation because datadog.js scrubs forwarded payloads with it.
+    const actual = jest.requireActual('../utils/logger');
+    return {
+        debug: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
+        error: jest.fn(),
+        redactSensitiveData: actual.redactSensitiveData,
+    };
+});
 
 const express = require('express');
 const request = require('supertest');
