@@ -177,16 +177,23 @@ const isAcceptedSemgrepFinding = (ruleId = '', filePath = '', lineNumber = 0) =>
   ));
 };
 
+// Checkov's --compact JSON output is an ARRAY of per-check_type entries
+// ({check_type, results:{failed_checks:[...]}}); the plain object form carries
+// the same shape at the top level. The parsing helpers live in a unit-testable
+// module so the gate logic can be exercised without a Docker engine.
+const {
+    filterAcceptedCheckovChecks,
+    countCheckovFailedChecks,
+    countTfsecFindings,
+    countTerrascanViolations,
+} = await import('./iac-report-parsing.mjs');
+
 const filterCheckovJsonReport = (reportPath) => {
   if (!fs.existsSync(reportPath)) return 0;
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-  const failedChecks = report?.results?.failed_checks;
-  if (!Array.isArray(failedChecks)) return 0;
-  const keptChecks = failedChecks.filter((check) => !isAcceptedCheckovFinding(check.check_id, check.file_path));
-  const removed = failedChecks.length - keptChecks.length;
+  const removed = filterAcceptedCheckovChecks(report, isAcceptedCheckovFinding);
   if (removed > 0) {
-    report.results.failed_checks = keptChecks;
-    if (report.summary && Number.isFinite(Number(report.summary.failed))) {
+    if (!Array.isArray(report) && report.summary && Number.isFinite(Number(report.summary.failed))) {
       report.summary.failed = Math.max(0, Number(report.summary.failed) - removed);
     }
     replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -1011,6 +1018,11 @@ const runIac = () => {
 
   runDockerReportOnly([
     'run', '--rm',
+    // tfsec's image runs as a non-root user that cannot write to the
+    // runner-owned reports bind mount, so the scan fails with
+    // "permission denied" and no report is produced. Run it as root; the
+    // source mount stays read-only.
+    '--user', '0:0',
     '-v', iacSrcMount,
     '-v', iacReportMount,
     images.tfsec,
@@ -1027,7 +1039,9 @@ const runIac = () => {
     'scan',
     '-d', '/repo',
     '-o', 'json',
-  ], terrascanReport);
+    // Terrascan interleaves opa warn lines with its JSON on stdout, so the
+    // report must be extracted from stdout only.
+  ], terrascanReport, { stdoutOnly: true, jsonOnly: true });
 
   for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
     try {
@@ -1061,9 +1075,9 @@ const runIac = () => {
   };
 
   const iacCounts = {
-    checkov: countIacReportFindings(checkovReport, (report) => report?.results?.failed_checks?.length),
-    tfsec: countIacReportFindings(tfsecReport, (report) => report?.results?.length),
-    terrascan: countIacReportFindings(terrascanReport, (report) => report?.results?.violations?.length),
+    checkov: countIacReportFindings(checkovReport, countCheckovFailedChecks),
+    tfsec: countIacReportFindings(tfsecReport, countTfsecFindings),
+    terrascan: countIacReportFindings(terrascanReport, countTerrascanViolations),
   };
   const iacUnparseable = Object.values(iacCounts).some((entry) => entry.unparseable);
   const iacTotal = iacCounts.checkov.count + iacCounts.tfsec.count + iacCounts.terrascan.count;
