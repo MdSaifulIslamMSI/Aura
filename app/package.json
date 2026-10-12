@@ -12,6 +12,7 @@
     "prebuild": "node scripts/validate_frontend_auth_env.mjs",
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/strip-deploy-sourcemaps.mjs",
     "build:budget": "npm run build && node scripts/check_bundle_budget.mjs",
     "bundle:budget": "node scripts/check_bundle_budget.mjs",
     "backend:doctor": "node scripts/check_backend_connectivity.mjs",
