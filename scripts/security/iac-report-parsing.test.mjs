@@ -6,6 +6,7 @@ import {
   filterAcceptedCheckovChecks,
   countTfsecFindings,
   countTerrascanViolations,
+  filterAcceptedTerrascanViolations,
 } from './iac-report-parsing.mjs';
 
 // Shapes below are taken from the CI run that failed the gate (2026-10-12):
@@ -109,4 +110,33 @@ test('counts terrascan violations, ignoring scan errors', () => {
   assert.equal(countTerrascanViolations(report), 1);
   assert.equal(countTerrascanViolations({ results: {} }), 0);
   assert.equal(countTerrascanViolations(null), 0);
+});
+
+test('filters accepted terrascan violations and updates the scan summary', () => {
+  const report = {
+    results: {
+      violations: [
+        { rule_id: 'AC_DOCKER_00024', file: 'Dockerfile' }, // accepted
+        { rule_id: 'AC_DOCKER_0053', file: 'server/Dockerfile' }, // accepted
+        { rule_id: 'AC_AWS_0462', file: 'infra/opentofu/main.tf' }, // NOT accepted
+      ],
+      scan_summary: { violated_policies: 3 },
+    },
+  };
+  const isAccepted = (ruleId, filePath) => (
+    (ruleId === 'AC_DOCKER_00024' && filePath === 'Dockerfile')
+    || (ruleId === 'AC_DOCKER_0053' && filePath === 'server/Dockerfile')
+  );
+
+  const removed = filterAcceptedTerrascanViolations(report, isAccepted);
+
+  assert.equal(removed, 2);
+  assert.equal(countTerrascanViolations(report), 1);
+  assert.equal(report.results.scan_summary.violated_policies, 1);
+  assert.equal(report.results.violations[0].rule_id, 'AC_AWS_0462');
+});
+
+test('terrascan filter is a no-op without violations', () => {
+  assert.equal(filterAcceptedTerrascanViolations({ results: {} }, () => true), 0);
+  assert.equal(filterAcceptedTerrascanViolations(null, () => true), 0);
 });

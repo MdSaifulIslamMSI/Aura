@@ -53,3 +53,25 @@ export const countTfsecFindings = (report) => (
 export const countTerrascanViolations = (report) => (
     Array.isArray(report?.results?.violations) ? report.results.violations.length : 0
 );
+
+/**
+ * Remove accepted findings from a terrascan JSON report in place.
+ * `isAccepted(ruleId, filePath)` decides what the baseline accepts.
+ * Returns the number of removed violations.
+ */
+export const filterAcceptedTerrascanViolations = (report, isAccepted) => {
+    const violations = report?.results?.violations;
+    if (!Array.isArray(violations)) return 0;
+    const kept = violations.filter(
+        (violation) => !isAccepted(violation?.rule_id, violation?.file),
+    );
+    const removed = violations.length - kept.length;
+    if (removed > 0) {
+        report.results.violations = kept;
+        const summary = report.results.scan_summary;
+        if (summary && Number.isFinite(Number(summary.violated_policies))) {
+            summary.violated_policies = kept.length;
+        }
+    }
+    return removed;
+};
