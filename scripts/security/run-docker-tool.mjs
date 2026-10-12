@@ -280,7 +280,14 @@ const isAcceptedTerrascanFinding = (ruleId = '', filePath = '') => (
 const filterTerrascanReport = (reportPath) => {
   if (!fs.existsSync(reportPath)) return 0;
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-  return filterAcceptedTerrascanViolations(report, isAcceptedTerrascanFinding);
+  const removed = filterAcceptedTerrascanViolations(report, isAcceptedTerrascanFinding);
+  // The filter mutates the parsed report in memory; it must be written back
+  // or the gate re-reads the unfiltered file and still counts every accepted
+  // violation. (Dropping this write-back is what failed #639's final CI run.)
+  if (removed > 0) {
+    replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  return removed;
 };
 
 const acceptedSemgrepFindings = [
