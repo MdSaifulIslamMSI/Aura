@@ -41,6 +41,17 @@ const SESSION_ADMIN_HOSTS = new Set(
         .map((value) => String(value || '').trim().toLowerCase())
         .filter(Boolean)
 );
+// Hosts of known cross-site frontends (e.g. the hosted SPA on Vercel or
+// Netlify calling the CloudFront API) that are allowed to receive
+// SameSite=None session cookies. Anything not listed here gets the default
+// Lax/Strict posture: an unlisted origin must never be able to mint a
+// SameSite=None session by simply differing from the request host.
+const SESSION_CROSS_SITE_COOKIE_HOSTS = new Set(
+    String(process.env.AUTH_CROSS_SITE_COOKIE_ORIGINS || '')
+        .split(',')
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean)
+);
 
 const inMemorySessionStore = new Map();
 let inMemoryGlobalSessionRevokedAfter = 0;
@@ -370,31 +381,39 @@ const isSecureRequest = (req = {}) => {
     return Boolean(req.secure || forwardedProto === 'https');
 };
 
-const resolveRequestProtocol = (req = {}) => {
-    if (isSecureRequest(req)) {
-        return 'https';
-    }
-    return 'http';
-};
-
 const shouldUseCrossSiteCookieForOrigin = (req = {}) => {
-    const { protocol: originProtocol, host: originHost } = parseOriginContext(req.headers?.origin || '');
+    const { host: originHost } = parseOriginContext(req.headers?.origin || '');
     const requestHost = normalizeHost(req.headers?.host || req.hostname || '');
-    const requestProtocol = resolveRequestProtocol(req);
 
     if (!originHost || !requestHost) {
         return false;
     }
 
-    if (originHost === requestHost && (!originProtocol || originProtocol === requestProtocol)) {
+    // Same host is never cross-site, whatever the protocol.
+    if (originHost === requestHost) {
         return false;
     }
 
+    // Known cross-site frontends (the hosted SPA on Vercel/Netlify calling the
+    // CloudFront API) must be allowlisted explicitly. This replaces the old
+    // behaviour where ANY origin whose host differed from the request host
+    // earned SameSite=None: a phishing page posting credentials to the real
+    // API could mint a None session for the victim and then forge cross-site
+    // requests carrying it.
+    if (SESSION_CROSS_SITE_COOKIE_HOSTS.has(originHost)) {
+        return true;
+    }
+
+    // Loopback origins serve the desktop runtime and local dev servers, which
+    // load the SPA from 127.0.0.1 while the API is remote. This is the only
+    // non-allowlisted cross-site case that stays open: a remote attacker page
+    // cannot present a loopback Origin, so the phishing vector above remains
+    // closed while the desktop bridge keeps working.
     if (LOOPBACK_HOSTS.has(originHost)) {
         return true;
     }
 
-    return originHost !== requestHost || (originProtocol && originProtocol !== requestProtocol);
+    return false;
 };
 
 const resolveSameSite = (req = {}) => {

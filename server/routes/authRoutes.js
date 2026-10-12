@@ -306,8 +306,8 @@ router.post('/mfa/trusted-devices/revoke-others', authGuardRateLimit, protect, a
 router.post('/mfa/trusted-devices/:deviceId/revoke', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, revokeTrustedDevice);
 router.post('/mfa/recovery/regenerate', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, recoveryRegenerate);
 router.post('/mfa/recovery/verify', authGuardRateLimit, protect, mfaVerifyLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
-router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, beginAtomicAuthResponse, sensitiveActions.authFactorChange, completePhoneFactorLogin);
-router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, beginAtomicAuthResponse, sensitiveActions.authFactorChange, completePhoneFactorVerification);
+router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, completePhoneFactorLogin);
+router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, completePhoneFactorVerification);
 router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
