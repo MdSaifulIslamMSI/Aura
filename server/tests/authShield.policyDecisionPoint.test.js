@@ -1,7 +1,11 @@
 const { decide } = require('../security/authShield/policyDecisionPoint');
 
 describe('authShield policy decision point', () => {
-    test('missing identity is denied', () => {
+    test('missing identity defers to the authentication layer instead of denying', () => {
+        // Authentication is not this PDP's job: protect and
+        // requireSensitiveAction own the 401 contract, and every
+        // sensitiveActions composition runs the latter after this shield.
+        // Denying here would preempt that specific 401 with a generic 403.
         const result = decide({
             identityResult: { reasons: ['identity_missing'], identity: {} },
             relationship: { allowed: true },
@@ -14,7 +18,8 @@ describe('authShield policy decision point', () => {
             sensitivity: 'medium',
         });
 
-        expect(result.decision).toBe('deny');
+        expect(result.decision).toBe('allow');
+        expect(result.reasons).toContain('identity_missing_deferred_to_auth');
     });
 
     test('critical stale step-up returns step_up_required before allow', () => {

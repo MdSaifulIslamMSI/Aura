@@ -53,9 +53,13 @@ describe('authShield listing route integration', () => {
                 resource: { type: 'listing', id: 'listing-1', ownerId: 'seller-1', sellerId: 'seller-1' },
             });
 
-            expect(decision.decision).toBe('shadow_deny');
+            // An unauthenticated request has no principal to authorize, so the
+            // PDP defers to the authentication layer and allows. The route's
+            // own protect/requireSensitiveAction gates still apply.
+            expect(decision.decision).toBe('allow');
             expect(decision.enforced).toBe(false);
             expect(decision.reasons).toContain('auth_shield_disabled');
+            expect(decision.reasons).toContain('identity_missing_deferred_to_auth');
         });
     });
 });

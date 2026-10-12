@@ -77,7 +77,17 @@ run(['releases', 'new', release]);
 run(['releases', 'set-commits', release, '--auto'], { allowFailure: true });
 
 if (existsSync(appDist)) {
-  run(['sourcemaps', 'upload', appDist, '--url-prefix', '~/assets', '--validate']);
+  // --validate errors on JS files that legitimately ship without a sourcemap:
+  // the service worker (sw.js) and the rolldown runtime chunk are generated
+  // without sourceMappingURL. Ignore them explicitly rather than dropping
+  // validation for everything.
+  run([
+    'sourcemaps', 'upload', appDist,
+    '--url-prefix', '~/assets',
+    '--validate',
+    '--ignore', '**/sw.js',
+    '--ignore', '**/rolldown-runtime-*.js',
+  ]);
 } else {
   console.warn('app/dist does not exist; skipping sourcemap upload.');
 }

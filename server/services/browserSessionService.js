@@ -424,8 +424,13 @@ const resolveSameSite = (req = {}) => {
     if (shouldUseCrossSiteCookieForOrigin(req) && isSecureRequest(req)) {
         return 'none';
     }
-    if (SESSION_DEFAULT_SAME_SITE === 'strict' || SESSION_DEFAULT_SAME_SITE === 'none') {
-        return SESSION_DEFAULT_SAME_SITE;
+    // SameSite=None is granted ONLY by the cross-site allowlist above (or the
+    // loopback case inside it). The env default must never re-grant it: the
+    // AWS bootstrap sets AUTH_SESSION_SAME_SITE=none, and falling through to
+    // that default would hand every unlisted origin — including an attacker
+    // page — the None session the allowlist just refused.
+    if (SESSION_DEFAULT_SAME_SITE === 'strict') {
+        return 'strict';
     }
     return 'lax';
 };
