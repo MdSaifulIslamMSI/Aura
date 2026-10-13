@@ -14,7 +14,11 @@ on:
   # every main push, and that gate can fail for reasons unrelated to scanning
   # (e.g. AWS OIDC), so the called run skips the uploads; the direct push run
   # uploads instead. The scanners still run in both contexts, so the production
-  # gate keeps its security gating.
+  # gate keeps its security gating. The discriminator is
+  # github.workflow_ref == job.workflow_ref: in a called run the github context
+  # belongs to the caller (github.event_name is the caller's event, not
+  # workflow_call), while job.workflow_ref always names the file that defines
+  # the job — so the two refs are equal only in a direct run.
 
 permissions:
   contents: read
@@ -127,7 +131,7 @@ jobs:
         run: npm run security:gitleaks
       - name: Upload Gitleaks SARIF
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        if: always() && github.event_name != 'workflow_call' && hashFiles('security-reports/gitleaks-report.sarif') != ''
+        if: always() && github.workflow_ref == job.workflow_ref && hashFiles('security-reports/gitleaks-report.sarif') != ''
         with:
           sarif_file: security-reports/gitleaks-report.sarif
           category: gitleaks
@@ -163,7 +167,7 @@ jobs:
         run: npm run security:semgrep
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        if: always() && github.event_name != 'workflow_call' && hashFiles('security-reports/semgrep-report.sarif') != ''
+        if: always() && github.workflow_ref == job.workflow_ref && hashFiles('security-reports/semgrep-report.sarif') != ''
         with:
           sarif_file: security-reports/semgrep-report.sarif
           category: semgrep
@@ -199,7 +203,7 @@ jobs:
         run: npm run security:trivy
       - name: Upload Trivy filesystem SARIF
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        if: always() && github.event_name != 'workflow_call' && hashFiles('security-reports/trivy-fs.sarif') != ''
+        if: always() && github.workflow_ref == job.workflow_ref && hashFiles('security-reports/trivy-fs.sarif') != ''
         with:
           sarif_file: security-reports/trivy-fs.sarif
           category: trivy-filesystem
@@ -252,7 +256,7 @@ jobs:
         run: npm run security:invisible-fabric
       - name: Upload Checkov SARIF
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        if: always() && github.event_name != 'workflow_call' && hashFiles('security-reports/checkov-report.sarif') != ''
+        if: always() && github.workflow_ref == job.workflow_ref && hashFiles('security-reports/checkov-report.sarif') != ''
         with:
           sarif_file: security-reports/checkov-report.sarif
           category: checkov
@@ -486,7 +490,7 @@ jobs:
 
       - name: Upload Trivy image SARIF
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        if: always() && github.event_name != 'workflow_call' && hashFiles('security-reports/trivy-image.sarif') != ''
+        if: always() && github.workflow_ref == job.workflow_ref && hashFiles('security-reports/trivy-image.sarif') != ''
         with:
           sarif_file: security-reports/trivy-image.sarif
           category: trivy-image
