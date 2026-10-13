@@ -21,6 +21,9 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  # The daily sweep re-runs failed check jobs on held safe-lane PRs so the
+  # release-cooldown age gate can clear as real time passes.
+  actions: write
 
 concurrency:
   group: dep-automerge-${{ github.event.pull_request.number || 'sweep' }}

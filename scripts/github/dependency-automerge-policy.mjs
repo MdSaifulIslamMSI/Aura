@@ -209,6 +209,43 @@ function armAutoMerge(pr, dryRun) {
   }
 }
 
+// Re-run failed check jobs on a held safe-lane PR's head SHA. Age-gate
+// failures (release cooldown, freshness) clear as real time passes, but a
+// check result stays pinned to its SHA until re-run — this is what turns the
+// cooldown into an automatic wait instead of a permanent stall. Real
+// failures (broken tests etc.) simply keep failing; nothing is bypassed.
+function rerunFailedChecks(pr, dryRun) {
+  const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? 'MdSaifulIslamMSI/Aura').split('/');
+  if (dryRun) {
+    log(`PR #${pr.number}: DRY RUN — would re-run failed check jobs on ${pr.headRefOid.slice(0, 8)}`);
+    return 'dry-run';
+  }
+  try {
+    const runs = ghJsonRetry('api', `repos/${owner}/${repo}/actions/runs?head_sha=${pr.headRefOid}&per_page=30`);
+    const failed = (runs.workflow_runs ?? []).filter((run) => run.conclusion === 'failure');
+    if (failed.length === 0) {
+      log(`PR #${pr.number}: no failed workflow runs found for the head SHA (check-rollup lag) — re-judged next sweep`);
+      return 'no-failed-runs';
+    }
+    let rerun = 0;
+    let refused = 0;
+    for (const run of failed) {
+      try {
+        ghRetry('api', '-X', 'POST', `repos/${owner}/${repo}/actions/runs/${run.id}/rerun-failed-jobs`);
+        rerun += 1;
+      } catch (error) {
+        refused += 1;
+        log(`PR #${pr.number}: rerun refused for run ${run.id}: ${String(error.stderr || error.message).split('\n').pop()}`);
+      }
+    }
+    log(`PR #${pr.number}: re-ran failed jobs on ${rerun}/${failed.length} failed run(s) — cooldown ages in real time, next sweep re-judges`);
+    return refused === 0 ? 'rerunning' : 'rerun-partial';
+  } catch (error) {
+    log(`PR #${pr.number}: could not re-run checks (${String(error.stderr || error.message).split('\n').pop()})`);
+    return 'rerun-failed';
+  }
+}
+
 function hasPolicyComment(pr, marker) {
   return (pr.comments ?? []).some((comment) => comment.body?.includes(marker));
 }
@@ -278,7 +315,21 @@ async function processPr(prNumber, policy, dryRun) {
     if (failing.length > 0) {
       const names = failing.map((c) => c.name ?? c.context ?? 'unknown').join(', ');
       log(`PR #${pr.number}: NOT arming auto-merge, ${failing.length} failing check(s): ${names}`);
-      return { lane: 'held-failing-checks', decision: `held: failing ${names}` };
+      const heldDecision = `held: failing ${names}`;
+      if (process.env.ARMING === '0' || dryRun) {
+        return { lane: 'held-failing-checks', decision: heldDecision };
+      }
+      // Sweep context: re-run the failed jobs so age-gates (release cooldown)
+      // can clear as real time passes. Sweep cadence = once per day, bounded.
+      const rerunResult = rerunFailedChecks(pr, dryRun);
+      const rerunText = {
+        'rerunning': 'held — re-running failed checks daily until age-gates clear',
+        'rerun-partial': 'held — some check re-runs refused (see log)',
+        'no-failed-runs': 'held — checks re-judging on next push',
+        'rerun-failed': 'held — could not re-run checks',
+        'dry-run': 'would re-run failed checks (dry run)',
+      }[rerunResult] ?? rerunResult;
+      return { lane: 'held-failing-checks', decision: `${heldDecision} · ${rerunText}` };
     }
     ensureLabel(policy.labels.safe, '0e8a16', 'Dependency policy: auto-merge when required checks pass', dryRun);
     if (!dryRun) gh('pr', 'edit', String(pr.number), '--add-label', policy.labels.safe);

@@ -24,7 +24,7 @@ no human action unless the policy says otherwise.
 | --- | --- | --- |
 | Safe | patch/minor of any dep; major of any dep **not** on the blocklist; actions/docker bumps | label `automerge:policy`, auto-merge armed (squash) |
 | Manual | major of any blocklisted dep; any change inside an `overrides` block | label `needs-human:risk-policy` + PR comment naming the offending dep; you review and merge |
-| Held | safe-lane PR with any failing check on the head SHA | left open; the next sweep re-tries after the failure is resolved |
+| Held | safe-lane PR with any failing check on the head SHA | left open; **the daily sweep re-runs its failed check jobs**, so age-gates (e.g. the 7-day release cooldown) clear automatically as real time passes — no action needed |
 
 The extra "no failing checks" hold is stricter than branch protection (which only
 waits on the 4 required checks) — a red non-required check (Vercel preview,
