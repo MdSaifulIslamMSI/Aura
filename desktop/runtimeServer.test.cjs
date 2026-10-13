@@ -561,6 +561,74 @@ test('desktop auth broker requires its timing-safe secret and cancels a browser 
     assert.equal(broker.cancelRequest(legacyRequest.requestId), true);
 });
 
+// The broker must spend the pending request only once the whole callback is
+// valid. A rejected token is a malformed handoff, not a hostile caller: the
+// hosted page can legitimately retry the POST, so a 422 has to leave the
+// request pending. Spending it there would turn the retry into a 404 and lock
+// the user out of a sign-in they were entitled to finish.
+test('desktop auth broker keeps a handoff retryable after a rejected custom token', () => {
+    const broker = createDesktopAuthBroker();
+
+    // One request per rejection: a 422 must leave the handoff pending, so each
+    // rejected token needs a freshly created request to be retried against.
+    const assertRetryableRejection = (customToken) => {
+        const retryRequest = broker.createRequest({
+            callbackUrl: 'http://127.0.0.1:47831',
+            runtimeUrl: 'http://localhost:47831',
+        });
+        const retrySecret = new URLSearchParams(
+            new URL(retryRequest.url).hash.slice(1)
+        ).get('desktopAuthSecret');
+
+        assert.throws(() => broker.completeRequest({
+            requestId: retryRequest.requestId,
+            secret: retrySecret,
+            customToken,
+        }), (error) => error.statusCode === 422 && /missing or too large/.test(error.message));
+
+        // Still pending, so the hosted page may post a corrected token.
+        assert.notEqual(broker.getRequest(retryRequest.requestId), null);
+        assert.equal(broker.consumeResult(retryRequest.requestId), null);
+
+        const retried = broker.completeRequest({
+            requestId: retryRequest.requestId,
+            secret: retrySecret,
+            customToken: 'custom-token',
+        });
+        assert.equal(retried.requestId, retryRequest.requestId);
+        assert.equal(broker.consumeResult(retryRequest.requestId).customToken, 'custom-token');
+    };
+
+    // '   ' is excluded: normalizeDesktopAuthString trims first, so a blank token
+    // arrives as '' via the same default. The oversized case is the one that
+    // would slip through a naive emptiness check.
+    assertRetryableRejection('');
+    // 8192 is the documented ceiling, so 8193 is the first rejected size.
+    assertRetryableRejection('x'.repeat(8193));
+
+    // A settled request is genuinely single-use, so a duplicate POST is a 404.
+    const replayRequest = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
+        runtimeUrl: 'http://localhost:47831',
+    });
+    const replaySecret = new URLSearchParams(
+        new URL(replayRequest.url).hash.slice(1)
+    ).get('desktopAuthSecret');
+    const settled = broker.completeRequest({
+        requestId: replayRequest.requestId,
+        secret: replaySecret,
+        customToken: 'custom-token',
+    });
+    assert.equal(settled.requestId, replayRequest.requestId);
+    assert.equal(broker.getRequest(replayRequest.requestId), null);
+    assert.equal(broker.consumeResult(replayRequest.requestId).customToken, 'custom-token');
+    assert.throws(() => broker.completeRequest({
+        requestId: replayRequest.requestId,
+        secret: replaySecret,
+        customToken: 'custom-token',
+    }), (error) => error.statusCode === 404 && /expired or unknown/.test(error.message));
+});
+
 test('desktop auth callback completes the HTTP handoff and consumes its token once', async () => {
     const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-callback-'));
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');

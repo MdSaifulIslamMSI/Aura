@@ -69,6 +69,13 @@ const UPDATE_FEED = Object.freeze({
     releaseType: 'release',
 });
 
+// Boot smoke hook. scripts/desktop/boot-smoke.mjs sets AURA_DESKTOP_BOOT_SMOKE=1
+// to make the shell report what the window actually loaded, so CI can assert a
+// real BrowserWindow reached the runtime origin instead of inferring success from
+// the absence of a crash. Never reachable in a shipped build.
+const DESKTOP_BOOT_SMOKE_ENV = 'AURA_DESKTOP_BOOT_SMOKE';
+const DESKTOP_BOOT_SMOKE_MARKER = '[desktop:boot-smoke]';
+
 const buildDesktopAuthUserAgent = () => {
     const chromeVersion = process.versions.chrome || '124.0.0.0';
     const platformToken = process.platform === 'darwin'
@@ -361,6 +368,35 @@ const buildUpdateErrorMessage = (error) => {
     }
 
     return rawMessage || 'Update check failed.';
+};
+
+// Reports what the shell actually loaded, then lets the caller skip the rest of
+// the boot sequence. Returns true only when it ran, so normal boots are
+// unaffected. See DESKTOP_BOOT_SMOKE_ENV above.
+const reportDesktopBootSmoke = (window) => {
+    if (app.isPackaged || process.env[DESKTOP_BOOT_SMOKE_ENV] !== '1') {
+        return false;
+    }
+
+    let windowUrl = '';
+    try {
+        windowUrl = window && !window.isDestroyed() ? window.webContents.getURL() : '';
+    } catch {
+        // The window can close while we report. An empty URL then fails the
+        // smoke assertion, which is the correct outcome.
+    }
+
+    // fs.writeSync rather than console.log: stdout is asynchronous when piped,
+    // and the harness may kill this process as soon as it reads the line.
+    fs.writeSync(1, `${DESKTOP_BOOT_SMOKE_MARKER} ${JSON.stringify({
+        ok: Boolean(window) && Boolean(windowUrl),
+        runtimeUrl: runtime?.url || '',
+        windowUrl,
+        version: app.getVersion(),
+        platform: process.platform,
+    })}\n`);
+
+    return true;
 };
 
 const createMainWindow = async () => {
@@ -695,7 +731,10 @@ const bootstrap = async () => {
     app.setAppUserModelId(APP_ID);
     await app.whenReady();
     installDesktopPermissionPolicy();
-    await ensureMainWindow();
+    const window = await ensureMainWindow();
+    if (reportDesktopBootSmoke(window)) {
+        return;
+    }
     startAutoUpdateChecks();
 
     app.on('activate', async () => {
@@ -736,10 +775,14 @@ if (!app.requestSingleInstanceLock()) {
     bootstrap().catch(async (error) => {
         console.error('[desktop] bootstrap failed:', error);
         await stopRuntime();
-        dialog.showErrorBox(
-            'Aura Marketplace Desktop',
-            error?.message || 'The desktop app failed to start.'
-        );
+        // The smoke harness reads the marker line, not the error box, which
+        // would block forever on a headless runner.
+        if (!reportDesktopBootSmoke(null)) {
+            dialog.showErrorBox(
+                'Aura Marketplace Desktop',
+                error?.message || 'The desktop app failed to start.'
+            );
+        }
         app.exit(1);
     });
 }

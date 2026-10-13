@@ -773,11 +773,29 @@ jobs:
       - name: Install desktop dependencies
         run: npm ci
 
+      # desktop/*.test.cjs had no runner: these 62 tests passed locally but no
+      # command in the repo or CI ever executed them. `node --test desktop/`
+      # does not work (Node 24 reads it as a module path), so the quoted glob is
+      # required — cmd.exe does not expand it either.
+      - name: Lint desktop sources
+        run: npm run lint:desktop
+
+      - name: Run desktop unit tests
+        run: npm run test:desktop
+
       - name: Install frontend dependencies
         run: npm --prefix app ci
 
       - name: Build frontend for desktop packaging
         run: npm run desktop:frontend:build
+
+      # Packaging succeeding only proves electron-builder did not error, and the
+      # packaged-artifact check below only proves config/backend-origin.json
+      # shipped. Neither launches Electron, so nothing caught a regression that
+      # broke window creation or the local runtime server. xvfb-run because the
+      # runner is headless.
+      - name: Boot the desktop shell
+        run: xvfb-run -a npm run test:desktop:boot
 
       - name: Package Linux desktop directory smoke test
         run: npx electron-builder --linux dir --publish never

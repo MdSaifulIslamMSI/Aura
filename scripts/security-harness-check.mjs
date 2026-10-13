@@ -30,7 +30,8 @@ const gitleaksConfig = read('.gitleaks.toml');
 const gitignore = read('.gitignore');
 const rootDockerignore = read('.dockerignore');
 const serverDockerignore = read('server/.dockerignore');
-const desktopRuntime = read('desktop/runtimeServer.cjs');
+const desktopRuntime = read('desktop/backendProxy.cjs');
+const desktopRuntimeConfig = read('desktop/runtimeConfig.cjs');
 const statusService = read('server/services/statusService.js');
 const statusPage = read('app/src/pages/Status/index.jsx');
 const statusPageTests = read('app/src/pages/Status/Status.test.jsx');
@@ -241,8 +242,13 @@ addCheck(
 
 addCheck(
   'desktop proxy verifies TLS by default',
+  // The proxy option and its insecure escape hatch now live in
+  // desktop/backendProxy.cjs; the loopback + development gates they call live
+  // in desktop/runtimeConfig.cjs. Both must stay present for this to mean
+  // anything, so both files are read.
   includesAll(desktopRuntime, [
     'secure: !shouldAllowInsecureBackendProxy(normalizedBackendOrigin)',
+  ]) && includesAll(desktopRuntimeConfig, [
     'isDevelopmentRuntime()',
     'isLoopbackBackendOrigin(backendOrigin)',
     'AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY',
