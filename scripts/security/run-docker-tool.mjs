@@ -8,6 +8,7 @@ import {
   filterNucleiSarifReport,
   isAcceptedNucleiFinding,
   loadNucleiExceptions,
+  markNucleiSarifExecutionSuccessful,
   nucleiMatchedHost,
   nucleiTemplateId,
   readNucleiJsonlFindings,
@@ -917,6 +918,12 @@ const runNuclei = () => {
   if (removedJson > 0 || removedSarif > 0) {
     console.log(`[security:nuclei] Filtered accepted baseline findings: jsonl=${removedJson}, sarif=${removedSarif}`);
   }
+  // Nuclei's SARIF export always records executionSuccessful: false; GitHub
+  // turns that into an "unsuccessful tool execution" warning on the uploaded
+  // analysis and flags the tool on the code scanning tool status page. The
+  // scan container exited cleanly to reach this point, so correct the flag
+  // before the workflow uploads the report.
+  markNucleiSarifExecutionSuccessful(sarifReport);
 
   const gatingFindings = countNucleiGatingFindings(jsonlReport);
   const tablePath = path.join(reportDir, 'nuclei-report.txt');
