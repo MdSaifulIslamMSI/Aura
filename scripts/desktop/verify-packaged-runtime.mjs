@@ -125,6 +125,41 @@ try {
         fail(`Packaged fallback ${runtime.BACKEND_ORIGIN_FALLBACK} has drifted from ${expectedOrigin}.`);
     }
     console.log('[desktop-package] packaged fallback matches the contract');
+
+    // The OAuth auth-window allowlist is a trust boundary read from a
+    // committed artifact, so the packaged app must carry it AND the shipped
+    // copy must still match the committed fallback. A missing artifact would
+    // not crash — securityPolicy.cjs degrades to the fallback — which is
+    // exactly why this needs asserting rather than relying on a load error.
+    const authHostsResource = path.join(resourcesDir, 'config', 'desktop-auth-window-hosts.json');
+
+    if (!existsSync(authHostsResource)) {
+        fail(`config/desktop-auth-window-hosts.json is missing from ${authHostsResource}. It must be in build.extraResources in package.json.`);
+    }
+
+    const packagedAuthHosts = JSON.parse(readFileSync(authHostsResource, 'utf8'));
+    const packagedHostList = Array.isArray(packagedAuthHosts?.hosts) ? packagedAuthHosts.hosts : [];
+    if (packagedHostList.length === 0) {
+        fail('Packaged auth-window host allowlist is empty; sign-in would break.');
+    }
+    console.log(`[desktop-package] packaged auth-window hosts: ${packagedHostList.length}`);
+
+    const packagedSecurityPolicy = path.join(extractDir, 'desktop', 'securityPolicy.cjs');
+    if (!existsSync(packagedSecurityPolicy)) {
+        fail(`Packaged desktop/securityPolicy.cjs missing from ${extractDir}.`);
+    }
+    const requirePackagedPolicy = createRequire(packagedSecurityPolicy);
+    const packagedPolicy = requirePackagedPolicy(packagedSecurityPolicy);
+
+    const packagedHosts = [...packagedPolicy.AUTH_WINDOW_HOSTS].sort();
+    const packagedFallback = [...packagedPolicy.AUTH_WINDOW_HOSTS_FALLBACK].sort();
+    if (JSON.stringify(packagedHosts) !== JSON.stringify(packagedFallback)) {
+        fail(
+            `Packaged auth-window allowlist drifted from its committed fallback: `
+            + `${packagedHosts.length} host(s) resolved vs ${packagedFallback.length} committed.`
+        );
+    }
+    console.log('[desktop-package] packaged auth-window allowlist matches its fallback');
 } catch (error) {
     fail(`Packaged runtimeServer.cjs failed to load: ${error?.message || error}`);
 } finally {

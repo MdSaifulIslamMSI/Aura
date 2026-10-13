@@ -112,7 +112,27 @@ const isTransactionCapableUri = (uri) => {
 // port — before surfacing the error to the fallback path in beforeAll.
 const isPortCollisionError = (error) => /already in use|EADDRINUSE/i.test(String(error?.message || ''));
 
-const startInMemoryMongo = async (attempts = 3) => {
+// Workers also contend for the mongodb-memory-server binary download lock.
+// mongodb-memory-server locks ~/.cache/mongodb-binaries/<version>.lock so only
+// one process fetches the binary; a worker that arrives while another holds it
+// can fail with "Cannot unlock file ... because it is not locked by this
+// process". That is contention, not a broken install, so it is retryable for
+// exactly the same reason a port collision is. Without this the whole shard
+// goes red on infrastructure timing rather than on a real failure — observed on
+// PR #654, where abuseShield and attackModeGuard failed this way and passed
+// unchanged on rerun.
+const isBinaryLockContentionError = (error) => {
+    const message = String(error?.message || error || '');
+    return /UnableToUnlockLockfileError|Cannot unlock file|mongodb-binaries.*\.lock/i.test(message);
+};
+
+// Backoff matters here: an immediate retry can re-collide with the process
+// still holding the lock.
+const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+const isRetryableStartupError = (error) => isPortCollisionError(error) || isBinaryLockContentionError(error);
+
+const startInMemoryMongo = async (attempts = 4) => {
     const startReplSet = async () => {
         memoryReplicaSet = await MongoMemoryReplSet.create({
             binary: { version: '7.0.11' },
@@ -139,7 +159,8 @@ const startInMemoryMongo = async (attempts = 3) => {
                     break;
                 } catch (error) {
                     memoryReplicaSet = null;
-                    if (!isPortCollisionError(error) || attempt >= attempts) throw error;
+                    if (!isRetryableStartupError(error) || attempt >= attempts) throw error;
+                    await delay(attempt * 2000);
                 }
             }
         }
@@ -153,7 +174,8 @@ const startInMemoryMongo = async (attempts = 3) => {
                 break;
             } catch (error) {
                 memoryServer = null;
-                if (!isPortCollisionError(error) || attempt >= attempts) throw error;
+                if (!isRetryableStartupError(error) || attempt >= attempts) throw error;
+                await delay(attempt * 2000);
             }
         }
     }
@@ -317,3 +339,11 @@ afterAll(async () => {
         memoryReplicaSet = null;
     }
 }, 30000);
+
+// Exported so the retry classification above can be unit tested directly. This
+// file is Jest's setupFilesAfterEach entry, so the exports are inert at runtime.
+module.exports = {
+    isBinaryLockContentionError,
+    isPortCollisionError,
+    isRetryableStartupError,
+};
