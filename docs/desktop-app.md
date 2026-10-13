@@ -82,8 +82,10 @@ Security invariants:
 
 The desktop shell is plain CommonJS. Each module owns one concern:
 
-- `main.cjs` — app lifecycle, window creation, IPC handlers, auto-update
+- `main.cjs` — app lifecycle, window creation, IPC handlers, Electron wiring
 - `preload.cjs` — the `contextBridge` surface exposed as `window.auraDesktop`
+- `autoUpdatePolicy.cjs` — update-check eligibility, throttling, and prompt policy
+- `windowChrome.cjs` — window geometry and sandboxed `webPreferences`
 - `runtimeServer.cjs` — composition root: HTTP assembly and server lifecycle only
 - `runtimeConfig.cjs` — origins, ports, loopback and DNS-rebinding guards
 - `backendProxy.cjs` — the proxy to the hosted backend
