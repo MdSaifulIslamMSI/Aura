@@ -131,6 +131,21 @@ describe('migration registry', () => {
         const User = require('../models/User');
         const EmailDeliveryLog = require('../models/EmailDeliveryLog');
 
+        // Establish the v2 indexes deterministically before seeding anything.
+        //
+        // This assertion used to depend on mongoose autoIndex having finished
+        // building recipientEmailHashV2_1, which is asynchronous on connect.
+        // EmailDeliveryLog is deliberately NOT in CRITICAL_INDEX_MODELS (see
+        // migration 2026-10-09-drop-legacy-ciphertext-indexes), so no
+        // syncIndexes() call in this suite covers it, and the index existed
+        // only if autoIndex won the race. That was the flake in CI.
+        //
+        // syncIndexes() must run before the v1-shaped indexes below are
+        // created: it drops anything not declared in the schema, so running it
+        // afterwards would undo the setup this test depends on.
+        await EmailDeliveryLog.syncIndexes();
+        await User.syncIndexes();
+
         // Belt and braces: seed v1-shaped indexes the way production has them,
         // then prove the migration entry removes exactly those.
         await mongoose.connection.collection('users').createIndex(
