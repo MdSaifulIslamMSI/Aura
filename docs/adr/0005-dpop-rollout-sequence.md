@@ -18,11 +18,16 @@ Roll out sender constraint in stages, tracked by the production contract:
 
 1. **Verify-if-bound everywhere (done).** No route may bypass `protect`;
    the sensitive-route scanner enforces this.
-2. **Client proof support (open).** Frontend generates an EC key per
-   session, attaches DPoP proofs, rotates on the existing session rotation
-   path. Until then, `validateAuthEnvironment` warns (not fails) in
-   production when `AUTH_DPOP_REQUIRED` is unset.
-3. **Staged require (later).** Per-route `AUTH_DPOP_REQUIRED` for payment
+2. **Client proof support (done).** `app/src/services/apiBase.js` generates a
+   per-browser ECDSA P-256 key (persisted in IndexedDB under
+   `aura_dpop_keys`), signs a `dpop+jwt` proof for every request, and
+   `createBrowserSession` binds the presented JWK to the session at creation
+   (`browserSessionService.js:1348-1359`); `rotateBrowserSession` carries the
+   binding forward. Contract test: `app/src/services/dpopProofClient.test.js`
+   (proves the emitted proof verifies against its own JWK). Until
+   `AUTH_DPOP_REQUIRED` is set, `validateAuthEnvironment` warns (not fails)
+   in production.
+3. **Staged require (open).** Per-route `AUTH_DPOP_REQUIRED` for payment
    and admin mutations behind a client-capability flag, then global.
 4. **Enforce + monitor (later).** Bound-session rate in telemetry hits the
    SLO review before any global flip.
