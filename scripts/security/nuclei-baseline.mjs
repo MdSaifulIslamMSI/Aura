@@ -143,5 +143,32 @@ export const filterNucleiSarifReport = (reportPath, exceptions) => {
   return removed;
 };
 
+// Nuclei's SARIF exporter writes "executionSuccessful": false on every scan —
+// observed on v3.11.1 even for a clean run (exit code 0, "Errors: 0"). GitHub
+// reads that flag when the SARIF is uploaded to code scanning and attaches the
+// warning "unsuccessful tool execution, exit code 0" to the analysis, which
+// puts the nuclei tool into an error state on the Security > Code scanning
+// tool status page. runNuclei only calls this after the scan container exited
+// cleanly (run() propagates a non-zero docker exit code), so the flag is
+// corrected to match the real outcome; a genuinely failed scan never reaches
+// this call and keeps its flag.
+export const markNucleiSarifExecutionSuccessful = (reportPath) => {
+  if (!reportPath || !fs.existsSync(reportPath)) return false;
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  let patched = false;
+  for (const runReport of report.runs || []) {
+    for (const invocation of runReport.invocations || []) {
+      if (invocation?.executionSuccessful === false) {
+        invocation.executionSuccessful = true;
+        patched = true;
+      }
+    }
+  }
+  if (patched) {
+    replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  return patched;
+};
+
 export const countNucleiGatingFindings = (reportPath) => readNucleiJsonlFindings(reportPath)
   .filter((finding) => ['critical', 'high'].includes(String(finding?.info?.severity || '').toLowerCase()));

@@ -9,6 +9,7 @@ import {
   filterNucleiSarifReport,
   isAcceptedNucleiFinding,
   loadNucleiExceptions,
+  markNucleiSarifExecutionSuccessful,
 } from './nuclei-baseline.mjs';
 
 const isoInDays = (days) => {
@@ -262,6 +263,65 @@ test('a real backend finding is suppressible by template and host', (t) => {
   assert.equal(filterNucleiJsonlReport(jsonlPath, [scoped]), 1);
   assert.equal(filterNucleiSarifReport(sarifPath, [scoped]), 1);
   assert.deepEqual(readSarifRuleIds(sarifPath), []);
+});
+
+const writeSarifWithInvocation = (dir, invocation) => {
+  const reportPath = path.join(dir, 'nuclei-report.sarif');
+  writeFileSync(reportPath, `${JSON.stringify({
+    version: '2.1.0',
+    runs: [{
+      tool: { driver: { name: 'Nuclei', semanticVersion: 'v3.11.1' } },
+      // nuclei always writes an invocations entry; omit it entirely to model
+      // a report shape without one.
+      invocations: invocation === undefined ? undefined : [invocation],
+      results: [{ ruleId: 'mongodb-exporter-metrics', message: { text: 'detected on host.docker.internal' } }],
+    }],
+  }, null, 2)}\n`);
+  return reportPath;
+};
+
+test('nuclei executionSuccessful: false is corrected after a clean scan', (t) => {
+  // Nuclei v3.11.1 writes executionSuccessful: false on every scan, including
+  // clean ones; GitHub flags the uploaded analysis with "unsuccessful tool
+  // execution, exit code 0" and the tool shows an error on the tool status
+  // page. The real report shape (arguments/responseFiles) must survive.
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const sarifPath = writeSarifWithInvocation(dir, {
+    arguments: ['-target', 'http://host.docker.internal:5000'],
+    commandLine: 'nuclei',
+    executionSuccessful: false,
+    responseFiles: [{ description: { text: 'Nuclei Sarif Report' }, uri: 'file:////reports/nuclei-report.sarif' }],
+  });
+
+  assert.equal(markNucleiSarifExecutionSuccessful(sarifPath), true);
+
+  const report = JSON.parse(readFileSync(sarifPath, 'utf8'));
+  assert.equal(report.runs[0].invocations[0].executionSuccessful, true);
+  assert.equal(report.runs[0].invocations[0].commandLine, 'nuclei');
+  assert.deepEqual(report.runs[0].invocations[0].arguments, ['-target', 'http://host.docker.internal:5000']);
+  assert.deepEqual(report.runs[0].results.map((result) => result.ruleId), ['mongodb-exporter-metrics']);
+});
+
+test('an already-successful nuclei SARIF is left byte-identical', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const sarifPath = writeSarifWithInvocation(dir, { commandLine: 'nuclei', executionSuccessful: true });
+  const before = readFileSync(sarifPath, 'utf8');
+
+  assert.equal(markNucleiSarifExecutionSuccessful(sarifPath), false);
+  assert.equal(readFileSync(sarifPath, 'utf8'), before);
+});
+
+test('missing SARIF and reports without invocations are no-ops', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aura-nuclei-baseline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  assert.equal(markNucleiSarifExecutionSuccessful(path.join(dir, 'missing.sarif')), false);
+  const sarifPath = writeSarifWithInvocation(dir, undefined);
+  assert.equal(markNucleiSarifExecutionSuccessful(sarifPath), false);
 });
 
 test('missing reports and malformed exception files are handled', (t) => {
