@@ -129,6 +129,62 @@ if (valueOf('HEALTHCHECK_PATH') !== '/health') {
   failures.push('HEALTHCHECK_PATH must be /health for the public health contract.');
 }
 
+// Cross-surface parity: staging and production contracts must both define the
+// shared runtime core (every key in commonRequired plus the runtime vars both
+// files carried at contract time). Environment-specific keys are classified by
+// prefix — staging bootstrap/ops keys (STAGING_*, ENABLE_*, VERCEL_*, ...) are
+// legitimate staging-only additions; the production-only hardening keys are
+// enumerated explicitly. A shared-core key vanishing from either surface is a
+// silent drift failure (the FIELD_ENCRYPTION_* class of bug).
+if (environment === 'staging' || environment === 'production') {
+  const otherEnv = environment === 'staging' ? 'production' : 'staging';
+  const otherPath = path.resolve(repoRoot, 'config', 'environments', `${otherEnv}.example.env`);
+  if (fs.existsSync(otherPath)) {
+    const otherEnvFile = parseEnvFile(fs.readFileSync(otherPath, 'utf8'));
+    const sharedRuntimeCore = [
+      ...commonRequired,
+      'NODE_ENV',
+      'APP_ENV',
+      'MONGO_URI',
+      'PORT',
+      'OTEL_SERVICE_NAME',
+      'OTEL_EXPORTER_OTLP_ENDPOINT',
+      'LOG_LEVEL',
+    ];
+    const stagingOnlyPrefixes = ['STAGING_', 'ENABLE_', 'VERCEL_', 'PROD_SSM_PREFIX'];
+    const stagingOnlyExact = new Set([
+      'AWS_REGION',
+      'AWS_ACCOUNT_ID',
+      'AWS_PROFILE',
+      'PROJECT_NAME',
+      'GH_REPO',
+      'ALLOW_NO_COST_WATCH',
+    ]);
+    const productionOnlyExact = new Set([
+      'FIELD_ENCRYPTION_ENABLED',
+      'FIELD_ENCRYPTION_KMS_KEY_ID',
+      'FIELD_ENCRYPTION_KEY_VERSION',
+      'FIELD_ENCRYPTION_MASTER_KEY',
+      'FIELD_ENCRYPTION_PREVIOUS_KEYS',
+      'MONGO_AUTO_INDEX',
+      'MONGO_REQUIRE_REPLICA_SET',
+    ]);
+    const thisKeys = new Set(Object.keys(fileEnv));
+    const otherKeys = new Set(Object.keys(otherEnvFile));
+    const isStagingOnly = (key) => stagingOnlyPrefixes.some((prefix) => key.startsWith(prefix));
+    for (const key of sharedRuntimeCore) {
+      if (!thisKeys.has(key)) failures.push(`Missing shared runtime variable (present in ${otherEnv}): ${key}`);
+      if (!otherKeys.has(key)) failures.push(`Missing shared runtime variable (present in ${environment}): ${key}`);
+    }
+    for (const key of thisKeys) {
+      if (otherKeys.has(key) || sharedRuntimeCore.includes(key)) continue;
+      if (environment === 'staging' && (isStagingOnly(key) || stagingOnlyExact.has(key))) continue;
+      if (environment === 'production' && productionOnlyExact.has(key)) continue;
+      failures.push(`Variable only in ${environment} and not classified: ${key}`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`env validation failed for ${environment} using ${envFile}`);
   for (const failure of failures) console.error(`- ${failure}`);

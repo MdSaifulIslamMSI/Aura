@@ -278,7 +278,8 @@
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
     "mobile:sync": "npm --prefix app run mobile:sync",
     "mobile:sync:android": "npm --prefix app run mobile:sync:android",
-    "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"
+    "mobile:sync:ios": "npm --prefix app run mobile:sync:ios",
+    "env:ssm-parity": "node scripts/env/ssm-parity-report.mjs"
   },
   "dependencies": {
     "@sentry/electron": "^7.18.0",
