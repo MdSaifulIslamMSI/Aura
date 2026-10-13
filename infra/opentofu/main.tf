@@ -8,6 +8,18 @@ locals {
   }
 }
 
+data "aws_caller_identity" "current" {
+  count = var.create_container_registry ? 1 : 0
+}
+
+# The storefront origin sits behind CloudFront, so inbound HTTPS is scoped to
+# the CloudFront origin-facing managed prefix list instead of 0.0.0.0/0.
+data "aws_ec2_managed_prefix_list" "cloudfront_origin_facing" {
+  count = var.create_example_infra ? 1 : 0
+
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_ecr_repository" "app" {
   count = var.create_container_registry ? 1 : 0
 
@@ -21,6 +33,36 @@ resource "aws_ecr_repository" "app" {
   image_scanning_configuration {
     scan_on_push = true
   }
+}
+
+# Deny anonymous and cross-account pulls: the registry holds deployment
+# images, so only this account's principals may read them.
+resource "aws_ecr_repository_policy" "app" {
+  count = var.create_container_registry ? 1 : 0
+
+  repository = aws_ecr_repository.app[0].name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyCrossAccountAndAnonymousPull"
+        Effect    = "Deny"
+        Principal = "*"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:DescribeImages",
+        ]
+        Condition = {
+          StringNotEquals = {
+            "aws:PrincipalAccount" = data.aws_caller_identity.current[0].account_id
+          }
+        }
+      },
+    ]
+  })
 }
 
 resource "aws_s3_bucket" "object_storage" {
@@ -75,11 +117,13 @@ resource "aws_security_group" "app" {
   description = "Example security group for ${local.name_prefix} API host"
 
   ingress {
-    description = "HTTPS"
+    description = "HTTPS from CloudFront origin-facing prefix list"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    prefix_list_ids = [
+      data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id,
+    ]
   }
 
   dynamic "ingress" {

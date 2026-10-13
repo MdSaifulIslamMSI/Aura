@@ -77,6 +77,12 @@ jobs:
   canonical-security-gates:
     name: Canonical security gates
     uses: ./.github/workflows/security-gates.yml
+    with:
+      # The production gate can fail for reasons unrelated to scanning (e.g.
+      # the staging role's OIDC trust policy), and a failed run would mark the
+      # scanners' setups red on the code-scanning tools page. Uploads come from
+      # security-gates.yml's own direct push run instead.
+      skip_sarif_upload: true
     permissions:
       contents: read
       id-token: write

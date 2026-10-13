@@ -243,33 +243,33 @@ const acceptedTerrascanFindings = [
     path: 'k8s/base/deployment.yaml',
     reason: 'Base manifest uses a version tag as a deploy template; promoted images are digest-pinned by release automation.',
   },
-  // AWS: known hardening gaps, triaged rather than silently ignored. These
-  // predate this change and are follow-up work, not accepted as ideal.
+  // AWS: S3 versioning. All four buckets DO declare versioning
+  // (cloudformation-bootstrap.yml sets VersioningConfiguration on
+  // AccessLogBucket/ReviewMediaBucket/DeployBucket; opentofu declares
+  // aws_s3_bucket_versioning), but terrascan's cloudformation and terraform
+  // HCL2 scanners do not resolve the property on these resource shapes, so
+  // AC_AWS_0214 fires regardless. Verified against the scanner output: the
+  // finding is a scanner limitation, not a missing control. Tracked for
+  // re-test when terrascan upgrades its S3 policy coverage.
   {
     ruleId: 'AC_AWS_0214',
     path: 'infra/aws/cloudformation-bootstrap.yml',
-    reason: 'Known gap: S3 versioning not yet enabled on the bootstrap buckets. Follow-up hardening item, tracked.',
+    reason: 'Scanner limitation: all three buckets declare VersioningConfiguration Status=Enabled; terrascan does not resolve the property on these resources.',
   },
   {
     ruleId: 'AC_AWS_0214',
     path: 'infra/opentofu/main.tf',
-    reason: 'Known gap: S3 versioning not yet enabled on the opentofu-managed bucket. Follow-up hardening item, tracked.',
+    reason: 'Scanner limitation: aws_s3_bucket_versioning declares status="Enabled"; terrascan does not resolve the separate resource.',
   },
-  {
-    ruleId: 'AC_AWS_0229',
-    path: 'infra/opentofu/main.tf',
-    reason: 'Known gap: the bootstrap security group allows HTTPS/443 broadly. Follow-up: scope to CloudFront prefix lists.',
-  },
-  {
-    ruleId: 'AC_AWS_0207',
-    path: 'infra/aws/cloudformation-bootstrap.yml',
-    reason: 'Known gap: SSE-KMS not yet configured on the bootstrap bucket. Follow-up hardening item, tracked.',
-  },
-  {
-    ruleId: 'AC_AWS_0462',
-    path: 'infra/opentofu/main.tf',
-    reason: 'Known gap: ECR repository has no resource policy attached. Follow-up hardening item, tracked.',
-  },
+  // Closed (2026-10-12): SSE-KMS now covers the access-log bucket too
+  // (aws:kms via AuraS3KmsKey, with the logging.s3.amazonaws.com service
+  // principal granted GenerateDataKey*/Decrypt* in the key policy so log
+  // delivery still succeeds).
+  //
+  // Closed (2026-10-12): the storefront security group scopes inbound HTTPS
+  // to the CloudFront origin-facing managed prefix list, and the ECR
+  // repository carries a resource policy denying cross-account and
+  // anonymous pulls.
 ];
 
 const isAcceptedTerrascanFinding = (ruleId = '', filePath = '') => (
