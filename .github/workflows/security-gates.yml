@@ -2,10 +2,15 @@ name: Security Gates
 
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
   workflow_call:
+  # No direct push trigger: production-on-push.yml calls this workflow via
+  # workflow_call on every main push. Running both paths uploaded the same
+  # tool+category SARIF twice per commit (security-gates.yml:* and
+  # production-on-push.yml:*), giving Gitleaks, Semgrep OSS, Trivy and checkov
+  # two setups each on the code scanning tools page, where they show as
+  # Disabled. PRs still run this workflow directly; main pushes still run it
+  # through the production gate call.
 
 permissions:
   contents: read
