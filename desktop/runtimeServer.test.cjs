@@ -889,6 +889,65 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     }, response, allowedOrigins), false);
 });
 
+// The unit test above covers the CORS helper directly. This covers the route
+// wiring, which is where the helper can be correctly implemented and still not
+// applied: a preflight advertises whether the real POST is reachable, so
+// answering 204 to any origin is what a browser acts on.
+test('desktop auth preflight refuses untrusted origins on the real route', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-preflight-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    // Port +9 is unused by any other test in this file. The runtime only accepts
+    // DEFAULT_RUNTIME_PORT through +10 (MAX_STABLE_RUNTIME_PORT), so the suite's
+    // servers must share that narrow band without colliding — node:test runs
+    // these concurrently, and a collision surfaces as ECONNRESET rather than a
+    // clear EADDRINUSE.
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 9,
+    });
+
+    try {
+        for (const path of [DESKTOP_AUTH_COMPLETE_PATH, DESKTOP_AUTH_CANCEL_PATH]) {
+            const trusted = await fetch(`http://127.0.0.1:${runtime.port}${path}`, {
+                method: 'OPTIONS',
+                headers: {
+                    Origin: 'https://aurapilot.vercel.app',
+                    'Access-Control-Request-Method': 'POST',
+                },
+            });
+            assert.equal(trusted.status, 204, `${path} must admit its own origin`);
+            assert.equal(trusted.headers.get('access-control-allow-origin'), 'https://aurapilot.vercel.app');
+
+            for (const untrusted of ['https://evil.example', 'https://evil.example/web.app', 'null']) {
+                const rejected = await fetch(`http://127.0.0.1:${runtime.port}${path}`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        Origin: untrusted,
+                        'Access-Control-Request-Method': 'POST',
+                    },
+                });
+                assert.equal(
+                    rejected.status,
+                    403,
+                    `${path} must not advertise the POST to ${untrusted}`
+                );
+                assert.equal(rejected.headers.get('access-control-allow-origin'), null);
+            }
+        }
+
+        // A preflight with no Origin at all is not a trusted CORS preflight.
+        const headerless = await fetch(`${runtime.callbackUrl}${DESKTOP_AUTH_COMPLETE_PATH}`, {
+            method: 'OPTIONS',
+            headers: { 'Access-Control-Request-Method': 'POST' },
+        });
+        assert.equal(headerless.status, 403);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
 test('local fallback limiter rejects excess local attempts', () => {
     const limiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 1 });
     const request = { ip: '127.0.0.1' };

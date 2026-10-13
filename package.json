@@ -10,12 +10,13 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "test": "npm run test:server:regression:stable",
-    "quality:lint": "npm --prefix app run lint -- --quiet && npm run lint:desktop",
+    "quality:lint": "npm --prefix app run lint -- --quiet && npm run lint:desktop && npm run lint:node",
     "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
     "quality:test": "npm test && npm --prefix app test && npm run test:desktop",
     "test:desktop": "node --test \"desktop/**/*.test.cjs\"",
     "test:desktop:boot": "node scripts/desktop/boot-smoke.mjs",
     "lint:desktop": "node scripts/desktop/lint-syntax.mjs",
+    "lint:node": "eslint desktop scripts --no-warn-ignored",
     "test:inventory": "node scripts/test-inventory.mjs",
     "test:tiers:check": "node scripts/check-test-tiers.cjs",
     "quality:coverage": "npm run test:server:coverage && npm --prefix app run test:coverage",
@@ -292,8 +293,11 @@
     "http-proxy-middleware": "^4.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "knip": "^6.35.1"
   },
   "overrides": {
@@ -337,6 +341,7 @@
     ],
     "files": [
       "config/backend-origin.json",
+      "config/desktop-auth-window-hosts.json",
       "desktop/**/*",
       "!desktop/**/*.test.cjs",
       "!desktop/assets/**",
@@ -367,6 +372,10 @@
       {
         "from": "config/backend-origin.json",
         "to": "config/backend-origin.json"
+      },
+      {
+        "from": "config/desktop-auth-window-hosts.json",
+        "to": "config/desktop-auth-window-hosts.json"
       }
     ],
     "win": {

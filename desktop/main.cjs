@@ -47,6 +47,25 @@ const {
     loadWindowUrlSafely,
     revealWindow,
 } = require('./startupReliability.cjs');
+const {
+    UPDATE_CHECK_DELAY_MS,
+    UPDATE_CHECK_INTERVAL_MS,
+    buildUpdateErrorMessage,
+    buildUpdateRestartPrompt,
+    buildUpdateStatusPayload,
+    shouldCheckForUpdatesOnFocus,
+    shouldInstallUpdateNow,
+    shouldPromptForRestart,
+    shouldStartAutoUpdateChecks,
+} = require('./autoUpdatePolicy.cjs');
+const {
+    MAIN_WINDOW_ZOOM,
+    MIN_WINDOW_HEIGHT,
+    MIN_WINDOW_WIDTH,
+    buildAuthWindowOptions,
+    buildMainWindowWebPreferences,
+    getInitialWindowBounds,
+} = require('./windowChrome.cjs');
 
 let mainWindow = null;
 let mainWindowCreationPromise = null;
@@ -58,10 +77,7 @@ let updateReadyPromptShown = false;
 
 const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
-const UPDATE_CHECK_DELAY_MS = 8000;
 const STARTUP_WINDOW_REVEAL_TIMEOUT_MS = 8000;
-const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
-const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
 const UPDATE_FEED = Object.freeze({
     provider: 'github',
     owner: 'MdSaifulIslamMSI',
@@ -281,14 +297,6 @@ const resolveRequestedRuntimePort = () => {
         : undefined;
 };
 
-const getInitialWindowBounds = () => {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    return {
-        width: Math.max(1180, Math.min(width, 1680)),
-        height: Math.max(760, Math.min(height, 1040)),
-    };
-};
-
 const installDesktopPermissionPolicy = () => {
     const defaultSession = session.defaultSession;
 
@@ -312,24 +320,6 @@ const installDesktopPermissionPolicy = () => {
     });
 };
 
-const buildAuthWindowOptions = (parentWindow) => ({
-    width: 640,
-    height: 780,
-    minWidth: 520,
-    minHeight: 560,
-    show: true,
-    autoHideMenuBar: true,
-    backgroundColor: '#0f172a',
-    parent: parentWindow,
-    modal: false,
-    webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        session: parentWindow?.webContents?.session,
-    },
-});
-
 const sendDesktopUpdateStatus = (type, payload = {}) => {
     if (
         !mainWindow
@@ -339,10 +329,10 @@ const sendDesktopUpdateStatus = (type, payload = {}) => {
         return;
     }
 
-    mainWindow.webContents.send('desktop:update:status', {
-        type,
-        ...payload,
-    });
+    mainWindow.webContents.send(
+        'desktop:update:status',
+        buildUpdateStatusPayload(type, payload)
+    );
 };
 
 const sendDesktopAuthStatus = (type, payload = {}) => {
@@ -358,16 +348,6 @@ const sendDesktopAuthStatus = (type, payload = {}) => {
         type,
         ...payload,
     });
-};
-
-const buildUpdateErrorMessage = (error) => {
-    const rawMessage = String(error?.message || error || 'Update check failed.').trim();
-
-    if (/ERR_NAME_NOT_RESOLVED|ENOTFOUND|getaddrinfo/i.test(rawMessage)) {
-        return 'Aura could not resolve the GitHub update channel. Check your internet or DNS, then try again.';
-    }
-
-    return rawMessage || 'Update check failed.';
 };
 
 // Reports what the shell actually loaded, then lets the caller skip the rest of
@@ -402,23 +382,21 @@ const reportDesktopBootSmoke = (window) => {
 const createMainWindow = async () => {
     const startupStartedAt = Date.now();
     const iconPath = resolveIconPath();
-    const initialBounds = getInitialWindowBounds();
+    const initialBounds = getInitialWindowBounds(
+        screen.getPrimaryDisplay().workAreaSize
+    );
     mainWindow = new BrowserWindow({
         ...initialBounds,
-        minWidth: 1080,
-        minHeight: 720,
+        minWidth: MIN_WINDOW_WIDTH,
+        minHeight: MIN_WINDOW_HEIGHT,
         show: false,
         backgroundColor: '#202020',
         autoHideMenuBar: true,
         icon: iconPath,
         title: 'Aura Desktop',
-        webPreferences: {
-            backgroundThrottling: false,
-            contextIsolation: true,
-            nodeIntegration: false,
-            preload: resolvePreloadPath(),
-            sandbox: true,
-        },
+        webPreferences: buildMainWindowWebPreferences({
+            preloadPath: resolvePreloadPath(),
+        }),
     });
     mainWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
 
@@ -445,8 +423,10 @@ const createMainWindow = async () => {
 
     mainWindow.webContents.on('did-finish-load', () => {
         if (activeWindow.isDestroyed()) return;
-        activeWindow.webContents.setZoomFactor(1);
-        Promise.resolve(activeWindow.webContents.setVisualZoomLevelLimits(1, 1)).catch(() => {});
+        activeWindow.webContents.setZoomFactor(MAIN_WINDOW_ZOOM);
+        Promise.resolve(
+            activeWindow.webContents.setVisualZoomLevelLimits(MAIN_WINDOW_ZOOM, MAIN_WINDOW_ZOOM)
+        ).catch(() => {});
     });
 
     mainWindow.on('closed', () => {
@@ -588,7 +568,12 @@ const ensureMainWindow = async () => {
 };
 
 const startAutoUpdateChecks = () => {
-    if (updateChecksStarted || !app.isPackaged || process.env.AURA_DESKTOP_AUTO_UPDATE === 'false') {
+    const shouldStart = shouldStartAutoUpdateChecks({
+        isPackaged: app.isPackaged,
+        autoUpdateDisabled: process.env.AURA_DESKTOP_AUTO_UPDATE === 'false',
+        alreadyStarted: updateChecksStarted,
+    });
+    if (!shouldStart) {
         return;
     }
 
@@ -642,27 +627,19 @@ const startAutoUpdateChecks = () => {
             version: info?.version || '',
         });
 
-        if (updateReadyPromptShown) {
+        if (!shouldPromptForRestart({ promptAlreadyShown: updateReadyPromptShown })) {
             return;
         }
 
         updateReadyPromptShown = true;
         const targetWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
-        const updatePrompt = {
-            type: 'info',
-            buttons: ['Restart and update', 'Later'],
-            defaultId: 0,
-            cancelId: 1,
-            title: 'Aura Marketplace update ready',
-            message: 'A new Aura Marketplace version has been downloaded.',
-            detail: 'Restart the desktop app now to install the update, or choose Later to install it when you quit.',
-        };
+        const updatePrompt = buildUpdateRestartPrompt();
         const promptPromise = targetWindow
             ? dialog.showMessageBox(targetWindow, updatePrompt)
             : dialog.showMessageBox(updatePrompt);
 
         promptPromise.then(({ response }) => {
-            if (response !== 0) {
+            if (!shouldInstallUpdateNow({ response })) {
                 return;
             }
 
@@ -703,7 +680,7 @@ const startAutoUpdateChecks = () => {
     });
 
     app.on('browser-window-focus', () => {
-        if ((Date.now() - lastUpdateCheckAt) > UPDATE_FOCUS_THROTTLE_MS) {
+        if (shouldCheckForUpdatesOnFocus({ lastCheckAt: lastUpdateCheckAt })) {
             checkForUpdates('focus');
         }
     });

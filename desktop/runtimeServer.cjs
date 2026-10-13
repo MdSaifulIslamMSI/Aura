@@ -105,7 +105,12 @@ const registerDesktopAuthCallbackRoute = ({
     successHtml,
     failureMessage,
     callbackLimiter,
+    requireTrustedPreflightOrigin,
 }) => {
+    // A preflight from an untrusted origin must be refused outright. Returning
+    // 204 to any origin advertises that the POST is reachable, which is what
+    // the browser then tries; the origin gate has to run before the limiter so
+    // hostile origins cannot probe this route either.
     const handlePreflight = (_request, response) => {
         response.status(204).end();
     };
@@ -113,6 +118,7 @@ const registerDesktopAuthCallbackRoute = ({
     app.options(
         routePath,
         applyDesktopAuthResponseSecurityHeaders,
+        requireTrustedPreflightOrigin,
         callbackLimiter,
         handlePreflight
     );
@@ -244,6 +250,7 @@ const startRuntimeServer = async ({
         successHtml: DESKTOP_AUTH_COMPLETE_HTML,
         failureMessage: 'Desktop sign-in could not be completed.',
         callbackLimiter: desktopAuthCallbackLimiter,
+        requireTrustedPreflightOrigin: requireTrustedDesktopAuthPreflightOrigin,
     });
     registerDesktopAuthCallbackRoute({
         app,
@@ -252,6 +259,7 @@ const startRuntimeServer = async ({
         successHtml: DESKTOP_AUTH_CANCEL_HTML,
         failureMessage: 'Desktop sign-in could not be cancelled.',
         callbackLimiter: desktopAuthCallbackLimiter,
+        requireTrustedPreflightOrigin: requireTrustedDesktopAuthPreflightOrigin,
     });
 
     app.use(applyLocalFrontendCachePolicy);
