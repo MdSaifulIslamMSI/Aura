@@ -261,6 +261,8 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           CONFIRM_PRODUCTION: ${{ github.event.inputs.confirm_production || '' }}
+          STAGING_INFRA_PAUSED: ${{ vars.STAGING_INFRA_PAUSED }}
+          INPUT_STAGING_ACK: ${{ github.event.inputs.staging_off_acknowledged == 'true' }}
           INPUT_DEPLOY_TARGETS: ${{ github.event.inputs.deploy_targets || '' }}
           INPUT_RELEASE_TARGETS: ${{ github.event.inputs.release_targets || '' }}
           INPUT_ROLLBACK_TARGETS: ${{ github.event.inputs.rollback_targets || '' }}
@@ -441,8 +443,17 @@ jobs:
           validate_target_list "release" "${INPUT_RELEASE_TARGETS}" desktop mobile
           validate_target_list "rollback" "${INPUT_ROLLBACK_TARGETS}" backend frontend-multihost storefront gateway
 
+
           if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${REF_NAME}" != "main" ] && [ -n "${INPUT_DEPLOY_TARGETS}${INPUT_RELEASE_TARGETS}${INPUT_ROLLBACK_TARGETS}" ]; then
             echo "Production actions must be dispatched from the main branch; received ${REF_NAME}." >&2
+            exit 1
+          fi
+
+          # Acknowledgement consistency: claiming staging is intentionally off
+          # while the repo variable says it is live is a dispatch contradiction —
+          # the promotion gate would pass through unwatched staging. Fail loudly.
+          if [ "${CONFIRM_PRODUCTION}" = "PRODUCTION" ] && [ "${INPUT_STAGING_ACK}" = "true" ] && [ "${STAGING_INFRA_PAUSED}" != "true" ]; then
+            echo "staging_off_acknowledged=true contradicts vars.STAGING_INFRA_PAUSED (currently not 'true'). Either pause staging via the variable, or re-dispatch without the acknowledgement flag." >&2
             exit 1
           fi
 
@@ -981,6 +992,15 @@ jobs:
     secrets:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
 
+  staging-promotion-gate:
+    name: Staging promotion gate
+    needs:
+      - release-safety-gates
+    uses: ./.github/workflows/staging-promotion-gate.yml
+    permissions:
+      actions: write
+      contents: read
+
   production-approval:
     name: Production approval gate
     runs-on: ubuntu-latest
@@ -1189,6 +1209,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1196,6 +1217,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-backend-aws.yml
     permissions:
@@ -1270,6 +1292,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1277,6 +1300,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-netlify.yml
     permissions:
@@ -1378,6 +1402,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1385,6 +1410,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-frontend-aws.yml
     permissions:
@@ -1468,6 +1494,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1475,6 +1502,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-gateway-vercel.yml
     permissions:
