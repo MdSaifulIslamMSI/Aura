@@ -1280,7 +1280,9 @@ describe('repo environment contract scripts', () => {
 
         expect(workflow).toMatch(/push:\s*\n\s*branches: \["main"\]/);
         expect(workflow).toMatch(/workflow_dispatch:\s*\n\s*inputs:\s*\n\s*confirm_production:/);
-        expect(workflow).toContain('--workflow staging-ops-watch.yml');
+        // The promotion gate is a reusable workflow — dispatch strings live there now.
+        const promotionGate = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-promotion-gate.yml'), 'utf8');
+        expect(promotionGate).toContain('--workflow staging-ops-watch.yml');
         expect(workflow).toContain('Production dispatch confirmation');
 
         for (const [jobName, dispatchedWorkflow] of [
