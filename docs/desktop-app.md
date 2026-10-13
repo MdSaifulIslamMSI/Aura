@@ -92,6 +92,7 @@ The desktop shell is plain CommonJS. Each module owns one concern:
 - `desktopAuthProtocol.cjs` — the stateless browser sign-in handoff contract
 - `desktopAuthBroker.cjs` — the per-request sign-in lifecycle
 - `securityPolicy.cjs` — navigation, window-open, permission, and IPC-sender policy
+- `autoUpdatePolicy.cjs`, `windowChrome.cjs` — decisions extracted from `main.cjs`
 - `secureStorage.cjs` — OS-keychain-backed storage for renderer secrets
 - `startupReliability.cjs` — startup URL, reveal, and load-safety helpers
 
@@ -109,7 +110,10 @@ If you move code between these modules, update both files.
 These run in the `desktop-package-smoke` CI job whenever `desktop/**` changes.
 
 - `npm run lint:desktop`
-  - Parses every `desktop/*.cjs` with the Node parser. This is a **syntax** floor, not a style linter: `npm run lint` only covers `app/`, and `desktop/` is CommonJS outside that ESLint project.
+  - Parses every `desktop/*.cjs` with the Node parser. This is a **syntax** floor, not a style linter.
+- `npm run lint:node`
+  - Real ESLint (`eslint.config.mjs`) over `desktop/` and `scripts/`. `desktop/` runs the correctness rules plus `no-undef`, which is the rule that catches a constant destructured from a module that does not export it — a silent `undefined` that disables a guard instead of raising.
+  - `app/` keeps its own ESLint project in `app/eslint.config.js`; the two do not overlap.
 - `npm run test:desktop`
   - Runs the `desktop/*.test.cjs` suites with the Node test runner. Note the quoted glob — `node --test desktop/` fails, because Node 24 reads a bare directory as a module path, and `cmd.exe` does not expand the glob itself.
 - `npm run test:desktop:boot`

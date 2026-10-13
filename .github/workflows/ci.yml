@@ -780,6 +780,12 @@ jobs:
       - name: Lint desktop sources
         run: npm run lint:desktop
 
+      # Real lint for desktop/ and scripts/. This is the gate that caught the
+      # dropped preflight origin check in #653's runtime decomposition, which
+      # every other check missed because the dead handler still parsed cleanly.
+      - name: Lint Node sources with ESLint
+        run: npm run lint:node
+
       - name: Run desktop unit tests
         run: npm run test:desktop
 
