@@ -1,6 +1,6 @@
 # Staging Runbook
 
-Current status: Code is staging-safe, and live staging infrastructure is present.
+Current status: Code is staging-safe, but live staging infrastructure is intentionally paused (vars.STAGING_INFRA_PAUSED=true; the old-account staging EC2/distribution/bucket were terminated 2026-09-18). Revival: run scripts/staging/99-bootstrap-all.sh in the target account, re-provision the GitHub secrets listed in staging-aws-deploy.yml (STAGING_AWS_DEPLOY_ROLE_ARN, STAGING_SSH_PRIVATE_KEY, STAGING_FIREBASE_*), flip vars.STAGING_INFRA_PAUSED off, then dispatch staging-aws-deploy.yml with deploy_enabled=true. The pipeline machinery (workflows, gates, env contract) is complete and fail-closed — no code changes needed.
 
 ## Bootstrap
 
