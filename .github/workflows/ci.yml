@@ -813,6 +813,17 @@ jobs:
       - name: Assert packaged app carries the backend-origin artifact
         run: node scripts/desktop/verify-packaged-runtime.mjs
 
+      # Source-level checks cannot see what electron-builder actually packed. A
+      # build produced from another branch or a stale cache can ship a
+      # BrowserWindow with contextIsolation disabled or nodeIntegration enabled
+      # while every source check still passes, so assert the hardened
+      # webPreferences, per-channel sender validation, contextBridge surface and
+      # source-map absence against the packaged app.asar itself.
+      # Strict mode because this job just packaged: a missing artifact means the
+      # packaging above regressed, not that there was nothing to check.
+      - name: Assert packaged Electron artifact keeps its security posture
+        run: npm run security:artifact-posture:strict
+
   android-shell:
     name: Android shell compile
     needs: changes
