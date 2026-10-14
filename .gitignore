@@ -122,3 +122,14 @@ payment-secrets*.env
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
+
+# Local scratch & investigation artifacts
+# These are throwaway dumps from live-system investigations. They can contain
+# real customer records (e.g. users.tmp.json holds live user emails) and
+# infrastructure identifiers, so they must never be staged.
+*.tmp.json
+audit-out.*
+audit-err.*
+session-ses_*.md
+.playwright-cli/
+report-build/
