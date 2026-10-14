@@ -58,7 +58,6 @@ describe('admin authorization policy coverage', () => {
         let checked = 0;
 
         for (const [prefix, modulePath] of ADMIN_MOUNTS) {
-            // eslint-disable-next-line global-require, import/no-dynamic-require
             const router = require(modulePath);
             const routes = collectRoutes(router.stack, prefix);
             for (const route of routes) {

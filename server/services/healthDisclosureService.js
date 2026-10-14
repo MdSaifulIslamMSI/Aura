@@ -62,21 +62,34 @@ const buildHealthMetadata = () => ({
     ),
 });
 
+// `detailed: false` is the anonymous production shape. Service/version/
+// environment name the deployable and its exact version, and db/redis disclose
+// the backing datastores — all of it useful for fingerprinting a target and
+// none of it needed by the liveness/banner callers. `/health` previously
+// returned the full payload on the unauthenticated branch while `/health/live`
+// was gated, so the two disagreed on what counts as public.
 const buildPublicHealthPayload = ({
     status = 'degraded',
     core = {},
     uptime = 0,
     timestamp = new Date().toISOString(),
-} = {}) => ({
-    status,
-    ...buildHealthMetadata(),
-    db: core.dbConnected ? 'connected' : 'disconnected',
-    uptime,
-    timestamp,
-    redis: {
-        connected: Boolean(core.redisConnected),
-    },
-});
+    detailed = true,
+} = {}) => {
+    if (!detailed) {
+        return { status, timestamp };
+    }
+
+    return {
+        status,
+        ...buildHealthMetadata(),
+        db: core.dbConnected ? 'connected' : 'disconnected',
+        uptime,
+        timestamp,
+        redis: {
+            connected: Boolean(core.redisConnected),
+        },
+    };
+};
 
 module.exports = {
     buildHealthMetadata,

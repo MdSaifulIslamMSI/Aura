@@ -4,12 +4,11 @@ jest.mock('../security/securityEventLogger', () => ({
 
 const loadLimiter = () => {
     jest.resetModules();
-    // eslint-disable-next-line global-require
+     
     return require('../middleware/adaptiveRateLimit');
 };
 
 const runLimiter = (limiter, req) => new Promise((resolve) => {
-    let next;
     const res = {
         status: jest.fn(() => res),
         json: jest.fn(() => {
@@ -18,7 +17,9 @@ const runLimiter = (limiter, req) => new Promise((resolve) => {
         }),
         set: jest.fn(),
     };
-    next = jest.fn(() => {
+    // Declared after `res` so the closure above reads a bound value; `res.json`
+    // can only run once the limiter is invoked below.
+    const next = jest.fn(() => {
         resolve({ next, res, req });
     });
     limiter(req, res, next);
