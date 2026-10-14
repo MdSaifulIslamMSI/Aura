@@ -25,17 +25,22 @@
           "startUrl": "http://127.0.0.1:4173/",
           "steps": [
             {
+              "type": "click",
+              "selector": ".aura-nav-menu-trigger",
+              "note": "At mobile widths the navbar search lives inside a collapsed hamburger sheet, so it must be opened before the input exists in a visible state."
+            },
+            {
               "type": "waitForSelector",
-              "selector": "input[placeholder*='Search']"
+              "selector": "input.search-control-input:visible"
             },
             {
               "type": "fill",
-              "selector": "input[placeholder*='Search']",
+              "selector": "input.search-control-input:visible",
               "value": "iphone 15"
             },
             {
               "type": "press",
-              "selector": "input[placeholder*='Search']",
+              "selector": "input.search-control-input:visible",
               "key": "Enter"
             },
             {
@@ -44,7 +49,7 @@
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
@@ -58,22 +63,25 @@
           "steps": [
             {
               "type": "waitForSelector",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
               "urlIncludes": "/product/"
             },
             {
+              "type": "waitForSelector",
+              "selector": "[data-testid='product-add-to-cart']:visible"
+            },
+            {
               "type": "click",
-              "selector": "button"
+              "selector": "[data-testid='product-add-to-cart']:visible"
             }
-          ],
-          "note": "Tune the final add-to-cart selector to your PDP button if multiple buttons are present."
+          ]
         },
         {
           "name": "saved_checkout",
@@ -85,11 +93,11 @@
           "steps": [
             {
               "type": "waitForSelector",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
@@ -97,7 +105,7 @@
             },
             {
               "type": "click",
-              "selector": "button"
+              "selector": "[data-testid='product-add-to-cart']:visible"
             }
           ],
           "note": "Use a logged-in saved-user session or extend the flow with explicit auth/cart selectors for your staging environment."

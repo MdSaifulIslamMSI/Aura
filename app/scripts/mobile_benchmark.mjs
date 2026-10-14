@@ -18,6 +18,15 @@ const defaultReportPath = path.resolve(rootDir, 'docs', 'reports', 'mobile-bench
 const configPath = path.resolve(args.config || process.env.MOBILE_BENCHMARK_CONFIG || defaultConfigPath);
 const reportPath = path.resolve(args.report || process.env.MOBILE_BENCHMARK_REPORT || defaultReportPath);
 
+// Interaction flows need a live backend and a populated catalog. The nightly
+// serves a static `vite preview` with no API, so every flow that reaches a
+// product listing renders "Showing 0 of 0 items" and cannot pass. Lighthouse
+// scoring does not need the backend, so the nightly runs scoring-only and
+// delegates interaction coverage to Playwright E2E
+// (app/e2e, which boots `scripts/start_e2e_server.mjs` plus a Pixel 7 project).
+const skipFlows = args.flows === 'off' || String(process.env.MOBILE_BENCHMARK_FLOWS || '') === 'off';
+const FLOW_SKIP_REASON = 'Flows disabled for this run (scoring-only mode). Interaction coverage lives in app/e2e.';
+
 const viewportProfiles = [
   { name: '360x800', width: 360, height: 800 },
   { name: '390x844', width: 390, height: 844 },
@@ -69,10 +78,16 @@ const performStep = async (page, step) => {
 
 const runFlow = async ({ page, flow }) => {
   const startedAt = Date.now();
+  const plannedSteps = Array.isArray(flow.steps) ? flow.steps.length : 0;
   const result = {
     name: flow.name,
     success: false,
-    stepCount: Array.isArray(flow.steps) ? flow.steps.length : 0,
+    // `stepCount` counts steps that actually completed, not steps declared in
+    // config. The previous implementation seeded this from flow.steps.length,
+    // which made every flow look like it had met its step budget even when it
+    // timed out on step one.
+    stepCount: 0,
+    plannedSteps,
     durationMs: 0,
     finalUrl: '',
     error: '',
@@ -86,6 +101,7 @@ const runFlow = async ({ page, flow }) => {
 
     for (const step of flow.steps || []) {
       await performStep(page, step);
+      result.stepCount += 1;
     }
 
     result.success = true;
@@ -162,6 +178,22 @@ const run = async () => {
         const flowResults = [];
 
         for (const flow of target.flows || []) {
+          const plannedSteps = Array.isArray(flow.steps) ? flow.steps.length : 0;
+
+          if (skipFlows) {
+            flowResults.push({
+              name: flow.name,
+              success: false,
+              skipped: true,
+              reason: FLOW_SKIP_REASON,
+              stepCount: 0,
+              plannedSteps,
+              durationMs: 0,
+              finalUrl: '',
+            });
+            continue;
+          }
+
           const requiresEnv = Array.isArray(flow.requiresEnv) ? flow.requiresEnv : [];
           const missingEnv = requiresEnv.filter((key) => !process.env[key]);
           if (missingEnv.length > 0) {
@@ -170,7 +202,9 @@ const run = async () => {
               success: false,
               skipped: true,
               reason: `Missing env: ${missingEnv.join(', ')}`,
-              stepCount: Array.isArray(flow.steps) ? flow.steps.length : 0,
+              // A skipped flow completed nothing.
+              stepCount: 0,
+              plannedSteps,
               durationMs: 0,
               finalUrl: '',
             });
@@ -231,6 +265,19 @@ const assertBudgets = (config, benchmarkReport) => {
       if (score < minScore) {
         failures.push(`${entry.label} [${entry.viewport}] Lighthouse ${category} score ${score} < budget ${minScore}`);
       }
+    }
+
+    // A flow that actually ran and then failed is a gate failure in its own
+    // right. Previously only the step budget was inspected, so a flow that
+    // timed out on its very first step still counted as "passed" the budget
+    // check. This is what let the nightly stay quiet while every flow failed.
+    for (const flow of entry.flows || []) {
+      if (flow.skipped || flow.success) continue;
+      const detail = String(flow.error || flow.reason || 'unknown error').split('\n')[0].trim();
+      failures.push(
+        `${entry.label} [${entry.viewport}] flow ${flow.name} failed after `
+        + `${flow.stepCount ?? 0}/${flow.plannedSteps ?? 0} steps: ${detail}`,
+      );
     }
 
     for (const [flowName, maxSteps] of Object.entries(budget.maxFlowStepCount || {})) {
