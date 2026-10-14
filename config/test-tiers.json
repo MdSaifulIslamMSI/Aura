@@ -4,6 +4,7 @@
     "$untriaged": [],
     "regression": [
       "tests/access-control.idor.security.test.js",
+      "tests/artifactSecurityPosture.test.js",
       "tests/indexIntegrityMigrations.test.js",
       "tests/statusWebhookDuplicateDelivery.test.js",
       "tests/adaptiveRateLimit.memorySafety.test.js",
