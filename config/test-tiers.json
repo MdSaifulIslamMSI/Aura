@@ -103,6 +103,7 @@
       "tests/profileSecurity.test.js",
       "tests/rate-limit.bypass.security.test.js",
       "tests/recommendationEventRateLimit.security.test.js",
+      "tests/repoHygiene.test.js",
       "tests/requireObjectOwnership.test.js",
       "tests/requireTenantBoundary.test.js",
       "tests/routeCostClassifier.test.js",

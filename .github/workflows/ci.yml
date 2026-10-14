@@ -277,6 +277,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Guard working directory hygiene
+        run: node scripts/check-repo-hygiene.mjs --strict
+
       - name: Guard committed runtime/test artifacts
         run: node server/scripts/ci-guard-artifacts.js
 
