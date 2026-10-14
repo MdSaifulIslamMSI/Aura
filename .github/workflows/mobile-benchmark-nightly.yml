@@ -38,6 +38,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix app ci
 
+      - name: Install Playwright Chromium
+        run: app/node_modules/.bin/playwright install --with-deps chromium
+
       - name: Build production frontend
         run: npm --prefix app run build
 
