@@ -1,4 +1,8 @@
 {
+  "settings": {
+    "auditRepeats": 3,
+    "gatingViewport": "360x800"
+  },
   "targets": [
     {
       "label": "Aura",
