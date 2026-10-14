@@ -55,7 +55,54 @@ contextBridge.exposeInMainWorld('auraDesktop', {
 });
 `;
 
-const buildFixture = ({ mainSource = MAIN_BASE, preloadSource = PRELOAD_BASE, sourceMaps = 0 } = {}) => {
+// Mirrors the post-d888af79 layout: main.cjs delegates webPreferences to a
+// factory in windowChrome.cjs, so the hardening keys are not in the main
+// process at all. Reading main.cjs alone made a hardened artifact look broken.
+const WINDOW_CHROME_BASE = `
+const buildMainWindowWebPreferences = ({ preloadPath } = {}) => ({
+    backgroundThrottling: false,
+    contextIsolation: true,
+    nodeIntegration: false,
+    preload: preloadPath,
+    sandbox: true,
+});
+
+module.exports = { buildMainWindowWebPreferences };
+`;
+
+const MAIN_DELEGATED = `
+const { app, BrowserWindow, ipcMain } = require('electron');
+const { buildMainWindowWebPreferences } = require('./windowChrome.cjs');
+
+const assertTrustedDesktopIpcSender = (event) => {
+  if (!event) throw new Error('Desktop IPC request rejected.');
+};
+
+ipcMain.handle('desktop:alpha', (event) => {
+  assertTrustedDesktopIpcSender(event);
+  return { ok: true };
+});
+
+ipcMain.handle('desktop:beta', (event) => {
+  assertTrustedDesktopIpcSender(event);
+  return { ok: true };
+});
+
+const resolvePreloadPath = () => '/tmp/preload.cjs';
+
+const mainWindow = new BrowserWindow({
+  webPreferences: buildMainWindowWebPreferences({
+    preloadPath: resolvePreloadPath(),
+  }),
+});
+`;
+
+const buildFixture = ({
+    mainSource = MAIN_BASE,
+    preloadSource = PRELOAD_BASE,
+    sourceMaps = 0,
+    windowChromeSource,
+} = {}) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'artifact-posture-'));
     const stage = path.join(root, 'stage');
     const desktopDir = path.join(stage, 'desktop');
@@ -64,6 +111,9 @@ const buildFixture = ({ mainSource = MAIN_BASE, preloadSource = PRELOAD_BASE, so
     fs.mkdirSync(distDir, { recursive: true });
     fs.writeFileSync(path.join(desktopDir, 'main.cjs'), mainSource);
     fs.writeFileSync(path.join(desktopDir, 'preload.cjs'), preloadSource);
+    if (windowChromeSource !== undefined) {
+        fs.writeFileSync(path.join(desktopDir, 'windowChrome.cjs'), windowChromeSource);
+    }
     for (let i = 0; i < sourceMaps; i += 1) {
         fs.writeFileSync(path.join(distDir, `chunk-${i}.js.map`), '{}');
     }
@@ -192,5 +242,50 @@ describe('artifact security posture guard', () => {
         const result = runGuard(archive, distDir, ['--require-desktop']);
         expect(result.code).toBe(1);
         expect(result.stderr).toContain('webPreferences.nodeIntegration is true');
+    });
+
+    // The regression that reddened every PR: d888af79 moved webPreferences into
+    // a factory, so the guard could not see the hardening in the packaged main
+    // process and failed a correctly hardened artifact.
+    test('resolves hardening when main.cjs delegates webPreferences to a factory', () => {
+        const { root, archive, distDir } = buildFixture({
+            mainSource: MAIN_DELEGATED,
+            windowChromeSource: WINDOW_CHROME_BASE,
+        });
+        track(root);
+        const result = runGuard(archive, distDir);
+        expect(result.code).toBe(0);
+        expect(result.stdout).toContain('webPreferences resolved through buildMainWindowWebPreferences() in desktop/windowChrome.cjs');
+    });
+
+    test('still fails when the delegated factory disables the sandbox', () => {
+        const { root, archive, distDir } = buildFixture({
+            mainSource: MAIN_DELEGATED,
+            windowChromeSource: WINDOW_CHROME_BASE.replace('sandbox: true', 'sandbox: false'),
+        });
+        track(root);
+        const result = runGuard(archive, distDir);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain('webPreferences.sandbox is false');
+        expect(result.stderr).toContain('desktop/windowChrome.cjs');
+    });
+
+    test('still fails when the delegated factory enables nodeIntegration', () => {
+        const { root, archive, distDir } = buildFixture({
+            mainSource: MAIN_DELEGATED,
+            windowChromeSource: WINDOW_CHROME_BASE.replace('nodeIntegration: false', 'nodeIntegration: true'),
+        });
+        track(root);
+        const result = runGuard(archive, distDir);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain('webPreferences.nodeIntegration is true');
+    });
+
+    test('fails rather than passing when the delegated helper is absent from the artifact', () => {
+        const { root, archive, distDir } = buildFixture({ mainSource: MAIN_DELEGATED });
+        track(root);
+        const result = runGuard(archive, distDir);
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain('could not be resolved from the artifact');
     });
 });

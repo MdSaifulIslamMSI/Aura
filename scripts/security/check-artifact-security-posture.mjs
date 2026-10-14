@@ -78,10 +78,17 @@ const notices = [];
 
 const fail = (message) => problems.push(message);
 
+// @electron/asar throws when the logical path is absent rather than returning
+// null, so every caller below relies on this wrapper to turn a missing file into
+// a clean "not present" result. Without the catch a missing module crashes the
+// guard with an unhandled exception instead of reporting a problem.
 const readFromAsar = (asar, logicalPath) => {
-    const buffer = require('@electron/asar').extractFile(asar, logicalPath);
-    if (!buffer) return null;
-    return buffer.toString('utf8');
+    try {
+        const buffer = require('@electron/asar').extractFile(asar, logicalPath);
+        return buffer ? buffer.toString('utf8') : null;
+    } catch {
+        return null;
+    }
 };
 
 // Overrides exist so the regression tests can point this guard at a mutated
@@ -101,19 +108,61 @@ const resolveDistDir = () => process.env.ARTIFACT_POSTURE_DIST
 // also silently skip every Electron assertion in this guard.
 const requireDesktop = process.argv.includes('--require-desktop');
 
+// d888af79 extracted the BrowserWindow hardening out of main.cjs into a
+// factory in windowChrome.cjs, so the literal keys stopped appearing in the
+// packaged main process. Reading main.cjs alone made a correctly hardened
+// artifact look unhardened. Resolve the factory the main process actually
+// delegates to, and read the hardening from there. An unresolvable delegation
+// still fails: the guard must never pass because it could not check.
+const resolveWebPreferencesSource = (asar, mainSource) => {
+    const declaresInline = REQUIRED_WEB_PREFERENCES.every(
+        ({ name }) => new RegExp(`${name}\\s*:\\s*(true|false)`).test(mainSource),
+    );
+    if (declaresInline) return { source: mainSource, origin: 'desktop/main.cjs' };
+
+    // webPreferences: someFactory({ ... })
+    const factoryMatch = mainSource.match(/webPreferences\s*:\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/);
+    if (!factoryMatch) return null;
+    const factory = factoryMatch[1];
+
+    // Find the require() that binds that factory, so the helper is located by
+    // what main.cjs imports rather than by a hardcoded filename.
+    for (const [, names, modulePath] of mainSource.matchAll(
+        /const\s*\{([^}]*)\}\s*=\s*require\(\s*['"`](\.[^'"`]+)['"`]\s*\)/g,
+    )) {
+        if (!names.split(',').some((entry) => entry.trim() === factory)) continue;
+        const logicalPath = path.posix.join('desktop', modulePath.replace(/^\.\//, ''));
+        const helperSource = readFromAsar(asar, logicalPath);
+        if (!helperSource) return null;
+        return { source: helperSource, origin: logicalPath, factory };
+    }
+
+    return null;
+};
+
 // 1. BrowserWindow hardening, read from the packaged main process.
-const checkWebPreferences = (source) => {
+const checkWebPreferences = (asar, mainSource) => {
+    const resolved = resolveWebPreferencesSource(asar, mainSource);
+    if (!resolved) {
+        fail('packaged desktop/main.cjs declares no inline webPreferences and the BrowserWindow factory it delegates to could not be resolved from the artifact; renderer hardening cannot be verified.');
+        return;
+    }
+
     for (const { name, expected } of REQUIRED_WEB_PREFERENCES) {
         const pattern = new RegExp(`${name}\\s*:\\s*(true|false)`);
-        const match = source.match(pattern);
+        const match = resolved.source.match(pattern);
         if (!match) {
-            fail(`desktop/main.cjs declares no explicit webPreferences.${name}; the packaged renderer hardening cannot be verified.`);
+            fail(`${resolved.origin} declares no explicit webPreferences.${name}; the packaged renderer hardening cannot be verified.`);
             continue;
         }
         const actual = match[1] === 'true';
         if (actual !== expected) {
-            fail(`webPreferences.${name} is ${actual} in the packaged desktop/main.cjs; expected ${expected}.`);
+            fail(`webPreferences.${name} is ${actual} in ${resolved.origin}; expected ${expected}.`);
         }
+    }
+
+    if (resolved.origin !== 'desktop/main.cjs') {
+        notices.push(`webPreferences resolved through ${resolved.factory}() in ${resolved.origin}.`);
     }
 };
 
@@ -197,7 +246,7 @@ if (!asar) {
     if (!mainSource) {
         fail(`packaged ${path.relative(repoDir, asar)} does not contain desktop/main.cjs.`);
     } else {
-        checkWebPreferences(mainSource);
+        checkWebPreferences(asar, mainSource);
         checkSenderValidation(mainSource);
     }
     if (!preloadSource) {
