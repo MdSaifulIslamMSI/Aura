@@ -6,6 +6,9 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+  # Reachable from all-suites.yml so a laptop-constrained machine can fan the
+  # quality/coverage/hygiene gates out to GitHub-hosted runners in one dispatch.
+  workflow_call:
   schedule:
     - cron: "19 4 * * 1"
 

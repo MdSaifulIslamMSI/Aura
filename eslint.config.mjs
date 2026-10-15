@@ -116,4 +116,131 @@ export default defineConfig([
       'no-misleading-character-class': 'off',
     },
   },
+
+  // server/: the Express + MongoDB API. CommonJS, and by far the largest
+  // Node-side tree (689 sources, 486 tests) that previously had no linting at
+  // all — both security findings in the 2026-10-14 assessment originated here
+  // (a misclassified cache route class and a health payload that bypassed its
+  // disclosure gate), and nothing here would have flagged either class of bug.
+  //
+  // Same posture as scripts/: correctness rules only. The unused/style rules
+  // already flag real debt across a tree this size, so turning them on would
+  // bury any future signal. The point is a gate that is green today and catches
+  // regressions tomorrow.
+  {
+    files: ['server/**/*.js', 'server/**/*.cjs'],
+    // server/scripts/ holds migrations, backfills, wipes, and seeders that touch
+    // real data. Excluded from this gate on purpose — they change rarely, are
+    // reviewed by hand, and are not where a routine edit introduces a defect.
+    ignores: ['server/**/node_modules/**', 'server/scripts/**', 'server/seeders/**'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-var': 'error',
+      // `== null` is deliberate in this tree: it tests for both null and
+      // undefined in one comparison (finalValue presence checks, cursor
+      // termination). Tightening it to === would silently change behaviour.
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      'no-throw-literal': 'error',
+      'no-async-promise-executor': 'error',
+      'no-return-await': 'error',
+      // Best-effort notification emission uses an intentional empty catch.
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // Migration loops legitimately use `while (true)` with an inner break.
+      'no-constant-condition': ['error', { checkLoops: false }],
+      'no-undef': 'error',
+
+      // Dynamic-code guards. These are the rules most likely to catch an
+      // injection sink introduced by a dependency, a migration, or a codegen
+      // pass, and they have no legitimate use in this tree.
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-debugger': 'error',
+
+      // Correctness-only for the pre-existing tree, mirroring scripts/.
+      'no-unused-vars': 'off',
+      'no-useless-assignment': 'off',
+      'no-control-regex': 'off',
+      'preserve-caught-error': 'off',
+      'no-useless-escape': 'off',
+      'no-misleading-character-class': 'off',
+
+      // Opinionated/style rules that already fire across a tree this size and
+      // would bury any future signal. Turned off deliberately, not overlooked.
+      'no-console': 'off', // the logger wraps console; direct use is intentional
+      'no-await-in-loop': 'off', // deliberate sequencing in retry/queue paths
+      'global-require': 'off', // CommonJS idiom used throughout server/
+      'class-methods-use-this': 'off',
+      'no-continue': 'off',
+      'no-extra-boolean-cast': 'off',
+      'no-regex-spaces': 'off',
+      'no-restricted-syntax': 'off',
+      'no-useless-catch': 'off',
+      'prefer-const': 'off',
+    },
+    // Turning `no-console` off above makes the tree's existing
+    // `eslint-disable-next-line no-console` directives redundant. Reporting
+    // them would mean editing ~20 unrelated files to silence noise this config
+    // introduced, so they are not reported. Scoped to server/ on purpose: the
+    // desktop/ and scripts/ blocks keep their existing reporting behaviour.
+    linterOptions: {
+      reportUnusedDisableDirectives: 'off',
+    },
+  },
+
+  // Jest suites, both the server/tests/ tree and the co-located */tests/ ones.
+  // Same correctness rules as the source block, plus the Jest globals the
+  // runner injects at runtime.
+  {
+    files: [
+      'server/tests/**/*.js',
+      'server/**/tests/**/*.js',
+      'server/**/*.test.js',
+    ],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-var': 'error',
+      'no-throw-literal': 'error',
+      'no-async-promise-executor': 'error',
+      'no-undef': 'error',
+      'no-unused-vars': 'off',
+      'no-control-regex': 'off',
+      'no-useless-escape': 'off',
+      'no-misleading-character-class': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-console': 'off',
+      'no-await-in-loop': 'off',
+      'global-require': 'off',
+      'class-methods-use-this': 'off',
+      'no-continue': 'off',
+      'no-extra-boolean-cast': 'off',
+      'no-regex-spaces': 'off',
+      'no-restricted-syntax': 'off',
+      'no-useless-catch': 'off',
+      'preserve-caught-error': 'off',
+      'no-useless-assignment': 'off',
+      'prefer-const': 'off',
+    },
+    // Same rationale as the server source block above: the suite carries the
+    // tree's pre-existing `no-console` disable directives, which this block's
+    // `no-console: off` makes redundant. Reported from neither block.
+    linterOptions: {
+      reportUnusedDisableDirectives: 'off',
+    },
+  },
 ]);

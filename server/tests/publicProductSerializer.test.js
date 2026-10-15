@@ -1,7 +1,11 @@
 const {
   INTERNAL_FIELD_NAMES,
+  REDACTED_PUBLIC_CATALOG_FIELDS,
+  REDACTED_PUBLIC_PRICING_FIELDS,
   hasInternalProductFields,
   pickPublicProductFields,
+  redactPublicCatalogMetadata,
+  redactPublicPricing,
 } = require('../serializers/publicProductSerializer');
 
 const fullProduct = () => ({
@@ -91,5 +95,76 @@ describe('publicProductSerializer.hasInternalProductFields', () => {
     for (const field of ['provenance', 'publishGate', 'adCampaign', 'catalogVersion', '__v']) {
       expect(INTERNAL_FIELD_NAMES).toContain(field);
     }
+  });
+});
+
+// buildDisplayPair() and buildCatalogMarketMetadata() run AFTER the scalar
+// allowlist, so the fields they contribute bypassed it entirely. These were
+// published on the unauthenticated product API: the FX provider and its locked
+// rate, and the internal market-compliance gating result.
+describe('publicProductSerializer post-allowlist redaction', () => {
+  const pricing = () => ({
+    baseAmount: 12617.58,
+    baseCurrency: 'INR',
+    displayAmount: 132.85,
+    displayCurrency: 'USD',
+    formattedPrice: '$132.85',
+    fallbackApplied: false,
+    fxRateLocked: 0.010529,
+    fxTimestamp: '2026-10-14T08:00:00.000Z',
+    providerFx: { rate: 0.010529, provider: 'internal-rates' },
+  });
+
+  const catalog = () => ({
+    visible: true,
+    featured: false,
+    promotionLabel: 'US Global Card Pricing',
+    complianceFlags: ['cross_border_customs_review', 'international_card_required'],
+  });
+
+  test('drops the FX provider and locked rate from public pricing', () => {
+    const redacted = redactPublicPricing(pricing());
+    expect(redacted).not.toHaveProperty('fxRateLocked');
+    expect(redacted).not.toHaveProperty('providerFx');
+    expect(redacted).not.toHaveProperty('fxTimestamp');
+  });
+
+  test('keeps every storefront-consumed pricing field', () => {
+    const redacted = redactPublicPricing(pricing());
+    expect(redacted).toMatchObject({
+      baseAmount: 12617.58,
+      baseCurrency: 'INR',
+      displayAmount: 132.85,
+      displayCurrency: 'USD',
+      formattedPrice: '$132.85',
+      fallbackApplied: false,
+    });
+  });
+
+  test('drops compliance gating from public catalog metadata', () => {
+    const redacted = redactPublicCatalogMetadata(catalog());
+    expect(redacted).not.toHaveProperty('complianceFlags');
+    expect(redacted).toMatchObject({
+      visible: true,
+      featured: false,
+      promotionLabel: 'US Global Card Pricing',
+    });
+  });
+
+  test('does not mutate the input objects', () => {
+    const source = pricing();
+    redactPublicPricing(source);
+    expect(source).toHaveProperty('fxRateLocked');
+  });
+
+  test('passes nullish values through unchanged', () => {
+    expect(redactPublicPricing(null)).toBeNull();
+    expect(redactPublicPricing(undefined)).toBeUndefined();
+    expect(redactPublicCatalogMetadata(null)).toBeNull();
+  });
+
+  test('names the redacted fields for audit', () => {
+    expect(REDACTED_PUBLIC_PRICING_FIELDS).toEqual(['fxRateLocked', 'providerFx', 'fxTimestamp']);
+    expect(REDACTED_PUBLIC_CATALOG_FIELDS).toEqual(['complianceFlags']);
   });
 });

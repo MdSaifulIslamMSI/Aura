@@ -1623,8 +1623,8 @@ const bulkUpsertProducts = async ({ docs, catalogVersion }) => {
     const localTitleKeys = new Set();
     const localImageKeys = new Set();
     for (const doc of docs) {
-        const titleKey = normalizeTitleKey(doc.titleKey || doc.title);
-        const imageKey = normalizeImageKey(doc.imageKey || doc.image);
+        const titleKey = Product.normalizeTitleKey(doc.titleKey || doc.title);
+        const imageKey = Product.normalizeImageKey(doc.imageKey || doc.image);
         doc.titleKey = titleKey;
         doc.imageKey = imageKey;
 

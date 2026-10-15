@@ -440,28 +440,50 @@ const authRiskSignalProducerRateLimit = rateLimit({
     message: { status: 'error', message: 'Too many requests. Please try again later.' },
 });
 
-const buildLiveHealthPayload = () => ({
-    alive: true,
-    ...buildHealthMetadata(),
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    topology: {
-        splitRuntimeEnabled,
-    },
-    startup: {
-        asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
-        asyncStartupHealthy: !runtimeStartupState.asyncStartupError,
-        asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
-        asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
-    },
-});
+const buildLiveHealthPayload = ({ exposeDetails = false } = {}) => {
+    const timestamp = new Date().toISOString();
+    const startupHealthy = !runtimeStartupState.asyncStartupError;
+
+    // Public liveness carries no internals. Service/version/environment, split
+    // runtime topology, and async-startup internals stay behind the same
+    // x-health-token gate that /health and /api/health already use; the client
+    // banner only derives a status from `alive`, so it needs none of this.
+    const payload = {
+        alive: true,
+        status: startupHealthy ? 'ok' : 'degraded',
+        timestamp,
+    };
+
+    if (!exposeDetails) return payload;
+
+    return {
+        ...payload,
+        ...buildHealthMetadata(),
+        uptime: process.uptime(),
+        topology: {
+            splitRuntimeEnabled,
+        },
+        startup: {
+            asyncStartupComplete: runtimeStartupState.asyncStartupComplete,
+            asyncStartupHealthy: startupHealthy,
+            asyncStartupCompletedAt: runtimeStartupState.asyncStartupCompletedAt,
+            asyncStartupFailedAt: runtimeStartupState.asyncStartupFailedAt,
+        },
+    };
+};
 
 // Fast-path liveness route for the frontend banner. Register it before the
 // heavy middleware stack so health polling stays cheap.
 app.get('/health/live', (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.set('Content-Security-Policy', "default-src 'self'");
-    res.json(buildLiveHealthPayload());
+    res.json(buildLiveHealthPayload({
+        exposeDetails: shouldExposeDetailedHealth({
+            req,
+            healthReadyToken: HEALTH_READY_TOKEN,
+            runtimeNodeEnv,
+        }),
+    }));
 });
 
 // Request ID for tracing
@@ -740,6 +762,7 @@ app.get('/health', async (req, res) => {
                 core,
                 uptime,
                 timestamp,
+                detailed: false,
             }),
             ...stagingHealthFingerprint,
         });

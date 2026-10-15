@@ -122,9 +122,49 @@ const hasInternalProductFields = (candidate) => {
     return false;
 };
 
+// Narrower second boundary: fields contributed AFTER the scalar allowlist, by
+// buildDisplayPair() into `pricing` and buildCatalogMarketMetadata() into
+// `catalog`. They are server-side pricing and market-rule internals — the FX
+// provider and its locked rate, and the internal compliance gating result.
+//
+// The storefront does not read any of them (zero references in app/src outside
+// the i18n catalogues and test fixtures), while disclosing them names the FX
+// provider, publishes the locked rate, and exposes which products are market
+// restricted. Everything the UI does consume in these objects is kept.
+//
+// Deliberately NOT applied inside buildDisplayPair: cart and checkout need
+// baseAmount and the locked rate server-side to place an order correctly.
+const REDACTED_PUBLIC_PRICING_FIELDS = Object.freeze([
+    'fxRateLocked',
+    'providerFx',
+    'fxTimestamp',
+]);
+
+const REDACTED_PUBLIC_CATALOG_FIELDS = Object.freeze([
+    'complianceFlags',
+]);
+
+const omitKeys = (source, keys) => {
+    if (!source || typeof source !== 'object') return source;
+    const result = {};
+    for (const [key, value] of Object.entries(source)) {
+        if (keys.includes(key)) continue;
+        result[key] = value;
+    }
+    return result;
+};
+
+const redactPublicPricing = (pricing) => omitKeys(pricing, REDACTED_PUBLIC_PRICING_FIELDS);
+
+const redactPublicCatalogMetadata = (catalog) => omitKeys(catalog, REDACTED_PUBLIC_CATALOG_FIELDS);
+
 module.exports = {
     INTERNAL_FIELD_NAMES,
     PUBLIC_PRODUCT_SCALAR_FIELDS,
+    REDACTED_PUBLIC_CATALOG_FIELDS,
+    REDACTED_PUBLIC_PRICING_FIELDS,
     hasInternalProductFields,
     pickPublicProductFields,
+    redactPublicCatalogMetadata,
+    redactPublicPricing,
 };

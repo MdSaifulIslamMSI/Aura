@@ -585,11 +585,31 @@ const POLICY_DEFINITIONS = [
         testCoverage: ['server/tests/i18nRateLimitPolicy.test.js'],
     },
     {
+        // Every read under /api/users is session-scoped (server/routes/userRoutes.js
+        // applies `protect` to each). Keeping this prefix on the public read rule
+        // stamped `Cache-Control: public` on personal profile, wishlist, address,
+        // and dashboard responses, which lets a shared cache replay one user's
+        // data to another. Classified here ahead of `public-api-read` instead.
+        id: 'user-account-read',
+        componentName: 'User account',
+        profile: PROFILES.AUTH_SECURITY,
+        routeClass: ROUTE_CLASSES.AUTHENTICATED_READ,
+        pathPrefixes: ['/api/users'],
+        methodGroup: 'read',
+        userIntent: 'Read the signed-in user own profile, dashboard, rewards, wishlist, and addresses.',
+        abuseRisk: 'Shared-cache replay of user-specific responses to other visitors if classified public.',
+        normalTrafficPattern: 'Authenticated user-driven GET reads of personal account state.',
+        authRequired: true,
+        retryPolicy: NO_AUTOMATIC_RETRY,
+        guardEvidence: 'server/routes/userRoutes.js (protect on every /api/users read)',
+        testCoverage: ['server/tests/cacheResilience.test.js', 'server/tests/trafficPolicyRegistry.test.js'],
+    },
+    {
         id: 'public-api-read',
         componentName: 'Product browsing',
         profile: PROFILES.PUBLIC_BROWSING,
         routeClass: ROUTE_CLASSES.PUBLIC_READ,
-        pathPrefixes: ['/api/users', '/api/security', '/api/markets', '/api/support', '/api/notifications'],
+        pathPrefixes: ['/api/security', '/api/markets', '/api/support', '/api/notifications'],
         methodGroup: 'read',
         userIntent: 'Low-cost public or optionally-authenticated API reads.',
         abuseRisk: 'Repeated reads, cache bypass, and accidental sensitive caching.',

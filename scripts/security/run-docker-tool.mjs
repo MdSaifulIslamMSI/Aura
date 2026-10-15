@@ -186,6 +186,11 @@ const acceptedCheckovFindings = [
     path: '.github/workflows/observability-activation.yml',
     reason: 'probe_only/fire_test_alert booleans gate read-only discovery versus activation; never interpolated into build steps.',
   },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/all-suites.yml',
+    reason: 'include_nightly/include_quality booleans gate which canonical workflows a job delegates to; never interpolated into run steps.',
+  },
 ];
 
 const acceptedTerrascanFindings = [

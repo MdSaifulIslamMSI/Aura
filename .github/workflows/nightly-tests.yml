@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "33 0 * * *" # 00:33 UTC daily — staggered away from every other cron in the repo
   workflow_dispatch:
+  # Reachable from all-suites.yml so a laptop-constrained machine can fan the
+  # full tier fleet out to GitHub-hosted runners in one dispatch.
+  workflow_call:
 
 permissions:
   contents: read

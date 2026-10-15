@@ -714,10 +714,15 @@ const DEFAULT_STATUS_CATALOG = [
     },
 ];
 
+// Group holding the student-pack security harness. Kept as a named constant so
+// the public payload can exclude it by identity instead of by name matching, so
+// renaming the display label cannot silently re-expose it.
+const SECURITY_HARNESS_GROUP_SLUG = 'security-harness';
+
 const STUDENT_PACK_SECURITY_STATUS_CATALOG = [
     {
         name: 'Security Harness',
-        slug: 'security-harness',
+        slug: SECURITY_HARNESS_GROUP_SLUG,
         description: 'Student Pack powered security, observability, email, browser, and AWS sandbox controls.',
         components: [
             {
@@ -1160,7 +1165,20 @@ const getActiveIncidentRows = async () => {
 const buildPublicStatusPayload = async () => {
     const renderStarted = Date.now();
     const dates = buildDateRange(HISTORY_DAYS);
-    const groups = await StatusComponentGroup.find({ isPublic: true }).sort({ order: 1, name: 1 }).lean();
+    // The student-pack security harness is internal tooling (CI vendors,
+    // LocalStack, secret injection), not part of the customer-facing status
+    // page. `shouldExposeStudentPackSecurityHarness` already gates the
+    // `securityHarness` summary out of production; the harness's seeded
+    // components were still reaching the public payload through the generic
+    // `isPublic: true` query below, which is how LocalStack, LambdaTest,
+    // Testmail, Doppler and Datadog CI became publicly enumerable. Apply the
+    // same gate to the group so both paths agree.
+    const exposeSecurityHarness = shouldExposeStudentPackSecurityHarness();
+    const groupQuery = { isPublic: true };
+    if (!exposeSecurityHarness) {
+        groupQuery.slug = { $ne: SECURITY_HARNESS_GROUP_SLUG };
+    }
+    const groups = await StatusComponentGroup.find(groupQuery).sort({ order: 1, name: 1 }).lean();
     const groupIds = groups.map((group) => group._id);
     const components = await StatusComponent.find({
         isPublic: true,
