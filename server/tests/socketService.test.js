@@ -22,6 +22,7 @@ jest.mock('../config/redis', () => ({
 }));
 
 jest.mock('../models/User', () => ({
+    find: jest.fn(),
     findOne: jest.fn(),
     findById: jest.fn(),
 }));
@@ -191,6 +192,13 @@ describe('socketService authentication lifecycle', () => {
             lean: jest.fn().mockResolvedValue(value),
         })),
     });
+    // The socket handshake resolves the account through the shared
+    // preferred-identity resolver, which reads the whole candidate set.
+    const buildFindQuery = (value) => ({
+        select: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(Array.isArray(value) ? value : [value]),
+        })),
+    });
 
     beforeEach(() => {
         jest.useRealTimers();
@@ -198,6 +206,7 @@ describe('socketService authentication lifecycle', () => {
         resetSocketStateForTests();
         firebaseAdmin.__verifyIdToken.mockResolvedValue(decodedToken);
         dpopVerifier.__verifyDpopProof.mockResolvedValue({ success: true, jwk: {} });
+        User.find.mockReturnValue(buildFindQuery(primaryUser));
         User.findOne.mockReturnValue(buildQuery(primaryUser));
         User.findById.mockReturnValue(buildQuery(primaryUser));
         browserSessionService.getGlobalSessionRevokedAfter.mockResolvedValue(0);
@@ -288,7 +297,7 @@ describe('socketService authentication lifecycle', () => {
     });
 
     test('rejects deleted accounts and user-level token revocation', async () => {
-        User.findOne.mockReturnValueOnce(buildQuery({
+        User.find.mockReturnValueOnce(buildFindQuery({
             ...primaryUser,
             softDeleted: true,
         }));
@@ -296,7 +305,7 @@ describe('socketService authentication lifecycle', () => {
             token: 'fresh-firebase-token',
         })).rejects.toMatchObject({ code: 'SOCKET_ACCOUNT_INACTIVE' });
 
-        User.findOne.mockReturnValueOnce(buildQuery({
+        User.find.mockReturnValueOnce(buildFindQuery({
             ...primaryUser,
             authTokensRevokedAfter: new Date((decodedToken.iat * 1000) + 1000),
         }));

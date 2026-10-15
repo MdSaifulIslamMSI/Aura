@@ -196,13 +196,6 @@ const buildProviderAmr = (providerIds = []) => {
     return 'firebase';
 };
 
-const resolveStepUpExpiry = (user = null) => {
-    const expiresAt = user?.loginOtpAssuranceExpiresAt ? new Date(user.loginOtpAssuranceExpiresAt).getTime() : 0;
-    return Number.isFinite(expiresAt) && expiresAt > Date.now()
-        ? new Date(expiresAt).toISOString()
-        : null;
-};
-
 const resolveSyntheticAssurance = ({
     user = null,
     authToken = null,
@@ -222,7 +215,18 @@ const resolveSyntheticAssurance = ({
     if (Boolean(authToken?.firebase?.sign_in_second_factor)) {
         nextAmr.push('firebase_mfa');
     }
-    if (String(user?.authAssurance || '').trim() === 'password+otp') {
+    // `authAssurance === 'password+otp'` is a permanent record of a past
+    // ceremony on the account, not proof that THIS sign-in session performed
+    // one. Project the `otp` amr only while the ceremony's own TTL is live
+    // and the marker is bound to this token's auth_time — the same binding
+    // the payment gate enforces in hasOtpAssurance.
+    const otpAssuranceBound = Boolean(
+        String(user?.authAssurance || '').trim() === 'password+otp'
+        && Number(user?.authAssuranceAuthTime || 0) > 0
+        && Number(authToken?.auth_time || 0) === Number(user.authAssuranceAuthTime)
+        && new Date(user?.loginOtpAssuranceExpiresAt || 0).getTime() > Date.now()
+    );
+    if (otpAssuranceBound) {
         nextAmr.push('otp');
     }
     // A WebAuthn transport identifies the proof mechanism, not whether the
@@ -238,8 +242,11 @@ const resolveSyntheticAssurance = ({
     const normalizedAmr = normalizeAmr(nextAmr).filter((entry) => (
         effectiveDeviceMethod !== 'browser_key' || entry !== 'trusted_device'
     ));
+    // Step-up freshness must attest a ceremony performed by THIS session (or
+    // its direct lineage via previousSession). The user-level OTP login
+    // window (loginOtpAssuranceExpiresAt) is account-scoped and must never
+    // arm step-up on unrelated sessions of the same account.
     const stepUpExpiry = toIsoOrNull(stepUpUntil)
-        || resolveStepUpExpiry(user)
         || toIsoOrNull(previousSession?.stepUpUntil);
     const hasActiveStepUp = Boolean(
         stepUpExpiry && new Date(stepUpExpiry).getTime() > Date.now()
@@ -273,9 +280,20 @@ const resolveSyntheticAssurance = ({
 
 const resolveRiskState = ({ user = null, previousSession = null, riskState = '' } = {}) => {
     const explicitRiskState = normalizeText(riskState).toLowerCase();
+    // Role-based baseline: privileged accounts are permanently risk-elevated.
+    // A login-risk verdict (e.g. 'login_risk_high') may RAISE the effective
+    // risk above the baseline, but must never CLEAR it — otherwise the
+    // elevated-assurance posture depends on which legitimate endpoint minted
+    // the session (sync passes the engine value, exchange applies the
+    // baseline), an attacker-choosable signal.
+    const baseline = isAdminSubject(user)
+        ? 'privileged'
+        : (user?.isSeller ? 'heightened' : '');
+    if (baseline) {
+        if (!explicitRiskState || explicitRiskState === 'standard') return baseline;
+        return explicitRiskState;
+    }
     if (explicitRiskState) return explicitRiskState;
-    if (isAdminSubject(user)) return 'privileged';
-    if (user?.isSeller) return 'heightened';
     return String(previousSession?.riskState || 'standard').trim() || 'standard';
 };
 

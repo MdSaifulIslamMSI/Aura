@@ -127,6 +127,12 @@ class RazorpayProvider {
         });
     }
 
+    // Lists the refunds executed against a payment so retry paths can
+    // reconcile provider state before re-executing an irreversible refund.
+    async fetchRefunds({ paymentId }) {
+        return this.request(`/payments/${paymentId}/refunds`);
+    }
+
     parsePaymentMethod(payment = {}) {
         const method = String(payment.method || '').toLowerCase();
         if (method === 'card') {
