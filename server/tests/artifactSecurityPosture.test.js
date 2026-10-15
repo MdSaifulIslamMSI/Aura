@@ -14,7 +14,18 @@ const GUARD = path.join(REPO_DIR, 'scripts', 'security', 'check-artifact-securit
 // @electron/asar is ESM-only, so the fixture archive is packed by running its
 // bin entry through node directly. The .cmd shim is avoided because the
 // repository path can contain spaces, which break shell-based invocation.
-const ASAR_BIN = path.join(REPO_DIR, 'node_modules', '@electron', 'asar', 'bin', 'asar.mjs');
+//
+// Resolved from THIS package's node_modules, not the repository root. Both CI
+// jobs that run the server test tier (ci.yml backend-regression and
+// quality.yml quality-shard) install server/node_modules only — the tier runner
+// is dependency-free by design and the shards deliberately skip the root
+// install. Pointing at the root made every case in this suite throw
+// "Command failed" before asserting anything, which reddened main and shard 2
+// of the regression matrix while shards 1 and 3 reported success and hid it.
+const ASAR_BIN = path.join(__dirname, '..', 'node_modules', '@electron', 'asar', 'bin', 'asar.mjs');
+// node_modules directory the guard resolves @electron/asar from. Handing it
+// over keeps this suite runnable in jobs that install server deps only.
+const ASAR_MODULE_ROOT = path.join(__dirname, '..', 'node_modules');
 
 const MAIN_BASE = `
 const { app, BrowserWindow, ipcMain } = require('electron');
@@ -126,7 +137,16 @@ const buildFixture = ({
 const runGuard = (archive, distDir, extraArgs = []) => {
     try {
         const stdout = execFileSync(process.execPath, [GUARD, ...extraArgs], {
-            env: { ...process.env, ARTIFACT_POSTURE_ASAR: archive, ARTIFACT_POSTURE_DIST: distDir },
+            env: {
+                ...process.env,
+                ARTIFACT_POSTURE_ASAR: archive,
+                ARTIFACT_POSTURE_DIST: distDir,
+                // The guard resolves @electron/asar from its own tree, which is
+                // the repository root. Hand it the node_modules directory this
+                // package installed so the suite runs in jobs that install
+                // server dependencies only.
+                ARTIFACT_POSTURE_ASAR_MODULE: ASAR_MODULE_ROOT,
+            },
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'pipe'],
         });
