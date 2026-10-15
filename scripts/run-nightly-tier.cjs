@@ -84,7 +84,26 @@ const runJest = (files, runInBand) => {
         fail(`Failed to spawn jest: ${result.error.message}`);
     }
     if (!fs.existsSync(outputFile)) {
-        return { output: null, failedSuites: files.slice() };
+        // jest never wrote its results file, so the run died before any suite
+        // reported: a FATAL throw during module load, an OOM kill, a missing
+        // binary. That is NOT evidence that every suite in the shard failed.
+        //
+        // Returning the whole file list as `failedSuites` reported one crash as
+        // N test failures. Observed in production: a shard reported 43 of 43
+        // suites failing across unrelated domains (account, auth, payments,
+        // uploads) while every one of them passed locally, and the real cause
+        // - "FATAL: Firebase Admin credentials are missing in production" -
+        // appeared in the log 51ms earlier. Triage chased 43 healthy suites
+        // instead of one missing credential.
+        //
+        // Fail loudly and accurately instead: no report is written, so no
+        // consumer can mistake a crashed run for a failing suite.
+        fail(
+            `Jest produced no results file (exit ${result.status}); ${files.length} `
+            + 'suite(s) were never executed. This is a crashed run, not a suite '
+            + 'failure - read the log above for the FATAL or out-of-memory kill '
+            + 'that stopped it.'
+        );
     }
     let output;
     try {
