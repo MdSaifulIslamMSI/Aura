@@ -65,6 +65,18 @@ describe('Vercel Deployment Storage', () => {
         expect(source).toContain('!protectedIds.has(deployment.uid)');
     });
 
+    it('can audit every team project, not just the two it deploys to', async () => {
+        const source = await readRepoFile('scripts/vercel/prune-deployments.mjs');
+
+        // Deployment Storage is a team-wide cap, so orphaned projects bill
+        // against it too. The audit mode is what surfaced 18 such projects on
+        // the first run, when the two active projects held only 15
+        // deployments between them and nothing was deletable.
+        expect(source).toContain("flag('audit')");
+        expect(source).toContain('Retained deployments per project');
+        expect(source).toContain('not in the default prune list');
+    });
+
     it('reports rather than deletes on the scheduled run', async () => {
         const source = await readRepoFile('.github/workflows/vercel-storage-prune.yml');
 

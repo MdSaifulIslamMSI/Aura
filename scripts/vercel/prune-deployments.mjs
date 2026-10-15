@@ -134,17 +134,46 @@ const describe = (deployment) => {
 
 const run = async () => {
     const teamProjects = await listTeamProjects().catch(() => []);
-    if (teamProjects.length > 0) {
-        log('Projects visible in this team:');
-        teamProjects.forEach((name) => log(`  - ${name}`));
-        const known = new Set(PROJECTS.map((project) => project.name));
-        const unhandled = teamProjects.filter((name) => !known.has(name));
+    const known = new Set(PROJECTS.map((project) => project.name));
+    const unhandled = teamProjects.filter((name) => !known.has(name));
+
+    // The cap is team-wide, so a project nobody deploys to any more still bills
+    // against it. Rank every project by retained deployments and surface the
+    // orphans explicitly instead of leaving the reclaim to a dashboard visit.
+    if (flag('audit')) {
+        log(`Auditing ${teamProjects.length} project(s) for retained deployments...`);
+        const rows = [];
+        for (const name of teamProjects) {
+            try {
+                const projectId = await resolveProjectId(name);
+                const deployments = await listDeployments(projectId);
+                rows.push({ count: deployments.length, name });
+            } catch (error) {
+                rows.push({ count: -1, name, error: error.message });
+            }
+        }
+        rows.sort((left, right) => right.count - left.count);
+        log('');
+        log('Retained deployments per project:');
+        rows.forEach((row) => {
+            const marker = known.has(row.name) ? ' ' : '*';
+            log(`  ${marker} ${String(row.count).padStart(5)}  ${row.name}`);
+        });
+        log('  (* = not in the default prune list)');
+        log('');
+        log(`Projects outside the default prune list: ${unhandled.length}`);
         if (unhandled.length > 0) {
-            log('');
-            log(`Note: ${unhandled.length} project(s) are not covered by the default prune list.`);
-            log('They still count against the team-wide cap. Consider deleting them in the dashboard:');
+            log('Delete these in the Vercel dashboard when they are no longer needed:');
             unhandled.forEach((name) => log(`  - ${name}`));
         }
+        return;
+    }
+
+    if (unhandled.length > 0) {
+        log(`Note: ${unhandled.length} project(s) are not covered by the default prune list.`);
+        log('They still count against the team-wide cap. Run with --audit to rank');
+        log('them by retained deployments, or delete them in the dashboard:');
+        unhandled.forEach((name) => log(`  - ${name}`));
         log('');
     }
 
