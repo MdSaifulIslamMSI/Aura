@@ -152,6 +152,52 @@ describe('authProfileVault ciphertext format', () => {
         expect(profile.name).toBe('Legacy Name');
     });
 
+    test('retires a v1-format record on read even when its keyVersion already matches', async () => {
+        // Regression: rotation used to be keyed only on `keyVersion`, which
+        // defaults to 'v1' on both the record and CURRENT_KEY_VERSION. A v1
+        // ciphertext (scrypt N=2^14) therefore looked "current" and was never
+        // rekeyed, pinning it at the under-provisioned cost forever.
+        makeVaultEnv('format-stale-rotation');
+        process.env.AUTH_VAULT_SECRET = '0123456789abcdef0123456789abcdef'; // nosemgrep: generic.secrets.security.security.detected-generic-secret -- deterministic test-only vault key
+        process.env.AUTH_VAULT_SECRET_VERSION = 'v1';
+
+        const crypto = require('crypto');
+        const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail, resolveVaultFile } = loadVaultService();
+        await saveAuthProfileSnapshot({ email: 'placeholder@example.com', name: 'Placeholder', phone: '' });
+
+        // v1 format: 5 parts, scrypt at Node's default N=16384. The key must be
+        // derived from the SAME salt that goes into the ciphertext header.
+        const salt = crypto.randomBytes(16);
+        const key = crypto.scryptSync(process.env.AUTH_VAULT_SECRET, salt, 32);
+        const iv = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
+        let ct = cipher.update('Stale Name', 'utf8', 'hex');
+        ct += cipher.final('hex');
+        const staleCiphertext = `v1:${salt.toString('hex')}:${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${ct}`;
+
+        const vaultFile = resolveVaultFile();
+        const rawVault = JSON.parse(await fs.readFile(vaultFile, 'utf8'));
+        rawVault['stale@example.com'] = {
+            ...rawVault['placeholder@example.com'],
+            email: staleCiphertext,
+            name: staleCiphertext,
+            keyVersion: 'v1', // matches CURRENT_KEY_VERSION
+        };
+        await fs.writeFile(vaultFile, JSON.stringify(rawVault), 'utf8');
+
+        const profile = await getAuthProfileSnapshotByEmail('stale@example.com');
+        expect(profile).toBeTruthy();
+        expect(profile.name).toBe('Stale Name');
+
+        // The record must have been rewritten in the current v2 format on read.
+        const afterRead = JSON.parse(await fs.readFile(vaultFile, 'utf8'));
+        expect(afterRead['stale@example.com'].name.split(':')[0]).toBe('v2');
+
+        // And the rotated record must still be readable.
+        const reread = await getAuthProfileSnapshotByEmail('stale@example.com');
+        expect(reread.name).toBe('Stale Name');
+    }, SCRYPT_TEST_TIMEOUT_MS);
+
     test('never falls back to plaintext when encryption fails', async () => {
         makeVaultEnv('format-fail-closed');
         process.env.AUTH_VAULT_SECRET = '0123456789abcdef0123456789abcdef'; // nosemgrep: generic.secrets.security.detected-generic-secret.detected-generic-secret -- deterministic test-only vault key

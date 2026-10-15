@@ -29,6 +29,54 @@ describe('TLS config readiness checker', () => {
         expect(report.checks.some((entry) => entry.status === 'skipped')).toBe(true);
     });
 
+    test('fails a CDN edge config pinned below TLS 1.3', () => {
+        // Regression: the CloudFront distribution sat at MinimumProtocolVersion
+        // TLSv1.2_2021 while the policy asserted TLS 1.3. It went unnoticed
+        // because the checker only scanned infra/** templates and classified a
+        // CDN config as "not terminating", skipping the minimum check entirely.
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tls-cdn-config-'));
+        const badCdnConfig = path.join(tempDir, 'edge.json');
+        fs.writeFileSync(badCdnConfig, JSON.stringify({
+            ViewerCertificate: {
+                CloudFrontDefaultCertificate: true,
+                MinimumProtocolVersion: 'TLSv1.2_2021',
+            },
+        }, null, 2));
+        const reportDir = path.join(tempDir, 'reports');
+        const result = runScript(['--config', badCdnConfig, '--report-dir', reportDir, '--json', '--markdown']);
+
+        expect(result.status).toBe(1);
+        const report = JSON.parse(fs.readFileSync(path.join(reportDir, 'tls-config-readiness.json'), 'utf8'));
+        expect(report.checks).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: expect.stringContaining('tls.minimum'),
+                status: 'fail',
+                summary: expect.stringContaining('TLS 1.3 minimum'),
+            }),
+        ]));
+    });
+
+    test('passes a CDN edge config pinned to TLS 1.3', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tls-cdn-good-'));
+        const goodCdnConfig = path.join(tempDir, 'edge.json');
+        fs.writeFileSync(goodCdnConfig, JSON.stringify({
+            ViewerCertificate: {
+                CloudFrontDefaultCertificate: true,
+                MinimumProtocolVersion: 'TLSv1.3_2021',
+            },
+        }, null, 2));
+        const reportDir = path.join(tempDir, 'reports');
+        const result = runScript(['--config', goodCdnConfig, '--report-dir', reportDir, '--json', '--markdown']);
+
+        const report = JSON.parse(fs.readFileSync(path.join(reportDir, 'tls-config-readiness.json'), 'utf8'));
+        expect(report.checks).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: expect.stringContaining('tls.minimum'),
+                status: 'pass',
+            }),
+        ]));
+    });
+
     test('fails configs that enable legacy TLS or SSL protocol tokens', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tls-bad-config-'));
         const badConfig = path.join(tempDir, 'bad.conf');

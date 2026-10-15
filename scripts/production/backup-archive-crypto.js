@@ -10,10 +10,11 @@
 //   WRAPPED_B64 - base64 KMS-wrapped key (CiphertextBlob), stored in the header
 //               so restores can ask KMS to unwrap it. Optional in master-key mode.
 //   AURA_BACKUP_ENCRYPTION_MASTER_KEY - dev/test-only alternative: DEK derived
-//               via scrypt with a per-file salt (never use in production).
+//               via scrypt with a per-file random salt recorded in the header
+//               (never use in production; prefer DEK_B64 from KMS).
 //
 // File format: header JSON line '\n' | AES-256-GCM ciphertext | 16-byte raw tag
-//   header = {"v":1,"alg":"aes-256-gcm","kdf"?:{"salt":"b64"},"wrapped"?:<b64>}
+//   header = {"v":1,"alg":"aes-256-gcm","kdf"?:{...},"wrapped"?:<b64>}
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -21,6 +22,19 @@ const fs = require('fs');
 const TAG_LENGTH = 16;
 const MAGIC_HEADER = 'AURA-BACKUP-ENC-V1';
 const MASTER_KEY_MIN_LENGTH = 32;
+
+// scrypt cost for the local master-key mode.
+//
+// Node's `scryptSync` defaults to N=16384 (2^14), which is 128x below the work
+// factor this repo pins in server/services/authProfileVault.js for its own vault
+// KDF. Relying on the default silently under-provisions cost, so the parameters
+// are pinned explicitly here. They are part of the archive format: v1 archives
+// carry no params field and were written with Node's defaults, so that
+// derivation is frozen for reading only (see deriveDekFromMasterKeyLegacy).
+const SCRYPT_PARAMS = { N: 131072, r: 8, p: 1 };
+// 128 * N * r = 128 MiB at N=2^17; Node's default maxmem (32 MiB) rejects it.
+const SCRYPT_MAXMEM_BYTES = 192 * 1024 * 1024;
+const SALT_BYTES = 16;
 
 const fail = (message) => {
     process.stderr.write(`backup-archive-crypto: ${message}\n`);
@@ -49,13 +63,30 @@ const readHeaderFromFd = (fd) => {
     };
 };
 
-const deriveDekFromMasterKey = () => {
+const readMasterKey = () => {
     const master = process.env.AURA_BACKUP_ENCRYPTION_MASTER_KEY || '';
     if (master.length < MASTER_KEY_MIN_LENGTH) {
         fail('AURA_BACKUP_ENCRYPTION_MASTER_KEY must be at least 32 characters');
     }
-    return crypto.scryptSync(master, 'aura-backup-archive-kdf', 32);
+    return master;
 };
+
+// Current derivation: pinned cost, per-archive random salt.
+const deriveDekFromMasterKey = (salt) => crypto.scryptSync(
+    readMasterKey(),
+    salt,
+    32,
+    { N: SCRYPT_PARAMS.N, r: SCRYPT_PARAMS.r, p: SCRYPT_PARAMS.p, maxmem: SCRYPT_MAXMEM_BYTES }
+);
+
+// Frozen: reproduces the original derivation exactly so v1 archives still
+// decrypt. Those headers record no salt and were written with a hardcoded salt
+// and Node's DEFAULT cost (N=16384). Never used for new archives.
+const deriveDekFromMasterKeyLegacy = () => crypto.scryptSync(
+    readMasterKey(),
+    'aura-backup-archive-kdf',
+    32
+);
 
 const commandEncrypt = (inputPath, outputPath) => {
     let dek;
@@ -65,8 +96,18 @@ const commandEncrypt = (inputPath, outputPath) => {
         if (dek.length !== 32) fail('DEK_B64 must decode to 32 bytes');
         if (process.env.WRAPPED_B64) header.wrapped = process.env.WRAPPED_B64;
     } else if (process.env.AURA_BACKUP_ENCRYPTION_MASTER_KEY) {
-        dek = deriveDekFromMasterKey();
-        header.kdf = { mode: 'scrypt' };
+        // Fresh salt per archive: two archives of the same database under the
+        // same master key must not share a DEK, and the GCM auth tag becomes a
+        // per-file oracle only for a DEK derived from this archive's own salt.
+        const salt = crypto.randomBytes(SALT_BYTES);
+        dek = deriveDekFromMasterKey(salt);
+        header.kdf = {
+            mode: 'scrypt',
+            salt: salt.toString('base64'),
+            N: SCRYPT_PARAMS.N,
+            r: SCRYPT_PARAMS.r,
+            p: SCRYPT_PARAMS.p,
+        };
     } else {
         fail('encryption requires DEK_B64 (KMS envelope) or AURA_BACKUP_ENCRYPTION_MASTER_KEY');
     }
@@ -117,7 +158,19 @@ const commandDecrypt = (inputPath, outputPath) => {
 
     let dek;
     if (header.kdf?.mode === 'scrypt') {
-        dek = deriveDekFromMasterKey();
+        const saltB64 = String(header.kdf.salt || '');
+        if (!saltB64) {
+            // v1 archive: no salt recorded. Reproduce the original frozen
+            // derivation (hardcoded salt, Node default cost) to read it.
+            dek = deriveDekFromMasterKeyLegacy();
+        } else {
+            const salt = Buffer.from(saltB64, 'base64');
+            if (salt.length !== SALT_BYTES) {
+                fs.closeSync(fd);
+                return fail('corrupt header: kdf salt must be 16 bytes');
+            }
+            dek = deriveDekFromMasterKey(salt);
+        }
     } else {
         if (!process.env.DEK_B64) {
             fs.closeSync(fd);

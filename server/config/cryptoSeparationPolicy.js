@@ -59,6 +59,16 @@ const DEDICATED_SECRETS = Object.freeze([
         label: 'TOTP secret encryption',
         fallbacks: [],
     },
+    {
+        // Pseudonymous identifiers in request/security logs. Without this the
+        // module falls back to a per-process random key, which silently gives
+        // the same user a different pseudonym in every instance and every
+        // restart — breaking cross-instance abuse correlation and fraud triage
+        // with no error anywhere.
+        variable: 'OBSERVABILITY_HASH_SECRET',
+        label: 'observability log pseudonymisation',
+        fallbacks: ['SESSION_HASH_SECRET', 'SESSION_SECRET'],
+    },
 ]);
 
 /**

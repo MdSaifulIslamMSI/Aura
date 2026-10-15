@@ -1,0 +1,151 @@
+{
+  "registryVersion": 1,
+  "purpose": "Single authoritative inventory of every cryptographic format in the repository and its lifecycle state. Every key-derivation and cipher format must appear here. A format that reaches production without an entry is a CI failure (scripts/security/crypto-format-audit.mjs), because unregistered legacy crypto is how under-provisioned KDFs become permanent.",
+  "lifecycle": {
+    "ACTIVE": "Current format. New ciphertext must be written in this format.",
+    "LEGACY_READ": "Frozen derivation kept solely to decrypt existing ciphertext. MUST NOT be used for new writes. Requires retireAfter + migrationTrigger.",
+    "RETIRED": "Migration complete; the read path has been deleted. Entry kept as a tombstone so the format is never silently reintroduced."
+  },
+  "formats": [
+    {
+      "id": "kdf.hkdf-sha256",
+      "purpose": "Purpose-bound subkey derivation for every high-entropy secret in the app",
+      "status": "ACTIVE",
+      "kdf": "HKDF-SHA256 (RFC 5869)",
+      "params": { "salt": "aura.kdf.v1", "info": "per-purpose frozen context", "bytes": 32 },
+      "implementation": "server/utils/cryptoKdf.js",
+      "notes": "Contexts are frozen once shipped. Add a NEW context and a NEW ciphertext version rather than editing an existing one."
+    },
+    {
+      "id": "cipher.aes-256-gcm.field-encryption",
+      "purpose": "Sensitive field encryption at rest (AWS KMS envelope encryption)",
+      "status": "ACTIVE",
+      "kdf": "kms.generateDataKey + hkdf-sha256 (local dev only)",
+      "cipher": "AES-256-GCM",
+      "params": { "iv": "12 random bytes per record", "tag": "16 bytes", "format": "v1.<keyVersion>.<iv>.<tag>.<ct>" },
+      "implementation": "server/services/fieldEncryptionService.js"
+    },
+    {
+      "id": "kdf.scrypt.auth-profile-vault.v2",
+      "purpose": "Auth profile vault key derivation",
+      "status": "ACTIVE",
+      "kdf": "scrypt",
+      "params": { "N": 131072, "r": 8, "p": 1, "maxmem": 201326592, "salt": "16 random bytes per record" },
+      "implementation": "server/services/authProfileVault.js"
+    },
+    {
+      "id": "kdf.scrypt.backup-archive.v2",
+      "purpose": "Local master-key mode DEK derivation for backup archives (dev/test only; production uses KMS envelope)",
+      "status": "ACTIVE",
+      "kdf": "scrypt",
+      "params": { "N": 131072, "r": 8, "p": 1, "maxmem": 201326592, "salt": "16 random bytes per archive, recorded in header.kdf.salt" },
+      "implementation": "scripts/production/backup-archive-crypto.js",
+      "notes": "Per-archive salt and pinned cost. Two archives of the same database under one master key must derive different DEKs."
+    },
+    {
+      "id": "kdf.scrypt.auth-profile-vault.v1",
+      "purpose": "Auth profile vault records written before per-record salts were pinned",
+      "status": "LEGACY_READ",
+      "kdf": "scrypt",
+      "params": { "N": 16384, "r": 8, "p": 1, "salt": "16 random bytes per record" },
+      "implementation": "server/services/authProfileVault.js",
+      "evidence": "server/services/authProfileVault.js",
+      "retireAfter": "2027-06-30",
+      "migrationTrigger": "rekey-on-read in getAuthProfileSnapshotByEmail: any record whose ciphertext format is not 'v2' is rewritten in v2 format on successful decrypt (staleFormat check).",
+      "notes": "Retires automatically as records are read. N=2^14 is 128x below the current work factor."
+    },
+    {
+      "id": "kdf.scrypt.auth-profile-vault.legacy-fixed-salt",
+      "purpose": "Auth profile vault records written before per-record salts existed at all",
+      "status": "LEGACY_READ",
+      "kdf": "scrypt",
+      "params": { "N": 16384, "r": 8, "p": 1, "salt": "aura-salt (FIXED)" },
+      "implementation": "server/services/authProfileVault.js",
+      "evidence": "server/services/authProfileVault.js",
+      "retireAfter": "2027-06-30",
+      "migrationTrigger": "rekey-on-read in getAuthProfileSnapshotByEmail: the 3-part format reports formatVersion 'legacy', which fails the staleFormat check and is rewritten as v2 on read.",
+      "notes": "Fixed salt means every deployment sharing AUTH_VAULT_SECRET derived one identical key."
+    },
+    {
+      "id": "kdf.scrypt.trusted-device-token.v1",
+      "purpose": "Trusted-device challenge tokens sealed before the HKDF migration",
+      "status": "LEGACY_READ",
+      "kdf": "scrypt",
+      "params": { "N": 16384, "r": 8, "p": 1, "salt": "aura-trusted-device-token (FIXED)" },
+      "implementation": "server/services/trustedDeviceChallengeService.js",
+      "evidence": "server/services/trustedDeviceChallengeService.js",
+      "retireAfter": "2027-03-31",
+      "migrationTrigger": "decryptPayload tries HKDF first and falls back to this derivation. Tokens are single-use and short-TTL, so this path becomes unreachable once no sealed challenge outlives one deploy cycle.",
+      "notes": "Delete deriveLegacyTokenKey once the maximum challenge TTL has elapsed with no fallback hits."
+    },
+    {
+      "id": "kdf.scrypt.backup-archive.v1",
+      "purpose": "Backup archives encrypted before the per-archive salt was added",
+      "status": "LEGACY_READ",
+      "kdf": "scrypt",
+      "params": { "N": 16384, "r": 8, "p": 1, "salt": "aura-backup-archive-kdf (FIXED)" },
+      "implementation": "scripts/production/backup-archive-crypto.js",
+      "evidence": "scripts/production/backup-archive-crypto.js",
+      "retireAfter": "2027-12-31",
+      "migrationTrigger": "commandDecrypt falls back to the frozen derivation only when header.kdf.salt is absent. Retire by re-encrypting retained archives, or when the backup retention window guarantees no v1 archive can still be restored.",
+      "notes": "Bound by backup retention, not by deploys — a v1 archive may sit in S3 for its full retention period."
+    },
+    {
+      "id": "kdf.scrypt.field-encryption.local-legacy",
+      "purpose": "Local-master-key field encryption records written before the HKDF migration",
+      "status": "LEGACY_READ",
+      "kdf": "scrypt",
+      "params": { "N": 16384, "r": 8, "p": 1, "salt": "aura-field-encryption-kdf (FIXED)" },
+      "implementation": "server/services/fieldEncryptionService.js",
+      "evidence": "server/services/fieldEncryptionService.js",
+      "retireAfter": "2027-06-30",
+      "migrationTrigger": "Unreachable in production: assertEnablementContract throws when FIELD_ENCRYPTION_MASTER_KEY is set while NODE_ENV=production. Retire by deleting normalizeLegacyKeyMaterial once no non-production deployment holds v1 local ciphertext.",
+      "notes": "Production-gated dead path. Kept only so local/dev v1 ciphertext still decrypts."
+    },
+    {
+      "id": "kdf.sha256.otp-flow-token.legacy",
+      "purpose": "OTP flow tokens issued before the HKDF migration",
+      "status": "LEGACY_READ",
+      "kdf": "single-round SHA-256 (no extract step, no salt, no work factor)",
+      "params": { "construction": "sha256(<secret> + ':aura-otp-flow-token')" },
+      "implementation": "server/utils/otpFlowToken.js",
+      "evidence": "server/utils/otpFlowToken.js",
+      "retireAfter": "2026-12-31",
+      "migrationTrigger": "decryptPayload tries HKDF first and falls back to this derivation. Tokens live 5 minutes, so this is already unreachable for any token issued after the migration deployed. Delete once one TTL has elapsed in every environment.",
+      "notes": "The version tag OTP_FLOW_TOKEN_VERSION is still 'v1' but is a label, not a key selector; new tokens are encrypted with HKDF via deriveEncryptionKey."
+    },
+    {
+      "id": "hmac.recovery-code.legacy",
+      "purpose": "Recovery code hashes stored before the HKDF domain separation was added",
+      "status": "LEGACY_READ",
+      "kdf": "HMAC-SHA256 keyed directly by the secret, with no HKDF domain separation",
+      "params": { "construction": "hmac-sha256(secret, code)" },
+      "implementation": "server/services/authRecoveryCodeService.js",
+      "evidence": "server/services/authRecoveryCodeService.js",
+      "retireAfter": "2027-06-30",
+      "migrationTrigger": "recoveryCodeHashCandidates verifies against both forms, newest first. Retire by rewriting stored hashes to the v2 form on successful verification, or when no un-migrated recovery codes remain.",
+      "notes": "Lacks domain separation, so the same secret+code pair is indistinguishable across purposes that reuse the secret."
+    },
+    {
+      "id": "kdf.sha256.mfa-totp.legacy",
+      "purpose": "TOTP secrets encrypted before the HKDF domain separation was added",
+      "status": "LEGACY_READ",
+      "kdf": "single-round SHA-256",
+      "params": { "construction": "sha256(MFA_SECRET_ENCRYPTION_KEY)" },
+      "implementation": "server/config/mfaConfig.js",
+      "evidence": "server/config/mfaConfig.js",
+      "retireAfter": "2027-06-30",
+      "migrationTrigger": "reencryptTotpSecretIfNeeded in server/services/totpMfaService.js upgrades a v1 secret to the HKDF derivation on successful verification.",
+      "notes": "Dictionary-attackable against a captured v1 ciphertext if MFA_SECRET_ENCRYPTION_KEY is operator-chosen rather than generated."
+    },
+    {
+      "id": "blind-index.v1",
+      "purpose": "Phone/email blind indexes under the original contexts",
+      "status": "RETIRED",
+      "kdf": "HKDF-SHA256",
+      "implementation": "server/services/blindIndexService.js",
+      "evidence": "server/services/blindIndexService.js",
+      "notes": "Migration documented COMPLETE through step 4. Verified: every request-path caller imports only the *V2 variants. The v1 compute functions survive only in server/scripts/backfill-blind-indexes.js (migration verification), server/scripts/backfill-field-encryption.js (backfill), and tests. Tombstone: do not reintroduce into a request path."
+    }
+  ]
+}

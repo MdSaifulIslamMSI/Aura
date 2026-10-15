@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const { deriveAes256GcmKey } = require('../utils/cryptoKdf');
 const { getRedisClient, flags: redisFlags, isRedisRequired } = require('../config/redis');
 const logger = require('../utils/logger');
 const {
@@ -31,7 +32,13 @@ const DEVICE_SESSION_REPROOF_WINDOW_MS = Math.min(
     Math.floor(DEVICE_SESSION_TTL_MS / 2)
 );
 
+// Frozen: reproduces the pre-HKDF token key exactly so challenges sealed before
+// the migration still verify. Hardcoded salt, Node's DEFAULT scrypt cost
+// (N=16384) — do not reuse for new ciphertext.
 const TOKEN_KEY_DERIVATION_SALT = 'aura-trusted-device-token';
+// Frozen context string. Part of the token format; add a NEW context rather
+// than editing this one (see server/utils/cryptoKdf.js FREEZING RULE).
+const TOKEN_KEY_HKDF_CONTEXT = 'trusted-device.token.payload';
 const BROWSER_KEY_METHOD = 'browser_key';
 const TRUSTED_DEVICE_CREDENTIAL_SCOPES = Object.freeze(['recognition', 'mfa', 'admin']);
 const TRUSTED_DEVICE_ENROLLMENT_CONTEXTS = Object.freeze([
@@ -211,7 +218,18 @@ const sessionBindingMatches = (payloadBinding = '', authContext = {}) => {
         || normalizedPayloadBinding === buildSessionBinding(authContext);
 };
 
-const deriveTokenKey = (secret) => crypto.scryptSync(String(secret || ''), TOKEN_KEY_DERIVATION_SALT, 32);
+// HKDF with a purpose-bound context. The previous derivation was a single scrypt
+// round over a hardcoded salt at Node's default cost, which meant identical
+// secrets derived identical keys across deployments and left the key pinned to
+// an under-provisioned work factor.
+const deriveTokenKey = (secret) => deriveAes256GcmKey({
+    secret: String(secret || ''),
+    context: TOKEN_KEY_HKDF_CONTEXT,
+});
+
+// Frozen legacy derivation, read-only. A wrong key fails the GCM auth tag
+// rather than returning garbage, so trying this after HKDF is safe.
+const deriveLegacyTokenKey = (secret) => crypto.scryptSync(String(secret || ''), TOKEN_KEY_DERIVATION_SALT, 32);
 
 const encryptPayload = (payload, secret) => {
     const iv = crypto.randomBytes(12);
@@ -222,15 +240,24 @@ const encryptPayload = (payload, secret) => {
     return Buffer.concat([iv, tag, ciphertext]).toString('base64url');
 };
 
-const decryptPayload = (encodedToken, secret) => {
+const decryptPayloadWithKey = (encodedToken, key) => {
     const buffer = Buffer.from(String(encodedToken || ''), 'base64url');
     const iv = buffer.subarray(0, 12);
     const tag = buffer.subarray(12, 28);
     const ciphertext = buffer.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', deriveTokenKey(secret), iv, { authTagLength: 16 });
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(plaintext.toString('utf8'));
+};
+
+const decryptPayload = (encodedToken, secret) => {
+    try {
+        return decryptPayloadWithKey(encodedToken, deriveTokenKey(secret));
+    } catch {
+        // Fall through to the frozen pre-HKDF derivation.
+    }
+    return decryptPayloadWithKey(encodedToken, deriveLegacyTokenKey(secret));
 };
 
 const parseTokenEnvelope = (token) => {
