@@ -1,11 +1,21 @@
 const crypto = require('crypto');
 const { isProduction } = require('./cryptoKdf');
 
-// Fallback key for non-production only. In production a per-process random key
-// would give the same user a different pseudonym on every instance and every
-// restart, silently breaking abuse investigation across the fleet. Production
-// therefore fails closed below instead.
+// Fallback key, used only when no secret is configured. Pseudonyms stay stable
+// within a process (so one request's log lines still correlate) but are
+// worthless across restarts and across instances, which is exactly what breaks
+// cross-instance abuse investigation.
+//
+// This module deliberately does NOT throw on a missing key. hashLogIdentifier
+// runs on every request log, so throwing here turns a startup-time configuration
+// error into a runtime crash across the entire request path — and it fires in any
+// environment where NODE_ENV=production but the startup gate did not run (a
+// single-purpose CI job, a one-off script, a test tier). Production fail-closed
+// is enforced where it belongs: assertCryptoSeparationConfig refuses to boot
+// without OBSERVABILITY_HASH_SECRET, because it is listed in DEDICATED_SECRETS.
+// Here we warn loudly once, so a degraded environment is never silent.
 const processLogSalt = crypto.randomBytes(32);
+let missingKeyWarned = false;
 const MONGO_ID = /^[0-9a-f]{24}$/i;
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -17,10 +27,15 @@ const getHashKey = () => {
         || ''
     ).trim();
     if (configured) return configured;
-    if (isProduction()) {
-        throw new Error(
-            'OBSERVABILITY_HASH_SECRET is required in production; a per-process fallback key '
-            + 'would pseudonymise log identifiers inconsistently across instances and restarts'
+    if (!missingKeyWarned) {
+        missingKeyWarned = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+            isProduction()
+                ? '[observability] OBSERVABILITY_HASH_SECRET is not configured; using an ephemeral per-process key. '
+                    + 'Log pseudonyms will not correlate across instances or restarts. Production boot normally refuses to start without this secret.'
+                : '[observability] OBSERVABILITY_HASH_SECRET is not configured; using an ephemeral per-process key. '
+                    + 'Log pseudonyms will not be stable across restarts.'
         );
     }
     return processLogSalt;

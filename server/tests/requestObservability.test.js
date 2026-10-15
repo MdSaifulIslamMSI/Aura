@@ -6,11 +6,17 @@ const {
 } = require('../utils/requestObservability');
 
 describe('requestObservability', () => {
-    test('refuses to pseudonymise with a per-process key in production', () => {
-        // Regression: the fallback key was a per-process random salt with no
-        // production guard, so the same user got a different pseudonym in every
-        // instance and after every restart — breaking cross-instance abuse
-        // correlation silently. Production must fail closed instead.
+    test('warns once instead of throwing when no key is configured in production', () => {
+        // The fallback key is a per-process random salt, so the same user gets a
+        // different pseudonym in every instance and after every restart, which
+        // breaks cross-instance abuse correlation. That must never be SILENT, so
+        // this warns once.
+        //
+        // It must also not throw. hashLogIdentifier runs on every request log, so
+        // throwing here turned a startup configuration error into a runtime crash
+        // across the whole request path — and it fired in CI jobs that set
+        // NODE_ENV=production without running the startup gate. Production
+        // fail-closed lives in assertCryptoSeparationConfig, not in here.
         const originalNodeEnv = process.env.NODE_ENV;
         const originalObservability = process.env.OBSERVABILITY_HASH_SECRET;
         const originalSessionHash = process.env.SESSION_HASH_SECRET;
@@ -21,16 +27,32 @@ describe('requestObservability', () => {
         delete process.env.SESSION_HASH_SECRET;
         delete process.env.SESSION_SECRET;
 
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
         try {
-            // Re-require so the module reads the mutated environment.
             jest.resetModules();
             const prod = require('../utils/requestObservability');
-            expect(() => prod.buildPrivacySafeRequestLogContext({
+
+            // Must not throw even in production.
+            const context = prod.buildPrivacySafeRequestLogContext({
                 method: 'GET',
                 originalUrl: '/api/orders',
                 ip: '203.0.113.42',
-            })).toThrow(/OBSERVABILITY_HASH_SECRET/);
+            });
+            expect(context.ipRef).toMatch(/^ip_[a-f0-9]{16}$/);
+
+            // Warns exactly once, and the warning names the missing secret.
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(warn.mock.calls[0][0]).toMatch(/OBSERVABILITY_HASH_SECRET/);
+
+            // Still usable on a second call (no repeat warning, no throw).
+            const second = prod.buildPrivacySafeRequestLogContext({
+                method: 'GET', originalUrl: '/api/orders', ip: '203.0.113.42',
+            });
+            expect(second.ipRef).toBe(context.ipRef);
+            expect(warn).toHaveBeenCalledTimes(1);
         } finally {
+            warn.mockRestore();
             process.env.NODE_ENV = originalNodeEnv;
             if (originalObservability === undefined) delete process.env.OBSERVABILITY_HASH_SECRET;
             else process.env.OBSERVABILITY_HASH_SECRET = originalObservability;
