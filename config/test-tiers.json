@@ -450,6 +450,7 @@
       "tests/studentPackSecurityHarnessService.test.js",
       "tests/supportVideoService.test.js",
       "tests/tlsConfigReadiness.test.js",
+      "tests/tlsPostureProbe.test.js",
       "tests/trafficBudgetPolicy.test.js",
       "tests/trafficResilienceMatrix.test.js",
       "tests/trafficResiliencePolicy.test.js",

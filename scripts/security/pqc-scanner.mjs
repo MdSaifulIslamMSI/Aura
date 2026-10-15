@@ -87,6 +87,10 @@ const EXCLUDED_POLICY_FILES = new Set([
   'scripts/security/pqc-policy-check.mjs',
   'scripts/security/pqc-provider-register-check.mjs',
   'scripts/security/pqc-readiness-utils.mjs',
+  // Detects legacy TLS rather than configuring it. It must name TLSv1/TLSv1.1
+  // literally to probe for them, so the token rules would otherwise flag the
+  // detector as the defect. Same exclusion rationale as the other scanners.
+  'scripts/security/tls-posture-probe.cjs',
   'scripts/security/pqc-scanner.mjs',
   'scripts/security/release-signing-readiness-check.mjs',
   'scripts/security/tls-config-readiness.mjs',
