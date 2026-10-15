@@ -485,4 +485,32 @@ describe('payment webhook security', () => {
         await expectDocumentUnchanged(PaymentIntent, intent._id, afterFirstIntent);
         await expect(PaymentEvent.countDocuments({ eventId: 'evt_replay_guard' })).resolves.toBe(1);
     });
+
+    test('razorpay deliveries without an event id dedupe on the payload hash', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_payload_dedupe',
+            amount: 1999,
+        });
+        // Real Razorpay envelopes carry no top-level event id; the dedupe key
+        // must still be stable so a byte-identical redelivery is recognized.
+        const event = createFakeWebhookEvent({
+            eventId: 'evt_payload_dedupe',
+            providerOrderId: intent.providerOrderId,
+            amount: intent.amount,
+        });
+        delete event.id;
+
+        const first = await postRazorpayWebhook(app, event);
+        expect(first.statusCode).toBe(200);
+        expect(first.body).toMatchObject({ received: true, deduped: false });
+
+        const afterFirstOrder = await Order.findById(order._id).lean();
+
+        const second = await postRazorpayWebhook(app, event);
+        expect(second.statusCode).toBe(200);
+        expect(second.body).toMatchObject({ received: true, deduped: true });
+
+        await expectDocumentUnchanged(Order, order._id, afterFirstOrder);
+        await expect(PaymentEvent.countDocuments({ intentId: intent.intentId })).resolves.toBe(1);
+    });
 });

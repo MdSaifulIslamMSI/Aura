@@ -1,14 +1,3 @@
-const sessionService = require('../services/browserSessionService');
-const telemetryService = require('../services/authSecurityTelemetryService');
-const activityService = require('../services/accountSecurityActivityService');
-const {
-    getAccountSessions,
-    getAccountSecurityActivity,
-    revokeAccountSession,
-    revokeAllAccountSessions,
-    revokeOtherAccountSessions,
-} = require('../controllers/accountSecurityController');
-
 jest.mock('../services/browserSessionService', () => ({
     clearBrowserSessionCookie: jest.fn(),
     listBrowserSessionsForUser: jest.fn(),
@@ -24,6 +13,20 @@ jest.mock('../services/authSecurityTelemetryService', () => ({
 jest.mock('../services/accountSecurityActivityService', () => ({
     listAccountSecurityActivity: jest.fn(),
 }));
+
+// Requires must follow the jest.mock calls: this suite runs without
+// babel-jest hoisting (jest.config only transforms svix/jose), so a module
+// loaded above its mock registration would resolve to the real module.
+const sessionService = require('../services/browserSessionService');
+const telemetryService = require('../services/authSecurityTelemetryService');
+const activityService = require('../services/accountSecurityActivityService');
+const {
+    getAccountSessions,
+    getAccountSecurityActivity,
+    revokeAccountSession,
+    revokeAllAccountSessions,
+    revokeOtherAccountSessions,
+} = require('../controllers/accountSecurityController');
 
 const buildResponse = () => ({
     status: jest.fn().mockReturnThis(),

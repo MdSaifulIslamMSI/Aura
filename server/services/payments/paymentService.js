@@ -1622,6 +1622,26 @@ const reconcileCapturedOrder = async (intent) => {
 const applyRefundWebhookToOrder = async ({ intent, parsedEvent }) => {
     if (parsedEvent?.eventType !== 'refund.processed' || !intent?.order) return false;
 
+    // The refundSummary rewrite below is a full-snapshot overwrite, exactly
+    // like createRefundForIntent's. Both writers must serialize on the same
+    // intent refund lock or the loser's entry changes are silently discarded
+    // (lost update on the money ledger). Lock contention with an in-flight
+    // creation surfaces as an error; the provider's at-least-once retry then
+    // converges once the creator releases the lock.
+    const refundLockId = await acquireRefundLock(intent);
+    try {
+        return await applyRefundWebhookToOrderLocked({ intent, parsedEvent });
+    } finally {
+        await releaseRefundLock({ intentId: intent.intentId, lockId: refundLockId }).catch((error) => {
+            logger.warn('payment.refund_lock_release_failed', {
+                intentId: intent.intentId,
+                reason: error?.message || 'unknown',
+            });
+        });
+    }
+};
+
+const applyRefundWebhookToOrderLocked = async ({ intent, parsedEvent }) => {
     const order = await Order.findById(intent.order).lean();
     const refunds = Array.isArray(order?.refundSummary?.refunds)
         ? order.refundSummary.refunds
@@ -1649,7 +1669,17 @@ const applyRefundWebhookToOrder = async ({ intent, parsedEvent }) => {
         order: orderWithoutPendingRefund,
         refundEntry,
     });
-    await Order.updateOne({ _id: order._id }, {
+    await Order.updateOne({
+        _id: order._id,
+        // Belt-and-braces: only apply when the matched entry is still pending,
+        // so a stale webhook snapshot can never resurrect a processed status.
+        'refundSummary.refunds': {
+            $elemMatch: {
+                refundId: String(parsedEvent.refundId),
+                status: { $ne: 'processed' },
+            },
+        },
+    }, {
         $set: {
             refundSummary: mutation.refundSummary,
             paymentState: mutation.paymentState,
@@ -1846,6 +1876,20 @@ const resolveRefundAmountsForOrder = ({ order, amount, amountMode }) => {
     return refundAmounts;
 };
 
+// Buyer-initiated refunds are limited to pre-shipment orders, matching the
+// command-center refund policy (orderController.createOrderRefundRequest):
+// once an order ships, every refund must pass admin review. Admin/system
+// actors (admin route, outbox retries, reconciliation re-drives) are exempt.
+// 'cancelled' stays refundable because cancellation is rejected for shipped
+// and delivered orders (orderService.cancelOrder), so a cancelled order has
+// provably never shipped and its compensation refund must remain automatic.
+const BUYER_REFUNDABLE_ORDER_STATUSES = new Set(['placed', 'processing', 'cancelled']);
+const isRefundableLifecycleState = (order) => {
+    if (!order) return false;
+    if (order.isDelivered || order.deliveredAt) return false;
+    return BUYER_REFUNDABLE_ORDER_STATUSES.has(String(order.orderStatus || ''));
+};
+
 const createRefundForIntent = async ({
     actorUserId,
     isAdmin,
@@ -1866,6 +1910,9 @@ const createRefundForIntent = async ({
     const order = intent.order;
     if (!isAdmin && String(order.user) !== String(actorUserId)) {
         throw new AppError('Not authorized to refund this payment', 403);
+    }
+    if (!isAdmin && !isRefundableLifecycleState(order)) {
+        throw new AppError('Shipped or delivered orders require admin-reviewed refunds', 403);
     }
 
     if (!intent.providerPaymentId) {
@@ -1908,6 +1955,9 @@ const createRefundForIntent = async ({
         if (!isAdmin && String(lockedOrder.user) !== String(actorUserId)) {
             throw new AppError('Not authorized to refund this payment', 403);
         }
+        if (!isAdmin && !isRefundableLifecycleState(lockedOrder)) {
+            throw new AppError('Shipped or delivered orders require admin-reviewed refunds', 403);
+        }
         if (!lockedIntent.providerPaymentId) {
             throw new AppError('Provider payment reference is missing for refund', 400);
         }
@@ -1924,15 +1974,58 @@ const createRefundForIntent = async ({
             paymentMethod: lockedIntent.method,
             userId: lockedIntent.user,
         });
-        const providerRefund = await provider.refund({
-            paymentId: lockedIntent.providerPaymentId,
-            amount: refundAmounts.presentmentAmount,
-            currency: lockedIntent.currency,
-            notes: {
-                reason: reason || 'requested_by_user',
-                intentId,
-            },
-        });
+        const refundNotes = {
+            reason: reason || 'requested_by_user',
+            intentId,
+            ...(requestId ? { requestId: String(requestId) } : {}),
+        };
+        // Reconcile provider state before executing an irreversible refund.
+        // A previous attempt (outbox retry, idempotency-key client retry,
+        // crash reclaim) may already have executed this requestId at the
+        // provider while its local ledger write was lost; re-firing the
+        // provider call would move money twice. Refunds are matched by the
+        // requestId note stamped on every refund this service creates —
+        // manual/dashboard refunds carry no such note and are never adopted.
+        // If the reconciliation fetch fails, abort this attempt (fail-closed)
+        // so the retry machinery converges instead of executing blind.
+        let providerRefund = null;
+        if (requestId && typeof provider.fetchRefunds === 'function') {
+            const listedRefunds = await provider.fetchRefunds({
+                paymentId: lockedIntent.providerPaymentId,
+            });
+            providerRefund = (Array.isArray(listedRefunds?.items) ? listedRefunds.items : [])
+                .find((refund) => String(refund?.notes?.requestId || '') === String(requestId)) || null;
+        }
+        if (!providerRefund) {
+            providerRefund = await provider.refund({
+                paymentId: lockedIntent.providerPaymentId,
+                amount: refundAmounts.presentmentAmount,
+                currency: lockedIntent.currency,
+                notes: {
+                    // Scope provider idempotency to THIS refund request so a
+                    // second, distinct refund of the same amount is not treated
+                    // as a retry of the first (Stripe replays the original
+                    // response for a repeated key, which moves no money).
+                    // Legitimate transport retries that share a requestId keep
+                    // the same provider key.
+                    idempotencyKey: requestId || makeEventId('refund'),
+                    ...refundNotes,
+                },
+            });
+        }
+
+        const replayedRefundId = String(providerRefund?.id || '');
+        const alreadyRecorded = replayedRefundId && (lockedOrder.refundSummary?.refunds || []).some((refund) => (
+            String(refund?.refundId || '') === replayedRefundId
+            && getRefundCommandStatus(refund?.status) === 'processed'
+        ));
+        if (alreadyRecorded) {
+            // Defense in depth: a provider response that replays an
+            // already-recorded refund means no new money moved. Advancing the
+            // ledger here would under-refund the buyer while marking the order
+            // fully refunded, so fail loudly instead of corrupting the totals.
+            throw new AppError('Provider replayed an already-recorded refund for this payment', 409);
+        }
 
         const refundEntry = buildRefundEntry({
             providerRefund,
@@ -1941,8 +2034,16 @@ const createRefundForIntent = async ({
             requestId,
             fallbackRefundId: makeEventId('refund'),
         });
+        // The pre-call snapshot is stale for the entire provider.refund()
+        // network window; rebuilding the full summary from it would clobber
+        // any webhook/admin mutation that landed meanwhile. Re-read inside
+        // the still-held refund lock before constructing the mutation.
+        const freshOrder = await Order.findById(lockedOrder._id).lean();
+        if (!freshOrder) {
+            throw new AppError('Order not found for refund update', 404);
+        }
         const refundMutation = buildRefundMutation({
-            order: lockedOrder,
+            order: freshOrder,
             refundEntry,
         });
 
@@ -1989,7 +2090,12 @@ const extractWebhookIdentifiers = (event = {}) => {
     const paymentEntity = event.payload?.payment?.entity || {};
     const refundEntity = event.payload?.refund?.entity || {};
     return {
-        eventId: event.id || makeEventId('wh'),
+        // Providers whose webhook envelope carries no event id (Razorpay)
+        // must still dedupe on a stable key: hash the exact payload so every
+        // redelivery/replay of the same body resolves to one PaymentEvent row.
+        // A per-delivery random id silently inverted the dedupe semantics and
+        // made the unique-index backstop unreachable for the default provider.
+        eventId: event.id || `wh_${String(event.event || 'unknown')}_${hashPayload(event)}`,
         paymentId: paymentEntity.id || refundEntity.payment_id || '',
         orderId: paymentEntity.order_id || '',
         eventType: event.event || 'unknown',
@@ -2542,11 +2648,14 @@ const processOutboxTask = async (task) => {
             // A write-ahead refund task may have been queued before an inline
             // refund succeeded; skip already-resolved requests instead of
             // double-executing or clobbering the resolved entry status.
+            // 'approved' is the manual bank-transfer outcome on non-digital
+            // orders — it authorizes no provider money movement, so a provider
+            // refund task must never execute it.
             const entryStatus = await getRefundEntryStatus({
                 orderId: task.payload?.orderId,
                 requestId: task.payload?.requestId,
             });
-            if (['processed', 'rejected'].includes(entryStatus)) {
+            if (['processed', 'rejected', 'approved'].includes(entryStatus)) {
                 task.status = 'done';
                 task.lastError = '';
                 task.lockedAt = null;
@@ -2594,7 +2703,12 @@ const processOutboxTask = async (task) => {
         task.lockedBy = null;
         await task.save();
     } catch (error) {
-        const isRetryable = Number(error?.statusCode || 500) >= 500;
+        // Lock contention (an inline refund or a refund webhook currently
+        // holding the intent refund lock) is transient, not terminal: retry
+        // with backoff instead of rejecting the customer's refund request.
+        const isLockContention = Number(error?.statusCode || 500) === 409
+            && /refund.*already in progress/i.test(String(error?.message || ''));
+        const isRetryable = Number(error?.statusCode || 500) >= 500 || isLockContention;
         task.retryCount += 1;
         task.lastError = error.message;
 

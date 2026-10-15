@@ -34,7 +34,7 @@ const { getRecoveryReadiness } = require('./authRecoveryCodeService');
 const { isAdminSubject } = require('./mfaPolicyService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone authUid isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -729,6 +729,22 @@ const syncAuthenticatedUser = async ({
             projection: AUTH_ONLY_PROJECTION,
         });
 
+        // SECURITY (pre-claim takeover, CWE-284/CWE-290): the public signup OTP
+        // send (otpController.sendOtp purpose=signup) upserts { email, phone }
+        // stubs without any ownership proof, so an unverified, authUid-less
+        // stub may carry an attacker-chosen phone. When a verified-email
+        // identity claims such a stub, the never-verified phone must not
+        // survive onto the now-verified account: the phone-keyed
+        // forgot-password flow would otherwise deliver the victim's reset
+        // code to the attacker's phone.
+        if (
+            preferredUser?._id
+            && !preferredUser.isVerified
+            && !normalizeUid(preferredUser.authUid)
+        ) {
+            setPayload.phone = '';
+        }
+
         if (hasPhoneInput) {
             setPayload.phone = normalizedPhone;
         }
@@ -768,6 +784,16 @@ const syncAuthenticatedUser = async ({
 
     if (user && authUid && user.authUid !== authUid) {
         try {
+            // SECURITY (defense in depth): never re-bind an account that
+            // already carries a different live authUid and a public email.
+            // Such records are stale-email snapshots of another user;
+            // re-linking them by email match alone is account theft (the new
+            // identity merely owns a recycled address). Claiming stays
+            // allowed for unbound accounts (authUid absent) and internal-email
+            // stubs, which the selection-layer guard already enforces.
+            if (user.authUid && !isInternalAuthEmail(user.email)) {
+                throw new AppError('This account is already linked to another sign-in identity. Contact support to re-link it.', 409);
+            }
             const conflictingAuthUidOwner = await User.findOne(
                 { authUid },
                 '_id email authUid isAdmin adminRoles isSeller isVerified loyalty createdAt'

@@ -192,6 +192,11 @@ const userSchema = mongoose.Schema({
     },
     authAssuranceAt: { type: Date, default: null },
     authAssuranceAuthTime: { type: Number, default: null, select: false },
+    // Browser session that completed the OTP assurance ceremony. The
+    // money-movement gate binds to this session id in addition to auth_time,
+    // so a token cloned from the ceremony sign-in cannot be exchanged into a
+    // second session that also passes requireOtpAssurance.
+    otpAssuranceSessionId: { type: String, default: '', select: false },
     authTokensRevokedAfter: { type: Date, default: null, index: true },
     adminSecurityVersion: { type: Number, default: 0, min: 0, index: true },
     isSeller: { type: Boolean, default: false },

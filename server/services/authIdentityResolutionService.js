@@ -21,7 +21,19 @@ const scoreIdentityCandidate = (user = null, { email = '', authUid = '' } = {}) 
 
     let score = 0;
 
-    if (publicEmail && userEmail === publicEmail) {
+    // SECURITY (CWE-290): an account already bound to a live foreign identity
+    // (public email + a different non-empty authUid) must never be re-selected
+    // by another identity through the email clause alone. Email-keyed
+    // selection stays valid only for unbound accounts (authUid absent) and
+    // internal-email stubs — the intended claiming shapes. Without this, a
+    // recycled/released verified email selects the stale account (score 1000
+    // beats the token holder's own authUid match, 400) across protect,
+    // session issuance and syncAuthenticatedUser.
+    const emailMatchSelectable = publicEmail
+        && userEmail === publicEmail
+        && !(safeUid && userUid && userUid !== safeUid && !isInternalAuthEmail(userEmail));
+
+    if (emailMatchSelectable) {
         score += 1000;
     }
 
