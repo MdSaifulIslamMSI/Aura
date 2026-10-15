@@ -56,6 +56,7 @@ const TEXT_EXTENSIONS = new Set([
 const ALLOWED_PRODUCTION_FILES = new Set([
   'scripts/scan-prod-fallbacks.mjs',
   'scripts/env-contract-lib.mjs',
+  'scripts/env/validate-env.mjs',
   'scripts/smoke-production-login.mjs',
   'scripts/smoke-origin-protection.mjs',
   'server/scripts/audit_production_hardening_contract.js',

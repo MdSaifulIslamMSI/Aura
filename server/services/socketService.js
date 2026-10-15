@@ -20,6 +20,8 @@ const {
 } = require('./supportVideoService');
 const { deleteSupportRoom } = require('./livekitService');
 const { verifyDpopProof } = require('../utils/dpop');
+const { buildIdentityQuery } = require('../utils/authIdentity');
+const { selectPreferredIdentityUser } = require('./authIdentityResolutionService');
 
 let io;
 // Map to track userId -> Set of socketIds (handles multiple tabs/devices)
@@ -216,22 +218,19 @@ const resolveSocketUserFromFirebaseToken = async (token = '') => {
     const authUid = normalizeId(decoded?.uid);
     const email = normalizeEmail(decoded?.email);
     const emailVerified = decoded?.email_verified === true;
-    const identityQuery = authUid
-        ? {
-            $or: [
-                { authUid },
-                ...(email && emailVerified ? [{ email }] : []),
-            ],
-        }
-        : (email && emailVerified ? { email } : { _id: null });
+    const identityEmail = email && emailVerified ? email : '';
+    const identityQuery = buildIdentityQuery({ authUid, email: identityEmail });
 
-    if (!identityQuery || Object.keys(identityQuery).length === 0) {
+    if (!identityQuery) {
         throw buildSocketAuthError('Authenticated socket account is missing a verified identity', 'SOCKET_ACCOUNT_MISSING');
     }
 
-    const user = await User.findOne(identityQuery)
+    // SECURITY: use the shared preferred-identity resolver so a live
+    // foreign-identity account can never be selected by email alone here.
+    const identityCandidates = await User.find(identityQuery)
         .select('_id authUid email name isAdmin isSeller isVerified authTokensRevokedAfter accountState softDeleted')
         .lean();
+    const user = selectPreferredIdentityUser(identityCandidates, { email: identityEmail, authUid });
 
     if (!user?._id) {
         throw buildSocketAuthError('Authenticated socket user profile was not found', 'SOCKET_ACCOUNT_MISSING');

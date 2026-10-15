@@ -36,18 +36,10 @@ export const paymentApi = {
         const { data } = await apiFetch(`/payments/intents/${intentId}`, { headers });
         return data;
     },
-    createRefund: async (intentId, payload = {}) => {
-        const headers = await getAuthHeader();
-        const { data } = await apiFetch(`/payments/intents/${intentId}/refunds`, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('refund'),
-            },
-            body: JSON.stringify(payload),
-        });
-        return data;
-    },
+    // Buyer refunds are requested through the order command center
+    // (POST /api/orders/:id/command-center/refund), which owns the
+    // return-window, fraud-screening and admin-review policy. The direct
+    // intent route is administrator-only.
     getMethods: async () => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/payments/methods', { headers });

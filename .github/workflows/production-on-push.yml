@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -77,6 +77,12 @@ jobs:
   canonical-security-gates:
     name: Canonical security gates
     uses: ./.github/workflows/security-gates.yml
+    with:
+      # The production gate can fail for reasons unrelated to scanning (e.g.
+      # the staging role's OIDC trust policy), and a failed run would mark the
+      # scanners' setups red on the code-scanning tools page. Uploads come from
+      # security-gates.yml's own direct push run instead.
+      skip_sarif_upload: true
     permissions:
       contents: read
       id-token: write
@@ -104,34 +110,10 @@ jobs:
       - canonical-quality-gates
       - canonical-security-gates
       - canonical-release-safety-gates
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    uses: ./.github/workflows/staging-promotion-gate.yml
     permissions:
       actions: write
       contents: read
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Dispatch and watch staging validation
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          DEPLOY_REF_NAME: ${{ github.ref_name }}
-          DEPLOY_SHA: ${{ github.sha }}
-        run: >-
-          node scripts/github/dispatch-workflow-and-watch.mjs
-          --workflow staging-ops-watch.yml
-          --label "Staging promotion gate"
-          --ref "$DEPLOY_REF_NAME"
-          --sha "$DEPLOY_SHA"
-          --timeout-minutes 30
 
   deploy-backend:
     name: Dispatch backend production deploy
@@ -153,7 +135,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -192,7 +174,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -231,7 +213,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -273,7 +255,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -315,7 +297,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 

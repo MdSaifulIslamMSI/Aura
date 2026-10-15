@@ -1,0 +1,18 @@
+{
+    "hosts": [
+        "accounts.google.com",
+        "billy-b674c.firebaseapp.com",
+        "billy-b674c.web.app",
+        "facebook.com",
+        "github.com",
+        "m.facebook.com",
+        "mobile.facebook.com",
+        "oauth.twitter.com",
+        "twitter.com",
+        "www.facebook.com",
+        "www.github.com",
+        "x.com"
+    ],
+    "purpose": "HTTPS hosts permitted to open an Electron auth window for the hosted browser sign-in handoff.",
+    "threatModel": "This is a trust boundary, not a deployment target. It is a committed artifact on purpose: an env override would make the OAuth popup allowlist runtime-mutable, so a compromised or misconfigured environment could widen it to an attacker-controlled host. Editing this file is a reviewed code change."
+}

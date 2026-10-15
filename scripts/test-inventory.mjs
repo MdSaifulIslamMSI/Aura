@@ -16,6 +16,7 @@ const SURFACES = [
     { name: 'app-e2e', dir: path.join(ROOT, 'app', 'e2e'), match: /(\.spec|\.test)\.(js|jsx|ts|tsx)$/ },
     { name: 'server', dir: path.join(ROOT, 'server', 'tests'), match: /\.test\.js$/ },
     { name: 'root-tests', dir: path.join(ROOT, 'tests'), match: /\.test\.js$/ },
+    { name: 'desktop-unit', dir: path.join(ROOT, 'desktop'), match: /\.test\.cjs$/ },
 ];
 
 const walk = (dir, regex) => {

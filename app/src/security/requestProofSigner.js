@@ -1,6 +1,9 @@
-const isRequestProofEnabled = () => (
-    String(import.meta.env?.VITE_AUTH_SHIELD_DPOP_ENABLED || '').trim().toLowerCase() === 'true'
-);
+// Request-proof headers are emitted on every request: the server's Auth
+// Shield replay guard enforces a fresh nonce and timestamp for critical
+// actions, so these headers are required infrastructure, not an opt-in
+// rollout flag. The remaining headers (mode, body hash, intent) prepare for
+// DPoP sender binding per docs/adr/0005-dpop-rollout-sequence.md.
+const isRequestProofEnabled = () => true;
 
 const stableStringify = (value) => {
     if (value === null || value === undefined) return '';

@@ -17,7 +17,7 @@ const assertAbsoluteHttpUrl = (value) => {
 // hosted production routing files when CI variables are unavailable. Preview
 // deployments that use this origin are frontend previews only, not backend
 // staging; staging smoke must use an isolated STAGING_API_BASE_URL instead.
-export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
+export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dip82eloip5zb.cloudfront.net';
 
 export const assertDeployableHostedBackendOrigin = (origin) => {
     const parsed = new URL(origin);
@@ -564,14 +564,22 @@ export const buildCloudflarePagesHeaders = (origin = HOSTED_BACKEND_ORIGIN) => {
     assertAbsoluteHttpUrl(origin);
 
     const headers = buildFrontendSecurityHeaderValues(origin);
-    const renderBlock = (blockPath, extraHeaders = []) => [
+    // Cloudflare Pages MERGES every matching `_headers` block by appending
+    // values rather than letting the most specific block win (observable live
+    // as `x-frame-options: DENY,DENY` on a document request). Because `/*`, `/`,
+    // and `/index.html` all match one document, repeating the full security set
+    // on each block concatenates the ~3 KB CSP past Cloudflare's header limit,
+    // which drops Content-Security-Policy entirely and silently falls the lane
+    // back to the weaker meta CSP. Keep the blocks disjoint: security headers
+    // only on `/*` (which still matches every other path), cache tiers only on
+    // their own paths.
+    const renderBlock = (blockPath, blockHeaders = []) => [
         blockPath,
-        ...headers.map(({ key, value }) => `  ${key}: ${value}`),
-        ...extraHeaders.map(({ key, value }) => `  ${key}: ${value}`),
+        ...blockHeaders.map(({ key, value }) => `  ${key}: ${value}`),
         '',
     ].join('\n');
     return [
-        renderBlock('/*'),
+        renderBlock('/*', headers),
         renderBlock('/assets/*', [{ key: 'Cache-Control', value: FRONTEND_ASSET_CACHE_CONTROL }]),
         renderBlock('/sw.js', [{ key: 'Cache-Control', value: FRONTEND_SERVICE_WORKER_CACHE_CONTROL }]),
         renderBlock('/', [{ key: 'Cache-Control', value: FRONTEND_DOCUMENT_CACHE_CONTROL }]),

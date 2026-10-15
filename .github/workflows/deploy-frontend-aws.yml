@@ -102,7 +102,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -141,6 +141,11 @@ jobs:
           # Org site: US5 (matches the RUM application).
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
+          # This build publishes sourcemaps to Sentry before deploy, so emit
+          # them here; the postbuild keeps the .map files for the upload and
+          # every other build strips them. Non-VITE_ name on purpose: Vite
+          # inlines VITE_* vars into the bundle, which would change its bytes.
+          AURA_KEEP_SOURCEMAPS: 'true'
         run: npm run build
 
       - name: Publish Sentry release and sourcemaps
@@ -163,8 +168,26 @@ jobs:
           # npx -p puts sentry-cli on PATH for the release script without a new dependency.
           npx --yes -p @sentry/cli@3.4.2 node scripts/student-pack-sentry-release.mjs
 
+      - name: Strip sourcemaps from the deploy payload
+        # Run at the repo root so app/dist resolves regardless of the job's
+        # working-directory default.
+        working-directory: .
+        # The build emits maps only for the Sentry upload above; the release
+        # script uploads them but never deletes them, and it exits early when
+        # Sentry secrets are absent. Strip them here so the S3 sync and the
+        # artifact never carry a .map — unminified source is otherwise
+        # publicly downloadable from the CloudFront origin.
+        run: |
+          set -euo pipefail
+          find app/dist -name '*.map' -type f -print -delete
+          if find app/dist -name '*.map' -print -quit | grep -q .; then
+            echo "sourcemaps still present after prune" >&2
+            exit 1
+          fi
+          echo "Deploy payload contains 0 sourcemaps."
+
       - name: Upload AWS frontend dist bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: aws-frontend-dist
           path: app/dist
@@ -203,7 +226,7 @@ jobs:
           echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download built frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aws-frontend-dist
           path: app/dist

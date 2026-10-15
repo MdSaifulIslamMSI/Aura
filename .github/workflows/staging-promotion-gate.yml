@@ -1,0 +1,44 @@
+name: Staging promotion gate
+
+# Shared staging validation consumed by BOTH production entry points
+# (production-on-push.yml and production-cicd.yml). Dispatches
+# staging-ops-watch.yml and blocks the caller on it. When staging is
+# intentionally paused (vars.STAGING_INFRA_PAUSED == 'true'), ops-watch
+# prints an acknowledged-off notice and skips live checks, so this gate
+# degrades to a pass-through — the caller's off-proof/ack machinery owns
+# that posture. When staging is down but NOT acknowledged, ops-watch runs
+# its live checks and fails closed, blocking production deploys.
+on:
+  workflow_call:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  staging-promotion:
+    name: Staging promotion gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch and watch staging validation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: >-
+          node scripts/github/dispatch-workflow-and-watch.mjs
+          --workflow staging-ops-watch.yml
+          --label "Staging promotion gate"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
+          --timeout-minutes 30

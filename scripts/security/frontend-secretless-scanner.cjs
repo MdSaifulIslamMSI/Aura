@@ -95,15 +95,22 @@ const scanText = ({ text = '', filePath = '', mode = 'source' } = {}) => {
     }
 
     if (mode === 'build') {
-        const buildKeyword = new RegExp(`\\b(${keywordAlternation})\\b`, 'g');
-        for (const match of text.matchAll(buildKeyword)) {
-            findings.push(buildFinding({
-                filePath,
-                ruleId: 'frontend-build-forbidden-keyword',
-                keyword: match[1],
-                line: lineNumberForIndex(text, match.index),
-            }));
-        }
+      const buildKeyword = new RegExp(`\\b(${keywordAlternation})\\b`, 'g');
+      for (const match of text.matchAll(buildKeyword)) {
+        // A bare keyword mention is not a leak: build output legitimately
+        // contains env var NAMES (config manifests, status snapshots listing
+        // missing env vars, error text). Only flag the keyword when a value
+        // is attached — an assignment (caught above), or a non-empty run
+        // after the name that is not just closing/separator punctuation.
+        const after = text.slice(match.index + match[0].length, match.index + match[0].length + 120);
+        if (/^\s*["'`]*\s*[\]\},]/.test(after)) continue;
+        findings.push(buildFinding({
+          filePath,
+          ruleId: 'frontend-build-forbidden-keyword',
+          keyword: match[1],
+          line: lineNumberForIndex(text, match.index),
+        }));
+      }
     }
 
     return findings;

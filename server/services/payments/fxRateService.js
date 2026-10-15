@@ -485,6 +485,9 @@ const extractEcbRates = (xml = '') => {
         provider: 'ecb',
         referenceBaseCurrency: 'EUR',
         asOfDate: asOfMatch?.[1] || '',
+        // fetchedAt stays the fetch time: it drives cache expiry and refresh
+        // accounting. The data's real age is the ECB reference date, which
+        // getFxQuote reads through asOfDate when it gates a price lock.
         fetchedAt: new Date().toISOString(),
         rates: applyDerivedRates(rates),
     }, parseTtlMs(DEFAULT_ECB_TTL_MS));
@@ -970,6 +973,30 @@ const getFxQuote = async ({
     }
 
     const ratesPayload = await getFxRates({ allowStale: true });
+    // Pricing locks a card charge at this rate. An arbitrarily old snapshot
+    // lets the locked presentment diverge from the provider's settlement
+    // conversion by any amount, and the settlement tolerance then accepts the
+    // shortfall as a fully paid order. Refuse to lock checkout prices on data
+    // older than the allowed window; callers fall back to base-currency
+    // pricing (no FX exposure) when no quote is available.
+    //
+    // Daily feeds (ECB) publish once a day and keep Friday's rates through the
+    // weekend, so the fetch time overstates freshness: the data's real age is
+    // its reference date, and the gate uses whichever is older.
+    const quoteMaxAgeMs = parseInteger(
+        process.env.PAYMENT_FX_QUOTE_MAX_AGE_MS,
+        72 * 60 * 60 * 1000,
+        { min: 60 * 60 * 1000, max: 7 * 24 * 60 * 60 * 1000 },
+    );
+    const fetchedTimeMs = new Date(ratesPayload.fetchedAt || 0).getTime();
+    const referenceTimeMs = ratesPayload.asOfDate
+        ? Date.parse(`${String(ratesPayload.asOfDate).slice(0, 10)}T16:00:00Z`)
+        : NaN;
+    const knownTimes = [fetchedTimeMs, referenceTimeMs].filter(Number.isFinite);
+    const dataTimeMs = knownTimes.length ? Math.min(...knownTimes) : NaN;
+    if (!Number.isFinite(dataTimeMs) || Date.now() - dataTimeMs > quoteMaxAgeMs) {
+        throw new AppError('FX rates are too old to lock a checkout price', 503);
+    }
     const baseRate = assertRateAvailable({
         rates: ratesPayload.rates,
         currency: normalizedBaseCurrency,

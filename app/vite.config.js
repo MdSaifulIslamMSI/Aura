@@ -174,8 +174,29 @@ export default defineConfig(({ mode }) => {
     __AURA_RELEASE__: JSON.stringify(releaseInfo),
   },
   build: {
-    // Sourcemaps power Sentry stack-trace un-minification via
-    // `npm run student-pack:sentry:release` after build.
+    // Sourcemaps are always emitted, comment included: the
+    // sourceMappingURL reference keeps every build of a commit byte-identical.
+    // Render, Railway and Vercel all build from source, and the cross-lane
+    // coherence gate compares content-hashed asset filenames — a per-build
+    // comment difference shatters parity and fails the release.
+    //
+    // The .map FILES are the actual leak (unminified source is publicly
+    // downloadable, and no host config blocks /assets/*.map). They are
+    // removed AFTER the build by the postbuild script
+    // (scripts/strip-deploy-sourcemaps.mjs) for every build except the
+    // Sentry release pipeline (AURA_KEEP_SOURCEMAPS=true), which keeps them
+    // for the upload; the CI deploy strip step then removes them from that
+    // build's payload before publish. Post-build (never in-build) deletion
+    // is load-bearing: chunk filenames are content hashes that include the
+    // map, so removing maps before the hashes finalize renames the JS/CSS
+    // and re-shatters the parity this is meant to protect.
+    //
+    // The keep-maps flag is deliberately NOT a VITE_-prefixed var: Vite
+    // inlines every VITE_* var into import.meta.env (referenced or not), so
+    // a CI-only keep-maps flag under the VITE_ prefix changed the bundle
+    // bytes themselves and the shared artifact could never byte-match the
+    // render/railway/vercel source builds. A non-VITE_ name never reaches
+    // the bundle.
     sourcemap: true,
     // LiveKit's vendor ESM bundle is route-split but lands just above Vite's 500 kB default.
     chunkSizeWarningLimit: 520,

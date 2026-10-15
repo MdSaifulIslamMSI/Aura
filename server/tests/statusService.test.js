@@ -111,6 +111,50 @@ describe('statusService', () => {
         expect(payload.uptimeSinceMonitoringBegan).toBe(100);
     });
 
+    // The harness's seeded components carry isPublic: true, so the generic
+    // public query published LocalStack, LambdaTest, Testmail, Doppler and
+    // Datadog CI even though shouldExposeStudentPackSecurityHarness() already
+    // gated the `securityHarness` summary out of production.
+    test('omits the security-harness group from the public payload when the harness is not public', async () => {
+        process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED = 'true';
+        process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC = 'false';
+
+        await StatusComponentGroup.create({
+            name: 'Security Harness',
+            slug: 'security-harness',
+            isPublic: true,
+        });
+        await StatusComponentGroup.create({
+            name: 'API',
+            slug: 'api-harness-exclusion',
+            isPublic: true,
+        });
+
+        const payload = await getPublicStatus({ force: true });
+        const groupSlugs = (payload.groups || []).map((group) => group.slug);
+
+        expect(groupSlugs).toContain('api-harness-exclusion');
+        expect(groupSlugs).not.toContain('security-harness');
+        expect(JSON.stringify(payload)).not.toContain('LocalStack');
+        expect(payload.securityHarness).toBeFalsy();
+    });
+
+    test('includes the security-harness group when the harness is explicitly public', async () => {
+        process.env.STUDENT_PACK_SECURITY_HARNESS_ENABLED = 'true';
+        process.env.STUDENT_PACK_SECURITY_HARNESS_PUBLIC = 'true';
+
+        await StatusComponentGroup.create({
+            name: 'Security Harness',
+            slug: 'security-harness',
+            isPublic: true,
+        });
+
+        const payload = await getPublicStatus({ force: true });
+        const groupSlugs = (payload.groups || []).map((group) => group.slug);
+
+        expect(groupSlugs).toContain('security-harness');
+    });
+
     test('unknown history days are excluded from uptime calculation', () => {
         expect(calculateHistoryUptime([
             { date: '2026-01-01', status: 'unknown', uptimePercent: null },

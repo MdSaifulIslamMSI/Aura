@@ -42,7 +42,21 @@ const decide = ({
     });
 
     reasons.push(...(identityResult.reasons || []));
-    if ((identityResult.reasons || []).includes('identity_missing')) return deny('identity_missing');
+    // A missing identity is an AUTHENTICATION problem, not an authorization
+    // one. This PDP authorizes principals; it does not authenticate them.
+    // Denying here with a generic 403 would preempt the specific 401 contract
+    // the authentication layer owns (sensitiveActionMiddleware maps
+    // sensitive_action_authentication_required -> 401, and protect returns
+    // 401 for its routes). Every sensitiveActions composition runs
+    // requireSensitiveAction after this shield, and every admin/payment/auth
+    // route runs protect, so an unauthenticated request is still blocked —
+    // just with the correct, more specific error.
+    if ((identityResult.reasons || []).includes('identity_missing')) {
+        return {
+            decision: DECISIONS.ALLOW,
+            reasons: [...new Set([...reasons, 'identity_missing_deferred_to_auth'].filter(Boolean))],
+        };
+    }
     if ((identityResult.reasons || []).some((reason) => reason.startsWith('account_'))) return deny('account_not_active');
     if ((identityResult.reasons || []).includes('identity_unverified') && isHighOrCritical(sensitivity)) {
         return stepUp.enabled ? step('identity_unverified') : deny('identity_unverified');

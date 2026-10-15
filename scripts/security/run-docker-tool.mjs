@@ -2,6 +2,17 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { extractJsonReport } from './report-utils.mjs';
+import {
+  countNucleiGatingFindings,
+  filterNucleiJsonlReport,
+  filterNucleiSarifReport,
+  isAcceptedNucleiFinding,
+  loadNucleiExceptions,
+  markNucleiSarifExecutionSuccessful,
+  nucleiMatchedHost,
+  nucleiTemplateId,
+  readNucleiJsonlFindings,
+} from './nuclei-baseline.mjs';
 
 const tool = process.argv[2] || '';
 const extraArgs = process.argv.slice(3);
@@ -67,6 +78,7 @@ const images = {
   tfsec: process.env.TFSEC_IMAGE || 'aquasec/tfsec:v1.28.14',
   terrascan: process.env.TERRASCAN_IMAGE || 'tenable/terrascan:1.19.9',
   zizmor: process.env.ZIZMOR_IMAGE || 'ghcr.io/zizmorcore/zizmor:1.29.0',
+  nuclei: process.env.NUCLEI_IMAGE || 'projectdiscovery/nuclei:v3.11.1',
 };
 
 const acceptedCheckovFindings = [
@@ -104,12 +116,185 @@ const acceptedCheckovFindings = [
     path: '.github/workflows/production-db-backup.yml',
     reason: 'run_drill is a boolean gate for the isolated restore-drill job; never interpolated into build steps.',
   },
+  // CKV_GHA_7: graph checks ignore inline `# checkov:skip=` comments, so the
+  // operator-controlled workflow_dispatch inputs below are accepted here.
+  // Verified for every entry: each input is referenced only in job-level
+  // `if:` conditions, `ref:` fields, or `env:` assignments — never
+  // interpolated into a `run:` step body.
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/npm-publish.yml',
+    reason: 'workflow_dispatch inputs (package, dry_run) are read via env vars and gate job-level if conditions; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/staging-aws-deploy.yml',
+    reason: 'workflow_dispatch inputs gate job-level if conditions and ref fields only; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/render-edge-config-sync.yml',
+    reason: 'the apply input is passed as an env var and deliberately not interpolated into the script body (see the comment at the step).',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/mobile-release.yml',
+    reason: 'signing inputs are passed as env vars to the release tooling; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/deploy-frontend-aws.yml',
+    reason: 'the deploy input only selects the concurrency group and release-channel env value; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/nuclei-scan.yml',
+    reason: 'the enforce and target inputs are passed as env vars to the scan runner; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/production-db-maintenance.yml',
+    reason: 'action, retention_days and git_ref gate job-level if conditions and ref fields; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/deploy-backend-aws.yml',
+    reason: 'deploy_strategy is passed as an env var with a default; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/production-admin-access.yml',
+    reason: 'confirm_production gates production actions behind typed confirmation in job-level if conditions; the allowlist input is passed as an env var. Never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/dependency-automerge.yml',
+    reason: 'the dry_run input is declared but never referenced; no interpolation surface exists.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/vercel-storage-prune.yml',
+    reason: 'apply, keep and confirm gate the deletion step behind explicit typed confirmation in job-level if conditions; never interpolated into run steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/authenticated-security-testing.yml',
+    reason: 'the target override is passed as an env var to the DAST runner; never interpolated into run steps.',
+  },
   {
     ruleId: 'CKV_GHA_7',
     path: '.github/workflows/observability-activation.yml',
     reason: 'probe_only/fire_test_alert booleans gate read-only discovery versus activation; never interpolated into build steps.',
   },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/all-suites.yml',
+    reason: 'include_nightly/include_quality booleans gate which canonical workflows a job delegates to; never interpolated into run steps.',
+  },
 ];
+
+const acceptedTerrascanFindings = [
+  // Docker: the non-root runtime needs its files owned by the node user, so
+  // COPY --chown=node:node is required (removing it breaks the non-root
+  // container). The rule fires on every such COPY.
+  {
+    ruleId: 'AC_DOCKER_00024',
+    path: 'Dockerfile',
+    reason: 'COPY --chown=node:node grants the non-root runtime user ownership of its own files; required for the non-root container to run.',
+  },
+  {
+    ruleId: 'AC_DOCKER_00024',
+    path: 'server/Dockerfile',
+    reason: 'COPY --chown=node:node grants the non-root runtime user ownership of its own files; required for the non-root container to run.',
+  },
+  // Docker: false positive — terrascan counts the CMD inside the HEALTHCHECK
+  // instruction as a second CMD. Each Dockerfile declares exactly one real
+  // CMD (verified: Dockerfile:44, server/Dockerfile:39).
+  {
+    ruleId: 'AC_DOCKER_0053',
+    path: 'Dockerfile',
+    reason: 'False positive: terrascan parses the CMD inside "HEALTHCHECK ... CMD node -e ..." as a second CMD instruction. Exactly one real CMD exists.',
+  },
+  {
+    ruleId: 'AC_DOCKER_0053',
+    path: 'server/Dockerfile',
+    reason: 'False positive: terrascan parses the CMD inside "HEALTHCHECK ... CMD node -e ..." as a second CMD instruction. Exactly one real CMD exists.',
+  },
+  {
+    ruleId: 'AC_DOCKER_0053',
+    path: 'infra/labs/pqc/openssl-35.Dockerfile',
+    reason: 'False positive: same HEALTHCHECK-CMD misparse as the service Dockerfiles; exactly one real CMD exists.',
+  },
+  // K8s: false positive — the pod-level securityContext sets
+  // seccompProfile.type=RuntimeDefault (k8s/base/deployment.yaml:43), which is
+  // the Kubernetes-recommended placement and applies to every container.
+  {
+    ruleId: 'AC_K8S_0080',
+    path: 'k8s/base/deployment.yaml',
+    reason: 'False positive: seccompProfile.type=RuntimeDefault is set at the pod securityContext (line 43), the recommended placement that covers all containers.',
+  },
+  // K8s: false positive — the ingress declares a tls: block with secretName
+  // aura-api-tls (k8s/base/ingress.yaml:25).
+  {
+    ruleId: 'AC_K8S_0002',
+    path: 'k8s/base/ingress.yaml',
+    reason: 'False positive: the ingress declares a tls: block with secretName aura-api-tls (line 25); TLS is enforced.',
+  },
+  // K8s: the base manifest is a deploy template; promoted images are
+  // digest-pinned by release automation (same rationale as the accepted
+  // CKV_K8S_43 entry above).
+  {
+    ruleId: 'AC_K8S_0069',
+    path: 'k8s/base/deployment.yaml',
+    reason: 'Base manifest uses a version tag as a deploy template; promoted images are digest-pinned by release automation.',
+  },
+  // AWS: S3 versioning. All four buckets DO declare versioning
+  // (cloudformation-bootstrap.yml sets VersioningConfiguration on
+  // AccessLogBucket/ReviewMediaBucket/DeployBucket; opentofu declares
+  // aws_s3_bucket_versioning), but terrascan's cloudformation and terraform
+  // HCL2 scanners do not resolve the property on these resource shapes, so
+  // AC_AWS_0214 fires regardless. Verified against the scanner output: the
+  // finding is a scanner limitation, not a missing control. Tracked for
+  // re-test when terrascan upgrades its S3 policy coverage.
+  {
+    ruleId: 'AC_AWS_0214',
+    path: 'infra/aws/cloudformation-bootstrap.yml',
+    reason: 'Scanner limitation: all three buckets declare VersioningConfiguration Status=Enabled; terrascan does not resolve the property on these resources.',
+  },
+  {
+    ruleId: 'AC_AWS_0214',
+    path: 'infra/opentofu/main.tf',
+    reason: 'Scanner limitation: aws_s3_bucket_versioning declares status="Enabled"; terrascan does not resolve the separate resource.',
+  },
+  // Closed (2026-10-12): SSE-KMS now covers the access-log bucket too
+  // (aws:kms via AuraS3KmsKey, with the logging.s3.amazonaws.com service
+  // principal granted GenerateDataKey*/Decrypt* in the key policy so log
+  // delivery still succeeds).
+  //
+  // Closed (2026-10-12): the storefront security group scopes inbound HTTPS
+  // to the CloudFront origin-facing managed prefix list, and the ECR
+  // repository carries a resource policy denying cross-account and
+  // anonymous pulls.
+];
+
+const isAcceptedTerrascanFinding = (ruleId = '', filePath = '') => (
+  acceptedTerrascanFindings.some((finding) => (
+    finding.ruleId === ruleId && finding.path === normalizeCheckovPath(filePath)
+  ))
+);
+
+const filterTerrascanReport = (reportPath) => {
+  if (!fs.existsSync(reportPath)) return 0;
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const removed = filterAcceptedTerrascanViolations(report, isAcceptedTerrascanFinding);
+  // The filter mutates the parsed report in memory; it must be written back
+  // or the gate re-reads the unfiltered file and still counts every accepted
+  // violation. (Dropping this write-back is what failed #639's final CI run.)
+  if (removed > 0) {
+    replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  return removed;
+};
 
 const acceptedSemgrepFindings = [
   {
@@ -166,16 +351,24 @@ const isAcceptedSemgrepFinding = (ruleId = '', filePath = '', lineNumber = 0) =>
   ));
 };
 
+// Checkov's --compact JSON output is an ARRAY of per-check_type entries
+// ({check_type, results:{failed_checks:[...]}}); the plain object form carries
+// the same shape at the top level. The parsing helpers live in a unit-testable
+// module so the gate logic can be exercised without a Docker engine.
+const {
+    filterAcceptedCheckovChecks,
+    filterAcceptedTerrascanViolations,
+    countCheckovFailedChecks,
+    countTfsecFindings,
+    countTerrascanViolations,
+} = await import('./iac-report-parsing.mjs');
+
 const filterCheckovJsonReport = (reportPath) => {
   if (!fs.existsSync(reportPath)) return 0;
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-  const failedChecks = report?.results?.failed_checks;
-  if (!Array.isArray(failedChecks)) return 0;
-  const keptChecks = failedChecks.filter((check) => !isAcceptedCheckovFinding(check.check_id, check.file_path));
-  const removed = failedChecks.length - keptChecks.length;
+  const removed = filterAcceptedCheckovChecks(report, isAcceptedCheckovFinding);
   if (removed > 0) {
-    report.results.failed_checks = keptChecks;
-    if (report.summary && Number.isFinite(Number(report.summary.failed))) {
+    if (!Array.isArray(report) && report.summary && Number.isFinite(Number(report.summary.failed))) {
       report.summary.failed = Math.max(0, Number(report.summary.failed) - removed);
     }
     replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -271,6 +464,11 @@ const filterAcceptedSemgrepFindings = ({ jsonReport, sarifReport }) => {
     console.log(`[security:semgrep] Filtered accepted Semgrep baseline findings: json=${removedJson}, sarif=${removedSarif}`);
   }
 };
+
+// Baseline exception/expiry rules live in the unit-testable module
+// (node --test scripts/security/nuclei-baseline.test.mjs) so they can be
+// exercised without a Docker engine.
+const loadNucleiExceptionsWithPath = () => loadNucleiExceptions(path.join(repoRoot, 'nuclei-exceptions.json'));
 
 const runDocker = (args, options = {}) => run('docker', args, options);
 
@@ -628,6 +826,299 @@ const runZap = () => {
   ]);
 };
 
+const runNuclei = () => {
+  // Flags may appear before or after the target (`npm run security:nuclei:strict -- <url>`
+  // appends --strict after it), so select the first positional argument.
+  const nucleiFlags = extraArgs.filter((arg) => String(arg).startsWith('--'));
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.NUCLEI_TARGET || 'http://host.docker.internal:4173';
+  if (!isZapTargetAllowed(targetUrl)) {
+    console.error(`Refusing Nuclei scan for non-local/non-staging target: ${targetUrl}`);
+    process.exit(2);
+  }
+  const scanTarget = targetUrl
+    .replaceAll('localhost', 'host.docker.internal')
+    .replaceAll('127.0.0.1', 'host.docker.internal');
+
+  const strict = nucleiFlags.includes('--strict') || process.env.NUCLEI_STRICT === '1';
+  const jsonlReport = path.join(reportDir, 'nuclei-report.jsonl');
+  const sarifReport = path.join(reportDir, 'nuclei-report.sarif');
+  const tableReport = path.join(reportDir, 'nuclei-report.txt');
+  const nucleiReportMount = `${hostPath(reportDir)}:/reports`;
+  // The nuclei image does not bundle templates; sync them into a host cache so
+  // repeat runs (local and CI) do not re-download the full set every time.
+  const nucleiCacheDir = path.join(repoRoot, '.nucleicache');
+  fs.mkdirSync(nucleiCacheDir, { recursive: true });
+  const nucleiTemplateMount = `${hostPath(nucleiCacheDir)}:/root/nuclei-templates`;
+
+  for (const reportPath of [jsonlReport, sarifReport, tableReport]) {
+    fs.rmSync(reportPath, { recursive: true, force: true });
+  }
+
+  // Pin HOME so the host's Windows HOME does not leak into the container; nuclei
+  // resolves its template directory from HOME (/root/nuclei-templates).
+  const dockerOverrides = ['-e', 'HOME=/root'];
+
+  // Sync templates only when the cache is empty. `-update-templates` against a
+  // full 14k-template set can hang for many minutes (observed: 12+ min with no
+  // cache growth while GitHub was reachable), and on CI the cache is restored
+  // from actions/cache anyway. Set NUCLEI_SYNC_TEMPLATES=1 to force a refresh.
+  const hasCachedTemplates = fs.existsSync(path.join(nucleiCacheDir, 'http'));
+  const forceTemplateSync = ['1', 'true', 'yes'].includes(
+    String(process.env.NUCLEI_SYNC_TEMPLATES || '').toLowerCase()
+  );
+
+  if (!hasCachedTemplates || forceTemplateSync) {
+    console.log(forceTemplateSync
+      ? 'Nuclei templates: syncing (NUCLEI_SYNC_TEMPLATES requested)'
+      : 'Nuclei templates: no local cache, syncing');
+    runDocker([
+      'run', '--rm',
+      '-v', nucleiTemplateMount,
+      ...dockerOverrides,
+      images.nuclei,
+      '-update-templates',
+    ]);
+  } else {
+    console.log('Nuclei templates: using cached set (set NUCLEI_SYNC_TEMPLATES=1 to refresh)');
+  }
+
+  console.log(`Running Nuclei ${images.nuclei} against ${scanTarget} (${strict ? 'strict' : 'baseline'} mode)`);
+  runDocker([
+    'run', '--rm',
+    '--add-host=host.docker.internal:host-gateway',
+    '--user', '0:0',
+    '-v', nucleiReportMount,
+    '-v', nucleiTemplateMount,
+    ...dockerOverrides,
+    images.nuclei,
+    '-target', scanTarget,
+    '-tags', 'cves,exposures,misconfiguration,default-login,exposure',
+    '-etags', 'intrusive,dos,fuzz,headless,oast',
+    '-severity', 'critical,high,medium',
+    // No OAST callbacks, no unsigned templates, no auto-update checks.
+    '-ni',
+    '-dut',
+    '-duc',
+    '-or',
+    '-rl', '25',
+    '-c', '10',
+    '-timeout', '5',
+    '-stats', '-si', '0',
+    '-silent',
+    '-jsonl-export', '/reports/nuclei-report.jsonl',
+    '-sarif-export', '/reports/nuclei-report.sarif',
+    '-o', '/reports/nuclei-report.txt',
+  ]);
+
+  if (!fs.existsSync(jsonlReport)) {
+    fs.writeFileSync(tableReport, 'Nuclei scan did not produce a JSONL report.\n');
+    console.error('[security:nuclei] Scan did not produce security-reports/nuclei-report.jsonl');
+    process.exit(1);
+  }
+
+  const exceptions = loadNucleiExceptionsWithPath();
+  const removedJson = filterNucleiJsonlReport(jsonlReport, exceptions);
+  const removedSarif = filterNucleiSarifReport(sarifReport, exceptions);
+  if (removedJson > 0 || removedSarif > 0) {
+    console.log(`[security:nuclei] Filtered accepted baseline findings: jsonl=${removedJson}, sarif=${removedSarif}`);
+  }
+  // Nuclei's SARIF export always records executionSuccessful: false; GitHub
+  // turns that into an "unsuccessful tool execution" warning on the uploaded
+  // analysis and flags the tool on the code scanning tool status page. The
+  // scan container exited cleanly to reach this point, so correct the flag
+  // before the workflow uploads the report.
+  markNucleiSarifExecutionSuccessful(sarifReport);
+
+  const gatingFindings = countNucleiGatingFindings(jsonlReport);
+  const tablePath = path.join(reportDir, 'nuclei-report.txt');
+  if (fs.existsSync(tablePath) && fs.readFileSync(tablePath, 'utf8').trim()) {
+    process.stdout.write(fs.readFileSync(tablePath, 'utf8'));
+  }
+  if (gatingFindings.length > 0) {
+    console.error(`[security:nuclei] ${gatingFindings.length} unsuppressed high/critical finding(s):`);
+    for (const finding of gatingFindings.slice(0, 20)) {
+      console.error(`- [${finding?.info?.severity}] ${nucleiTemplateId(finding)} ${nucleiMatchedHost(finding)}`);
+    }
+    console.error('Triage each finding and add a justified, expiring entry to nuclei-exceptions.json.');
+    if (strict) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  console.log('[security:nuclei] No unsuppressed high/critical findings.');
+};
+
+// Production-origin denylist, sourced from the single staging-safety source of
+// truth rather than duplicated here: duplicating the hostnames inside a
+// security/ file trips the staging-prod fallback scanner (production host in a
+// staging context). assert_staging_smoke_safety.js is CJS and owns the list.
+const KNOWN_PRODUCTION_HOSTS_PATH = 'server/scripts/assert_staging_smoke_safety.js';
+
+const loadKnownProductionHosts = () => {
+  try {
+    const source = fs.readFileSync(path.join(repoRoot, KNOWN_PRODUCTION_HOSTS_PATH), 'utf8');
+    const start = source.indexOf('const KNOWN_PRODUCTION_HOSTS = [');
+    if (start < 0) return [];
+    const open = source.indexOf('[', start);
+    const close = source.indexOf(']', open);
+    if (close < 0) return [];
+    // Extract the quoted hostnames rather than JSON.parse-ing the slice: the
+    // array is multi-line, and a failed parse would silently yield an empty
+    // denylist and disable the production-origin guard.
+    return [...source.slice(open + 1, close).matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  } catch {
+    return [];
+  }
+};
+
+const isKnownProductionHost = (targetUrl) => {
+  let hostname = '';
+  try {
+    hostname = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return loadKnownProductionHosts().some((host) => hostname === host || hostname.endsWith(`.${host}`));
+};
+
+// Word-boundary pattern matches server/scripts/assert_staging_smoke_safety.js
+// (PRODUCTION_TOKEN_PATTERN) so "products" in a hostname is not rejected.
+const productionTokenPattern = /(^|[^a-z0-9])(prod|production|live)([^a-z0-9]|$)/i;
+
+// Mint a Firebase ID token with the same REST exchange the storefront uses, so
+// the scan context can authenticate with a bearer header. Done host-side with
+// plain fetch: no SDK, and no ZAP script engine (the stable image does not
+// enable the GraalJS alpha add-on that script-based authentication requires).
+const mintFirebaseIdToken = async ({ apiKey, origin, email, password }) => {
+  // The Auth Emulator serves the same REST surface under an explicit
+  // /identitytoolkit.googleapis.com path prefix; the hosted endpoint has that
+  // host in the origin already.
+  const base = origin.includes('identitytoolkit.googleapis.com')
+    ? origin
+    : `${origin.replace(/\/+$/, '')}/identitytoolkit.googleapis.com`;
+  const url = `${base}/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`Firebase sign-in failed with HTTP ${response.status}`);
+  }
+  const body = await response.json();
+  const idToken = String(body?.idToken || '');
+  if (!idToken) {
+    throw new Error('Firebase sign-in response contained no idToken');
+  }
+  return idToken;
+};
+
+const runZapAuth = async () => {
+  // Same flag/target split as nuclei: tolerate extra flags before or after the URL.
+  const targetArg = extraArgs.find((arg) => !String(arg).startsWith('--'));
+  const targetUrl = targetArg || process.env.ZAP_AUTH_TARGET || '';
+  const username = process.env.ZAP_AUTH_USERNAME || '';
+  const password = process.env.ZAP_AUTH_PASSWORD || '';
+  const firebaseApiKey = process.env.ZAP_AUTH_FIREBASE_API_KEY || '';
+  const firebaseOrigin = process.env.ZAP_AUTH_FIREBASE_ORIGIN || '';
+  const syncPath = process.env.ZAP_AUTH_SYNC_PATH || '/api/auth/sync';
+
+  if (!targetUrl) {
+    console.error('Refusing authenticated ZAP scan: ZAP_AUTH_TARGET is not set.');
+    process.exit(2);
+  }
+  if (!isZapTargetAllowed(targetUrl)) {
+    console.error(`Refusing authenticated ZAP scan for non-local/non-staging target: ${targetUrl}`);
+    process.exit(2);
+  }
+  if (productionTokenPattern.test(targetUrl) || isKnownProductionHost(targetUrl)) {
+    console.error(`Refusing authenticated ZAP scan for known production target: ${targetUrl}`);
+    process.exit(2);
+  }
+  if (!username || !password || !firebaseApiKey) {
+    console.error('Refusing authenticated ZAP scan: ZAP_AUTH_USERNAME, ZAP_AUTH_PASSWORD, and ZAP_AUTH_FIREBASE_API_KEY must all be set (seeded smoke account).');
+    process.exit(2);
+  }
+
+  let scanTarget = targetUrl.replace(/\/+$/, '');
+  scanTarget = scanTarget.replace(/:443$/, '').replace(/:80$/, '');
+  scanTarget = scanTarget
+    .replaceAll('localhost', 'host.docker.internal')
+    .replaceAll('127.0.0.1', 'host.docker.internal');
+
+  const reportPath = path.join(reportDir, 'zap-auth-report.html');
+  fs.rmSync(reportPath, { recursive: true, force: true });
+
+  const tokenOrigin = firebaseOrigin || 'https://identitytoolkit.googleapis.com';
+  let idToken = process.env.ZAP_AUTH_TOKEN || '';
+  if (!idToken) {
+    console.log(`Signing in the seeded account via ${tokenOrigin} to mint a scan token`);
+    try {
+      idToken = await mintFirebaseIdToken({
+        apiKey: firebaseApiKey,
+        origin: tokenOrigin,
+        email: username,
+        password,
+      });
+    } catch (error) {
+      console.error(`[security:zap:auth] ${error.message}`);
+      process.exit(1);
+    }
+  } else {
+    console.log('Using the pre-supplied ZAP_AUTH_TOKEN (no sign-in performed)');
+  }
+
+  console.log(`Running authenticated OWASP ZAP scan against ${scanTarget}`);
+  // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+  // Fixed ZAP invocation with an allowlisted, pinned image and shell disabled.
+  const result = spawnSync('docker', [
+    'run', '--rm',
+    '--add-host=host.docker.internal:host-gateway',
+    '--user', '0:0',
+    // The plan and the report destination both live under the repo root, so
+    // mount it at /zap/wrk (the path the plan references).
+    '-v', `${hostPath(repoRoot)}:/zap/wrk`,
+    '-e', `ZAP_AUTH_TARGET=${scanTarget}`,
+    '-e', `ZAP_AUTH_TOKEN=${idToken}`,
+    // The zaproxy image exposes no entrypoint, so -cmd would be exec'd as a
+    // binary. Invoke zap.sh explicitly for the Automation Framework plan.
+    // (All docker run options must precede the image name.)
+    '--entrypoint', '/bin/bash',
+    images.zap,
+    '-c',
+    // zap.sh forwards remaining args to ZAP; -cmd keeps it headless and exits.
+    '/zap/zap.sh -cmd -autorun /zap/wrk/scripts/security/zap-auth-plan.yaml',
+  ], { encoding: 'utf8' });
+
+  if (result.error) {
+    console.error(`docker failed: ${result.error.message}`);
+    process.exit(1);
+  }
+  // Surface ZAP's own diagnostics: without this a plan/script failure exits
+  // silently and the operator has nothing to triage.
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  // ZAP exit codes: 0 clean, 1 plan errors, 2 plan warnings. Warnings still
+  // produce a usable report (e.g. a deprecated job parameter), so only hard
+  // plan errors fail this runner.
+  if (result.status === 1) {
+    console.error('[security:zap:auth] ZAP reported plan errors.');
+    process.exit(1);
+  }
+  if (result.status !== 0 && result.status !== 2) {
+    process.exit(result.status);
+  }
+  if (!fs.existsSync(reportPath)) {
+    console.error('[security:zap:auth] Authenticated scan did not produce security-reports/zap-auth-report.html');
+    process.exit(1);
+  }
+  if (result.status === 2) {
+    console.log('[security:zap:auth] ZAP reported warnings; the report was still produced. Review it before promotion.');
+  }
+};
+
 const runHadolint = () => {
   const dockerfile = fs.existsSync(path.join(repoRoot, 'Dockerfile'))
     ? path.join(repoRoot, 'Dockerfile')
@@ -708,6 +1199,11 @@ const runIac = () => {
 
   runDockerReportOnly([
     'run', '--rm',
+    // tfsec's image runs as a non-root user that cannot write to the
+    // runner-owned reports bind mount, so the scan fails with
+    // "permission denied" and no report is produced. Run it as root; the
+    // source mount stays read-only.
+    '--user', '0:0',
     '-v', iacSrcMount,
     '-v', iacReportMount,
     images.tfsec,
@@ -724,7 +1220,13 @@ const runIac = () => {
     'scan',
     '-d', '/repo',
     '-o', 'json',
-  ], terrascanReport);
+    // Terrascan interleaves opa warn lines with its JSON on stdout, so the
+    // report must be extracted from stdout only.
+  ], terrascanReport, { stdoutOnly: true, jsonOnly: true });
+  const terrascanRemoved = filterTerrascanReport(terrascanReport);
+  if (terrascanRemoved > 0) {
+    console.log(`[security:iac] Filtered accepted Terrascan baseline findings: ${terrascanRemoved}`);
+  }
 
   for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
     try {
@@ -737,6 +1239,40 @@ const runIac = () => {
       if (error.code !== 'EEXIST') throw error;
     }
   }
+
+  // Gating: --soft-fail keeps scanner reports intact for triage and SARIF
+  // upload, but a finding that survives baseline filtering must still turn
+  // the build red. Previously every unaccepted finding was uploaded to code
+  // scanning and the job stayed green — even a crashed scanner passed. A
+  // report that is missing, unparseable, or a no-report stub (the scanner
+  // produced nothing at all) fails closed rather than silently passing.
+  const countIacReportFindings = (reportPath, extractor) => {
+    if (!fs.existsSync(reportPath)) return { count: 0, unparseable: true };
+    try {
+      const parsed = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      if (parsed?.status === 'no-report-produced') return { count: 0, unparseable: true };
+      const count = Number(extractor(parsed) || 0);
+      if (!Number.isFinite(count) || count < 0) return { count: 0, unparseable: true };
+      return { count, unparseable: false };
+    } catch {
+      return { count: 0, unparseable: true };
+    }
+  };
+
+  const iacCounts = {
+    checkov: countIacReportFindings(checkovReport, countCheckovFailedChecks),
+    tfsec: countIacReportFindings(tfsecReport, countTfsecFindings),
+    terrascan: countIacReportFindings(terrascanReport, countTerrascanViolations),
+  };
+  const iacUnparseable = Object.values(iacCounts).some((entry) => entry.unparseable);
+  const iacTotal = iacCounts.checkov.count + iacCounts.tfsec.count + iacCounts.terrascan.count;
+
+  if (iacUnparseable || iacTotal > 0) {
+    console.error(`[security:iac] ${iacTotal} unaccepted finding(s) — checkov=${iacCounts.checkov.count}, tfsec=${iacCounts.tfsec.count}, terrascan=${iacCounts.terrascan.count}${iacUnparseable ? ' (unparseable or missing report)' : ''}`);
+    throw new Error(`IaC scan failed: ${iacTotal} unaccepted finding(s). Triage them or add justified, expiring entries to the security-audit exceptions.`);
+  }
+
+  console.log('[security:iac] No unaccepted findings.');
 };
 
 const runZizmor = () => {
@@ -766,6 +1302,8 @@ const commands = {
   hadolint: runHadolint,
   iac: runIac,
   zizmor: runZizmor,
+  nuclei: runNuclei,
+  'zap:auth': runZapAuth,
 };
 
 if (!commands[tool]) {
@@ -774,4 +1312,4 @@ if (!commands[tool]) {
   process.exit(2);
 }
 
-commands[tool]();
+await commands[tool]();

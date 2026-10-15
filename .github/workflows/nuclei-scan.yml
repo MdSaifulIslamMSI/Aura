@@ -1,0 +1,172 @@
+name: Nuclei Scan
+
+# Template-driven live vulnerability scanning (known CVEs, exposed assets,
+# misconfigurations) against the AURA backend. OWASP ZAP covers passive
+# spider findings; Nuclei covers template-matched exposures and known-CVE
+# signatures against the running application.
+#
+# Target selection: an operator override, else staging if STAGING_URL is set,
+# else the real Express backend brought up locally via docker compose (the same
+# recipe docker.yml build-and-smoke runs on every PR). Staging does not exist,
+# so scanning a static Vite SPA instead was the previous behaviour and produced
+# nothing: the SPA has no server software for the CVE and exposure templates to
+# fingerprint. The backend exposes /health, /metrics and the /api/* surface,
+# which is where these templates can actually match.
+#
+# Gate policy (docs/security/nuclei-policy.md): runs are non-blocking until the
+# triaged baseline in nuclei-exceptions.json is clean. Promotion to a blocking
+# gate happens via a workflow_dispatch run with enforce=true, which reruns the
+# scan in strict mode. This workflow never runs on pull_request.
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+    inputs:
+      enforce:
+        description: Run in strict mode and block on unsuppressed high/critical findings
+        required: false
+        default: false
+        type: boolean
+      target:
+        description: Override the scan target (must be a local, staging, or preview origin)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nuclei-scan-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+  NUCLEI_IMAGE: projectdiscovery/nuclei:v3.11.1
+  STAGING_URL: ${{ vars.STAGING_URL || '' }}
+
+jobs:
+  nuclei-scan:
+    name: Nuclei Template Scan
+    runs-on: ubuntu-latest
+    # Compose stack boot (image build + mongo + redis + api) plus a template
+    # sync on a cold cache. The scan itself is ~3 min against a single host;
+    # the remainder is stack bring-up and image build time.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The nuclei image ships without templates; the runner syncs them into
+      # .nucleicache (see scripts/security/run-docker-tool.mjs). CI runners start
+      # empty, so cache the template set between nightly runs.
+      - name: Cache nuclei templates
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nucleicache
+          key: nuclei-templates-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nuclei-templates-${{ runner.os }}-
+
+      - name: Resolve Nuclei target
+        id: nuclei-target
+        shell: bash
+        env:
+          OVERRIDE_TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$OVERRIDE_TARGET" ]; then
+            echo "target=$OVERRIDE_TARGET" >> "$GITHUB_OUTPUT"
+            echo "mode=operator-override" >> "$GITHUB_OUTPUT"
+          elif [ -n "$STAGING_URL" ]; then
+            npm run smoke:preflight
+            echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
+            echo "mode=external-staging" >> "$GITHUB_OUTPUT"
+          else
+            # No staging exists, so the previous default scanned a static Vite
+            # SPA on :4173 with no server software to fingerprint: 1129 templates
+            # ran, 0 matched. Bring up the real Express backend instead, using
+            # the compose recipe docker.yml already proves on every PR, and scan
+            # the surface that actually has CVE/exposure signatures to match.
+            echo "target=http://127.0.0.1:5000" >> "$GITHUB_OUTPUT"
+            echo "mode=local-backend" >> "$GITHUB_OUTPUT"
+          fi
+
+      # docker.yml build-and-smoke boots this exact stack and curls /health/live,
+      # so the recipe is already proven in CI. NODE_ENV stays non-production
+      # (compose sets development) so the boot asserts are skipped; Mongo and
+      # Redis make /health report 200 ok rather than 503 degraded.
+      - name: Start local backend stack
+        if: steps.nuclei-target.outputs.mode == 'local-backend'
+        run: docker compose up -d --build mongo redis aura-api
+
+      - name: Wait for backend liveness
+        if: steps.nuclei-target.outputs.mode == 'local-backend'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/health/live >/dev/null; then
+              exit 0
+            fi
+            docker compose ps
+            sleep 5
+          done
+          docker compose logs aura-api
+          exit 1
+
+      # Baseline mode reports every finding but exits zero; strict mode (enforce
+      # input) exits non-zero on unsuppressed high/critical findings.
+      - name: Run Nuclei scan
+        shell: bash
+        env:
+          NUCLEI_TARGET: ${{ steps.nuclei-target.outputs.target }}
+          ENFORCE: ${{ inputs.enforce }}
+        run: |
+          set -euo pipefail
+          if [ "$ENFORCE" = "true" ] || [ "$ENFORCE" = "True" ]; then
+            npm run security:nuclei:strict -- "$NUCLEI_TARGET"
+          else
+            npm run security:nuclei -- "$NUCLEI_TARGET"
+          fi
+
+      - name: Upload Nuclei reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: nuclei-scan-report
+          path: |
+            security-reports/nuclei-report.jsonl
+            security-reports/nuclei-report.sarif
+            security-reports/nuclei-report.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Nuclei SARIF
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        if: always() && hashFiles('security-reports/nuclei-report.sarif') != ''
+        with:
+          sarif_file: security-reports/nuclei-report.sarif
+          category: nuclei
+
+      # Teardown last so the stack survives the scan and both uploads; `always`
+      # so a failed scan still releases the runner's Mongo/Redis/API containers.
+      - name: Stop local backend stack
+        if: always() && steps.nuclei-target.outputs.mode == 'local-backend'
+        run: docker compose down -v

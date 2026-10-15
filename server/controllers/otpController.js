@@ -7,10 +7,11 @@ const OtpSession = require('../models/OtpSession');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms, normalizePhoneE164 } = require('../services/sms');
-const { computePhoneBlindIndex } = require('../services/blindIndexService');
+const { computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 const { decryptValue } = require('../models/utils/encryptedField');
 const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../services/authProfileVault');
 const AppError = require('../utils/AppError');
+const cryptoKdf = require('../utils/cryptoKdf');
 const logger = require('../utils/logger');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
 const { inspectOtpFlowToken, issueOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowToken');
@@ -54,7 +55,6 @@ const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 const LOGIN_PROOF_MAX_AGE_SECONDS = 10 * 60;
-const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const RESET_PASSWORD_SESSION_TTL_MS = 10 * 60 * 1000;
 const SIGNUP_IDENTIFIER_WINDOW_MS = 10 * 60 * 1000;
 const SIGNUP_IDENTIFIER_MAX_REQUESTS = 5;
@@ -145,14 +145,13 @@ const buildPhoneLookupCandidates = (phoneInput, canonicalPhone) => {
     return Array.from(candidates).filter(Boolean);
 };
 
-// Phone is encrypted at rest with an HMAC blind index (User.phoneHash), so
-// equality lookups run against the hash only. The production backfill has
-// completed (every user row carries phoneHash) and the legacy plaintext
-// phone indexes are dropped, so a plaintext branch would be an unindexed
-// collection scan that can never match.
+// Phone is encrypted at rest with an HMAC blind index (User.phoneHashV2), so
+// equality lookups run against the v2 hash only — the legacy v1 hash was
+// retired once the backfill proved every row carries a correct v2.
 const buildPhoneMatchFilter = (candidates) => {
     const list = (Array.isArray(candidates) ? candidates : [candidates]).filter(Boolean);
-    return { phoneHash: { $in: list.map(computePhoneBlindIndex) } };
+    const hashes = [...new Set(list.map((phone) => computePhoneBlindIndexV2(phone)).filter(Boolean))];
+    return { phoneHashV2: { $in: hashes } };
 };
 
 const normalizePurpose = (value) => (
@@ -475,6 +474,11 @@ const isOtpSessionStorageUnavailableError = (error) => (
     String(error?.message || '').toLowerCase().includes('cannot create a new collection')
 );
 
+const isDuplicateKeyError = (error) => (
+    error?.code === 11000
+    || (Array.isArray(error?.writeErrors) && error.writeErrors.some((entry) => entry?.code === 11000))
+);
+
 
 const AUTH_ASSURANCE_BY_PURPOSE = {
     signup: 'otp',
@@ -499,6 +503,23 @@ const getOtpHashSecret = () => {
     if (secret) return secret;
     if (process.env.NODE_ENV === 'test') return 'aura-test-otp-hash-secret';
     throw new AppError('OTP hash secret is not configured', 500);
+};
+
+// The OTP pepper must be its own secret. Sharing it with the OTP *flow* secret
+// means an attacker who ever recovers one learns the other, and sharing it with
+// JWT_SECRET would let a single token-signing leak turn into offline brute force
+// of every stored OTP hash. The derivation of stored hashes is unchanged, so
+// this only tightens which env var is acceptable in production.
+const assertOtpHashSecretIsolation = () => {
+    if (!cryptoKdf.isProduction()) return;
+
+    const dedicated = String(process.env.OTP_HASH_SECRET || '').trim();
+    if (dedicated) return;
+
+    throw new AppError(
+        'OTP_HASH_SECRET must be configured in production instead of reusing the shared OTP-flow/JWT secret',
+        500
+    );
 };
 
 const OTP_HASH_PREFIX = 'hmac-sha256:';
@@ -680,7 +701,13 @@ const upsertOtpSession = async ({
 }) => {
     try {
         return await OtpSession.findOneAndUpdate(
-            { identityKey, purpose },
+            // An OTP session slot belongs to exactly one user. The identityKey
+            // namespace is shared by every account storing a representation
+            // variant of the number, so matching on {identityKey, purpose}
+            // alone silently REPLACES another user's in-flight session. Scope
+            // the upsert to the resolved user; a conflicting slot surfaces as
+            // an error instead of being destroyed.
+            { identityKey, purpose, user: userId },
             {
                 $set: {
                     identityKey,
@@ -710,24 +737,49 @@ const upsertOtpSession = async ({
             });
             return null;
         }
+        // A slot owned by another account must surface as a clear conflict,
+        // never as an opaque 500 and never as a destroyed foreign session.
+        if (isDuplicateKeyError(error)) {
+            logger.warn('otp.session_identity_conflict', {
+                identityKey,
+                userId: String(userId),
+                purpose,
+            });
+            throw new AppError('An OTP session for this phone number is already active on another account.', 409);
+        }
         throw error;
     }
 };
 
 
-const findOtpSessionByIdentity = async ({ identityKey, userId, purpose, includeHash = false }) => {
+const findOtpSessionByIdentity = async ({
+    identityKey,
+    userId,
+    purpose,
+    includeHash = false,
+    ownerCanonicalIdentity = '',
+}) => {
     const projection = includeHash ? '+otpHash' : '';
-    let session = await OtpSession.findOne({ identityKey, purpose }).select(projection);
+    const session = await OtpSession.findOne({ identityKey, purpose }).select(projection);
     if (session) {
-        if (String(session.user) !== String(userId)) {
-            session.user = userId;
-            await session.save();
-        }
+        // Never silently re-own an OTP session that was issued for another
+        // account: return it untouched so the caller's session-owner check
+        // rejects the cross-account verification instead of laundering
+        // attempt counters, lockouts and verification markers onto the
+        // selected account.
         return session;
     }
 
     const legacySession = await OtpSession.findOne({ user: userId, purpose }).select(projection);
     if (!legacySession) return null;
+    if (legacySession.identityKey) return legacySession;
+
+    // SECURITY: a keyless legacy row may only be migrated into the identityKey
+    // that already belongs to its owner. Re-keying into any caller-chosen
+    // namespace would relocate one user's OTP state under another identity.
+    if (!identityKey || canonicalizePhoneIdentity(ownerCanonicalIdentity) !== identityKey) {
+        return null;
+    }
 
     legacySession.identityKey = identityKey;
     await legacySession.save();
@@ -1255,6 +1307,11 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     try {
         await OtpSession.deleteMany({
             identityKey: canonicalPhone,
+            // Scope the cleanup to the resolved target user. The identityKey
+            // namespace is shared across accounts holding representation
+            // variants of the number; an unscoped delete destroys other users'
+            // in-flight OTP flows.
+            user: targetUser._id,
             purpose: { $ne: purpose },
         });
     } catch (cleanupError) {
@@ -1537,7 +1594,13 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     let session = null;
     let otpSessionStorageUnavailable = false;
     try {
-        session = await findOtpSessionByIdentity({ identityKey: canonicalPhone, userId: user._id, purpose, includeHash: true });
+        session = await findOtpSessionByIdentity({
+            identityKey: canonicalPhone,
+            userId: user._id,
+            purpose,
+            includeHash: true,
+            ownerCanonicalIdentity: user.phone || '',
+        });
     } catch (error) {
         if (!isOtpSessionStorageUnavailableError(error)) {
             throw error;
@@ -1761,7 +1824,13 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
     if (purpose === 'login' && !isEmailFactorOtp) {
         verificationMutation.loginEmailOtpVerifiedAt = null;
         verificationMutation.loginOtpVerifiedAt = new Date();
-        verificationMutation.loginOtpAssuranceExpiresAt = new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS);
+        // The money-movement assurance window is NOT armed here: verifying a
+        // login OTP does not complete the device-bound ceremony, so a fresh
+        // window would re-open the payment OTP gate for whoever still holds a
+        // token bound to the previous sign-in session. Only the completing
+        // ceremony (authSessionService.applyLoginAssuranceToSession /
+        // completePhoneFactorLogin) opens the window, and it binds it to the
+        // verifying session.
     } else if (purpose === 'signup' && !isEmailFactorOtp) {
         verificationMutation.signupEmailOtpVerifiedAt = null;
     } else if (purpose === 'forgot-password' && !isEmailFactorOtp) {
@@ -2273,4 +2342,4 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     return sendGenericAccountDiscoveryResponse(res, responseStartedAt);
 });
 
-module.exports = { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };
+module.exports = { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists, assertOtpHashSecretIsolation };

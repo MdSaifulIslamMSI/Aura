@@ -89,10 +89,33 @@ describe('Vercel Deployment Storage', () => {
     it('excludes sourcemaps from the deploy payload but keeps them for Sentry', async () => {
         const packaging = await readRepoFile('app/scripts/create_vercel_static_output.mjs');
         const vite = await readRepoFile('app/vite.config.js');
+        const netlify = await readRepoFile('.github/workflows/deploy-netlify.yml');
+        const aws = await readRepoFile('.github/workflows/deploy-frontend-aws.yml');
+        const postbuild = await readRepoFile('app/scripts/strip-deploy-sourcemaps.mjs');
 
-        // Vite still emits maps so the Sentry release step can upload them.
+        // Sourcemaps are always emitted (comment included) so every build of a
+        // commit is byte-identical — render, railway and vercel build from
+        // source and the coherence gate compares content-hashed filenames.
+        // The .map FILES are the leak (unminified source is publicly
+        // downloadable, no host config blocks /assets/*.map), so the postbuild
+        // strips them from every build except the Sentry release pipeline.
         expect(vite).toContain('sourcemap: true');
-        // ...but they never enter the Vercel payload.
+        expect(vite).not.toContain('VITE_BUILD_SOURCEMAP');
+        // The keep-maps flag must NOT be VITE_-prefixed: Vite inlines VITE_*
+        // vars into import.meta.env, so a CI-only flag would change the bundle
+        // bytes and break byte-parity with the source-building lanes.
+        expect(netlify).toContain("AURA_KEEP_SOURCEMAPS: 'true'");
+        expect(aws).toContain("AURA_KEEP_SOURCEMAPS: 'true'");
+        expect(postbuild).toContain('AURA_KEEP_SOURCEMAPS');
+        // The Sentry upload publishes maps but never deletes them, so both
+        // deploy paths must strip them before the artifact leaves the job.
+        // Regression: without this the maps rode the artifact into the
+        // Netlify/AWS publish and were publicly downloadable.
+        expect(netlify).toContain('Strip sourcemaps from the deploy payload');
+        expect(aws).toContain('Strip sourcemaps from the deploy payload');
+        expect(netlify).toMatch(/find app\/dist -name '\*\.map' -type f -print -delete/);
+        expect(aws).toMatch(/find app\/dist -name '\*\.map' -type f -print -delete/);
+        // ...and when they are built, they still never enter the payload.
         expect(packaging).toContain('pruneSourceMaps(outputDirectory)');
         expect(packaging).toContain('Vercel output still contains');
     });

@@ -41,6 +41,17 @@ const SESSION_ADMIN_HOSTS = new Set(
         .map((value) => String(value || '').trim().toLowerCase())
         .filter(Boolean)
 );
+// Hosts of known cross-site frontends (e.g. the hosted SPA on Vercel or
+// Netlify calling the CloudFront API) that are allowed to receive
+// SameSite=None session cookies. Anything not listed here gets the default
+// Lax/Strict posture: an unlisted origin must never be able to mint a
+// SameSite=None session by simply differing from the request host.
+const SESSION_CROSS_SITE_COOKIE_HOSTS = new Set(
+    String(process.env.AUTH_CROSS_SITE_COOKIE_ORIGINS || '')
+        .split(',')
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean)
+);
 
 const inMemorySessionStore = new Map();
 let inMemoryGlobalSessionRevokedAfter = 0;
@@ -185,13 +196,6 @@ const buildProviderAmr = (providerIds = []) => {
     return 'firebase';
 };
 
-const resolveStepUpExpiry = (user = null) => {
-    const expiresAt = user?.loginOtpAssuranceExpiresAt ? new Date(user.loginOtpAssuranceExpiresAt).getTime() : 0;
-    return Number.isFinite(expiresAt) && expiresAt > Date.now()
-        ? new Date(expiresAt).toISOString()
-        : null;
-};
-
 const resolveSyntheticAssurance = ({
     user = null,
     authToken = null,
@@ -211,7 +215,18 @@ const resolveSyntheticAssurance = ({
     if (Boolean(authToken?.firebase?.sign_in_second_factor)) {
         nextAmr.push('firebase_mfa');
     }
-    if (String(user?.authAssurance || '').trim() === 'password+otp') {
+    // `authAssurance === 'password+otp'` is a permanent record of a past
+    // ceremony on the account, not proof that THIS sign-in session performed
+    // one. Project the `otp` amr only while the ceremony's own TTL is live
+    // and the marker is bound to this token's auth_time — the same binding
+    // the payment gate enforces in hasOtpAssurance.
+    const otpAssuranceBound = Boolean(
+        String(user?.authAssurance || '').trim() === 'password+otp'
+        && Number(user?.authAssuranceAuthTime || 0) > 0
+        && Number(authToken?.auth_time || 0) === Number(user.authAssuranceAuthTime)
+        && new Date(user?.loginOtpAssuranceExpiresAt || 0).getTime() > Date.now()
+    );
+    if (otpAssuranceBound) {
         nextAmr.push('otp');
     }
     // A WebAuthn transport identifies the proof mechanism, not whether the
@@ -227,8 +242,11 @@ const resolveSyntheticAssurance = ({
     const normalizedAmr = normalizeAmr(nextAmr).filter((entry) => (
         effectiveDeviceMethod !== 'browser_key' || entry !== 'trusted_device'
     ));
+    // Step-up freshness must attest a ceremony performed by THIS session (or
+    // its direct lineage via previousSession). The user-level OTP login
+    // window (loginOtpAssuranceExpiresAt) is account-scoped and must never
+    // arm step-up on unrelated sessions of the same account.
     const stepUpExpiry = toIsoOrNull(stepUpUntil)
-        || resolveStepUpExpiry(user)
         || toIsoOrNull(previousSession?.stepUpUntil);
     const hasActiveStepUp = Boolean(
         stepUpExpiry && new Date(stepUpExpiry).getTime() > Date.now()
@@ -262,9 +280,20 @@ const resolveSyntheticAssurance = ({
 
 const resolveRiskState = ({ user = null, previousSession = null, riskState = '' } = {}) => {
     const explicitRiskState = normalizeText(riskState).toLowerCase();
+    // Role-based baseline: privileged accounts are permanently risk-elevated.
+    // A login-risk verdict (e.g. 'login_risk_high') may RAISE the effective
+    // risk above the baseline, but must never CLEAR it — otherwise the
+    // elevated-assurance posture depends on which legitimate endpoint minted
+    // the session (sync passes the engine value, exchange applies the
+    // baseline), an attacker-choosable signal.
+    const baseline = isAdminSubject(user)
+        ? 'privileged'
+        : (user?.isSeller ? 'heightened' : '');
+    if (baseline) {
+        if (!explicitRiskState || explicitRiskState === 'standard') return baseline;
+        return explicitRiskState;
+    }
     if (explicitRiskState) return explicitRiskState;
-    if (isAdminSubject(user)) return 'privileged';
-    if (user?.isSeller) return 'heightened';
     return String(previousSession?.riskState || 'standard').trim() || 'standard';
 };
 
@@ -370,31 +399,39 @@ const isSecureRequest = (req = {}) => {
     return Boolean(req.secure || forwardedProto === 'https');
 };
 
-const resolveRequestProtocol = (req = {}) => {
-    if (isSecureRequest(req)) {
-        return 'https';
-    }
-    return 'http';
-};
-
 const shouldUseCrossSiteCookieForOrigin = (req = {}) => {
-    const { protocol: originProtocol, host: originHost } = parseOriginContext(req.headers?.origin || '');
+    const { host: originHost } = parseOriginContext(req.headers?.origin || '');
     const requestHost = normalizeHost(req.headers?.host || req.hostname || '');
-    const requestProtocol = resolveRequestProtocol(req);
 
     if (!originHost || !requestHost) {
         return false;
     }
 
-    if (originHost === requestHost && (!originProtocol || originProtocol === requestProtocol)) {
+    // Same host is never cross-site, whatever the protocol.
+    if (originHost === requestHost) {
         return false;
     }
 
+    // Known cross-site frontends (the hosted SPA on Vercel/Netlify calling the
+    // CloudFront API) must be allowlisted explicitly. This replaces the old
+    // behaviour where ANY origin whose host differed from the request host
+    // earned SameSite=None: a phishing page posting credentials to the real
+    // API could mint a None session for the victim and then forge cross-site
+    // requests carrying it.
+    if (SESSION_CROSS_SITE_COOKIE_HOSTS.has(originHost)) {
+        return true;
+    }
+
+    // Loopback origins serve the desktop runtime and local dev servers, which
+    // load the SPA from 127.0.0.1 while the API is remote. This is the only
+    // non-allowlisted cross-site case that stays open: a remote attacker page
+    // cannot present a loopback Origin, so the phishing vector above remains
+    // closed while the desktop bridge keeps working.
     if (LOOPBACK_HOSTS.has(originHost)) {
         return true;
     }
 
-    return originHost !== requestHost || (originProtocol && originProtocol !== requestProtocol);
+    return false;
 };
 
 const resolveSameSite = (req = {}) => {
@@ -405,8 +442,13 @@ const resolveSameSite = (req = {}) => {
     if (shouldUseCrossSiteCookieForOrigin(req) && isSecureRequest(req)) {
         return 'none';
     }
-    if (SESSION_DEFAULT_SAME_SITE === 'strict' || SESSION_DEFAULT_SAME_SITE === 'none') {
-        return SESSION_DEFAULT_SAME_SITE;
+    // SameSite=None is granted ONLY by the cross-site allowlist above (or the
+    // loopback case inside it). The env default must never re-grant it: the
+    // AWS bootstrap sets AUTH_SESSION_SAME_SITE=none, and falling through to
+    // that default would hand every unlisted origin — including an attacker
+    // page — the None session the allowlist just refused.
+    if (SESSION_DEFAULT_SAME_SITE === 'strict') {
+        return 'strict';
     }
     return 'lax';
 };

@@ -273,9 +273,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Guard working directory hygiene
+        run: node scripts/check-repo-hygiene.mjs --strict
 
       - name: Guard committed runtime/test artifacts
         run: node server/scripts/ci-guard-artifacts.js
@@ -321,7 +324,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -403,7 +406,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -432,7 +435,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -482,7 +485,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -543,7 +546,7 @@ jobs:
           STRIPE_WEBHOOK_SECRET: whsec_fake_security_suite
 
       - name: Upload security reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: security-reports
@@ -562,7 +565,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -599,7 +602,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -682,7 +685,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -729,7 +732,7 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: playwright-report-shard-${{ matrix.shard }}
@@ -762,7 +765,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -773,14 +776,56 @@ jobs:
       - name: Install desktop dependencies
         run: npm ci
 
+      # desktop/*.test.cjs had no runner: these 62 tests passed locally but no
+      # command in the repo or CI ever executed them. `node --test desktop/`
+      # does not work (Node 24 reads it as a module path), so the quoted glob is
+      # required — cmd.exe does not expand it either.
+      - name: Lint desktop sources
+        run: npm run lint:desktop
+
+      # Real lint for desktop/ and scripts/. This is the gate that caught the
+      # dropped preflight origin check in #653's runtime decomposition, which
+      # every other check missed because the dead handler still parsed cleanly.
+      - name: Lint Node sources with ESLint
+        run: npm run lint:node
+
+      - name: Run desktop unit tests
+        run: npm run test:desktop
+
       - name: Install frontend dependencies
         run: npm --prefix app ci
 
       - name: Build frontend for desktop packaging
         run: npm run desktop:frontend:build
 
+      # Packaging succeeding only proves electron-builder did not error, and the
+      # packaged-artifact check below only proves config/backend-origin.json
+      # shipped. Neither launches Electron, so nothing caught a regression that
+      # broke window creation or the local runtime server. xvfb-run because the
+      # runner is headless.
+      - name: Boot the desktop shell
+        run: xvfb-run -a npm run test:desktop:boot
+
       - name: Package Linux desktop directory smoke test
         run: npx electron-builder --linux dir --publish never
+
+      # Packaging succeeding only proves electron-builder did not error. Desktop
+      # 1.0.195 shipped an app that crashed on launch because
+      # config/backend-origin.json was never packaged, so assert the built
+      # artifact actually carries it and that the runtime module loads.
+      - name: Assert packaged app carries the backend-origin artifact
+        run: node scripts/desktop/verify-packaged-runtime.mjs
+
+      # Source-level checks cannot see what electron-builder actually packed. A
+      # build produced from another branch or a stale cache can ship a
+      # BrowserWindow with contextIsolation disabled or nodeIntegration enabled
+      # while every source check still passes, so assert the hardened
+      # webPreferences, per-channel sender validation, contextBridge surface and
+      # source-map absence against the packaged app.asar itself.
+      # Strict mode because this job just packaged: a missing artifact means the
+      # packaging above regressed, not that there was nothing to check.
+      - name: Assert packaged Electron artifact keeps its security posture
+        run: npm run security:artifact-posture:strict
 
   android-shell:
     name: Android shell compile
@@ -817,7 +862,7 @@ jobs:
 
       - name: Upload Android build report
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: android-shell-report
           path: app/android/app/build/reports/
@@ -834,7 +879,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -856,7 +901,7 @@ jobs:
         run: npm run observability:validate
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
+        uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
 
       - name: Validate Kubernetes kustomize base
         run: kubectl kustomize k8s/base > /tmp/k8s-base.yaml

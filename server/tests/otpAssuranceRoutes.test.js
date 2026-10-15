@@ -41,6 +41,9 @@ describe('payment routes OTP assurance', () => {
 
     const buildApp = (assurance) => {
         mockProtect.mockImplementation((req, _res, next) => {
+            // Production tokens carry email_verified; the Auth Shield identity
+            // check requires it for critical actions (payment intents).
+            req.authToken = { email_verified: true, auth_time: Math.floor(Date.now() / 1000) };
             req.user = { _id: 'u1', authAssurance: assurance };
             req.authzPosture = {
                 fresh: true,
@@ -51,9 +54,16 @@ describe('payment routes OTP assurance', () => {
 
         const app = express();
         app.use(express.json());
+        app.use((req, _res, next) => {
+            // The shipped client sends replay-guard headers on every request;
+            // critical actions require a fresh nonce and timestamp.
+            req.headers['x-aura-nonce'] = `nonce-${Math.random().toString(36).slice(2)}`;
+            req.headers['x-aura-timestamp'] = String(Math.floor(Date.now() / 1000));
+            next();
+        });
         app.use('/api/payments', paymentRoutes);
         // eslint-disable-next-line no-unused-vars
-        app.use((err, _req, res, _next) => {
+        app.use((err, _res, res, _next) => {
             res.status(err.statusCode || 500).json({ message: err.message });
         });
         return app;

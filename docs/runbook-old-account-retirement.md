@@ -1,75 +1,73 @@
 # Runbook — old AWS account (942679464475) retirement
 
-Everything still load-bearing on the old account is the **production edge**:
-CloudFront `E34Z9POGIQYOCS` (frontend + /api//socket.io//health//uploads
-proxy to the backend) and the S3 bucket `aura-frontend-942679464475-ap-south-1`
-that feeds it. All 7 storefront lanes hardcode
-`https://dbtrhsolhec1s.cloudfront.net` as the edge. Retirement = replicate
-the edge in the new account (517353742644), flip the variables, then drain.
+**Status: replication and cutover COMPLETE (2026-10-10). Drain pending.**
 
-**Groundwork completed 2026-09-19 (read-only against old account, additive
-in the new account):**
-- Full `E34Z9POGIQYOCS` distribution config exported → committed as
-  `infra/aws/cloudfront-edge-replica.json` (the replication source of truth).
-- OAC `E1IPOYOIPU8DVP` created in the new account (sigv4/always, S3 origin
-  type) — the equivalent of old-account OAC `E88GSUA02J7JC`.
-- New-account CloudFront creation is **blocked by AWS account verification**
-  (`Your account must be verified before you can add new CloudFront
-  resources`) — only AWS Support can clear this. Until then the replica
-  config cannot be applied.
+The new account (517353742644) now serves production static + `/api` through
+CloudFront `EZZ7ARQ9QFQ71` (`https://dip82eloip5zb.cloudfront.net`) backed by
+S3 `aura-frontend-517353742644-ap-south-1`. All seven storefront lanes proxy
+`/api` at the new edge via the single-sourced routing contract.
 
-## Flip checklist (in order, one watched session)
+The old account retains three resources, still enabled and rollback-capable:
+CloudFront `E34Z9POGIQYOCS`, S3 `aura-frontend-942679464475-ap-south-1`
+(25,619 objects / ~6 GB, including `_aura-rollback/` snapshots), OAC
+`E88GSUA02J7JC`, plus the `aura-cloudtrail-logs-*` audit bucket.
 
-1. **AWS Support verification** of account 517353742644 for CloudFront
-   (console → Support → include the AccessDenied error text).
-2. **Create the distribution**:
-   `aws cloudfront create-distribution --profile aura-new-admin
-   --distribution-config file://infra/aws/cloudfront-edge-replica.json`
-   (origins already point at `aura-frontend-517353742644-ap-south-1` + the
-   backend `13.127.230.58.sslip.io`; 7 ordered cache behaviors + default;
-   managed policies `4135ea2d…` = CachingDisabled and `658327ea…` =
-   CachingOptimized are global IDs and work as-is).
-3. **Bucket policy**: the new bucket currently carries a pre-existing
-   `PublicReadStaticWebsite` (Principal `*`) policy — replace it with the
-   OAC statement
-   (`Principal cloudfront.amazonaws.com`, `s3:GetObject`, condition
-   `AWS:SourceArn` = the new distribution ARN).
-4. **Seed content**: one-time
-   `aws s3 sync s3://aura-frontend-942679464475-ap-south-1 <local>`
-   then `aws s3 sync <local> s3://aura-frontend-517353742644-ap-south-1`
-   (two profiles; the old-account `aura-admin-cli` user has S3 read but the
-   CLI has no cross-account copy flag). Every later release re-seeds via the
-   deploy lane once the variables below are set.
-5. **Verify the new edge** before anything references it: `https://<new-domain>/`
-   bytes-identical to `https://dbtrhsolhec1s.cloudfront.net/`, `/health/live`
-   200, `/api/products?limit=1` 200 JSON, socket.io handshake.
-6. **Flip the variables** (GitHub repo variables): `AURA_BACKEND_ORIGIN`,
-   `AWS_BACKEND_BASE_URL`, `AURA_CLOUDFRONT_DISTRIBUTION_ID` → new values;
-   add `AWS_FRONTEND_BUCKET` + `AWS_FRONTEND_DISTRIBUTION_ID` (currently
-   **absent** — the AWS storefront deploy lane fails validation without
-   them, so today the AWS-hosted storefront is frozen on old-infra bytes
-   from 2026-09-17).
-7. **Flip the code pin**: `app/config/vercelRoutingContract.mjs`
-   `DEFAULT_HOSTED_BACKEND_ORIGIN` (+ the test that pins it), then
-   `npm run vercel:routing:sync` to regenerate the 8 host-config files
-   (CI now enforces the regen), update `app/capacitor.config.ts`
-   allowNavigation and the meta CSP. Ship as one PR.
-8. **Deploy** backend (base.env CORS already derives from
-   `corsFlags.js` hosted origins + env) and all storefronts via the
-   command center.
-9. **Drain**: after 2 clean weeks, disable (then delete) `E34Z9POGIQYOCS`,
-   empty + delete `aura-frontend-942679464475-ap-south-1`, delete OAC
-   `E88GSUA02J7JC`, and delete the old staging distribution
-   `E1SZSF4W3BBBZQ` (disabled 2026-09-19, was pointing at the dead staging
-   IP `43-205-214-241.sslip.io`; re-enable = flip Enabled back if staging
-   ever returns).
+## Timeline
 
-## Done as groundwork (2026-09-19)
+| Date | Event |
+| --- | --- |
+| 2026-09-18 | Old-account zombies drained: staging distro + both EC2s terminated, 52 GB EBS auto-deleted, 4 stale buckets deleted |
+| 2026-09-19 | Edge config exported + committed; new-account OAC `E1IPOYOIPU8DVP` created |
+| 2026-09-22 → 10-02 | CloudFront creation denied by AWS account verification (support case `178895182300548`, "minimal usage and no billing history") |
+| **2026-10-10** | **Verification gate lifted.** Distribution `EZZ7ARQ9QFQ71` created and enabled |
+| 2026-10-10 | Bucket policy → OAC + full public-access-block; bucket seeded; deploy role fixed; frontend vars flipped; deploy run `38028629353` green |
 
-- [x] Edge config exported + committed (`infra/aws/cloudfront-edge-replica.json`)
-- [x] New-account OAC `E1IPOYOIPU8DVP`
-- [x] Staging distro `E1SZSF4W3BBBZQ` **disabled** (dead origin; reversible)
-- [x] Verified: new-account bucket empty (needs seeding), deploy-lane
-      variables missing, old bucket content last modified 2026-09-17
-- [ ] AWS account verification (Support — human)
-- [ ] Steps 2–9
+## What the block-clearing actually required
+
+Three defects in `infra/aws/cloudfront-edge-replica.json` would have produced a
+broken replica if applied verbatim:
+
+1. Backend origin pointed at `13.127.230.58.sslip.io` — **dead since
+   2026-09-25** when the EIP was pinned. Corrected to `13.205.7.2.sslip.io`.
+2. `FunctionARN` referenced `arn:aws:cloudfront::942679464475:function/…` — a
+   CloudFront Function ARN is account-scoped. The new account already had a
+   logically identical `aura-frontend-spa-rewrite` (created 2026-09-08, differing
+   only in CRLF vs LF); the ARN was repointed.
+3. `CallerReference` reused the abandoned 2026-09-19 value.
+
+One non-obvious blocker: `.github/workflows/production-cicd.yml` reads
+`${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}` **directly** at lines 1264, 1368
+and 1857 rather than through the `vars. || secrets.` fallback used elsewhere.
+Flipping the repo variable alone leaves CI assuming the **old-account** role.
+
+## Divergences from the original plan
+
+- **No manual 6 GB copy.** The plan's `aws s3 sync` round-trip was unnecessary:
+  once `AWS_FRONTEND_BUCKET` / `AWS_FRONTEND_DEPLOY_ROLE_ARN` point at the new
+  account, the existing deploy lane seeds the bucket as part of a normal
+  release and invalidates the new distribution.
+- **New-account role needed `cloudfront:CreateInvalidation`.** The bootstrap role
+  only carried S3 permissions, so the deploy would have synced successfully and
+  then failed at the invalidation step.
+- **Bucket policy hardening.** The pre-existing `PublicReadStaticWebsite`
+  policy was replaced with the OAC statement, after which full
+  public-access-block was enabled (matching the old bucket's posture).
+
+## Remaining: drain the old account
+
+Do not start until the new edge has served production cleanly for ~2 weeks.
+
+1. Confirm no lane still references `dbtrhsolhec1s`:
+   `git grep dbtrhsolhec1s` (only inert test fixtures and this runbook should
+   remain).
+2. Disable `E34Z9POGIQYOCS` — **keep it disabled, do not delete**, so rollback
+   stays possible.
+3. Empty + delete `aura-frontend-942679464475-ap-south-1` (contains
+   `_aura-rollback/` snapshots; confirm nothing references them first).
+4. Delete OAC `E88GSUA02J7JC` and the CloudFront Function
+   `aura-frontend-spa-rewrite`.
+5. Export/keep `aura-cloudtrail-logs-942679464475-ap-south-1` if audit history
+   is wanted before closing the account.
+
+Old-account cost while draining is ~$0–1/month (CloudFront free tier + a few
+GB of S3).

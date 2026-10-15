@@ -17,7 +17,10 @@ const paymentPolicies = Object.freeze({
     'payment.refund.create': {
         action: 'payment.refund.create',
         resourceType: 'payment',
-        allowedRoles: ['buyer', 'admin', 'super_admin'],
+        // Buyer refunds are routed through the order command center, which
+        // owns the return-window / fraud / admin-review policy. Only an
+        // administrator may call the direct payment-intent refund route.
+        allowedRoles: ['admin', 'super_admin'],
         requiresIdentity: true,
         requiresOwnership: true,
         adminBypassesOwnership: true,

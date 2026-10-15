@@ -56,11 +56,17 @@ AWS_S3_REVIEW_PREFIX=review-media
 # Strict CORS contract: the backend no longer carries a hardcoded hosted-origin
 # fallback (see server/config/corsFlags.js), so every production storefront lane
 # must be listed here. Keep in sync when adding a new multihost lane.
-CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://dbtrhsolhec1s.cloudfront.net,https://aura-storefront.onrender.com,https://aurapilot.aws.app,https://aura-storefront.pages.dev,https://mdsaifulislammsi.github.io,https://aura-storefront-production.up.railway.app,https://aura-mdsaifulislammsiss-projects.vercel.app
+CORS_ORIGIN=https://aurapilot.vercel.app,https://aurapilot.netlify.app,https://dip82eloip5zb.cloudfront.net,https://aura-storefront.onrender.com,https://aurapilot.aws.app,https://aura-storefront.pages.dev,https://mdsaifulislammsi.github.io,https://aura-storefront-production.up.railway.app,https://aura-mdsaifulislammsiss-projects.vercel.app
 APP_PUBLIC_URL=https://aurapilot.vercel.app
 AURA_BACKEND_PUBLIC_HOST=api.aurapilot.example.com
 AUTH_SESSION_COOKIE_SECURE=true
-AUTH_SESSION_SAME_SITE=none
+# SameSite=None is granted per-request by the cross-site cookie allowlist
+# (AUTH_CROSS_SITE_COOKIE_ORIGINS), not by a blanket default: an unlisted
+# origin must never be able to mint a None session. Keep this at lax.
+AUTH_SESSION_SAME_SITE=lax
+# Hosts allowed to receive SameSite=None session cookies. Must mirror the
+# cross-site frontends in CORS_ORIGIN; an origin not listed here gets lax.
+AUTH_CROSS_SITE_COOKIE_ORIGINS=aurapilot.vercel.app,aurapilot.netlify.app,aura-storefront.onrender.com,aurapilot.aws.app,aura-storefront.pages.dev,mdsaifulislammsi.github.io,aura-storefront-production.up.railway.app,aura-mdsaifulislammsiss-projects.vercel.app
 AUTH_SESSION_ALLOW_MEMORY_FALLBACK=false
 AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true
 AUTH_WEBAUTHN_RP_ID=aurapilot.vercel.app

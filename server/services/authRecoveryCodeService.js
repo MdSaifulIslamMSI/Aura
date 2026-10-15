@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { isProduction, deriveHmacKey, safeCompareHex } = require('../utils/cryptoKdf');
 
 const parseRecoveryCodeCount = (value) => {
     const parsed = Number(value);
@@ -31,21 +32,90 @@ const getRecoveryCodeSecret = () => {
         throw new AppError('Recovery code secret is not configured', 500);
     }
 
+    // Recovery codes are long-lived bearer credentials. Sharing their key with
+    // OTP-flow tokens or device challenges means one leak unlocks all three, so
+    // production must use the dedicated variable.
+    if (isProduction() && !String(process.env.AUTH_RECOVERY_CODE_SECRET || '').trim()) {
+        throw new AppError(
+            'AUTH_RECOVERY_CODE_SECRET must be configured in production instead of reusing the shared OTP/device-challenge secret',
+            500
+        );
+    }
+
     return secret;
 };
 
-const hashRecoveryCode = (code) => crypto
+// ── TWO DERIVATIONS, DELIBERATELY ────────────────────────────────────────────
+// Legacy codeHash values are BARE HEX with no prefix, keyed by HMAC over the raw
+// configured secret. Every hash already stored looks like that, so it is FROZEN
+// and stays a valid read path.
+//
+// v2 (`hmac-sha256-v2:`) derives an HKDF subkey first, giving real domain
+// separation from the other purposes that share this secret.
+//
+// Verification accepts either, and a legacy hash is rewritten to v2 the moment
+// the code is consumed — so the population migrates itself as codes are used,
+// with no separate backfill and no risk of locking a user out mid-rotation.
+const RECOVERY_CODE_HASH_PREFIX_V2 = 'hmac-sha256-v2:';
+const RECOVERY_CODE_INDEX_CONTEXT = 'recovery-code.hash.v2';
+
+const hashRecoveryCode = (code) => (
+    `${RECOVERY_CODE_HASH_PREFIX_V2}${crypto
+        .createHmac('sha256', deriveHmacKey({
+            secret: getRecoveryCodeSecret(),
+            context: RECOVERY_CODE_INDEX_CONTEXT,
+        }))
+        .update(normalizeRecoveryCode(code))
+        .digest('hex')}`
+);
+
+// Frozen: reproduces the original bare-hex derivation for legacy stored hashes.
+const hashRecoveryCodeLegacy = (code) => crypto
     .createHmac('sha256', getRecoveryCodeSecret())
     .update(normalizeRecoveryCode(code))
     .digest('hex');
 
-const safeCompare = (left = '', right = '') => {
-    const leftBuffer = Buffer.from(String(left || ''), 'hex');
-    const rightBuffer = Buffer.from(String(right || ''), 'hex');
-    return leftBuffer.length > 0
-        && leftBuffer.length === rightBuffer.length
-        && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+/** Every hash a stored recovery code could be recorded under, newest first. */
+const recoveryCodeHashCandidates = (code) => [
+    hashRecoveryCode(code),
+    hashRecoveryCodeLegacy(code),
+];
+
+/**
+ * Find the stored entry matching a candidate code, across both hash versions.
+ *
+ * The two stored forms are compared differently on purpose:
+ *   - v2 (`hmac-sha256-v2:<hex>`) is compared as a whole string. Buffering a
+ *     prefixed value through `Buffer.from(x, 'hex')` silently mangles it, so a
+ *     hex comparison can never match a prefixed hash.
+ *   - legacy (bare hex) is compared constant-time via safeCompareHex.
+ *
+ * v2 entries carry no secret beyond what the HMAC already covers and are only
+ * ever compared against a freshly derived candidate, so an exact string compare
+ * leaks nothing the hex path would not.
+ */
+const matchesAnyRecoveryCodeHash = (storedHash, candidates) => {
+    const stored = String(storedHash ?? '');
+    if (!stored) return false;
+
+    if (stored.startsWith(RECOVERY_CODE_HASH_PREFIX_V2)) {
+        return candidates.some((candidate) => (
+            candidate.startsWith(RECOVERY_CODE_HASH_PREFIX_V2) && candidate === stored
+        ));
+    }
+
+    return candidates.some((candidate) => safeCompareHex(stored, candidate));
 };
+
+const findMatchingRecoveryCode = (entries, code) => {
+    if (!Array.isArray(entries)) return null;
+    const candidates = recoveryCodeHashCandidates(code);
+    return entries.find((entry) => (
+        !entry?.usedAt && matchesAnyRecoveryCodeHash(entry?.codeHash, candidates)
+    )) || null;
+};
+
+const safeCompare = safeCompareHex;
 
 const formatRecoveryCode = () => {
     const raw = crypto.randomBytes(RECOVERY_CODE_BYTES).toString('base64url').toUpperCase();
@@ -142,17 +212,14 @@ const consumeRecoveryCodeForPasswordReset = async ({ email = '', code = '' } = {
         throw new AppError('Recovery code is invalid or already used.', 401);
     }
 
-    const candidateHash = hashRecoveryCode(normalizedCode);
     const user = await User.findOne(
         { email: safeEmail, isVerified: true },
         'name email phone isVerified trustedDevices recoveryCodeState +recoveryCodes'
     ).lean();
 
-    const matchingCode = Array.isArray(user?.recoveryCodes)
-        ? user.recoveryCodes.find((entry) => (
-            !entry?.usedAt && safeCompare(entry?.codeHash, candidateHash)
-        ))
-        : null;
+    // Dual-version match: a code stored under the legacy bare-hex derivation
+    // must still verify after this change.
+    const matchingCode = findMatchingRecoveryCode(user?.recoveryCodes, normalizedCode);
 
     if (!user || !matchingCode) {
         throw new AppError('Recovery code is invalid or already used.', 401);
@@ -231,17 +298,13 @@ const consumeRecoveryCodeForMfa = async ({ userId = '', code = '', purpose = 'mf
         throw new AppError('Recovery code is invalid or already used.', 401);
     }
 
-    const candidateHash = hashRecoveryCode(normalizedCode);
     const user = await User.findById(
         userId,
         'name email phone avatar gender dob bio isAdmin adminRoles isVerified trustedDevices isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt recoveryCodeState mfa loyalty createdAt +recoveryCodes'
     ).lean();
 
-    const matchingCode = Array.isArray(user?.recoveryCodes)
-        ? user.recoveryCodes.find((entry) => (
-            !entry?.usedAt && safeCompare(entry?.codeHash, candidateHash)
-        ))
-        : null;
+    // Dual-version match across the legacy bare-hex and v2 prefixed derivations.
+    const matchingCode = findMatchingRecoveryCode(user?.recoveryCodes, normalizedCode);
 
     if (!user || !matchingCode) {
         throw new AppError('Recovery code is invalid or already used.', 401);
@@ -323,5 +386,8 @@ module.exports = {
     getPasskeyCount,
     getRecoveryReadiness,
     hashRecoveryCode,
+    hashRecoveryCodeLegacy,
+    recoveryCodeHashCandidates,
+    findMatchingRecoveryCode,
     normalizeRecoveryCode,
 };

@@ -63,7 +63,7 @@ const minimumAnchorPlacements = new Map([
   ['https://github.com/MdSaifulIslamMSI/Aura/releases', 38],
   ['https://aurapilot.vercel.app', 31],
   ['https://aurapilot.netlify.app', 1],
-  ['https://dbtrhsolhec1s.cloudfront.net', 1],
+  ['https://dip82eloip5zb.cloudfront.net', 1],
 ]);
 
 const platformLabels = [
@@ -249,7 +249,7 @@ const validateStaticContract = () => {
     { href: '#contract', text: 'Trust' },
     { href: 'https://aurapilot.vercel.app', text: 'aurapilot.vercel.app' },
     { href: 'https://aurapilot.netlify.app', text: 'aurapilot.netlify.app' },
-    { href: 'https://dbtrhsolhec1s.cloudfront.net', text: 'dbtrhsolhec1s.cloudfront.net' },
+    { href: 'https://dip82eloip5zb.cloudfront.net', text: 'dip82eloip5zb.cloudfront.net' },
     {
       href: 'https://aurapilot.vercel.app/admin/aws-control',
       ariaLabel: 'AWS Control, admin-only',

@@ -34,12 +34,25 @@ describe('frontend secretless scanner', () => {
     test('detects forbidden keywords in built frontend output', () => {
         const findings = scanText({
             filePath: 'app/dist/assets/index.js',
-            text: 'window.__CONFIG__ = { DATABASE_URL: "mongodb://user:pass@example" };',
+            text: 'window.__CONFIG__ = { DATABASE_URL: "mongodb://user:***@example" };',
             mode: 'build',
         });
 
         expect(findings).toEqual(expect.arrayContaining([
             expect.objectContaining({ ruleId: 'frontend-build-forbidden-keyword', keyword: 'DATABASE_URL' }),
         ]));
+    });
+
+    test('does not flag bare env var names without a value in built output', () => {
+        // A status snapshot listing missing env var NAMES is not a leak;
+        // only keyword+value contexts are. Without this the gate fails on
+        // legitimate build output and gets bypassed.
+        const findings = scanText({
+            filePath: 'app/dist/status-snapshot.json',
+            text: '{"missingEnv": ["LOCALSTACK_AUTH_TOKEN", "AWS_SECRET_ACCESS_KEY"], "configuredEnv": []}',
+            mode: 'build',
+        });
+
+        expect(findings).toEqual([]);
     });
 });

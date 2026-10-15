@@ -154,6 +154,14 @@ const makeLogChain = (result) => ({
 const buildTestApp = () => {
     const app = express();
     app.use(express.json());
+    // The shipped client sends replay-guard headers on every request; every
+    // admin.* action is fail-closed in the Auth Shield, so each request needs
+    // a unique nonce. Inject them here the way the browser client does.
+    app.use((req, _res, next) => {
+        req.headers['x-aura-nonce'] = `nonce-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+        req.headers['x-aura-timestamp'] = String(Math.floor(Date.now() / 1000));
+        next();
+    });
     app.use('/api/admin/products', adminProductRoutes);
     app.use(notFound);
     app.use(errorHandler);

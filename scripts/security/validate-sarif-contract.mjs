@@ -69,6 +69,20 @@ expectIncludes('Security gate SARIF uploads', securityGatesWorkflow, [
   'category: checkov',
 ]);
 
+expectIncludes('Nuclei SARIF output', dockerRunner, [
+  "const sarifReport = path.join(reportDir, 'nuclei-report.sarif')",
+  "'-sarif-export', '/reports/nuclei-report.sarif'",
+]);
+
+const nucleiWorkflow = read('.github/workflows/nuclei-scan.yml');
+
+expectIncludes('Nuclei scan workflow', nucleiWorkflow, [
+  'npm run security:nuclei -- "$NUCLEI_TARGET"',
+  'npm run security:nuclei:strict -- "$NUCLEI_TARGET"',
+  'sarif_file: security-reports/nuclei-report.sarif',
+  'category: nuclei',
+]);
+
 expectIncludes('Trivy image SARIF upload', securityGatesWorkflow, [
   'sarif_file: security-reports/trivy-image.sarif',
   'category: trivy-image',

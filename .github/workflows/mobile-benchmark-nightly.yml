@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -37,6 +37,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm --prefix app ci
+
+      - name: Install Playwright Chromium
+        run: app/node_modules/.bin/playwright install --with-deps chromium
 
       - name: Build production frontend
         run: npm --prefix app run build
@@ -56,11 +59,19 @@ jobs:
           exit 1
 
       - name: Run mobile benchmark with budget assertions
-        run: npm --prefix app run bench:mobile -- --assert
+        run: npm --prefix app run bench:mobile -- --assert --flows=off
+        env:
+          # Interaction flows need a live backend and a populated catalog. This
+          # job serves a static `vite preview`, so any flow that reaches a
+          # product listing renders "Showing 0 of 0 items" and cannot pass.
+          # Lighthouse scoring works fine against the static build; interaction
+          # coverage is owned by the Playwright E2E suite (app/e2e), which boots
+          # scripts/start_e2e_server.mjs and runs a Pixel 7 project.
+          MOBILE_BENCHMARK_FLOWS: "off"
 
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mobile-benchmark-report
           path: docs/reports/mobile-benchmark.latest.json

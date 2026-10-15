@@ -48,6 +48,21 @@ Resources:
               - kms:ReEncryptFrom
               - kms:ReEncryptTo
             Resource: '*'
+          # S3 server access logging needs GenerateDataKey/Decrypt on the
+          # destination key when the log bucket is SSE-KMS encrypted.
+          # Without this statement the delivery fails with AccessDenied.
+          - Sid: AllowS3ServerAccessLogDelivery
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action:
+              - kms:GenerateDataKey*
+              - kms:Decrypt*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:CallerAccount: !Ref AWS::AccountId
+                kms:ViaService: !Sub 's3.${AwsRegion}.amazonaws.com'
 
   AuraS3KmsAlias:
     Type: AWS::KMS::Alias
@@ -63,7 +78,9 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref AuraS3KmsKey
+            BucketKeyEnabled: true
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerPreferred

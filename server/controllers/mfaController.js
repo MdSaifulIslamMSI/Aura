@@ -88,9 +88,18 @@ const hasFreshIndependentAdminEnrollmentFactor = (req = {}) => {
     const tokenAmr = Array.isArray(req.authToken?.amr)
         ? req.authToken.amr.map(normalizeMethod)
         : [];
+    // SECURITY (admin passkey enrollment assurance, CWE-284/CWE-308): for
+    // cookie sessions the synthetic token's sign_in_second_factor is derived
+    // from session amr/deviceMethod, and a recognition-grade passkey ceremony
+    // (POST /api/auth/verify-device) can mint session amr 'webauthn' with no
+    // victim-side independent factor. The token string must therefore only
+    // count when it names an independent method (the same set the amr paths
+    // use); session-derived passkey state must go through the step-up branch
+    // below, which already whitelist-checks session amr.
+    const tokenSecondFactorIndependent = ADMIN_ENROLLMENT_FACTOR_AMR.has(tokenSecondFactor);
     if (
         tokenFresh
-        && (tokenSecondFactor || tokenAmr.some((entry) => ADMIN_ENROLLMENT_FACTOR_AMR.has(entry)))
+        && (tokenSecondFactorIndependent || tokenAmr.some((entry) => ADMIN_ENROLLMENT_FACTOR_AMR.has(entry)))
     ) {
         return true;
     }

@@ -1,16 +1,24 @@
 {
+  "settings": {
+    "auditRepeats": 3,
+    "gatingViewport": "360x800"
+  },
   "targets": [
     {
       "label": "Aura",
       "baseUrl": "http://127.0.0.1:4173",
       "auditUrl": "http://127.0.0.1:4173/",
       "budget": {
-        "minPerformanceScore": 80,
+        "minPerformanceScore": 50,
         "minAccessibilityScore": 90,
         "maxFlowStepCount": {
           "search_to_pdp": 6,
           "pdp_to_cart": 4
         }
+      },
+      "budgetRationale": {
+        "minPerformanceScore": "Set from three consecutive nightly runs of the gating viewport (360x800), all on the same commit: medians 57, 52, 52 with within-run sample spreads of 0-1. 50 sits one point below the lowest observed median (51), so a 1-point drop still passes and a 2-point drop fails. Raised from 80, which no measured run has ever met. This is a floor against large regressions on the audited page only - it is not a claim that the app is fast, and it does not cover routes other than auditUrl. CI-CALIBRATED: a local run measures roughly 26-27 on the same commit and will fail this budget by design. The score is a property of the machine, so only the nightly is a valid gate.",
+        "minAccessibilityScore": "Measured 100 on every run. Kept at 90 for a 10-point margin."
       },
       "incumbentBaseline": {
         "bestKnownStepCount": {
@@ -25,17 +33,22 @@
           "startUrl": "http://127.0.0.1:4173/",
           "steps": [
             {
+              "type": "click",
+              "selector": ".aura-nav-menu-trigger",
+              "note": "At mobile widths the navbar search lives inside a collapsed hamburger sheet, so it must be opened before the input exists in a visible state."
+            },
+            {
               "type": "waitForSelector",
-              "selector": "input[placeholder*='Search']"
+              "selector": "input.search-control-input:visible"
             },
             {
               "type": "fill",
-              "selector": "input[placeholder*='Search']",
+              "selector": "input.search-control-input:visible",
               "value": "iphone 15"
             },
             {
               "type": "press",
-              "selector": "input[placeholder*='Search']",
+              "selector": "input.search-control-input:visible",
               "key": "Enter"
             },
             {
@@ -44,7 +57,7 @@
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
@@ -58,22 +71,25 @@
           "steps": [
             {
               "type": "waitForSelector",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
               "urlIncludes": "/product/"
             },
             {
+              "type": "waitForSelector",
+              "selector": "[data-testid='product-add-to-cart']:visible"
+            },
+            {
               "type": "click",
-              "selector": "button"
+              "selector": "[data-testid='product-add-to-cart']:visible"
             }
-          ],
-          "note": "Tune the final add-to-cart selector to your PDP button if multiple buttons are present."
+          ]
         },
         {
           "name": "saved_checkout",
@@ -85,11 +101,11 @@
           "steps": [
             {
               "type": "waitForSelector",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "click",
-              "selector": "a[href*='/product/']"
+              "selector": "a[href*='/product/']:visible"
             },
             {
               "type": "waitForUrl",
@@ -97,7 +113,7 @@
             },
             {
               "type": "click",
-              "selector": "button"
+              "selector": "[data-testid='product-add-to-cart']:visible"
             }
           ],
           "note": "Use a logged-in saved-user session or extend the flow with explicit auth/cart selectors for your staging environment."

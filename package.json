@@ -10,9 +10,13 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "test": "npm run test:server:regression:stable",
-    "quality:lint": "npm --prefix app run lint -- --quiet",
+    "quality:lint": "npm --prefix app run lint -- --quiet && npm run lint:desktop && npm run lint:node",
     "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
-    "quality:test": "npm test && npm --prefix app test",
+    "quality:test": "npm test && npm --prefix app test && npm run test:desktop",
+    "test:desktop": "node --test \"desktop/**/*.test.cjs\"",
+    "test:desktop:boot": "node scripts/desktop/boot-smoke.mjs",
+    "lint:desktop": "node scripts/desktop/lint-syntax.mjs",
+    "lint:node": "eslint desktop scripts server --no-warn-ignored",
     "test:inventory": "node scripts/test-inventory.mjs",
     "test:tiers:check": "node scripts/check-test-tiers.cjs",
     "quality:coverage": "npm run test:server:coverage && npm --prefix app run test:coverage",
@@ -59,6 +63,9 @@
     "i18n:discover-text:check": "node scripts/i18n/discover-stable-ui-text.mjs --check",
     "scan:i18n-forbidden-endpoints": "node scripts/i18n/scan-forbidden-endpoints.mjs",
     "ci:doctor": "node scripts/ci-cd-doctor.mjs",
+    "hygiene:check": "node scripts/check-repo-hygiene.mjs",
+    "hygiene:check:strict": "node scripts/check-repo-hygiene.mjs --strict",
+    "hygiene:check:test": "npm --prefix server test -- --runTestsByPath tests/repoHygiene.test.js --forceExit",
     "student-pack:doctor": "node scripts/student-pack-cli-doctor.mjs",
     "student-pack:start": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\start-student-pack-dev.ps1",
     "student-pack:login": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\student-pack-login-assist.ps1",
@@ -150,6 +157,7 @@
     "security:trivy": "node scripts/security/run-docker-tool.mjs trivy",
     "security:trivy:image": "node scripts/security/run-docker-tool.mjs trivy:image",
     "security:zap": "node scripts/security/run-docker-tool.mjs zap",
+    "security:zap:auth": "node scripts/security/run-docker-tool.mjs zap:auth",
     "security:hadolint": "node scripts/security/run-docker-tool.mjs hadolint",
     "security:iac": "node scripts/security/run-docker-tool.mjs iac",
     "security:supply-chain-pins": "node scripts/security/check-supply-chain-pins.mjs",
@@ -160,8 +168,14 @@
     "security:sarif-contract": "node scripts/security/validate-sarif-contract.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
     "security:zizmor": "node scripts/security/run-docker-tool.mjs zizmor",
+    "security:nuclei": "node scripts/security/run-docker-tool.mjs nuclei",
+    "security:nuclei:strict": "node scripts/security/run-docker-tool.mjs nuclei --strict",
+    "test:nuclei-baseline": "node --test scripts/security/nuclei-baseline.test.mjs",
     "security:csp-drift": "node scripts/security/check-csp-drift.mjs",
     "security:admin-chunk-isolation": "node scripts/security/check-admin-chunk-isolation.mjs",
+    "security:artifact-posture": "node scripts/security/check-artifact-security-posture.mjs",
+    "security:artifact-posture:strict": "node scripts/security/check-artifact-security-posture.mjs --require-desktop",
+    "security:artifact-posture:test": "npm --prefix server test -- --runTestsByPath tests/artifactSecurityPosture.test.js --forceExit",
     "security:all:free-tools": "npm test && npm run security:deps && npm run security:toolchain",
     "security:prod-hardening-audit": "node server/scripts/audit_production_hardening_contract.js",
     "security:prod-env-audit": "node server/scripts/audit_login_production_env_contract.js",
@@ -274,7 +288,8 @@
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
     "mobile:sync": "npm --prefix app run mobile:sync",
     "mobile:sync:android": "npm --prefix app run mobile:sync:android",
-    "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"
+    "mobile:sync:ios": "npm --prefix app run mobile:sync:ios",
+    "env:ssm-parity": "node scripts/env/ssm-parity-report.mjs"
   },
   "dependencies": {
     "@sentry/electron": "^7.18.0",
@@ -284,8 +299,11 @@
     "http-proxy-middleware": "^4.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "knip": "^6.35.1"
   },
   "overrides": {
@@ -328,6 +346,8 @@
       }
     ],
     "files": [
+      "config/backend-origin.json",
+      "config/desktop-auth-window-hosts.json",
       "desktop/**/*",
       "!desktop/**/*.test.cjs",
       "!desktop/assets/**",
@@ -354,6 +374,14 @@
       {
         "from": "app/public/assets/icon-512.png",
         "to": "app-icon.png"
+      },
+      {
+        "from": "config/backend-origin.json",
+        "to": "config/backend-origin.json"
+      },
+      {
+        "from": "config/desktop-auth-window-hosts.json",
+        "to": "config/desktop-auth-window-hosts.json"
       }
     ],
     "win": {

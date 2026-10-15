@@ -991,6 +991,7 @@ const ProductDetails = () => {
               ) : (
                 <button
                   type="button"
+                  data-testid="product-add-to-cart"
                   onClick={handleAddToCart}
                   disabled={stock === 0}
                   className="relative flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden border-white/20 py-3.5 text-[11px] tracking-[0.18em] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] btn-secondary group"
@@ -1122,6 +1123,7 @@ const ProductDetails = () => {
                       ) : (
                         <button
                           type="button"
+                          data-testid="product-add-to-cart"
                           onClick={handleAddToCart}
                           disabled={stock === 0}
                           className="btn-secondary inline-flex min-w-[13rem] items-center justify-center gap-3 border-white/20 px-8 py-4 text-sm tracking-widest group/add"

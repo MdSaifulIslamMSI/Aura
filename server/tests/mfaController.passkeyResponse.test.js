@@ -531,6 +531,10 @@ describe('mfaController passkey response contract', () => {
             webauthnUserVerified: true,
             credentialScope: 'mfa',
         };
+        // Declared here as well as at the describe scope above: this block runs
+        // inside jest.isolateModules and assigns before reading, so without a
+        // local declaration it creates an implicit global rather than a binding.
+        let verifyTrustedDeviceChallenge;
 
         jest.isolateModules(() => {
             process.env = { ...ORIGINAL_ENV };

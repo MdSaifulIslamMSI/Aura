@@ -1,9 +1,14 @@
 const crypto = require('crypto');
 const AppError = require('./AppError');
+const { deriveAes256GcmKey, safeCompareBase64Url } = require('./cryptoKdf');
 
 const OTP_FLOW_TTL_SECONDS = 5 * 60;
 const OTP_FLOW_TOKEN_VERSION = 'v1';
-const OTP_FLOW_TOKEN_KEY_CONTEXT = 'aura-otp-flow-token';
+const OTP_FLOW_TOKEN_KEY_CONTEXT = 'otp.flow.token.payload';
+// Frozen legacy key context string. Kept as a named constant purely so the
+// pre-HKDF derivation is documented next to the new one; the legacy key itself
+// is a literal sha256 over this string (see deriveLegacyEncryptionKey).
+const OTP_FLOW_TOKEN_LEGACY_CONTEXT = 'aura-otp-flow-token';
 const OTP_FLOW_TOKEN_ALGORITHM = 'aes-256-gcm';
 const DEFAULT_NEXT_STEP_BY_PURPOSE = {
     login: 'auth-sync',
@@ -39,16 +44,23 @@ const decodePayload = (payloadB64) => {
 
 const verifySignature = (payloadB64, signature) => {
     const expectedSignature = signPayload(payloadB64);
-    const expected = Buffer.from(expectedSignature, 'utf8');
-    const actual = Buffer.from(String(signature || ''), 'utf8');
-
-    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+    if (!safeCompareBase64Url(signature, expectedSignature)) {
         throw createInvalidTokenError();
     }
 };
 
-const deriveEncryptionKey = () => crypto.createHash('sha256')
-    .update(`${getSecret()}:${OTP_FLOW_TOKEN_KEY_CONTEXT}`)
+const deriveEncryptionKey = () => deriveAes256GcmKey({
+    secret: getSecret(),
+    context: OTP_FLOW_TOKEN_KEY_CONTEXT,
+});
+
+// Frozen: reproduces the pre-HKDF `sha256(secret:aura-otp-flow-token)` derivation
+// exactly, so tokens issued before this change still decrypt. HKDF with a
+// different context would NOT reproduce this value — it must stay a literal
+// SHA-256 over the old context string. Tokens live 5 minutes, so this path only
+// needs to survive one deploy.
+const deriveLegacyEncryptionKey = () => crypto.createHash('sha256')
+    .update(`${getSecret()}:${OTP_FLOW_TOKEN_LEGACY_CONTEXT}`)
     .digest();
 
 const encryptPayload = (payload) => {
@@ -60,20 +72,30 @@ const encryptPayload = (payload) => {
     return Buffer.concat([iv, tag, ciphertext]).toString('base64url');
 };
 
+const decryptPayloadWithKey = (encodedPayload, key) => {
+    const buffer = Buffer.from(String(encodedPayload || ''), 'base64url');
+    if (buffer.length <= 28) {
+        throw new Error('token too short');
+    }
+
+    const iv = buffer.subarray(0, 12);
+    const tag = buffer.subarray(12, 28);
+    const ciphertext = buffer.subarray(28);
+    const decipher = crypto.createDecipheriv(OTP_FLOW_TOKEN_ALGORITHM, key, iv, { authTagLength: 16 });
+    decipher.setAuthTag(tag);
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return JSON.parse(plaintext.toString('utf8'));
+};
+
 const decryptPayload = (encodedPayload) => {
     try {
-        const buffer = Buffer.from(String(encodedPayload || ''), 'base64url');
-        if (buffer.length <= 28) {
-            throw new Error('token too short');
-        }
+        return decryptPayloadWithKey(encodedPayload, deriveEncryptionKey());
+    } catch {
+        // Fall through to the frozen legacy derivation.
+    }
 
-        const iv = buffer.subarray(0, 12);
-        const tag = buffer.subarray(12, 28);
-        const ciphertext = buffer.subarray(28);
-        const decipher = crypto.createDecipheriv(OTP_FLOW_TOKEN_ALGORITHM, deriveEncryptionKey(), iv, { authTagLength: 16 });
-        decipher.setAuthTag(tag);
-        const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-        return JSON.parse(plaintext.toString('utf8'));
+    try {
+        return decryptPayloadWithKey(encodedPayload, deriveLegacyEncryptionKey());
     } catch {
         throw createInvalidTokenError();
     }

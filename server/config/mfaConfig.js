@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const cryptoKdf = require('../utils/cryptoKdf');
 
 const MIN_MFA_SECRET_LENGTH = 32;
 const DEFAULT_MFA_CHALLENGE_TTL_SECONDS = 300;
@@ -79,12 +80,40 @@ const decodeEncryptionKeyCandidate = (secret = '') => {
     return crypto.createHash('sha256').update(trimmed).digest();
 };
 
+// Frozen domain separators. `mfa.totp.secret` is what new ciphertext uses;
+// `mfa.totp.secret.legacy` reproduces the pre-HKDF single-round SHA-256
+// derivation so TOTP secrets written before this change still decrypt.
+const MFA_TOTP_KEY_CONTEXT = 'mfa.totp.secret';
+const MFA_TOTP_LEGACY_CONTEXT = 'mfa.totp.secret.legacy';
+
 const getMfaEncryptionKey = (env = process.env) => {
     const config = resolveMfaConfig(env);
     if (!secretLooksStrong(config.secretEncryptionKey)) {
         throw new Error('MFA_SECRET_ENCRYPTION_KEY must be at least 32 strong characters when TOTP MFA is enabled');
     }
     return decodeEncryptionKeyCandidate(config.secretEncryptionKey);
+};
+
+/**
+ * Candidate AES keys for reading a TOTP secret, newest first.
+ *
+ * Both derive from the same configured secret, so no extra env is needed, but
+ * only the HKDF-derived key is used for new ciphertext. `decodeEncryptionKeyCandidate`
+ * already returns raw key material verbatim when the operator supplied a real
+ * 32-byte key, in which case both entries are the same buffer and the caller
+ * simply tries it twice.
+ */
+const getMfaEncryptionKeyCandidates = (env = process.env) => {
+    const material = getMfaEncryptionKey(env);
+    const derived = cryptoKdf.deriveAes256GcmKey({
+        secret: material,
+        context: MFA_TOTP_KEY_CONTEXT,
+    });
+    const legacy = cryptoKdf.deriveAes256GcmKey({
+        secret: material,
+        context: MFA_TOTP_LEGACY_CONTEXT,
+    });
+    return [derived, legacy];
 };
 
 const validateMfaEnvironment = ({
@@ -132,6 +161,9 @@ module.exports = {
     DEFAULT_MFA_FRESH_WINDOW_SECONDS,
     MIN_MFA_SECRET_LENGTH,
     getMfaEncryptionKey,
+    getMfaEncryptionKeyCandidates,
+    MFA_TOTP_KEY_CONTEXT,
+    MFA_TOTP_LEGACY_CONTEXT,
     isPlaceholderValue,
     parseBoolean,
     parsePositiveInteger,

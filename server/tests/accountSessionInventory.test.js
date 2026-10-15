@@ -170,10 +170,6 @@ describe('account browser-session inventory', () => {
     test('keeps the public list bounded but revokes every tracked non-current session', async () => {
         const service = loadService();
         const owner = createUser('507f1f77bcf86cd799439106', 'session-owner-4@example.com');
-        const current = await createSession(service, owner, {
-            authUid: 'firebase-session-owner-4',
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/126.0.0.0 Safari/537.36',
-        });
         const otherSessionIds = [];
 
         for (let index = 0; index < 101; index += 1) {
@@ -184,16 +180,35 @@ describe('account browser-session inventory', () => {
             otherSessionIds.push(session.sessionId);
         }
 
+        // The current session is created last so the concurrent-session cap
+        // (which evicts the oldest) cannot drop it mid-test.
+        const current = await createSession(service, owner, {
+            authUid: 'firebase-session-owner-4',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/126.0.0.0 Safari/537.36',
+        });
+
         await expect(service.listBrowserSessionsForUser(owner._id, {
             currentSessionId: current.sessionId,
             limit: 20,
         })).resolves.toHaveLength(20);
+
+        // Creation enforces the concurrent-session cap without awaiting it, so
+        // drain the pending eviction first. "Every tracked non-current
+        // session" is then every session still live at revocation time — not
+        // every session that was ever created.
+        await service.enforceSessionCapForUser(owner._id, { keepSessionId: current.sessionId });
+        const liveSessionIds = await service.getAllTrackedSessionIdsForUser(owner._id);
+        const liveOtherCount = liveSessionIds.filter((sessionId) => sessionId !== current.sessionId).length;
+        expect(liveSessionIds.length).toBeLessThanOrEqual(service.MAX_ACTIVE_SESSIONS_PER_USER);
+        expect(liveOtherCount).toBeGreaterThan(0);
+
         await expect(service.revokeOtherBrowserSessionsForUser(
             owner._id,
             current.sessionId
-        )).resolves.toEqual({ revoked: 101 });
+        )).resolves.toEqual({ revoked: liveOtherCount });
 
         await expect(service.getBrowserSession(current.sessionId)).resolves.toBeTruthy();
-        await expect(service.getBrowserSession(otherSessionIds[100])).resolves.toBeNull();
+        await expect(service.getAllTrackedSessionIdsForUser(owner._id))
+            .resolves.toEqual([current.sessionId]);
     });
 });

@@ -1,0 +1,153 @@
+name: Authenticated Security Testing
+
+# Authenticated DAST against the AURA staging surface.
+#
+# The black-box pentest report (security-reports/pentest-blackbox-unauthenticated-2026-09-07.md)
+# could not exercise authenticated batteries: session/cookie behavior, cross-user
+# IDOR/BOLA, authenticated payment flows, upload evasion, and authenticated rate
+# limits. The Jest security suites cover the corresponding server logic, but this
+# workflow is the live, authenticated counterpart: the runner mints a Firebase
+# token for the seeded smoke user and ZAP spiders/scans the target with it
+# (scripts/security/zap-auth-plan.yaml, header-based session management).
+# See docs/security/authenticated-dast-local-runbook.md for the local bring-up.
+#
+# Safety rails (enforced by scripts/security/run-docker-tool.mjs zap:auth before
+# Docker is invoked):
+#   - target must be local/staging/preview — production origins are refused;
+#   - seeded disposable accounts only (never real customer credentials);
+#   - scan is throttled (threadPerHost 2, 200 ms delay, 15-minute cap);
+#   - scheduled/dispatch only — never runs on pull_request;
+#   - findings in the report are triaged, never blocking, until the report is
+#     clean and the promotion is recorded in docs/security/control-gap-tracker.md.
+#
+# Required configuration:
+#   vars.STAGING_URL                       staging origin under test
+#   vars.VITE_FIREBASE_API_KEY             public Firebase Web API key (already
+#                                          configured for CI E2E auth builds)
+#   secrets.SMOKE_USER_EMAIL               seeded smoke-account email
+#   secrets.SMOKE_USER_PASSWORD            seeded smoke-account password
+# Optional (first step; enables the account bootstrap against staging):
+#   vars.AUTH_DAST_SEED_ACCOUNTS=true      opt in to seeding before scanning
+#   secrets.AUTH_DAST_STAGING_MONGODB_URI  staging Mongo connection
+#   secrets.AUTH_DAST_FIREBASE_SERVICE_ACCOUNT  base64 Firebase admin JSON
+
+on:
+  schedule:
+    - cron: "41 6 * * 2"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Override the authenticated scan target (local, staging, or preview origin only)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authenticated-security-testing-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+  STAGING_URL: ${{ vars.STAGING_URL || '' }}
+
+jobs:
+  authenticated-dast:
+    name: Authenticated ZAP Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Resolve whether the scan can run
+        id: precondition
+        shell: bash
+        env:
+          OVERRIDE_TARGET: ${{ inputs.target }}
+          SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+          SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+          FIREBASE_API_KEY: ${{ vars.ZAP_AUTH_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$OVERRIDE_TARGET" ]; then
+            echo "target=$OVERRIDE_TARGET" >> "$GITHUB_OUTPUT"
+          elif [ -n "$STAGING_URL" ]; then
+            echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=" >> "$GITHUB_OUTPUT"
+          fi
+
+          reasons=()
+          [ -n "${OVERRIDE_TARGET:-}${STAGING_URL:-}" ] || reasons+=("no STAGING_URL or target override configured")
+          [ -n "$SMOKE_USER_EMAIL" ] || reasons+=("secrets.SMOKE_USER_EMAIL not configured")
+          [ -n "$SMOKE_USER_PASSWORD" ] || reasons+=("secrets.SMOKE_USER_PASSWORD not configured")
+          [ -n "$FIREBASE_API_KEY" ] || reasons+=("vars.ZAP_AUTH_FIREBASE_API_KEY / vars.VITE_FIREBASE_API_KEY not configured")
+
+          if [ "${#reasons[@]}" -gt 0 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            printf -- '- %s\n' "${reasons[@]}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Authenticated DAST skipped:" "${reasons[@]}"
+            exit 0
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "Authenticated DAST armed for the resolved staging target." >> "$GITHUB_STEP_SUMMARY"
+
+      # Seeds the disposable staging smoke accounts the ZAP auth script signs
+      # in with. Guarded by the repo's own fail-closed staging-safety contract
+      # (server/scripts/assert_staging_smoke_safety.js --purpose=bootstrap).
+      - name: Seed staging smoke accounts
+        if: steps.precondition.outputs.ready == 'true' && vars.AUTH_DAST_SEED_ACCOUNTS == 'true'
+        shell: bash
+        env:
+          SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+          SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+          MONGODB_URI: ${{ secrets.AUTH_DAST_STAGING_MONGODB_URI }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.AUTH_DAST_FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$MONGODB_URI" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Seeding skipped: AUTH_DAST_STAGING_MONGODB_URI and AUTH_DAST_FIREBASE_SERVICE_ACCOUNT are required to seed."
+            exit 0
+          fi
+          service_account_path="$RUNNER_TEMP/firebase-service-account.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | base64 --decode > "$service_account_path"
+          export GOOGLE_APPLICATION_CREDENTIALS="$service_account_path"
+          npm --prefix server run smoke:bootstrap-accounts
+
+      - name: Run authenticated ZAP scan
+        if: steps.precondition.outputs.ready == 'true'
+        shell: bash
+        env:
+          ZAP_AUTH_TARGET: ${{ steps.precondition.outputs.target }}
+          ZAP_AUTH_USERNAME: ${{ secrets.SMOKE_USER_EMAIL }}
+          ZAP_AUTH_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+          ZAP_AUTH_FIREBASE_API_KEY: ${{ vars.ZAP_AUTH_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}
+          ZAP_AUTH_FIREBASE_ORIGIN: ${{ vars.ZAP_AUTH_FIREBASE_ORIGIN || 'https://identitytoolkit.googleapis.com' }}
+        run: npm run security:zap:auth -- "$ZAP_AUTH_TARGET"
+
+      - name: Upload authenticated scan report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always() && steps.precondition.outputs.ready == 'true'
+        with:
+          name: zap-auth-report
+          path: security-reports/zap-auth-report.html
+          if-no-files-found: warn
+          retention-days: 30

@@ -232,7 +232,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -394,15 +394,47 @@ jobs:
           # Cloudflare Pages rollback re-serves a previous deployment snapshot
           # via its REST API, so the target is the deployment id currently
           # active on the production environment.
+          #
+          # The original filter required both `.env == "production"` and
+          # `.latest_stage.status == "success"`. Cloudflare does not guarantee
+          # either spelling on the list-deployments payload, so the filter could
+          # match nothing against a perfectly healthy project. That left this
+          # ref silently absent, every recorded pointer without a `cloudflare`
+          # entry, and every frontend-multihost rollback failing closed on
+          # "requires rollback_refs_json.cloudflare" -- while
+          # allow_missing_rollback_target=true turned the breakage into silence.
+          #
+          # Resolve with explicit fallbacks and report which one won, so a
+          # future miss is diagnosable from the log instead of invisible.
           cloudflare_ref=""
+          cloudflare_ref_source=""
           if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
             cloudflare_deployments="$(mktemp)"
-            if curl --fail --show-error --silent --location \
-                --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-                "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?per_page=10" \
-                > "${cloudflare_deployments}" 2>/dev/null; then
-              cloudflare_ref="$(jq -r '[.result[]?] | map(select(.env == "production" and .latest_stage.status == "success")) | .[0].id // empty' "${cloudflare_deployments}" 2>/dev/null || true)"
-            fi
+            cloudflare_http_code="$(curl --silent --location --max-time 30 \
+              --output "${cloudflare_deployments}" --write-out '%{http_code}' \
+              --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}/deployments?env=production&per_page=10" \
+              || true)"
+            cloudflare_success="$(jq -r '.success // false' "${cloudflare_deployments}" 2>/dev/null || echo false)"
+            cloudflare_result_count="$(jq -r '.result | if type == "array" then length else 0 end' "${cloudflare_deployments}" 2>/dev/null || echo 0)"
+            echo "Cloudflare Pages capture: http=${cloudflare_http_code} success=${cloudflare_success} results=${cloudflare_result_count}"
+            # Cloudflare names this field `environment`, not `env`; the `env`
+            # spelling only ever appears as the *query* parameter. Matching on
+            # `.env` could therefore never succeed, which is why the original
+            # capture always came back empty.
+            for cloudflare_filter in \
+              '[.result[]? | select((.environment // "") == "production" and (.latest_stage.status? // "success") == "success")][0].id' \
+              '[.result[]? | select(((.environment // "") | ascii_downcase) == "production")][0].id' \
+              '[.result[]? | select(((.latest_stage.status? // "success") | ascii_downcase) == "success")][0].id' \
+              '.result[0].id'; do
+              if [ -z "${cloudflare_ref}" ]; then
+                cloudflare_ref="$(jq -r "${cloudflare_filter} // empty" "${cloudflare_deployments}" 2>/dev/null | tr -d '\r' || true)"
+                if [ -n "${cloudflare_ref}" ]; then
+                  cloudflare_ref_source="${cloudflare_filter}"
+                fi
+              fi
+            done
+            echo "Cloudflare Pages rollback target: '${cloudflare_ref}' (via ${cloudflare_ref_source:-no filter matched})"
           fi
           if [ -z "${cloudflare_ref}" ]; then
             if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
@@ -538,6 +570,11 @@ jobs:
           # Org site: US5 (matches the RUM application).
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
+          # This build publishes sourcemaps to Sentry before deploy, so emit
+          # them here; the postbuild keeps the .map files for the upload and
+          # every other build strips them. Non-VITE_ name on purpose: Vite
+          # inlines VITE_* vars into the bundle, which would change its bytes.
+          AURA_KEEP_SOURCEMAPS: 'true'
         run: |
           # Render's env-vars API rejects empty values, so a Render build can
           # never see an empty-string VITE_ var that CI defines. Drop them on
@@ -575,8 +612,26 @@ jobs:
           # npx -p puts sentry-cli on PATH for the release script without a new dependency.
           npx --yes -p @sentry/cli@3.4.2 node scripts/student-pack-sentry-release.mjs
 
+      - name: Strip sourcemaps from the deploy payload
+        # This job defaults to ./app; run at the repo root so app/dist
+        # resolves (same as the Sentry step above).
+        working-directory: .
+        # The build emits maps only for the Sentry upload above; the release
+        # script uploads them but never deletes them, and it exits early when
+        # Sentry secrets are absent. Strip them here so no .map reaches the
+        # artifact, the Netlify/AWS publish, or the Vercel packaging step —
+        # unminified source is otherwise publicly downloadable.
+        run: |
+          set -euo pipefail
+          find app/dist -name '*.map' -type f -print -delete
+          if find app/dist -name '*.map' -print -quit | grep -q .; then
+            echo "sourcemaps still present after prune" >&2
+            exit 1
+          fi
+          echo "Deploy payload contains 0 sourcemaps."
+
       - name: Upload frontend dist bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: frontend-dist
           path: app/dist
@@ -594,12 +649,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download shared frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -632,7 +687,7 @@ jobs:
           printf '{"orgId":"%s","projectId":"%s"}\n' "${VERCEL_ORG_ID}" "${VERCEL_PROJECT_ID}" > .vercel/project.json
 
       - name: Upload Vercel prebuilt output
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: vercel-prebuilt-output
           include-hidden-files: true
@@ -660,12 +715,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download built frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -869,12 +924,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download built frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -945,12 +1000,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download Vercel prebuilt output
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: vercel-prebuilt-output
           path: .vercel
@@ -1068,12 +1123,12 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download Vercel prebuilt output
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: vercel-prebuilt-output
           path: .vercel
@@ -1197,7 +1252,7 @@ jobs:
           echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download shared frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -1396,7 +1451,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -1469,13 +1524,13 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download shared frontend
         id: download_frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -1490,6 +1545,7 @@ jobs:
         id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
 
@@ -1499,6 +1555,10 @@ jobs:
             exit 1
           fi
           echo "::add-mask::${CLOUDFLARE_API_TOKEN}"
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "GitHub secret CLOUDFLARE_ACCOUNT_ID is empty; cannot resolve the project's production branch." >&2
+            exit 1
+          fi
 
           # Direct upload of the shared artifact: Cloudflare Pages serves the
           # uploaded bytes as-is (no build, no post-processing), so this host
@@ -1514,11 +1574,36 @@ jobs:
           # NOTE: `set -e` would exit silently if wrangler fails inside the
           # command substitution below, hiding all diagnostics. Capture the
           # exit code explicitly so the raw output is always printed.
+          #
+          # Cloudflare Pages only promotes an upload to the production alias
+          # when it lands on the project's *production branch* -- a project
+          # setting, not necessarily `main`. Deploying to any other branch
+          # creates a preview deployment and leaves the production alias
+          # pinned to an older build, which then fails the cross-lane
+          # coherence check with a confusing asset mismatch. Resolve the
+          # real production branch first and deploy to it.
+          PRODUCTION_BRANCH="main"
+          if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            project_info="$(mktemp)"
+            curl --silent --location --max-time 30 \
+              --output "${project_info}" \
+              --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT}" || true
+            resolved_branch="$(jq -r '.result.production_branch // empty' "${project_info}" 2>/dev/null | tr -d '\r' || true)"
+            if [ -n "${resolved_branch}" ]; then
+              PRODUCTION_BRANCH="${resolved_branch}"
+            else
+              echo "Could not read the Pages production branch from the API; falling back to 'main'." >&2
+            fi
+            rm -f "${project_info}"
+          fi
+          echo "Deploying Cloudflare Pages to production branch '${PRODUCTION_BRANCH}'."
+
           set +e
           DEPLOY_OUTPUT="$(CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}" \
             npx --yes wrangler pages deploy "${stage_dir}" \
             --project-name "${CLOUDFLARE_PAGES_PROJECT}" \
-            --branch main \
+            --branch "${PRODUCTION_BRANCH}" \
             --commit-dirty true 2>&1)"
           WRANGLER_EXIT=$?
           set -e
@@ -1552,6 +1637,25 @@ jobs:
             sleep 10
           done
           echo "Cloudflare Pages did not serve the app shell after readiness polling." >&2
+          exit 1
+
+      - name: Verify Cloudflare Pages production alias serves this release
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(printf '%s' "${SHORT_SHA}" | cut -c1-8)"
+          for alias_attempt in 1 2 3 4 5 6; do
+            served_alias_commit="$(curl --silent --fail --show-error --location --max-time 20 "${SITE_URL}/" 2>/dev/null | grep -Eo 'name="aura-release-commit" content="[^"]*"' | head -n 1 | sed -E 's/.*content="([^"]*)".*/\1/' || true)"
+            if [ -n "${served_alias_commit}" ] && [ "${served_alias_commit}" = "${SHORT_SHA}" ]; then
+              echo "Cloudflare Pages production alias ${SITE_URL} serves release commit ${served_alias_commit}."
+              exit 0
+            fi
+            echo "Alias not yet serving ${SHORT_SHA} (served: '${served_alias_commit:-none}'); attempt ${alias_attempt}/6." >&2
+            sleep 10
+          done
+          echo "Cloudflare Pages production alias did not pick up release ${SHORT_SHA} after 60s. The upload likely landed on a non-production branch; the coherence gate would fail downstream." >&2
           exit 1
 
       - name: Add Cloudflare Pages production deploy to job summary
@@ -1589,7 +1693,7 @@ jobs:
         run: echo "attempted=true" >> "$GITHUB_OUTPUT"
 
       - name: Download shared frontend
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -1895,7 +1999,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -1980,7 +2084,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 

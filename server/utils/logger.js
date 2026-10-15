@@ -2,12 +2,22 @@ const os = require('os');
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan|credential|signature|private|rawbody|payload)/i;
+// PII-bearing key families. Addresses, names, postal codes, IPs, user agents,
+// mobile numbers and birth dates are personal data under GDPR/DPDP and must
+// never reach logs in cleartext — the original pattern covered secrets but
+// silently passed the most common PII classes through.
+const SENSITIVE_KEY_PATTERN = /(phone|mobile|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(?:number)?|cvv|pan|credential|signature|private|rawbody|payload|first_?name|last_?name|full_?name|recipient_?name|shipping_?name|contact_?name|customer_?name|display_?name|user_?name|address|street|city|state|country|pincode|pin_?code|postal_?code|zip|location|latitude|longitude|(?:client|remote|source|sender|user|origin|real|forwarded)_?ip|ip_?address|(?:^|[^a-z])ip(?:[^a-z]|$)|user_?agent|dob|date_?of_?birth)/i;
 const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actorId|resourceId|ownerId|tenantId|sellerId|buyerId)$/i;
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
 const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
 const SENSITIVE_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
+// Free-text PII: an email address, a 13-19 digit card (with or without
+// separators), or a 10+ digit run (phone numbers, unseparated cards) embedded
+// in a log message or stack trace.
+const EMAIL_IN_TEXT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const CARD_NUMBER_IN_TEXT_PATTERN = /\b(?:\d[ -]?){12,18}\d\b/g;
+const LONG_DIGIT_RUN_PATTERN = /\b\d{10,}\b/g;
 
 const maskEmail = (email) => {
     const value = String(email || '').trim();
@@ -30,7 +40,10 @@ const redactUrlQueriesInText = (value) => String(value || '')
     .replace(URL_WITH_QUERY_PATTERN, `$1?${REDACTED_PLACEHOLDER}`);
 
 const redactSensitiveText = (value) => redactUrlQueriesInText(value)
-    .replace(SENSITIVE_TEXT_PATTERN, REDACTED_PLACEHOLDER);
+    .replace(SENSITIVE_TEXT_PATTERN, REDACTED_PLACEHOLDER)
+    .replace(EMAIL_IN_TEXT_PATTERN, REDACTED_PLACEHOLDER)
+    .replace(CARD_NUMBER_IN_TEXT_PATTERN, REDACTED_PLACEHOLDER)
+    .replace(LONG_DIGIT_RUN_PATTERN, REDACTED_PLACEHOLDER);
 
 const sanitizeUrlLikeValue = (value) => {
     const normalizedValue = String(value || '');
@@ -53,7 +66,7 @@ const sanitizeStringForKey = (key, value) => {
     return REDACTED_PLACEHOLDER;
 };
 
-const redactSensitiveData = (value, key = '') => {
+const redactSensitiveData = (value, key = '', options = {}) => {
     if (value === null || value === undefined) return value;
 
     const normalizedKey = String(key || '');
@@ -62,7 +75,7 @@ const redactSensitiveData = (value, key = '') => {
     }
 
     if (Array.isArray(value)) {
-        return value.map((item) => redactSensitiveData(item, key));
+        return value.map((item) => redactSensitiveData(item, key, options));
     }
 
     if (value instanceof Date) {
@@ -79,7 +92,7 @@ const redactSensitiveData = (value, key = '') => {
 
     if (typeof value === 'object') {
         return Object.entries(value).reduce((acc, [entryKey, entryValue]) => {
-            acc[entryKey] = redactSensitiveData(entryValue, entryKey);
+            acc[entryKey] = redactSensitiveData(entryValue, entryKey, options);
             return acc;
         }, {});
     }
@@ -87,6 +100,9 @@ const redactSensitiveData = (value, key = '') => {
     if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
         const normalizedValue = String(value || '').trim();
         if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
+        // No usable key: drop the identifier rather than hash it under something
+        // an attacker could also compute.
+        if (options.skipPseudonymisation) return REDACTED_PLACEHOLDER;
         return hashSecurityValue(value);
     }
     if (URL_LIKE_KEY_PATTERN.test(normalizedKey)) {
@@ -99,7 +115,16 @@ const redactSensitiveData = (value, key = '') => {
 };
 
 const formatMessage = (level, message, meta = {}) => {
-    const sanitizedMeta = redactSensitiveData(meta);
+    // Pseudonymisation needs a configured key. If it is missing we must not emit
+    // a forgeable pseudonym, but we also must not let a logging concern take down
+    // a request — so fall back to plain redaction, which drops the identifier
+    // entirely rather than hashing it under a weak or shared key.
+    let sanitizedMeta;
+    try {
+        sanitizedMeta = redactSensitiveData(meta);
+    } catch {
+        sanitizedMeta = redactSensitiveData(meta, '', { skipPseudonymisation: true });
+    }
 
     return JSON.stringify({
         timestamp: new Date().toISOString(),

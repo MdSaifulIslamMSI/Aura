@@ -47,6 +47,25 @@ const {
     loadWindowUrlSafely,
     revealWindow,
 } = require('./startupReliability.cjs');
+const {
+    UPDATE_CHECK_DELAY_MS,
+    UPDATE_CHECK_INTERVAL_MS,
+    buildUpdateErrorMessage,
+    buildUpdateRestartPrompt,
+    buildUpdateStatusPayload,
+    shouldCheckForUpdatesOnFocus,
+    shouldInstallUpdateNow,
+    shouldPromptForRestart,
+    shouldStartAutoUpdateChecks,
+} = require('./autoUpdatePolicy.cjs');
+const {
+    MAIN_WINDOW_ZOOM,
+    MIN_WINDOW_HEIGHT,
+    MIN_WINDOW_WIDTH,
+    buildAuthWindowOptions,
+    buildMainWindowWebPreferences,
+    getInitialWindowBounds,
+} = require('./windowChrome.cjs');
 
 let mainWindow = null;
 let mainWindowCreationPromise = null;
@@ -58,16 +77,20 @@ let updateReadyPromptShown = false;
 
 const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
-const UPDATE_CHECK_DELAY_MS = 8000;
 const STARTUP_WINDOW_REVEAL_TIMEOUT_MS = 8000;
-const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
-const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
 const UPDATE_FEED = Object.freeze({
     provider: 'github',
     owner: 'MdSaifulIslamMSI',
     repo: 'Aura',
     releaseType: 'release',
 });
+
+// Boot smoke hook. scripts/desktop/boot-smoke.mjs sets AURA_DESKTOP_BOOT_SMOKE=1
+// to make the shell report what the window actually loaded, so CI can assert a
+// real BrowserWindow reached the runtime origin instead of inferring success from
+// the absence of a crash. Never reachable in a shipped build.
+const DESKTOP_BOOT_SMOKE_ENV = 'AURA_DESKTOP_BOOT_SMOKE';
+const DESKTOP_BOOT_SMOKE_MARKER = '[desktop:boot-smoke]';
 
 const buildDesktopAuthUserAgent = () => {
     const chromeVersion = process.versions.chrome || '124.0.0.0';
@@ -274,14 +297,6 @@ const resolveRequestedRuntimePort = () => {
         : undefined;
 };
 
-const getInitialWindowBounds = () => {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    return {
-        width: Math.max(1180, Math.min(width, 1680)),
-        height: Math.max(760, Math.min(height, 1040)),
-    };
-};
-
 const installDesktopPermissionPolicy = () => {
     const defaultSession = session.defaultSession;
 
@@ -305,24 +320,6 @@ const installDesktopPermissionPolicy = () => {
     });
 };
 
-const buildAuthWindowOptions = (parentWindow) => ({
-    width: 640,
-    height: 780,
-    minWidth: 520,
-    minHeight: 560,
-    show: true,
-    autoHideMenuBar: true,
-    backgroundColor: '#0f172a',
-    parent: parentWindow,
-    modal: false,
-    webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        session: parentWindow?.webContents?.session,
-    },
-});
-
 const sendDesktopUpdateStatus = (type, payload = {}) => {
     if (
         !mainWindow
@@ -332,10 +329,10 @@ const sendDesktopUpdateStatus = (type, payload = {}) => {
         return;
     }
 
-    mainWindow.webContents.send('desktop:update:status', {
-        type,
-        ...payload,
-    });
+    mainWindow.webContents.send(
+        'desktop:update:status',
+        buildUpdateStatusPayload(type, payload)
+    );
 };
 
 const sendDesktopAuthStatus = (type, payload = {}) => {
@@ -353,36 +350,53 @@ const sendDesktopAuthStatus = (type, payload = {}) => {
     });
 };
 
-const buildUpdateErrorMessage = (error) => {
-    const rawMessage = String(error?.message || error || 'Update check failed.').trim();
-
-    if (/ERR_NAME_NOT_RESOLVED|ENOTFOUND|getaddrinfo/i.test(rawMessage)) {
-        return 'Aura could not resolve the GitHub update channel. Check your internet or DNS, then try again.';
+// Reports what the shell actually loaded, then lets the caller skip the rest of
+// the boot sequence. Returns true only when it ran, so normal boots are
+// unaffected. See DESKTOP_BOOT_SMOKE_ENV above.
+const reportDesktopBootSmoke = (window) => {
+    if (app.isPackaged || process.env[DESKTOP_BOOT_SMOKE_ENV] !== '1') {
+        return false;
     }
 
-    return rawMessage || 'Update check failed.';
+    let windowUrl = '';
+    try {
+        windowUrl = window && !window.isDestroyed() ? window.webContents.getURL() : '';
+    } catch {
+        // The window can close while we report. An empty URL then fails the
+        // smoke assertion, which is the correct outcome.
+    }
+
+    // fs.writeSync rather than console.log: stdout is asynchronous when piped,
+    // and the harness may kill this process as soon as it reads the line.
+    fs.writeSync(1, `${DESKTOP_BOOT_SMOKE_MARKER} ${JSON.stringify({
+        ok: Boolean(window) && Boolean(windowUrl),
+        runtimeUrl: runtime?.url || '',
+        windowUrl,
+        version: app.getVersion(),
+        platform: process.platform,
+    })}\n`);
+
+    return true;
 };
 
 const createMainWindow = async () => {
     const startupStartedAt = Date.now();
     const iconPath = resolveIconPath();
-    const initialBounds = getInitialWindowBounds();
+    const initialBounds = getInitialWindowBounds(
+        screen.getPrimaryDisplay().workAreaSize
+    );
     mainWindow = new BrowserWindow({
         ...initialBounds,
-        minWidth: 1080,
-        minHeight: 720,
+        minWidth: MIN_WINDOW_WIDTH,
+        minHeight: MIN_WINDOW_HEIGHT,
         show: false,
         backgroundColor: '#202020',
         autoHideMenuBar: true,
         icon: iconPath,
         title: 'Aura Desktop',
-        webPreferences: {
-            backgroundThrottling: false,
-            contextIsolation: true,
-            nodeIntegration: false,
-            preload: resolvePreloadPath(),
-            sandbox: true,
-        },
+        webPreferences: buildMainWindowWebPreferences({
+            preloadPath: resolvePreloadPath(),
+        }),
     });
     mainWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
 
@@ -409,8 +423,10 @@ const createMainWindow = async () => {
 
     mainWindow.webContents.on('did-finish-load', () => {
         if (activeWindow.isDestroyed()) return;
-        activeWindow.webContents.setZoomFactor(1);
-        Promise.resolve(activeWindow.webContents.setVisualZoomLevelLimits(1, 1)).catch(() => {});
+        activeWindow.webContents.setZoomFactor(MAIN_WINDOW_ZOOM);
+        Promise.resolve(
+            activeWindow.webContents.setVisualZoomLevelLimits(MAIN_WINDOW_ZOOM, MAIN_WINDOW_ZOOM)
+        ).catch(() => {});
     });
 
     mainWindow.on('closed', () => {
@@ -552,7 +568,12 @@ const ensureMainWindow = async () => {
 };
 
 const startAutoUpdateChecks = () => {
-    if (updateChecksStarted || !app.isPackaged || process.env.AURA_DESKTOP_AUTO_UPDATE === 'false') {
+    const shouldStart = shouldStartAutoUpdateChecks({
+        isPackaged: app.isPackaged,
+        autoUpdateDisabled: process.env.AURA_DESKTOP_AUTO_UPDATE === 'false',
+        alreadyStarted: updateChecksStarted,
+    });
+    if (!shouldStart) {
         return;
     }
 
@@ -606,27 +627,19 @@ const startAutoUpdateChecks = () => {
             version: info?.version || '',
         });
 
-        if (updateReadyPromptShown) {
+        if (!shouldPromptForRestart({ promptAlreadyShown: updateReadyPromptShown })) {
             return;
         }
 
         updateReadyPromptShown = true;
         const targetWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
-        const updatePrompt = {
-            type: 'info',
-            buttons: ['Restart and update', 'Later'],
-            defaultId: 0,
-            cancelId: 1,
-            title: 'Aura Marketplace update ready',
-            message: 'A new Aura Marketplace version has been downloaded.',
-            detail: 'Restart the desktop app now to install the update, or choose Later to install it when you quit.',
-        };
+        const updatePrompt = buildUpdateRestartPrompt();
         const promptPromise = targetWindow
             ? dialog.showMessageBox(targetWindow, updatePrompt)
             : dialog.showMessageBox(updatePrompt);
 
         promptPromise.then(({ response }) => {
-            if (response !== 0) {
+            if (!shouldInstallUpdateNow({ response })) {
                 return;
             }
 
@@ -667,7 +680,7 @@ const startAutoUpdateChecks = () => {
     });
 
     app.on('browser-window-focus', () => {
-        if ((Date.now() - lastUpdateCheckAt) > UPDATE_FOCUS_THROTTLE_MS) {
+        if (shouldCheckForUpdatesOnFocus({ lastCheckAt: lastUpdateCheckAt })) {
             checkForUpdates('focus');
         }
     });
@@ -695,7 +708,10 @@ const bootstrap = async () => {
     app.setAppUserModelId(APP_ID);
     await app.whenReady();
     installDesktopPermissionPolicy();
-    await ensureMainWindow();
+    const window = await ensureMainWindow();
+    if (reportDesktopBootSmoke(window)) {
+        return;
+    }
     startAutoUpdateChecks();
 
     app.on('activate', async () => {
@@ -736,10 +752,14 @@ if (!app.requestSingleInstanceLock()) {
     bootstrap().catch(async (error) => {
         console.error('[desktop] bootstrap failed:', error);
         await stopRuntime();
-        dialog.showErrorBox(
-            'Aura Marketplace Desktop',
-            error?.message || 'The desktop app failed to start.'
-        );
+        // The smoke harness reads the marker line, not the error box, which
+        // would block forever on a headless runner.
+        if (!reportDesktopBootSmoke(null)) {
+            dialog.showErrorBox(
+                'Aura Marketplace Desktop',
+                error?.message || 'The desktop app failed to start.'
+            );
+        }
         app.exit(1);
     });
 }

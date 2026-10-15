@@ -34,6 +34,10 @@ const createSnapshotModelMock = () => {
 describe('FX rate service', () => {
     const originalFetch = global.fetch;
     const originalEnv = { ...process.env };
+    // ECB rates are anchored to their reference date, and a checkout price may
+    // only be locked while that data is inside the quote freshness window, so
+    // quote fixtures must reference a recent day.
+    const ECB_REFERENCE_DATE = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     beforeEach(() => {
         jest.resetModules();
@@ -134,7 +138,7 @@ describe('FX rate service', () => {
             text: async () => `
                 <gesmes:Envelope>
                     <Cube>
-                        <Cube time="2026-03-27">
+                        <Cube time="${ECB_REFERENCE_DATE}">
                             <Cube currency="USD" rate="1.1000"/>
                             <Cube currency="INR" rate="90.0000"/>
                         </Cube>
@@ -156,7 +160,7 @@ describe('FX rate service', () => {
         expect(quote.amount).toBe(11);
         expect(quote.baseCurrency).toBe('INR');
         expect(quote.targetCurrency).toBe('USD');
-        expect(quote.asOfDate).toBe('2026-03-27');
+        expect(quote.asOfDate).toBe(ECB_REFERENCE_DATE);
         expect(quote.stale).toBe(false);
         expect(global.fetch).toHaveBeenCalledTimes(1);
     });
@@ -170,7 +174,7 @@ describe('FX rate service', () => {
             text: async () => `
                 <gesmes:Envelope>
                     <Cube>
-                        <Cube time="2026-03-27">
+                        <Cube time="${ECB_REFERENCE_DATE}">
                             <Cube currency="USD" rate="1.1000"/>
                             <Cube currency="INR" rate="90.0000"/>
                         </Cube>

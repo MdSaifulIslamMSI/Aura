@@ -1,3 +1,13 @@
+jest.mock('../utils/logger', () => ({
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+}));
+
+// Requires must follow the jest.mock calls: this suite runs without
+// babel-jest hoisting (jest.config only transforms svix/jose), so a module
+// loaded above its mock registration would resolve to the real module.
 const express = require('express');
 const request = require('supertest');
 const { requestId } = require('../middleware/requestId');
@@ -5,13 +15,6 @@ const {
     ORIGIN_VERIFY_HEADER,
     originProtectionMiddleware,
 } = require('../middleware/originProtectionMiddleware');
-
-jest.mock('../utils/logger', () => ({
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-}));
 
 const logger = require('../utils/logger');
 

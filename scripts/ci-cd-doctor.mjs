@@ -38,6 +38,7 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 const production = read('.github/workflows/production-cicd.yml');
 const giantReleaseGates = read('.github/workflows/giant-release-gates.yml');
 const productionOnPush = read('.github/workflows/production-on-push.yml');
+const stagingPromotionGate = read('.github/workflows/staging-promotion-gate.yml');
 const productionAdminAccess = read('.github/workflows/production-admin-access.yml');
 const ciWorkflow = read('.github/workflows/ci.yml');
 const desktop = read('.github/workflows/desktop-release.yml');
@@ -488,13 +489,16 @@ addCheck(
   'main push pipeline requires staging promotion before production deploys',
   [
     'staging-promotion-gate:',
-    '--workflow staging-ops-watch.yml',
-    '--label "Staging promotion gate"',
+    'uses: ./.github/workflows/staging-promotion-gate.yml',
     '- staging-promotion-gate',
     'STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}',
     '| Staging: same-commit promotion gate | ${STAGING_RESULT} |',
-  ].every((needle) => productionOnPush.includes(needle)),
-  'production-on-push dispatches and watches staging-ops-watch before production lanes'
+  ].every((needle) => productionOnPush.includes(needle)) &&
+    [
+      '--workflow staging-ops-watch.yml',
+      '--label "Staging promotion gate"',
+    ].every((needle) => stagingPromotionGate.includes(needle)),
+  'production-on-push routes deploys through the shared staging-promotion-gate reusable workflow'
 );
 
 addCheck(

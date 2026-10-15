@@ -1,6 +1,20 @@
+const fs = require('fs');
+const path = require('path');
+
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 
-const AUTH_WINDOW_HOSTS = new Set([
+// Committed allowlist of HTTPS hosts permitted to open an Electron auth window.
+// Single-sourced into config/desktop-auth-window-hosts.json.
+//
+// This is a trust boundary, so it is a committed artifact rather than an env
+// override: an env var would make the OAuth popup allowlist runtime-mutable, and
+// a compromised or misconfigured environment could widen it to an attacker host.
+//
+// Loading must never throw. The fallback below is a committed copy of the
+// artifact, and securityPolicy.test.cjs asserts the two cannot silently diverge,
+// so a packaging regression degrades to the known-good list instead of bricking
+// the app at require time.
+const AUTH_WINDOW_HOSTS_FALLBACK = Object.freeze([
     'accounts.google.com',
     'billy-b674c.firebaseapp.com',
     'billy-b674c.web.app',
@@ -14,6 +28,38 @@ const AUTH_WINDOW_HOSTS = new Set([
     'www.github.com',
     'x.com',
 ]);
+
+const readGeneratedAuthWindowHosts = () => {
+    const candidates = [
+        path.join(__dirname, '..', 'config', 'desktop-auth-window-hosts.json'),
+        path.join(process.resourcesPath || '', 'config', 'desktop-auth-window-hosts.json'),
+    ];
+
+    for (const candidate of candidates) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+            const hosts = Array.isArray(parsed?.hosts) ? parsed.hosts : [];
+            const normalized = [...new Set(
+                hosts
+                    .filter((host) => typeof host === 'string')
+                    .map((host) => host.trim().toLowerCase())
+                    .filter(Boolean)
+            )];
+
+            // An empty or malformed artifact must not silently disable every
+            // auth popup; that would break sign-in rather than fail loudly.
+            if (normalized.length > 0) {
+                return normalized;
+            }
+        } catch {
+            // Try the next candidate.
+        }
+    }
+
+    return null;
+};
+
+const AUTH_WINDOW_HOSTS = new Set(readGeneratedAuthWindowHosts() || AUTH_WINDOW_HOSTS_FALLBACK);
 
 const DESKTOP_RUNTIME_PERMISSIONS = new Set([
     'display-capture',
@@ -94,6 +140,8 @@ const isTrustedDesktopIpcSender = ({ event, mainWindow, runtimeUrl }) => {
 };
 
 module.exports = {
+    AUTH_WINDOW_HOSTS,
+    AUTH_WINDOW_HOSTS_FALLBACK,
     canGrantDesktopRuntimePermission,
     isAllowedAuthWindowNavigation,
     isAuthWindowUrl,

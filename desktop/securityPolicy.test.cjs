@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    AUTH_WINDOW_HOSTS,
+    AUTH_WINDOW_HOSTS_FALLBACK,
     canGrantDesktopRuntimePermission,
     isAllowedAuthWindowNavigation,
     isAuthWindowUrl,
@@ -8,6 +10,17 @@ const {
     isSafeExternalUrl,
     isTrustedDesktopIpcSender,
 } = require('./securityPolicy.cjs');
+
+test('the committed auth-window allowlist matches its generated artifact', () => {
+    // The generated artifact is the source of truth; the fallback in
+    // securityPolicy.cjs is only a crash guard. If they drift, a packaging
+    // regression would silently change which hosts may open an OAuth popup.
+    assert.deepEqual(
+        [...AUTH_WINDOW_HOSTS].sort(),
+        [...AUTH_WINDOW_HOSTS_FALLBACK].sort()
+    );
+    assert.ok(AUTH_WINDOW_HOSTS.size > 0, 'an empty allowlist would break sign-in');
+});
 
 const runtimeUrl = 'http://127.0.0.1:47831';
 

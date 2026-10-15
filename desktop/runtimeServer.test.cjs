@@ -35,6 +35,7 @@ const postOpaqueFormNavigation = (targetUrl, body, headerOverrides = {}) => new 
 });
 
 const {
+    BACKEND_ORIGIN_FALLBACK,
     buildProxyOptions,
     applyLocalFrontendCachePolicy,
     applyDesktopAuthCors,
@@ -152,6 +153,46 @@ test('desktop default backend origin matches the hosted backend routing contract
 
     assert.equal(DEFAULT_BACKEND_ORIGIN, HOSTED_BACKEND_ORIGIN);
     assert.doesNotMatch(DEFAULT_BACKEND_ORIGIN, /3\.109\.181\.238/);
+});
+
+// Desktop 1.0.195 shipped a build that crashed on launch with an uncaught
+// ENOENT for config/backend-origin.json. The value assertion above passed the
+// whole time because it runs from the repo tree, where the file exists — it
+// never proved the file reaches the packaged asar, and electron-builder ships
+// only what build.files allows. Both halves are asserted here.
+test('desktop packaging ships the generated backend-origin artifact', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const { build } = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+    assert.ok(Array.isArray(build?.files), 'electron-builder build.files must be an array');
+    assert.ok(
+        build.files.includes('config/backend-origin.json'),
+        'electron-builder build.files should ship config/backend-origin.json as defence in depth',
+    );
+
+    // The guaranteed mechanism: extraResources is an explicit from/to copy with
+    // no glob semantics, so it behaves the same on Windows and Linux. This is
+    // the copy runtimeServer.cjs falls back to via process.resourcesPath.
+    const extraResources = build?.extraResources || [];
+    assert.ok(
+        extraResources.some((entry) => entry.from === 'config/backend-origin.json'),
+        'electron-builder build.extraResources must copy config/backend-origin.json; without it a packaged app cannot resolve the backend origin and crashes on launch',
+    );
+
+    const generated = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'config', 'backend-origin.json'), 'utf8'),
+    );
+    assert.equal(generated.origin, DEFAULT_BACKEND_ORIGIN);
+});
+
+test('desktop committed backend-origin fallback cannot drift from the contract', async () => {
+    const { HOSTED_BACKEND_ORIGIN } = await import('../app/config/vercelRoutingContract.mjs');
+
+    assert.equal(
+        BACKEND_ORIGIN_FALLBACK,
+        HOSTED_BACKEND_ORIGIN,
+        'BACKEND_ORIGIN_FALLBACK is only a crash guard, but if it drifts the app silently proxies to the wrong edge whenever the generated artifact is missing',
+    );
 });
 
 test('desktop proxy strips browser-only CORS headers before forwarding to AWS', () => {
@@ -520,6 +561,74 @@ test('desktop auth broker requires its timing-safe secret and cancels a browser 
     assert.equal(broker.cancelRequest(legacyRequest.requestId), true);
 });
 
+// The broker must spend the pending request only once the whole callback is
+// valid. A rejected token is a malformed handoff, not a hostile caller: the
+// hosted page can legitimately retry the POST, so a 422 has to leave the
+// request pending. Spending it there would turn the retry into a 404 and lock
+// the user out of a sign-in they were entitled to finish.
+test('desktop auth broker keeps a handoff retryable after a rejected custom token', () => {
+    const broker = createDesktopAuthBroker();
+
+    // One request per rejection: a 422 must leave the handoff pending, so each
+    // rejected token needs a freshly created request to be retried against.
+    const assertRetryableRejection = (customToken) => {
+        const retryRequest = broker.createRequest({
+            callbackUrl: 'http://127.0.0.1:47831',
+            runtimeUrl: 'http://localhost:47831',
+        });
+        const retrySecret = new URLSearchParams(
+            new URL(retryRequest.url).hash.slice(1)
+        ).get('desktopAuthSecret');
+
+        assert.throws(() => broker.completeRequest({
+            requestId: retryRequest.requestId,
+            secret: retrySecret,
+            customToken,
+        }), (error) => error.statusCode === 422 && /missing or too large/.test(error.message));
+
+        // Still pending, so the hosted page may post a corrected token.
+        assert.notEqual(broker.getRequest(retryRequest.requestId), null);
+        assert.equal(broker.consumeResult(retryRequest.requestId), null);
+
+        const retried = broker.completeRequest({
+            requestId: retryRequest.requestId,
+            secret: retrySecret,
+            customToken: 'custom-token',
+        });
+        assert.equal(retried.requestId, retryRequest.requestId);
+        assert.equal(broker.consumeResult(retryRequest.requestId).customToken, 'custom-token');
+    };
+
+    // '   ' is excluded: normalizeDesktopAuthString trims first, so a blank token
+    // arrives as '' via the same default. The oversized case is the one that
+    // would slip through a naive emptiness check.
+    assertRetryableRejection('');
+    // 8192 is the documented ceiling, so 8193 is the first rejected size.
+    assertRetryableRejection('x'.repeat(8193));
+
+    // A settled request is genuinely single-use, so a duplicate POST is a 404.
+    const replayRequest = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
+        runtimeUrl: 'http://localhost:47831',
+    });
+    const replaySecret = new URLSearchParams(
+        new URL(replayRequest.url).hash.slice(1)
+    ).get('desktopAuthSecret');
+    const settled = broker.completeRequest({
+        requestId: replayRequest.requestId,
+        secret: replaySecret,
+        customToken: 'custom-token',
+    });
+    assert.equal(settled.requestId, replayRequest.requestId);
+    assert.equal(broker.getRequest(replayRequest.requestId), null);
+    assert.equal(broker.consumeResult(replayRequest.requestId).customToken, 'custom-token');
+    assert.throws(() => broker.completeRequest({
+        requestId: replayRequest.requestId,
+        secret: replaySecret,
+        customToken: 'custom-token',
+    }), (error) => error.statusCode === 404 && /expired or unknown/.test(error.message));
+});
+
 test('desktop auth callback completes the HTTP handoff and consumes its token once', async () => {
     const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-callback-'));
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
@@ -778,6 +887,65 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     assert.equal(applyDesktopAuthCors({
         headers: { origin: 'https://evil.example.test' },
     }, response, allowedOrigins), false);
+});
+
+// The unit test above covers the CORS helper directly. This covers the route
+// wiring, which is where the helper can be correctly implemented and still not
+// applied: a preflight advertises whether the real POST is reachable, so
+// answering 204 to any origin is what a browser acts on.
+test('desktop auth preflight refuses untrusted origins on the real route', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-preflight-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    // Port +9 is unused by any other test in this file. The runtime only accepts
+    // DEFAULT_RUNTIME_PORT through +10 (MAX_STABLE_RUNTIME_PORT), so the suite's
+    // servers must share that narrow band without colliding — node:test runs
+    // these concurrently, and a collision surfaces as ECONNRESET rather than a
+    // clear EADDRINUSE.
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 9,
+    });
+
+    try {
+        for (const path of [DESKTOP_AUTH_COMPLETE_PATH, DESKTOP_AUTH_CANCEL_PATH]) {
+            const trusted = await fetch(`http://127.0.0.1:${runtime.port}${path}`, {
+                method: 'OPTIONS',
+                headers: {
+                    Origin: 'https://aurapilot.vercel.app',
+                    'Access-Control-Request-Method': 'POST',
+                },
+            });
+            assert.equal(trusted.status, 204, `${path} must admit its own origin`);
+            assert.equal(trusted.headers.get('access-control-allow-origin'), 'https://aurapilot.vercel.app');
+
+            for (const untrusted of ['https://evil.example', 'https://evil.example/web.app', 'null']) {
+                const rejected = await fetch(`http://127.0.0.1:${runtime.port}${path}`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        Origin: untrusted,
+                        'Access-Control-Request-Method': 'POST',
+                    },
+                });
+                assert.equal(
+                    rejected.status,
+                    403,
+                    `${path} must not advertise the POST to ${untrusted}`
+                );
+                assert.equal(rejected.headers.get('access-control-allow-origin'), null);
+            }
+        }
+
+        // A preflight with no Origin at all is not a trusted CORS preflight.
+        const headerless = await fetch(`${runtime.callbackUrl}${DESKTOP_AUTH_COMPLETE_PATH}`, {
+            method: 'OPTIONS',
+            headers: { 'Access-Control-Request-Method': 'POST' },
+        });
+        assert.equal(headerless.status, 403);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
 });
 
 test('local fallback limiter rejects excess local attempts', () => {

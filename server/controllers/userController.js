@@ -28,6 +28,7 @@ const {
     quarantineAvatarMedia,
 } = require('../services/avatarMediaStorageService');
 const { normalizePhoneE164 } = require('../services/sms');
+const { computePhoneBlindIndexV2 } = require('../services/blindIndexService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 const PROFILE_PROJECTION = 'name email phone avatar avatarMedia gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
@@ -549,6 +550,34 @@ const loginUser = asyncHandler(async (req, res, next) => {
         normalizedPhone = normalizePhone(phone);
         if (!PHONE_REGEX.test(normalizedPhone)) {
             return next(new AppError('Valid phone number is required', 400));
+        }
+        // SECURITY (CWE-290): store one canonical form per phone identity and
+        // refuse a number already linked to another account. Representation
+        // variants of one number ("919876543210", "9876543210", "+91...") hash
+        // differently but canonicalize to one OTP identity, so a variant on a
+        // second account enables cross-account OTP confusion and pre-claiming.
+        try {
+            normalizedPhone = normalizePhoneE164(normalizedPhone);
+        } catch {
+            return next(new AppError('Valid phone number is required', 400));
+        }
+        const canonicalDigits = normalizedPhone.replace(/\D/g, '');
+        const candidateHashes = [
+            normalizedPhone,
+            canonicalDigits,
+            canonicalDigits.length > 10 ? canonicalDigits.slice(-10) : '',
+        ]
+            .map((candidate) => computePhoneBlindIndexV2(candidate))
+            .filter(Boolean);
+        const phoneConflict = await User.findOne(
+            {
+                email: { $ne: tokenEmail },
+                phoneHashV2: { $in: [...new Set(candidateHashes)] },
+            },
+            '_id'
+        ).lean();
+        if (phoneConflict) {
+            return next(new AppError('Phone number is already linked to another account', 409));
         }
     }
 

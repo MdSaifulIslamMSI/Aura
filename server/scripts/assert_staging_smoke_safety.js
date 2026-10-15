@@ -8,7 +8,7 @@ const STAGING_VALUES = new Set(['stage', 'staging', 'smoke-staging']);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 const KNOWN_PRODUCTION_HOSTS = [
-    'dbtrhsolhec1s.cloudfront.net',
+    'dip82eloip5zb.cloudfront.net',
     'aurapilot.vercel.app',
     'aura-gateway.vercel.app',
     'aurapilot.netlify.app',

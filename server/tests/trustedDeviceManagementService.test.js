@@ -1,3 +1,15 @@
+jest.mock('../models/User', () => ({
+    findById: jest.fn(),
+    findOneAndUpdate: jest.fn(),
+}));
+
+jest.mock('../services/browserSessionService', () => ({
+    revokeBrowserSessionsForDevices: jest.fn(),
+}));
+
+// Requires must follow the jest.mock calls: this suite runs without
+// babel-jest hoisting (jest.config only transforms svix/jose), so a module
+// loaded above its mock registration would resolve to the real module.
 const User = require('../models/User');
 const {
     revokeBrowserSessionsForDevices,
@@ -10,15 +22,6 @@ const {
     renameTrustedDevice,
     revokeTrustedDevices,
 } = require('../services/trustedDeviceManagementService');
-
-jest.mock('../models/User', () => ({
-    findById: jest.fn(),
-    findOneAndUpdate: jest.fn(),
-}));
-
-jest.mock('../services/browserSessionService', () => ({
-    revokeBrowserSessionsForDevices: jest.fn(),
-}));
 
 describe('trustedDeviceManagementService', () => {
     const originalEnv = { ...process.env };

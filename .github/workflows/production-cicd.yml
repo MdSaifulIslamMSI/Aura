@@ -102,7 +102,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      refs_json: ${{ steps.resolve.outputs.refs_json }}
+      refs_json: ${{ steps.fetch.outputs.refs_json }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,6 +130,13 @@ jobs:
 
       - name: Fetch and validate the pointer
         id: fetch
+        # This step reads AWS_PARAMETER_STORE_PATH_PREFIX under `set -u`, and
+        # step env blocks do NOT inherit from earlier steps, so it must be
+        # declared here as well. Declaring it only on the previous step made
+        # every `rollback_refs_json=last-known-good` dispatch die with
+        # "AWS_PARAMETER_STORE_PATH_PREFIX: unbound variable".
+        env:
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
         run: |
           set -euo pipefail
           PARAMETER_NAME="${AWS_PARAMETER_STORE_PATH_PREFIX}/prod/last-known-good"
@@ -139,15 +146,29 @@ jobs:
           }
           REFS_JSON="$(ROLLBACK_REFS_JSON="${PARAMETER_VALUE}" node <<'NODE'
           const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'railway', 'cloudflare', 'github-pages', 'gateway']);
-          let refs;
+          let pointer;
           try {
-            refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
+            pointer = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
           } catch (error) {
             console.error(`last-known-good pointer is not valid JSON: ${error.message}`);
             process.exit(1);
           }
-          if (!refs || Array.isArray(refs) || typeof refs !== 'object') {
+          if (!pointer || Array.isArray(pointer) || typeof pointer !== 'object') {
             console.error('last-known-good pointer must be a JSON object.');
+            process.exit(1);
+          }
+          // The recording job writes { recorded_at, sha, run_id, refs: {...} }.
+          // This resolver used to validate the whole object against the provider
+          // allowlist and so rejected every pointer it had ever written, with
+          // "unsupported provider 'recorded_at'". Read the nested refs map, and
+          // still accept a bare flat map for pointers recorded before that shape.
+          const refs = pointer.refs && typeof pointer.refs === 'object' && !Array.isArray(pointer.refs)
+            ? pointer.refs
+            : pointer;
+          const metadata = Object.keys(pointer).filter((key) => !['refs'].includes(key));
+          console.error(`last-known-good pointer recorded ${metadata.join(', ')}; using ${Object.keys(refs).length} provider refs.`);
+          if (Object.keys(refs).length === 0) {
+            console.error('last-known-good pointer contains no provider refs.');
             process.exit(1);
           }
           for (const [key, value] of Object.entries(refs)) {
@@ -240,6 +261,8 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           CONFIRM_PRODUCTION: ${{ github.event.inputs.confirm_production || '' }}
+          STAGING_INFRA_PAUSED: ${{ vars.STAGING_INFRA_PAUSED }}
+          INPUT_STAGING_ACK: ${{ github.event.inputs.staging_off_acknowledged == 'true' }}
           INPUT_DEPLOY_TARGETS: ${{ github.event.inputs.deploy_targets || '' }}
           INPUT_RELEASE_TARGETS: ${{ github.event.inputs.release_targets || '' }}
           INPUT_ROLLBACK_TARGETS: ${{ github.event.inputs.rollback_targets || '' }}
@@ -420,8 +443,17 @@ jobs:
           validate_target_list "release" "${INPUT_RELEASE_TARGETS}" desktop mobile
           validate_target_list "rollback" "${INPUT_ROLLBACK_TARGETS}" backend frontend-multihost storefront gateway
 
+
           if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${REF_NAME}" != "main" ] && [ -n "${INPUT_DEPLOY_TARGETS}${INPUT_RELEASE_TARGETS}${INPUT_ROLLBACK_TARGETS}" ]; then
             echo "Production actions must be dispatched from the main branch; received ${REF_NAME}." >&2
+            exit 1
+          fi
+
+          # Acknowledgement consistency: claiming staging is intentionally off
+          # while the repo variable says it is live is a dispatch contradiction —
+          # the promotion gate would pass through unwatched staging. Fail loudly.
+          if [ "${CONFIRM_PRODUCTION}" = "PRODUCTION" ] && [ "${INPUT_STAGING_ACK}" = "true" ] && [ "${STAGING_INFRA_PAUSED}" != "true" ]; then
+            echo "staging_off_acknowledged=true contradicts vars.STAGING_INFRA_PAUSED (currently not 'true'). Either pause staging via the variable, or re-dispatch without the acknowledgement flag." >&2
             exit 1
           fi
 
@@ -792,7 +824,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -831,7 +863,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -858,8 +890,16 @@ jobs:
 
           echo "No obvious committed secret patterns found."
 
+      # The manual production-dispatch path previously ran only the grep-level
+      # scan above plus a production-deps-only audit — a much weaker bar than
+      # the canonical main-push gate. Run the same Gitleaks-grade secret scan
+      # and the canonical dependency audit (high severity, all manifests,
+      # including dev dependencies) so both production paths enforce one bar.
+      - name: Run canonical secret scan
+        run: npm run security:secrets
+
       - name: NPM production dependency audit
-        run: npm run security:audit
+        run: npm run security:deps
 
       - name: Generate npm SBOMs
         run: |
@@ -919,7 +959,7 @@ jobs:
           sbom_npm_dir "server" "server"
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: aura-production-sbom
           path: sbom/*.json
@@ -951,6 +991,15 @@ jobs:
       id-token: write
     secrets:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
+
+  staging-promotion-gate:
+    name: Staging promotion gate
+    needs:
+      - release-safety-gates
+    uses: ./.github/workflows/staging-promotion-gate.yml
+    permissions:
+      actions: write
+      contents: read
 
   production-approval:
     name: Production approval gate
@@ -1147,7 +1196,7 @@ jobs:
           EOF
 
       - name: Upload release manifest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: aura-production-release-manifest
           path: release-manifest.json
@@ -1160,6 +1209,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1167,6 +1217,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-backend-aws.yml
     permissions:
@@ -1241,6 +1292,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1248,6 +1300,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-netlify.yml
     permissions:
@@ -1349,6 +1402,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1356,6 +1410,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-frontend-aws.yml
     permissions:
@@ -1439,6 +1494,7 @@ jobs:
       - quality-gates
       - security-gates
       - production-approval
+      - staging-promotion-gate
       - release-manifest
     if: |
       always() &&
@@ -1446,6 +1502,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped') &&
       needs.security-gates.result == 'success' &&
       needs.production-approval.result == 'success' &&
+      needs.staging-promotion-gate.result == 'success' &&
       needs.release-manifest.result == 'success'
     uses: ./.github/workflows/deploy-gateway-vercel.yml
     permissions:
@@ -1537,7 +1594,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.x
 
@@ -1646,6 +1703,24 @@ jobs:
               exit 1
             fi
           fi
+
+      # Served-header contract: the in-repo CSP drift gate only reads committed
+      # files, so a lane can regenerate every copy and still serve a stale or
+      # missing CSP header in production. Blocking since 2026-10-10, once every
+      # lane was verified serving the current origin. The probe retries so a
+      # lane still propagating a just-finished deploy cannot fail a release.
+      - name: Assert served CSP headers name the current backend origin
+        env:
+          EXPECTED_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          LANE_URLS: |
+            cloudfront=${{ needs.deploy-frontend-netlify.outputs.aws_frontend_production_url || vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+            netlify=${{ needs.deploy-frontend-netlify.outputs.netlify_production_url || vars.NETLIFY_PRODUCTION_URL || '' }}
+            vercel=${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_production_url || vars.VERCEL_PRODUCTION_URL || '' }}
+            render=${{ needs.deploy-frontend-netlify.outputs.render_production_url || vars.RENDER_PRODUCTION_URL || '' }}
+            railway=${{ needs.deploy-frontend-netlify.outputs.railway_production_url || vars.RAILWAY_PRODUCTION_URL || '' }}
+            cloudflare-pages=${{ needs.deploy-frontend-netlify.outputs.cloudflare_pages_production_url || vars.CLOUDFLARE_PAGES_PRODUCTION_URL || '' }}
+            github-pages=${{ needs.deploy-frontend-netlify.outputs.github_pages_production_url || vars.GH_PAGES_PRODUCTION_URL || '' }}
+        run: node scripts/smoke/assert-served-security-headers.mjs
 
   record-last-known-good:
     name: Record last-known-good rollback pointer

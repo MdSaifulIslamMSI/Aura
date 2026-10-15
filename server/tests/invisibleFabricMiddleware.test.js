@@ -1,3 +1,13 @@
+jest.mock('../utils/logger', () => ({
+    debug: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+}));
+
+// Requires must follow the jest.mock calls: this suite runs without
+// babel-jest hoisting (jest.config only transforms svix/jose), so a module
+// loaded above its mock registration would resolve to the real module.
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const request = require('supertest');
@@ -8,13 +18,6 @@ const {
     honeypotMiddleware,
     internalRouteCloakMiddleware,
 } = require('../middleware/invisibleFabricMiddleware');
-
-jest.mock('../utils/logger', () => ({
-    debug: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-}));
 
 const logger = require('../utils/logger');
 

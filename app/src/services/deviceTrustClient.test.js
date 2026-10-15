@@ -742,6 +742,25 @@ describe('deviceTrustClient', () => {
     expect(deviceTrustClient.getTrustedDeviceHeaders()).not.toHaveProperty('X-Aura-Device-Session');
   });
 
+  it('omits device identity headers when no CSPRNG is available', async () => {
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+      protocol: 'https:',
+      origin: 'https://aurapilot.vercel.app',
+    });
+    // A browser with no Web Crypto at all must never emit a Math.random
+    // device id: the identity is spoofable and would defeat device binding.
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: { subtle: {} },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(deviceTrustClient.getTrustedDeviceHeaders()).toEqual({});
+  });
+
   it('reads an existing tab-scoped trusted-device token without persisting it', async () => {
     sessionStorage.setItem('aura_trusted_device_session_v1', 'legacy-tab-token');
     const deviceTrustClient = await loadDeviceTrustModule();

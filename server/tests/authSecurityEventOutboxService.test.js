@@ -67,4 +67,20 @@ describe('authSecurityEventOutboxService', () => {
             payload: expect.objectContaining({ event: 'login_failure' }),
         }));
     });
+
+    test('retention TTL covers every row regardless of status', () => {
+        const AuthSecurityEventOutbox = require('../models/AuthSecurityEventOutbox');
+
+        const ttlIndexes = AuthSecurityEventOutbox.schema.indexes().filter(
+            ([, options]) => options && options.expireAfterSeconds
+        );
+
+        // Exactly one TTL index, on createdAt, with no partial filter: a
+        // status-scoped TTL never fired because nothing publishes rows.
+        expect(ttlIndexes).toHaveLength(1);
+        const [[keys, options]] = ttlIndexes;
+        expect(Object.keys(keys)).toEqual(['createdAt']);
+        expect(options.expireAfterSeconds).toBe(180 * 24 * 60 * 60);
+        expect(options.partialFilterExpression).toBeUndefined();
+    });
 });

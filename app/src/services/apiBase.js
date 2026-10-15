@@ -2,6 +2,7 @@ import { prepareTraceHeaders } from './clientObservability';
 import { resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
 import { getActiveMarketHeaders } from './marketRuntime';
 import { ADMIN_ACCESS_LOCK_EVENT, getAdminAccessLockPayload } from '../utils/adminAccessLock';
+import { buildRequestProofHeaders } from '../security/requestProofSigner';
 
 const normalizePath = (path = '') => (String(path || '').startsWith('/')
     ? String(path || '')
@@ -310,6 +311,32 @@ export const requestWithTrace = async (input, options = {}) => {
         ]);
         if (dpopProof) {
             trace.headers.set('DPoP', dpopProof);
+        }
+        // Replay-guard headers (nonce, timestamp, body hash, intent): the
+        // server's Auth Shield enforces a fresh nonce and timestamp for
+        // critical actions, so every request must carry them. Paired with
+        // the DPoP proof above for sender binding.
+        try {
+            let parsedBody = body;
+            if (body && typeof body === 'string') {
+                try {
+                    parsedBody = JSON.parse(body);
+                } catch {
+                    parsedBody = null;
+                }
+            }
+            const proofHeaders = await buildRequestProofHeaders({
+                method: requestMethod,
+                url,
+                body: parsedBody,
+            });
+            Object.entries(proofHeaders).forEach(([key, value]) => {
+                trace.headers.set(key, value);
+            });
+        } catch {
+            // Proof headers are best-effort; the server fails closed without
+            // them, so a crypto failure surfaces as a policy denial, not a
+            // client crash.
         }
         const startedAt = Date.now();
 

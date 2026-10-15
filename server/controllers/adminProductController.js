@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
@@ -39,7 +40,7 @@ const ADMIN_PRODUCT_FIELDS = {
     updatedAt: 1,
 };
 
-const makeActionId = (prefix = 'pgl') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+const makeActionId = (prefix = 'pgl') => `${prefix}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
 
 const sanitizeReason = (value, fallback = '') => {
     const normalized = String(value || '').trim();

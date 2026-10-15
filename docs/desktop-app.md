@@ -78,6 +78,52 @@ Security invariants:
 - `npm run desktop:dist:portable`
   - Builds a portable Windows x64 executable into `desktop-release/`.
 
+## Module Layout
+
+The desktop shell is plain CommonJS. Each module owns one concern:
+
+- `main.cjs` — app lifecycle, window creation, IPC handlers, Electron wiring
+- `preload.cjs` — the `contextBridge` surface exposed as `window.auraDesktop`
+- `autoUpdatePolicy.cjs` — update-check eligibility, throttling, and prompt policy
+- `windowChrome.cjs` — window geometry and sandboxed `webPreferences`
+- `runtimeServer.cjs` — composition root: HTTP assembly and server lifecycle only
+- `runtimeConfig.cjs` — origins, ports, loopback and DNS-rebinding guards
+- `backendProxy.cjs` — the proxy to the hosted backend
+- `desktopAuthProtocol.cjs` — the stateless browser sign-in handoff contract
+- `desktopAuthBroker.cjs` — the per-request sign-in lifecycle
+- `securityPolicy.cjs` — navigation, window-open, permission, and IPC-sender policy
+- `autoUpdatePolicy.cjs`, `windowChrome.cjs` — decisions extracted from `main.cjs`
+- `secureStorage.cjs` — OS-keychain-backed storage for renderer secrets
+- `startupReliability.cjs` — startup URL, reveal, and load-safety helpers
+
+`runtimeServer.cjs` re-exports the names its consumers resolve, so `main.cjs`, `runtimeServer.test.cjs`, and `scripts/desktop/verify-packaged-runtime.mjs` all keep loading from one entry point.
+
+Two checks read these files as **text** rather than importing them, so moving security-sensitive code between them silently disarms the check:
+
+- `scripts/security-harness-check.mjs` asserts the backend proxy verifies TLS by default, reading `backendProxy.cjs` and `runtimeConfig.cjs`
+- `server/scripts/audit_production_hardening_contract.js` forbids raw-IP and sslip.io backend origins across the routing surfaces, including `runtimeConfig.cjs`
+
+If you move code between these modules, update both files.
+
+## Verification
+
+These run in the `desktop-package-smoke` CI job whenever `desktop/**` changes.
+
+- `npm run lint:desktop`
+  - Parses every `desktop/*.cjs` with the Node parser. This is a **syntax** floor, not a style linter.
+- `npm run lint:node`
+  - Real ESLint (`eslint.config.mjs`) over `desktop/` and `scripts/`. `desktop/` runs the correctness rules plus `no-undef`, which is the rule that catches a constant destructured from a module that does not export it — a silent `undefined` that disables a guard instead of raising.
+  - `app/` keeps its own ESLint project in `app/eslint.config.js`; the two do not overlap.
+- `npm run test:desktop`
+  - Runs the `desktop/*.test.cjs` suites with the Node test runner. Note the quoted glob — `node --test desktop/` fails, because Node 24 reads a bare directory as a module path, and `cmd.exe` does not expand the glob itself.
+- `npm run test:desktop:boot`
+  - Launches the real Electron shell and asserts a window reached the loopback runtime origin at `/login`, that the runtime serves the built SPA, that the DNS-rebinding `Host` guard answers a foreign header with `421`, and that the process stays alive.
+  - Requires `npm run desktop:frontend:build` first. On a headless Linux runner, wrap it in `xvfb-run -a`.
+  - Close any running dev instance first: Electron's single-instance lock makes a second shell exit before the window loads.
+  - The shell is launched unpackaged with `AURA_DESKTOP_BOOT_SMOKE=1`, which makes `desktop/main.cjs` report the loaded URL and skip the rest of boot. The hook is gated on `!app.isPackaged`, so it cannot run in a shipped build.
+- `node scripts/desktop/verify-packaged-runtime.mjs`
+  - Packaging assertion, run against `desktop-release/linux-unpacked`. Extracts `app.asar` and `require()`s the packaged runtime to prove `config/backend-origin.json` shipped and resolves.
+
 ## First-Time Setup
 
 1. Install root dependencies:
