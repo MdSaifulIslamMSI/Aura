@@ -78,13 +78,32 @@ const notices = [];
 
 const fail = (message) => problems.push(message);
 
+// Resolved from this script's own tree, which is the repository root. The CI
+// jobs that run the server test tier install server/node_modules only, so a
+// caller that has already installed the package there hands the guard a
+// node_modules directory to resolve from instead of forcing the guard to assume
+// an install layout. Unset keeps the original root resolution, which is what
+// the desktop packaging job uses.
+//
+// createRequire is anchored rather than require()ing the directory directly:
+// @electron/asar is an "exports" package, so a bare directory require fails to
+// resolve even when the package is installed right there.
+const loadAsar = () => {
+    const explicit = String(process.env.ARTIFACT_POSTURE_ASAR_MODULE || '').trim();
+    if (!explicit) return require('@electron/asar');
+    return createRequire(path.join(explicit, 'package.json'))('@electron/asar');
+};
+
 // @electron/asar throws when the logical path is absent rather than returning
 // null, so every caller below relies on this wrapper to turn a missing file into
-// a clean "not present" result. Without the catch a missing module crashes the
-// guard with an unhandled exception instead of reporting a problem.
+// a clean "not present" result. The module load deliberately sits OUTSIDE the
+// try: when it failed, the catch below swallowed MODULE_NOT_FOUND and every
+// probe reported "does not contain <file>", which reads as a bad archive rather
+// than a bad install and misdirected this fix once already.
 const readFromAsar = (asar, logicalPath) => {
+    const { extractFile } = loadAsar();
     try {
-        const buffer = require('@electron/asar').extractFile(asar, logicalPath);
+        const buffer = extractFile(asar, logicalPath);
         return buffer ? buffer.toString('utf8') : null;
     } catch {
         return null;
