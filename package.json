@@ -16,7 +16,7 @@
     "test:desktop": "node --test \"desktop/**/*.test.cjs\"",
     "test:desktop:boot": "node scripts/desktop/boot-smoke.mjs",
     "lint:desktop": "node scripts/desktop/lint-syntax.mjs",
-    "lint:node": "eslint desktop scripts --no-warn-ignored",
+    "lint:node": "eslint desktop scripts server --no-warn-ignored",
     "test:inventory": "node scripts/test-inventory.mjs",
     "test:tiers:check": "node scripts/check-test-tiers.cjs",
     "quality:coverage": "npm run test:server:coverage && npm --prefix app run test:coverage",

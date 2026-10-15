@@ -36,7 +36,11 @@ const {
     shouldProxyProductImage,
 } = require('../services/productImageResolver');
 const { buildCatalogMarketMetadata } = require('../services/markets/marketCatalog');
-const { pickPublicProductFields } = require('../serializers/publicProductSerializer');
+const {
+    pickPublicProductFields,
+    redactPublicCatalogMetadata,
+    redactPublicPricing,
+} = require('../serializers/publicProductSerializer');
 const { buildDisplayPair } = require('../services/markets/marketPricing');
 
 const REVIEW_LIMIT_DEFAULT = 8;
@@ -80,13 +84,16 @@ const toClientProduct = async (product, market = null) => {
         images: Array.isArray(safe.images)
             ? safe.images.map((entry) => buildProductImageDeliveryUrl(entry))
             : [],
-        pricing,
+        // buildDisplayPair/buildCatalogMarketMetadata contribute server-side FX
+        // and market-compliance internals after the allowlist ran; strip them at
+        // this boundary so they never reach a public response.
+        pricing: redactPublicPricing(pricing),
         market: market ? {
             countryCode: market.countryCode,
             currency: pricing?.displayCurrency || market.currency,
             language: market.language,
         } : null,
-        catalog: marketMetadata,
+        catalog: redactPublicCatalogMetadata(marketMetadata),
     };
 };
 
