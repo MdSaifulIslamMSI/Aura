@@ -107,11 +107,35 @@ describe('Auth Middleware Tests', () => {
             expect(res.body.message).toMatch(/OTP verification required/i);
         });
 
-        test('allows access when OTP assurance is present', async () => {
-            const testApp = buildTestApp('password+otp');
+        test('allows access when OTP assurance is present and bound to this session', async () => {
+            const testApp = buildTestApp('password+otp', {
+                sessionId: 'ceremony-session',
+                otpAssuranceSessionId: 'ceremony-session',
+            });
             const res = await request(testApp).get('/secure');
             expect(res.statusCode).toBe(200);
             expect(res.body).toEqual({ ok: true });
+        });
+
+        test('denies access when the assurance window names no session', async () => {
+            // SECURITY (BUG-R2-C2-A5-H4): auth_time is a shareable bearer
+            // attribute, so an unbound window must not be honoured. Every
+            // ceremony path now binds (syncSession when it mints the session,
+            // verifyDeviceChallenge when a deferred challenge completes it).
+            const testApp = buildTestApp('password+otp', { sessionId: 'attacker-session' });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toMatch(/OTP verification required/i);
+        });
+
+        test('denies access when a different session holds the assurance', async () => {
+            const testApp = buildTestApp('password+otp', {
+                sessionId: 'attacker-session',
+                otpAssuranceSessionId: 'ceremony-session',
+            });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toMatch(/OTP verification required/i);
         });
 
         test('denies access when the current session auth_time does not match the assured session', async () => {

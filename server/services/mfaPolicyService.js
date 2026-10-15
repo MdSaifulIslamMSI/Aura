@@ -83,6 +83,13 @@ const resolveRole = (user = null) => {
     return 'buyer';
 };
 
+// A privileged marketplace subject: anyone whose account reaches the elevated
+// continuous-access posture or a money/fulfilment surface. Used by the passkey
+// enrollment gate, which must not be admin-only — a seller account holds listing
+// CRUD, escrow transitions and mark-sold, all of which the posture gate protects
+// at 'heightened' riskState (see browserSessionService.resolveRiskState).
+const isPrivilegedSubject = (user = null) => isAdminSubject(user) || Boolean(user?.isSeller);
+
 const isActiveTrustedDevice = (device = null) => {
     if (!device || device?.revokedAt) return false;
     const expiresAt = device?.expiresAt ? new Date(device.expiresAt).getTime() : 0;
@@ -391,6 +398,7 @@ module.exports = {
     isEligiblePasskeyMfaDevice,
     isFreshMfaSatisfied,
     isAdminSubject,
+    isPrivilegedSubject,
     isLoginMfaSatisfied,
     isVerifiedAdminPasskeyDevice,
     resolveRole,

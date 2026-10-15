@@ -592,8 +592,19 @@ const loginUser = asyncHandler(async (req, res, next) => {
             setPayload.phone = normalizedPhone;
         }
 
+        // SECURITY (BUG-R2-C2-A2-H2): this route runs behind protect, which has already
+        // resolved the account for this exact token. Keying the write on email
+        // alone would reach past that decision — a recycled address that protect
+        // refused to resolve would still be matched and overwritten here (name,
+        // phone, isVerified) and its profile read back. Write to the account
+        // protect actually selected so the two can never disagree.
+        const resolvedUserId = String(req.user?._id || '');
+        const accountSelector = resolvedUserId
+            ? { _id: resolvedUserId }
+            : { email: tokenEmail };
+
         user = await User.findOneAndUpdate(
-            { email: tokenEmail },
+            accountSelector,
             { $set: setPayload, $setOnInsert: { email: tokenEmail } },
             {
                 returnDocument: 'after',

@@ -40,6 +40,7 @@ const {
     hasTotp,
     isCurrentLegacyAdminPasskeyCandidate,
     isAdminSubject,
+    isPrivilegedSubject,
     isEligiblePasskeyMfaDevice,
 } = require('../services/mfaPolicyService');
 const {
@@ -77,7 +78,14 @@ const getFreshUser = async (userId, mongoSession = null) => {
 };
 
 const hasFreshIndependentAdminEnrollmentFactor = (req = {}) => {
-    if (!isAdminSubject(req.user)) return true;
+    // SECURITY (BUG-R2-C2-A4-H1): the enrollment gate is not admin-only. A seller
+    // account reaches the same elevated continuous-access posture ('heightened')
+    // and holds listing CRUD, mark-sold and escrow transitions, so requiring an
+    // independent factor there closes the equivalent bypass: a password-only
+    // attacker on an MFA-less seller account could self-enroll an mfa-scope
+    // passkey and mint the aal2 / webAuthnStepUpUntil assurance this gate
+    // exists to withhold. Buyer accounts keep the unenforced path.
+    if (!isPrivilegedSubject(req.user)) return true;
 
     const now = Date.now();
     const authTimeSeconds = Number(req.authToken?.auth_time || 0);

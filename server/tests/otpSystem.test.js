@@ -9,6 +9,7 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const app = require('../index');
 const User = require('../models/User');
+const OtpSession = require('../models/OtpSession');
 
 jest.setTimeout(25000);
 
@@ -56,7 +57,7 @@ const seedPending = async (overrides = {}) => {
             name: 'Pending',
             email: overrides.email || u.email,
             phone: overrides.phone || u.phone,
-            isVerified: false,
+            isVerified: overrides.isVerified === true,
             otp: await bcrypt.hash(otpPlain, SALT),
             otpExpiry: overrides.otpExpiry || new Date(Date.now() + 5 * 60 * 1000),
             otpPurpose: overrides.otpPurpose || 'signup',
@@ -696,12 +697,62 @@ describe('POST /api/otp/verify', () => {
         expect(unchanged.otpPurpose).toBe('signup');
     });
 
-    test('60. marks user verified after OTP check', async () => {
+    test('60. public signup verify does NOT activate the account', async () => {
+        // SECURITY (BUG-R2-C2-A2-H1): /api/otp/verify is unauthenticated and
+        // only proves receipt at a phone number the caller chose via the public
+        // signup upsert. Activating here let anyone pre-verify a stub planted
+        // for a not-yet-registered victim email. Activation belongs to
+        // completePhoneFactorVerification (Firebase phone proof + fresh email
+        // factor), so the account must stay unverified here.
         const { user, otpPlain } = await seedPending({ otp: '888888', otpPurpose: 'signup' });
         await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: otpPlain, purpose: 'signup' });
         const u = await User.findById(user._id);
-        expect(u.isVerified).toBe(true);
+        expect(u.isVerified).toBe(false);
+    });
+
+    test('60b. planted signup stub cannot be self-verified into an activated account', async () => {
+        // SECURITY (BUG-R2-C2-A2-H1): the full pre-claim chain. An attacker
+        // plants a stub for a not-yet-registered victim email carrying a phone
+        // they control, then uses the code delivered to that phone to try to
+        // pre-verify the stub. A pre-verified stub defeats the claim-time phone
+        // drop in syncAuthenticatedUser, so the stub must stay unverified no
+        // matter which factor the attacker claims.
+        const u = uniqueUser();
+        const planted = await request(app).post('/api/otp/send')
+            .send({ email: u.email, phone: u.phone, purpose: 'signup' });
+        expect(planted.statusCode).toBe(200);
+
+        // The same code went to the attacker's SMS; stand in for that delivery.
+        const attackerCode = '445566';
+        const attackerHash = await bcrypt.hash(attackerCode, SALT);
+        await User.updateOne(
+            { email: u.email },
+            {
+                $set: {
+                    otp: attackerHash,
+                    otpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+                    otpPurpose: 'signup',
+                },
+            }
+        );
+        await OtpSession.updateOne(
+            { purpose: 'signup' },
+            { $set: { otpHash: attackerHash } }
+        );
+        const plantedSession = await OtpSession.findOne({ purpose: 'signup' });
+        expect(plantedSession).toBeTruthy();
+
+        // Phone-factor verify (no `factor` supplied => isEmailFactorOtp false).
+        const res = await request(app).post('/api/otp/verify')
+            .send({ phone: u.phone, otp: attackerCode, purpose: 'signup' });
+        expect(res.statusCode).toBe(200);
+
+        const stub = await User.findOne({ email: u.email });
+        expect(stub.isVerified).toBe(false);
+        // The email factor was never proven, so no email-proof marker exists.
+        const withProof = await User.findOne({ email: u.email }).select('+signupEmailOtpVerifiedAt');
+        expect(withProof.signupEmailOtpVerifiedAt).toBeFalsy();
     });
 
     test('61. clears OTP fields after verification', async () => {
@@ -771,21 +822,43 @@ describe('POST /api/otp/verify', () => {
         expect(res.body.message).toBe('If account details are valid, verification will proceed.');
     });
 
-    test('69. sets otpLockedUntil on lockout', async () => {
+    test('69. lockout is recorded on the OTP session, not on the account', async () => {
+        // SECURITY (BUG-R2-C2-A1-H3): /api/otp/verify is unauthenticated and
+        // phone-keyed, so an account-level lockout let anyone who knows a
+        // victim's number close every OTP-dependent flow they own, renewably.
         const { user } = await seedPending({ otp: '999999', otpAttempts: 4 });
         await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '000000', purpose: 'signup' });
+
+        const session = await OtpSession.findOne({ user: user._id, purpose: 'signup' });
+        expect(session).toBeTruthy();
+        expect(session.lockedUntil).toBeTruthy();
+        expect(new Date(session.lockedUntil).getTime()).toBeGreaterThan(Date.now());
+
         const u = await User.findById(user._id).select('+otpLockedUntil');
-        expect(u.otpLockedUntil).not.toBeNull();
-        expect(u.otpLockedUntil.getTime()).toBeGreaterThan(Date.now());
+        expect(u.otpLockedUntil).toBeNull();
     });
 
-    test('70. invalidates OTP on lockout', async () => {
+    test('70. brute-forced lockout does not touch the account OTP state', async () => {
         const { user } = await seedPending({ otp: '999999', otpAttempts: 4 });
         await request(app).post('/api/otp/verify')
             .send({ phone: user.phone, otp: '000000', purpose: 'signup' });
-        const u = await User.findById(user._id).select('+otp');
-        expect(u.otp).toBeNull();
+        const u = await User.findById(user._id).select('+otp +otpLockedUntil +otpAttempts');
+        // The account is left exactly as a stranger's failed guess found it.
+        expect(u.otpLockedUntil).toBeNull();
+        expect(u.otpAttempts).toBe(4);
+    });
+
+    test('70b. an active lockout blocks re-issuing a code for the same identity', async () => {
+        // Without this, the session-scoped lockout could be reset by asking for
+        // a fresh OTP and the attempt cap would never stick.
+        const { user } = await seedPending({ otp: '999999', otpAttempts: 4 });
+        await request(app).post('/api/otp/verify')
+            .send({ phone: user.phone, otp: '000000', purpose: 'signup' });
+
+        const resend = await request(app).post('/api/otp/send')
+            .send({ email: user.email, phone: user.phone, purpose: 'signup' });
+        expect(resend.statusCode).toBe(423);
     });
 
     test('71. locked signup account returns masked response', async () => {
@@ -1096,14 +1169,14 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
         expect(res.body.verified).toBe(true);
 
         const verified = await User.findById(user._id);
-        expect(verified.isVerified).toBe(true);
+        // The code is accepted, but acceptance is not activation — see test 60.
+        expect(verified.isVerified).toBe(false);
     });
 
     test('92. E2E login: seed verified user → send → verify', async () => {
-        const { user: verUser, otpPlain } = await seedPending({ otp: '321321', otpPurpose: 'signup' });
-        // Verify first to create a "registered" user
-        await request(app).post('/api/otp/verify')
-            .send({ phone: verUser.phone, otp: otpPlain, purpose: 'signup' });
+        const { user: verUser, otpPlain } = await seedPending({ otp: '321321', otpPurpose: 'signup', isVerified: true });
+        // A registered account is already verified; the login leg must find it.
+        expect(verUser.isVerified).toBe(true);
 
         // Now send login OTP
         await request(app).post('/api/otp/send')

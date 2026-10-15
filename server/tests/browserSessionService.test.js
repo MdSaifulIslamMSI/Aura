@@ -138,7 +138,65 @@ describe('browserSessionService', () => {
         expect(refreshedSession.authTimeSeconds).toBe(nowSeconds - 15);
         expect(refreshedSession.issuedAtSeconds).toBe(refreshedIssuedAt);
         expect(refreshedSession.firebaseExpiresAtSeconds).toBe(refreshedExpiresAt);
-        expect(refreshedSession.amr).toEqual(expect.arrayContaining(['webauthn', 'otp', 'mfa']));
+        // SECURITY (BUG-R2-C2-A5-H2): a second factor is ceremony evidence, not
+        // lineage state. `webauthn` was only on the previous session's amr and is
+        // deliberately not inherited through rotation; `otp`/`mfa` come from the
+        // ceremony this refresh actually performed. The passkey window still
+        // rides along on webAuthnStepUpUntil, so aal2 is unaffected.
+        expect(refreshedSession.amr).toEqual(expect.arrayContaining(['otp', 'mfa']));
+        expect(refreshedSession.amr).not.toContain('webauthn');
+        expect(refreshedSession.aal).toBe('aal2');
+    });
+
+    test('does not carry a second factor across rotation of a stolen session', async () => {
+        let service;
+        // A passkey ceremony mints `webauthn`; an attacker who steals that
+        // session and rotates it must not keep satisfying hasSessionSecondFactor
+        // (and therefore ADMIN_REQUIRE_2FA / ADMIN_REQUIRE_PASSKEY).
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            service = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = { headers: { host: 'admin.aura.local', 'x-forwarded-proto': 'https' }, secure: true };
+        const previousSession = {
+            sessionId: 'stolen-session',
+            amr: ['password', 'webauthn', 'mfa', 'totp'],
+            deviceMethod: 'webauthn',
+            webAuthnStepUpUntil: null,
+            stepUpUntil: null,
+            authTimeSeconds: nowSeconds - 60,
+            issuedAtSeconds: nowSeconds - 60,
+            firebaseExpiresAtSeconds: nowSeconds + 3600,
+            createdAtSeconds: nowSeconds - 60,
+            absoluteExpiresAtSeconds: nowSeconds + 3600,
+            lastSeenAtSeconds: nowSeconds - 60,
+        };
+
+        const rotated = await service.refreshBrowserSession({
+            req,
+            currentSession: previousSession,
+            user: { _id: '507f1f77bcf86cd799439011', email: 'admin@example.com', isAdmin: true },
+            authUid: 'firebase-admin-1',
+            authToken: {
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds,
+                exp: nowSeconds + 3600,
+                firebase: { sign_in_provider: 'password' },
+            },
+        });
+
+        expect(rotated.amr).not.toContain('webauthn');
+        expect(rotated.amr).not.toContain('mfa');
+        expect(rotated.amr).not.toContain('totp');
+        expect(rotated.aal).toBe('aal1');
+        // The transport method is lineage state and does carry over — what did not
+        // carry over is the claim that a second factor was verified.
+        expect(rotated.deviceMethod).toBe('webauthn');
     });
 
     test.each([

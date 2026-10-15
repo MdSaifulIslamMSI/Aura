@@ -196,6 +196,26 @@ const buildProviderAmr = (providerIds = []) => {
     return 'firebase';
 };
 
+// SECURITY (BUG-R2-C2-A5-H2): a second factor is evidence that a ceremony
+// happened, not evidence about a session lineage. Inheriting these wholesale
+// from the previous session let a stolen session keep satisfying
+// hasSessionSecondFactor — and therefore ADMIN_REQUIRE_2FA /
+// ADMIN_REQUIRE_PASSKEY — through every rotation of itself. They are now
+// re-derived from the ceremony this request actually performed. Nothing is lost
+// while the factor is still good: `otp` is re-derived from the bound window
+// below, and `aal2` survives the ceremony lifetime through stepUpUntil /
+// webAuthnStepUpUntil (which are themselves time-bounded), so an expired factor
+// stops counting exactly when it should.
+const CEREMONY_BOUND_AMR = new Set([
+    'firebase_mfa',
+    'webauthn',
+    'passkey',
+    'mfa',
+    'totp',
+    'duo',
+    'duo_oidc',
+]);
+
 const resolveSyntheticAssurance = ({
     user = null,
     authToken = null,
@@ -206,9 +226,13 @@ const resolveSyntheticAssurance = ({
     additionalAmr = [],
 } = {}) => {
     const providerIds = resolveProviderIds({ previousSession, authToken });
+    // Recognition-grade evidence (device_binding, the provider amr) is lineage
+    // state and is inherited; a second factor is not. See CEREMONY_BOUND_AMR.
+    const inheritedAmr = normalizeAmr(previousSession?.amr)
+        .filter((entry) => !CEREMONY_BOUND_AMR.has(entry));
     const nextAmr = [
         buildProviderAmr(providerIds),
-        ...normalizeAmr(previousSession?.amr),
+        ...inheritedAmr,
         ...normalizeAmr(additionalAmr),
     ];
 

@@ -1333,7 +1333,10 @@ const completeDuoLogin = asyncHandler(async (req, res) => {
     // attestation. Deployments whose Duo tokens omit email_verified fail
     // closed at syncAuthenticatedUser's verification gate — the same
     // semantics the Keycloak path already implements.
-    const emailVerified = Boolean(claims.email_verified);
+    // Strict `=== true`, not Boolean(): a non-conformant IdP that sends the STRING
+    // "false" would otherwise be read as verified, which is a fail-open on
+    // malformed input for the attestation this whole callback exists to convey.
+    const emailVerified = claims.email_verified === true;
     const authUser = {
         uid: authUid,
         email,
@@ -2328,6 +2331,19 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
                 ? desktopHandoffAmr
                 : [webAuthnVerified ? 'webauthn' : 'device_binding'],
             riskState: loginRisk.riskState,
+            // SECURITY (BUG-R2-C2-A5-H4): syncSession arms the money-movement OTP
+            // window before the device gate, but only mints a session once the
+            // status is `authenticated`. On the deferred device-challenge path
+            // that left the window live with nothing bound to it, and hasOtpAssurance
+            // fell back to auth_time equality — the shareable bearer attribute the
+            // binding exists to stop relying on. Completing the challenge proves
+            // device possession, so this is the ceremony's real completion point:
+            // bind the window to the session it is creating.
+            bindOtpAssurance: !desktopHandoffTargetProof
+                && String(policyUser?.authAssurance || '').trim() === 'password+otp'
+                && Number(policyUser?.authAssuranceAuthTime || 0) > 0
+                && Number(policyUser?.authAssuranceAuthTime || 0) === Number(req.authToken?.auth_time || 0)
+                && new Date(policyUser?.loginOtpAssuranceExpiresAt || 0).getTime() > Date.now(),
         });
     }
 

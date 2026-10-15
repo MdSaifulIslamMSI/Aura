@@ -4,7 +4,7 @@ const Order = require('../models/Order');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
 const PaymentOutboxTask = require('../models/PaymentOutboxTask');
-const { captureIntentNow } = require('../services/payments/paymentService');
+const { captureIntentNow, reconcileCapturedOrder } = require('../services/payments/paymentService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
 
 const makeUser = async (overrides = {}) => User.create({
@@ -163,6 +163,90 @@ describe('Payment capture race safety', () => {
         } finally {
             releaseProvider();
         }
+    });
+
+    // BUG-R2-C1-A2-H1: the books must record what was actually settled.
+    test('records the provider settlement variance on the order', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({ userId: owner._id, totalPrice: 100000 });
+        const intent = await makeIntent({
+            userId: owner._id,
+            amount: 100000,
+            order: order._id,
+        });
+        await Order.updateOne({ _id: order._id }, { $set: { paymentIntentId: intent.intentId } });
+
+        // The provider settles 950.00 against a locked 1000.00 — inside the
+        // one-sided tolerance window, so the capture succeeds.
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: intent.providerPaymentId,
+                // Razorpay-style response carries no base conversion detail here,
+                // so assert through the intent-side recorded settlement instead.
+                amount: 10000000,
+                currency: 'INR',
+                status: 'captured',
+            }),
+        });
+
+        await captureIntentNow({ intentId: intent.intentId });
+
+        // Simulate the provider conversion landing on the intent after capture
+        // (the confirm/webhook leg is what records it), then re-reconcile.
+        await PaymentIntent.updateOne(
+            { intentId: intent.intentId },
+            { $set: { providerBaseAmount: 95000, providerBaseCurrency: 'INR' } }
+        );
+        const reconciled = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { isPaid: false, paymentState: PAYMENT_STATUSES.AUTHORIZED } }
+        );
+        await reconcileCapturedOrder(reconciled);
+
+        const refreshed = await Order.findById(order._id).lean();
+        expect(refreshed.providerSettlement.amount).toBe(95000);
+        expect(refreshed.providerSettlement.currency).toBe('INR');
+        // settled - expected = 95000 - 100000 = -5000
+        expect(refreshed.providerSettlement.varianceAmount).toBe(-5000);
+        expect(refreshed.providerSettlement.variancePct).toBe(-5);
+        expect(refreshed.providerSettlement.recordedAt).toBeTruthy();
+    });
+
+    test('leaves providerSettlement unset when the provider settles the locked amount exactly', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({ userId: owner._id, totalPrice: 50000 });
+        const intent = await makeIntent({ userId: owner._id, amount: 50000, order: order._id });
+        await Order.updateOne({ _id: order._id }, { $set: { paymentIntentId: intent.intentId } });
+
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: intent.providerPaymentId,
+                amount: 5000000,
+                currency: 'INR',
+                status: 'captured',
+            }),
+        });
+
+        await captureIntentNow({ intentId: intent.intentId });
+        await PaymentIntent.updateOne(
+            { intentId: intent.intentId },
+            { $set: { providerBaseAmount: 50000, providerBaseCurrency: 'INR' } }
+        );
+
+        const reconciled = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { isPaid: false, paymentState: PAYMENT_STATUSES.AUTHORIZED } }
+        );
+        await reconcileCapturedOrder(reconciled);
+
+        const refreshed = await Order.findById(order._id).lean();
+        // No variance means no recorded noise on the financial record.
+        expect(refreshed.providerSettlement?.amount ?? null).toBeNull();
+        expect(refreshed.providerSettlement?.recordedAt ?? null).toBeNull();
     });
 
     test('capture after a completed capture is idempotent and never re-calls the provider', async () => {

@@ -12,6 +12,7 @@ const {
     PHONE_REGEX,
     buildInternalAuthEmail,
     buildIdentityQuery,
+    isInternalAuthEmail,
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 const {
@@ -485,6 +486,28 @@ const bootstrapUserRecord = async ({ decodedToken, email, authUid = '' }) => {
         throw new AppError('Authenticated account is missing identity', 401);
     }
 
+    // SECURITY (BUG-R2-C2-A2-H2): this upsert is keyed on {authUid, email}, so it
+    // would MATCH a stale record whose email was released and later re-registered
+    // by somebody else. $setOnInsert then no-ops and that record is handed
+    // straight to the new holder — the same takeover the resolver now refuses,
+    // reached one layer down. Bootstrap only ever runs once the resolver found no
+    // selectable candidate, so a foreign-bound record here is exactly the stale
+    // email shape. Refuse it rather than mint a second account on the address:
+    // silently duplicating the email would also re-open the OTP identity-resolution
+    // ambiguity the resolver just closed.
+    if (safeUid && safeEmail && !isInternalAuthEmail(safeEmail)) {
+        const foreignBound = await User.exists({
+            email: safeEmail,
+            authUid: { $exists: true, $nin: [safeUid, null, ''] },
+        });
+        if (foreignBound) {
+            throw new AppError(
+                'This email is already linked to another sign-in identity. Contact support to re-link it.',
+                409
+            );
+        }
+    }
+
     const buildUpdate = (includePhone) => ({
         $setOnInsert: {
             email: safeEmail,
@@ -535,16 +558,20 @@ const hasOtpAssurance = (req) => {
     const currentAuthTime = resolveAuthTimeSeconds(req.authToken);
     const expiresAt = resolveOtpAssuranceExpiryMillis(req.user);
     // auth_time is shared by every token of one sign-in session, so it alone
-    // cannot prove THIS session/device performed the ceremony. Accounts whose
-    // ceremony bound a browser session additionally require that session id.
+    // cannot prove THIS session/device performed the ceremony. The window must
+    // therefore name the session that completed it, and an unbound window is
+    // refused outright: falling back to auth_time alone re-opens the exact hole
+    // the binding closes (BUG-R2-C2-A5-H4), because every ceremony path now
+    // binds — syncSession when the session is minted, verifyDeviceChallenge
+    // when a deferred device challenge completes it.
     const boundSessionId = String(req.user?.otpAssuranceSessionId || '').trim();
 
     return requiredAuthTime > 0
         && currentAuthTime > 0
         && requiredAuthTime === currentAuthTime
         && expiresAt > Date.now()
-        && (!boundSessionId
-            || String(req.authSession?.sessionId || '').trim() === boundSessionId);
+        && Boolean(boundSessionId)
+        && String(req.authSession?.sessionId || '').trim() === boundSessionId;
 };
 
 const enforceOtpAssurance = (req) => {
