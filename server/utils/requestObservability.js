@@ -1,5 +1,10 @@
 const crypto = require('crypto');
+const { isProduction } = require('./cryptoKdf');
 
+// Fallback key for non-production only. In production a per-process random key
+// would give the same user a different pseudonym on every instance and every
+// restart, silently breaking abuse investigation across the fleet. Production
+// therefore fails closed below instead.
 const processLogSalt = crypto.randomBytes(32);
 const MONGO_ID = /^[0-9a-f]{24}$/i;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -11,7 +16,14 @@ const getHashKey = () => {
         || process.env.SESSION_SECRET
         || ''
     ).trim();
-    return configured || processLogSalt;
+    if (configured) return configured;
+    if (isProduction()) {
+        throw new Error(
+            'OBSERVABILITY_HASH_SECRET is required in production; a per-process fallback key '
+            + 'would pseudonymise log identifiers inconsistently across instances and restarts'
+        );
+    }
+    return processLogSalt;
 };
 
 const hashLogIdentifier = (value, prefix) => {

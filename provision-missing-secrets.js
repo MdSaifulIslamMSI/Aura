@@ -4,6 +4,7 @@
  *
  *   AUTH_RECOVERY_CODE_SECRET  - recovery-code HMAC key (long-lived bearer creds)
  *   SECURITY_LOG_HASH_KEY      - security-log pseudonymisation key
+ *   OBSERVABILITY_HASH_SECRET  - request-observability pseudonymisation key
  *
  * Both were silently falling back to OTP_FLOW_SECRET. Values are generated
  * locally and passed straight to SSM as SecureString; the plaintext is never
@@ -28,6 +29,12 @@ const dryRun = process.argv.includes('--dry-run');
 const TARGETS = [
     { name: 'AUTH_RECOVERY_CODE_SECRET', bytes: 48 },
     { name: 'SECURITY_LOG_HASH_KEY', bytes: 48 },
+    // Required by assertCryptoSeparationConfig since this script's siblings were
+    // added to DEDICATED_SECRETS. Without it the server falls back to a
+    // per-process random key, so the same user gets a different pseudonym in
+    // every instance and restart. MUST be provisioned before deploying the
+    // policy change, or production boot fails closed.
+    { name: 'OBSERVABILITY_HASH_SECRET', bytes: 48 },
 ];
 
 const aws = (args) => execFileSync('aws', [
@@ -85,17 +92,17 @@ const run = async () => {
     const present = new Set((params.Parameters || []).map((p) => String(p.Name).replace(`${PATH_PREFIX}/`, '')));
 
     console.log('\n--- verification ---');
-    const required = [
-        'PHONE_BLIND_INDEX_SECRET',
-        'EMAIL_BLIND_INDEX_SECRET',
-        'OTP_HASH_SECRET',
-        'AUTH_RECOVERY_CODE_SECRET',
-        'OTP_FLOW_SECRET',
-        'SECURITY_LOG_HASH_KEY',
-        'MFA_SECRET_ENCRYPTION_KEY',
+    // Derived from the separation policy rather than restated here. A hardcoded
+    // duplicate drifts silently: the previous list reported "9/9 present" even
+    // when OBSERVABILITY_HASH_SECRET had not been created, because the secret
+    // was added to DEDICATED_SECRETS and to TARGETS but not to this list.
+    const { DEDICATED_SECRETS } = require('./server/config/cryptoSeparationPolicy');
+    const required = [...new Set([
+        ...DEDICATED_SECRETS.map((entry) => entry.variable),
+        'ACCOUNT_CURSOR_SIGNING_SECRET',
         'FIELD_ENCRYPTION_ENABLED',
         'FIELD_ENCRYPTION_KMS_KEY_ID',
-    ];
+    ])].sort();
     let missing = 0;
     for (const key of required) {
         const ok = present.has(key);

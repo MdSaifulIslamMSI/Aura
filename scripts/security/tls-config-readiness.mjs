@@ -24,6 +24,12 @@ const defaultConfigFiles = [
   'infra/staging/frontend-container-nginx.conf',
   'infra/aws/Caddyfile',
   'infra/performance/nginx/nginx.conf.template',
+  // Real deployed surfaces, not just examples. Scanning only `infra/**`
+  // templates let the CloudFront distribution sit at TLSv1.2_2021 while the
+  // policy asserted TLS 1.3 — a green report that attested to templates the
+  // distribution is not built from.
+  'infra/aws/cloudfront-edge-replica.json',
+  'app/Caddyfile',
 ];
 
 const docFiles = [
@@ -45,12 +51,20 @@ const tlsTerminating = (content) => (
   || /\bprotocols\s+tls/i.test(content)
   || /\bssl-min-ver\b/i.test(content)
   || /\btls\s*\{/i.test(content)
+  // CDN edge configs terminate TLS in a different vocabulary than an origin
+  // server. Without this a CloudFront distribution was classified
+  // "not terminating" and its tls.minimum check was skipped entirely, which is
+  // how TLSv1.2_2021 sat at the viewer edge while the policy claimed TLS 1.3.
+  || /"MinimumProtocolVersion"/i.test(content)
+  || /\bOriginSslProtocols\b/i.test(content)
+  || /"ViewerCertificate"/i.test(content)
 );
 
 const hasTls13Minimum = (content) => (
   /\bssl_protocols\s+TLSv1\.3\s*;/i.test(content)
   || /\bprotocols\s+tls1\.3\b/i.test(content)
   || /\bssl-min-ver\s+TLSv1\.3\b/i.test(content)
+  || /"MinimumProtocolVersion"\s*:\s*"TLSv1\.3_/i.test(content)
 );
 
 const hasHsts = (content) => /Strict-Transport-Security/i.test(content);

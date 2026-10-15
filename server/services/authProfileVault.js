@@ -22,6 +22,22 @@ const SCRYPT_PARAMS_V2 = { N: 131072, r: 8, p: 1 };
 const SCRYPT_MAXMEM_BYTES = 192 * 1024 * 1024;
 const VAULT_FORMAT_VERSION = 'v2';
 
+// Classifies a stored ciphertext by FORMAT, independent of which key version
+// label the record carries. Rotation is keyed on this, not on `keyVersion`:
+// `AUTH_VAULT_SECRET_VERSION` defaults to 'v1', so a record written in the old
+// `v1` format (scrypt N=2^14) and tagged keyVersion 'v1' looks "current" to a
+// keyVersion-only check and is never rekeyed, leaving it permanently at the
+// under-provisioned cost. Keying rotation on format is what lets those records
+// age out on read.
+const ciphertextFormatVersion = (value) => {
+    if (!value || typeof value !== 'string' || !value.includes(':')) return null;
+    const parts = value.split(':');
+    if (parts.length === 5 && parts[0] === VAULT_FORMAT_VERSION) return VAULT_FORMAT_VERSION;
+    if (parts.length === 5 && parts[0] === 'v1') return 'v1';
+    if (parts.length === 3) return 'legacy';
+    return null;
+};
+
 const scryptKey = (secret, salt, params) => crypto.scryptSync(
     secret,
     salt,
@@ -245,18 +261,19 @@ const enforceVaultSize = (vault) => {
 
 const decryptField = (value, keyVersion, secretsByVersion) => {
     if (!value || typeof value !== 'string') {
-        return { value: value || '', usedVersion: keyVersion || null, encrypted: false };
+        return { value: value || '', usedVersion: keyVersion || null, encrypted: false, formatVersion: null };
     }
     if (!value.includes(':')) {
-        return { value, usedVersion: keyVersion || null, encrypted: false };
+        return { value, usedVersion: keyVersion || null, encrypted: false, formatVersion: null };
     }
 
+    const formatVersion = ciphertextFormatVersion(value);
     const attemptedVersions = new Set();
     if (keyVersion && secretsByVersion.has(keyVersion)) {
         attemptedVersions.add(keyVersion);
         const decrypted = decrypt(value, secretsByVersion.get(keyVersion));
         if (decrypted !== null) {
-            return { value: decrypted, usedVersion: keyVersion, encrypted: true };
+            return { value: decrypted, usedVersion: keyVersion, encrypted: true, formatVersion };
         }
     }
 
@@ -264,7 +281,7 @@ const decryptField = (value, keyVersion, secretsByVersion) => {
         if (attemptedVersions.has(version)) continue;
         const decrypted = decrypt(value, secret);
         if (decrypted !== null) {
-            return { value: decrypted, usedVersion: version, encrypted: true };
+            return { value: decrypted, usedVersion: version, encrypted: true, formatVersion };
         }
     }
 
@@ -273,7 +290,7 @@ const decryptField = (value, keyVersion, secretsByVersion) => {
     // `v2:...` blob to callers as if it were a real profile value, so a key
     // mismatch would silently surface ciphertext into the UI/logs. An empty
     // string is unambiguously "no value", which is what we actually know.
-    return { value: '', usedVersion: keyVersion || null, encrypted: true, decryptFailed: true };
+    return { value: '', usedVersion: keyVersion || null, encrypted: true, decryptFailed: true, formatVersion };
 };
 
 const buildEncryptedProfile = (normalized, secret) => ({
@@ -334,8 +351,16 @@ const getAuthProfileSnapshotByEmail = async (email) => {
             email: decryptedEmail.value,
         };
 
+        // Rotate when either the SECRET moved on, or the CIPHERTEXT FORMAT is not
+        // current. The format term is what retires the frozen `v1` (N=2^14) and
+        // 3-part fixed-salt branches: keyVersion alone defaults to 'v1' on both
+        // sides and would never fire.
+        const staleFormat = [decryptedName, decryptedPhone, decryptedEmail]
+            .some((field) => field.encrypted && field.formatVersion !== VAULT_FORMAT_VERSION);
+
         const shouldRotateKey = !anyDecryptFailed && (
-            !profile.keyVersion
+            staleFormat
+            || !profile.keyVersion
             || profile.keyVersion !== CURRENT_KEY_VERSION
             || decryptedName.usedVersion !== CURRENT_KEY_VERSION
             || decryptedPhone.usedVersion !== CURRENT_KEY_VERSION
