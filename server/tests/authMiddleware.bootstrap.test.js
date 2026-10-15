@@ -32,6 +32,9 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             jest.doMock('../models/User', () => ({
                 find,
                 findOneAndUpdate,
+                // Stale-email guard: null means "no foreign-bound record holds
+                // this address", so the bootstrap proceeds normally.
+                exists: jest.fn().mockResolvedValue(null),
             }));
             jest.doMock('../config/redis', () => ({
                 getRedisClient: () => null,
@@ -102,6 +105,9 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             jest.doMock('../models/User', () => ({
                 find,
                 findOneAndUpdate,
+                // Stale-email guard: null means "no foreign-bound record holds
+                // this address", so the bootstrap proceeds normally.
+                exists: jest.fn().mockResolvedValue(null),
             }));
             jest.doMock('../config/redis', () => ({
                 getRedisClient: () => null,
@@ -176,6 +182,9 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             jest.doMock('../models/User', () => ({
                 find,
                 findOneAndUpdate,
+                // Stale-email guard: null means "no foreign-bound record holds
+                // this address", so the bootstrap proceeds normally.
+                exists: jest.fn().mockResolvedValue(null),
             }));
             jest.doMock('../config/redis', () => ({
                 getRedisClient: () => null,
@@ -262,6 +271,9 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             jest.doMock('../models/User', () => ({
                 find,
                 findOneAndUpdate,
+                // Stale-email guard: null means "no foreign-bound record holds
+                // this address", so the bootstrap proceeds normally.
+                exists: jest.fn().mockResolvedValue(null),
             }));
             jest.doMock('../config/redis', () => ({
                 getRedisClient: () => null,
@@ -320,6 +332,9 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             jest.doMock('../models/User', () => ({
                 find,
                 findOneAndUpdate,
+                // Stale-email guard: null means "no foreign-bound record holds
+                // this address", so the bootstrap proceeds normally.
+                exists: jest.fn().mockResolvedValue(null),
             }));
             jest.doMock('../config/redis', () => ({
                 getRedisClient: () => null,

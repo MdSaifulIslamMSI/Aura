@@ -130,6 +130,19 @@ const PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT = (() => {
     return Math.min(raw, 25);
 })();
 
+// SECURITY (BUG-R2-C1-A2-H1): the tolerance is one-sided. A provider settling
+// ABOVE the expected base amount costs the merchant nothing, so that direction
+// keeps the generous configured window. Settling BELOW it is the only direction
+// an attacker can time for profit, so it gets its own, far tighter cap. The old
+// symmetric 5% default let a buyer settle up to 5% light and still book as fully
+// paid, which is a direct, repeatable transfer out of the merchant's balance.
+// Operators can tune this without touching the over-settlement window.
+const PAYMENT_FX_SETTLEMENT_UNDER_TOLERANCE_PCT = (() => {
+    const raw = Number.parseFloat(String(process.env.PAYMENT_FX_SETTLEMENT_UNDER_TOLERANCE_PCT || '1'));
+    if (!Number.isFinite(raw) || raw < 0) return 1;
+    return Math.min(raw, Math.min(PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT, 25));
+})();
+
 const hasBasePricingSnapshot = (intent = {}) => (
     Boolean(String(intent?.fxTimestamp || '').trim())
     || Boolean(intent?.metadata?.pricingLock)
@@ -216,20 +229,30 @@ const assertSettlementWithinTolerance = ({
     actualAmount,
     currency,
     failureMessage,
+    underSettlementFailureMessage,
 }) => {
     const normalizedCurrency = normalizeCurrencyCode(currency || 'INR');
     const expected = roundCurrency(expectedAmount, normalizedCurrency);
     const actual = roundCurrency(actualAmount, normalizedCurrency);
     if (expected <= 0 || actual <= 0) return;
 
+    // Only the under-settlement direction can be timed for profit, so it is the
+    // only direction that gets the tight window. See
+    // PAYMENT_FX_SETTLEMENT_UNDER_TOLERANCE_PCT.
+    const underSettled = actual < expected;
+    const tolerancePct = underSettled
+        ? PAYMENT_FX_SETTLEMENT_UNDER_TOLERANCE_PCT
+        : PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT;
     const allowedVariance = Math.max(
         0.01,
-        roundCurrency((expected * PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT) / 100, normalizedCurrency)
+        roundCurrency((expected * tolerancePct) / 100, normalizedCurrency)
     );
 
     if (diff(expected, actual) > allowedVariance) {
         throw new AppError(
-            failureMessage || `Provider settlement variance exceeds the allowed ${PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT}% threshold`,
+            (underSettled ? underSettlementFailureMessage : null)
+                || failureMessage
+                || `Provider settlement variance exceeds the allowed ${tolerancePct}% threshold`,
             409
         );
     }
@@ -1151,6 +1174,7 @@ const confirmPaymentIntent = async ({
                 actualAmount: amountInfo.baseAmount,
                 currency: amountInfo.baseCurrency,
                 failureMessage: `Provider settlement moved outside the allowed ${PAYMENT_FX_SETTLEMENT_TOLERANCE_PCT}% tolerance window`,
+                underSettlementFailureMessage: `Provider settled below the locked amount by more than the allowed ${PAYMENT_FX_SETTLEMENT_UNDER_TOLERANCE_PCT}% window`,
             });
         } catch (error) {
             await registerConfirmFailure({
@@ -1466,6 +1490,35 @@ const releaseIntentOrderClaim = async ({ intentId, claimKey, session = null }) =
     return session ? query.session(session) : query;
 };
 
+// SECURITY (BUG-R2-C1-A2-H1): record what the provider ACTUALLY settled, not
+// only the locked expectation. settlementAmount on the order is the quote's
+// figure; when a provider settles inside — but below — its tolerance window the
+// two diverge, and the order previously recorded only the quote. That is the
+// book falsification: the books assert the full list total was received when it
+// was not, and that same field is what refund caps and settlement
+// reconciliation compute against. Only written when there is a real variance,
+// so a clean settlement leaves no noise.
+const buildProviderSettlementFields = (intent) => {
+    const settledAmount = getVerifiedSettlementAmount(intent);
+    const expectedAmount = getIntentSettlementAmount(intent);
+    const settlementCurrency = getIntentSettlementCurrency(intent);
+
+    if (!Number.isFinite(settledAmount)
+        || !Number.isFinite(expectedAmount)
+        || expectedAmount <= 0
+        || diff(settledAmount, expectedAmount) <= 0) {
+        return {};
+    }
+
+    return {
+        'providerSettlement.amount': settledAmount,
+        'providerSettlement.currency': settlementCurrency,
+        'providerSettlement.varianceAmount': roundCurrency(settledAmount - expectedAmount, settlementCurrency),
+        'providerSettlement.variancePct': Number((((settledAmount - expectedAmount) / expectedAmount) * 100).toFixed(4)),
+        'providerSettlement.recordedAt': new Date(),
+    };
+};
+
 const applyOrderPaymentCapture = async (intent) => {
     if (!intent?.order) return false;
 
@@ -1482,6 +1535,7 @@ const applyOrderPaymentCapture = async (intent) => {
                 paymentCapturedAt: intent.capturedAt || new Date(),
                 isPaid: true,
                 paidAt: intent.capturedAt || new Date(),
+                ...buildProviderSettlementFields(intent),
             },
         }
     );
@@ -1990,9 +2044,24 @@ const createRefundForIntent = async ({
         // so the retry machinery converges instead of executing blind.
         let providerRefund = null;
         if (requestId && typeof provider.fetchRefunds === 'function') {
-            const listedRefunds = await provider.fetchRefunds({
-                paymentId: lockedIntent.providerPaymentId,
-            });
+            let listedRefunds = null;
+            try {
+                listedRefunds = await provider.fetchRefunds({
+                    paymentId: lockedIntent.providerPaymentId,
+                });
+            } catch (fetchError) {
+                // Fail closed, but fail RETRIABLY. The provider maps 4xx to a
+                // 400 AppError (e.g. a key without refund-read permission), and
+                // the outbox only retries >= 500 — so an unwrapped throw would
+                // retire a legitimate customer refund as permanently rejected
+                // because of a transient or misconfigured read. 503 keeps the
+                // reconciliation requirement intact while letting the retry
+                // machinery converge. Still fail-closed: no refund is executed.
+                throw new AppError(
+                    'Unable to verify provider refund state before refund; the refund was not executed',
+                    503
+                );
+            }
             providerRefund = (Array.isArray(listedRefunds?.items) ? listedRefunds.items : [])
                 .find((refund) => String(refund?.notes?.requestId || '') === String(requestId)) || null;
         }
@@ -2708,6 +2777,27 @@ const processOutboxTask = async (task) => {
         // with backoff instead of rejecting the customer's refund request.
         const isLockContention = Number(error?.statusCode || 500) === 409
             && /refund.*already in progress/i.test(String(error?.message || ''));
+        // SECURITY (BUG-R2-C1-A2-H2): a provider that replayed an
+        // already-recorded refund means the money moved on an EARLIER attempt.
+        // Retrying cannot change that, and failing the task marks the customer-
+        // facing command entry 'rejected' for a refund that was in fact
+        // processed — a false denial sitting next to a truthful ledger. Retire
+        // the task as done and leave the ledger alone.
+        const isReplayedProviderRefund = /provider replayed an already-recorded refund/i
+            .test(String(error?.message || ''));
+        if (isReplayedProviderRefund) {
+            logger.warn('payments.refund_provider_replay_detected', {
+                intentId: task.intentId,
+                requestId: task.payload?.requestId,
+                message: error.message,
+            });
+            task.status = 'done';
+            task.lastError = error.message;
+            task.lockedAt = null;
+            task.lockedBy = null;
+            await task.save();
+            return;
+        }
         const isRetryable = Number(error?.statusCode || 500) >= 500 || isLockContention;
         task.retryCount += 1;
         task.lastError = error.message;
@@ -3215,6 +3305,10 @@ module.exports = {
     scheduleRefundTask,
     captureIntentNow,
     createRefundForIntent,
+    // Exported for the settlement-variance regression suite: the order-side
+    // write is otherwise only reachable through capture, and the assertion is
+    // about the recorded financial record, not about capture itself.
+    reconcileCapturedOrder,
     runOutboxCycle,
     startPaymentOutboxWorker,
     stopPaymentOutboxWorker,

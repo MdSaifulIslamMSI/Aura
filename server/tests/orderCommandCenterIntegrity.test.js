@@ -406,6 +406,89 @@ describe('order command center integrity', () => {
             expect((await Product.findById(firstProduct._id).select('stock').lean()).stock).toBe(11);
         });
 
+        // BUG-R2-C1-A3-H2: lost update on the money ledger.
+        test('admin manual processing does not discard a refund ledger entry written after its snapshot', async () => {
+            const owner = await createTestUser({ name: 'Concurrent Ledger Owner' });
+            const admin = await createAdminUser({ name: 'Concurrent Ledger Admin' });
+            register('token-admin-ledger-1', admin);
+            const product = await createFakeProduct({ stock: 5 });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                product,
+                orderStatus: 'shipped',
+                isPaid: true,
+                paymentMethod: 'COD',
+                overrides: {
+                    commandCenter: {
+                        refunds: [{
+                            requestId: 'rfnd-admin-decision',
+                            amount: 300,
+                            status: 'pending',
+                            createdAt: new Date(),
+                        }],
+                    },
+                },
+            });
+
+            // Model the interleaving directly: the handler loads the order, then a
+            // refund.processed webhook lands and advances the ledger, then the
+            // handler writes. The webhook's write is represented by serving a
+            // DOCTORED document on the handler's second (fresh) read — which is
+            // exactly the read the fix introduced. Before the fix there was no
+            // second read, so the handler applied a refundSummary built from its
+            // stale snapshot and silently dropped the webhook's 400.
+            const realFindById = Order.findById.bind(Order);
+            const webhookEntry = {
+                requestId: 'rfnd-webhook-landed',
+                refundId: 'rfnd_provider_1',
+                status: 'processed',
+                settlementAmount: 400,
+                presentmentAmount: 400,
+                createdAt: new Date(),
+            };
+            let targetReads = 0;
+            const spy = jest.spyOn(Order, 'findById').mockImplementation((id, ...rest) => {
+                if (String(id) !== String(order._id)) return realFindById(id, ...rest);
+                targetReads += 1;
+                const query = realFindById(id, ...rest);
+                if (targetReads === 1) return query;
+                return {
+                    lean: async () => {
+                        const current = await query.lean();
+                        return {
+                            ...current,
+                            refundSummary: {
+                                ...current.refundSummary,
+                                totalRefunded: 400,
+                                presentmentTotalRefunded: 400,
+                                fullyRefunded: false,
+                                refunds: [...(current.refundSummary?.refunds || []), webhookEntry],
+                            },
+                        };
+                    },
+                };
+            });
+
+            try {
+                const response = await request(app)
+                    .patch(`/api/orders/${order._id}/command-center/refund/rfnd-admin-decision/admin`)
+                    .set('Authorization', buildBearer('token-admin-ledger-1'))
+                    .send({ status: 'processed' });
+
+                expect(response.status).toBe(200);
+                // The handler must have performed the fresh read at all.
+                expect(targetReads).toBeGreaterThan(1);
+
+                const stored = await realFindById(order._id).lean();
+                // 400 (webhook, concurrent) + 300 (admin decision) — a stale
+                // snapshot would have persisted 300 and lost the webhook's entry.
+                expect(stored.refundSummary.totalRefunded).toBe(700);
+                expect(stored.refundSummary.refunds).toHaveLength(2);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         test('rejects restock without a valid non-empty item list before changing inventory', async () => {
             const owner = await createTestUser({ name: 'Restock Validation Owner' });
             const admin = await createAdminUser({ name: 'Restock Validation Admin' });

@@ -156,6 +156,7 @@ describe('mfaController passkey response contract', () => {
                 hasPasskey: jest.fn(),
                 hasTotp: jest.fn(),
                 isAdminSubject: jest.fn((user) => Boolean(user?.isAdmin)),
+                isPrivilegedSubject: jest.fn((user) => Boolean(user?.isAdmin || user?.isSeller)),
                 isCurrentLegacyAdminPasskeyCandidate: jest.fn(({ user, session }) => {
                     const current = user?.trustedDevices?.find((device) => (
                         device.deviceId === session?.deviceId
@@ -437,6 +438,7 @@ describe('mfaController passkey response contract', () => {
                 hasPasskey: jest.fn(),
                 hasTotp: jest.fn(),
                 isAdminSubject: jest.fn(() => false),
+                isPrivilegedSubject: jest.fn(() => false),
                 isCurrentLegacyAdminPasskeyCandidate: jest.fn(() => false),
                 isEligiblePasskeyMfaDevice: jest.fn(() => true),
             }));
@@ -583,6 +585,7 @@ describe('mfaController passkey response contract', () => {
                 hasPasskey: jest.fn(),
                 hasTotp: jest.fn(),
                 isAdminSubject: jest.fn(() => false),
+                isPrivilegedSubject: jest.fn(() => false),
                 isCurrentLegacyAdminPasskeyCandidate: jest.fn(() => false),
                 isEligiblePasskeyMfaDevice: jest.fn(() => true),
             }));

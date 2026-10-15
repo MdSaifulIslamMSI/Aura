@@ -34,7 +34,7 @@ const { getRecoveryReadiness } = require('./authRecoveryCodeService');
 const { isAdminSubject } = require('./mfaPolicyService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone authUid isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone authUid isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt +authAssuranceAuthTime +otpAssuranceSessionId loyalty createdAt';
 const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -743,6 +743,25 @@ const syncAuthenticatedUser = async ({
             && !normalizeUid(preferredUser.authUid)
         ) {
             setPayload.phone = '';
+        }
+
+        // SECURITY (BUG-R2-C2-A2-H2): refuse BEFORE writing anything. The re-bind
+        // guard further down runs after the $set, so without this a rejected
+        // recycled-email request would still overwrite the foreign account's name
+        // and isVerified — a partial write on a request that ends in a 409. The
+        // resolver already filters these records out of selection; this keeps the
+        // explicit re-link refusal intact for callers that reach here directly.
+        if (
+            preferredUser?._id
+            && authUid
+            && normalizeUid(preferredUser.authUid)
+            && normalizeUid(preferredUser.authUid) !== normalizeUid(authUid)
+            && !isInternalAuthEmail(preferredUser.email)
+        ) {
+            throw new AppError(
+                'This account is already linked to another sign-in identity. Contact support to re-link it.',
+                409
+            );
         }
 
         if (hasPhoneInput) {

@@ -285,6 +285,20 @@ const orderSchema = mongoose.Schema({
         default: 0.0
     },
     presentmentTotalPriceMinor: minorUnitsField(),
+    // What the provider ACTUALLY settled, as opposed to settlementAmount, which
+    // is the locked expectation carried from the quote. These diverge whenever a
+    // provider settles inside (but below) its tolerance window, and until that
+    // difference was recorded the books asserted the full list total had been
+    // received — a false financial record, and the number refund caps and
+    // settlement reconciliation are computed against. See BUG-R2-C1-A2-H1.
+    providerSettlement: {
+        amount: { type: Number, default: null },
+        currency: { type: String, default: '' },
+        // settled - expected. Negative means the merchant was paid short.
+        varianceAmount: { type: Number, default: 0.0 },
+        variancePct: { type: Number, default: 0.0 },
+        recordedAt: { type: Date, default: null },
+    },
     marketCountryCode: {
         type: String,
         default: 'IN'

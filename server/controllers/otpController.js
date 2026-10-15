@@ -1303,6 +1303,33 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         credentialUid: String(credentialProof?.uid || credentialProof?.sub || '').trim(),
     };
 
+    // SECURITY (BUG-R2-C2-A1-H3): honour an active brute-force lockout before
+    // minting a new code. The lockout now lives on the session rather than the
+    // account (see verifyOtp), so without this an attacker could reset it by
+    // simply asking for a fresh OTP and the attempt cap would never stick.
+    // Still scoped to this phone identity and purpose — it never widens to the
+    // account, so a stranger cannot close the victim's other OTP flows.
+    const activeLockout = await findOtpSessionByIdentity({
+        identityKey: canonicalPhone,
+        userId: targetUser._id,
+        purpose,
+    });
+    if (activeLockout?.lockedUntil && new Date(activeLockout.lockedUntil) > new Date()) {
+        const minutesLeft = Math.ceil((new Date(activeLockout.lockedUntil).getTime() - Date.now()) / 60000);
+        audit('SEND_BLOCKED', {
+            phone: canonicalPhone,
+            purpose,
+            ip: clientIp,
+            requestId,
+            success: true,
+            reason: `locked ${minutesLeft}min`,
+        });
+        return next(new AppError(
+            `Too many failed attempts. Try again in ${minutesLeft} more minute(s).`,
+            423
+        ));
+    }
+
     // SECURITY: Delete other active OTP purposes for the same canonical identity.
     try {
         await OtpSession.deleteMany({
@@ -1732,20 +1759,27 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
         if (newAttempts >= MAX_OTP_ATTEMPTS) {
             const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-            await clearOtpSession({ identityKey: canonicalPhone, purpose });
 
-            await User.updateOne(
-                { _id: user._id },
-                {
-                    $set: {
-                        otp: null,
-                        otpExpiry: null,
-                        otpPurpose: purpose,
-                        otpAttempts: newAttempts,
-                        otpLockedUntil: lockedUntil,
-                    },
-                }
-            );
+            // SECURITY (BUG-R2-C2-A1-H3): the lockout is scoped to this OTP
+            // session (phone identity + purpose) and deliberately NOT written to
+            // the account. This endpoint is unauthenticated and phone-keyed:
+            // anyone who knows a number can drive it, so an account-level
+            // otpLockedUntil let a stranger close every OTP-dependent flow for
+            // the victim — checkout assurance, payment challenge, password
+            // recovery, signup verification — for 15 minutes, renewably, with
+            // nothing but a phone number.
+            //
+            // Removing the account write costs no brute-force resistance: the
+            // 6-digit space is already bounded by the per-session attempt cap
+            // plus the per-identifier send rate limit, so a guessing attacker
+            // gets a handful of attempts per issued code and nothing more. The
+            // account-wide write bought security and cost a denial-of-service
+            // lever, so it is gone. The session is kept (not cleared) so the
+            // lockout has somewhere to live; its own expiry retires it, and the
+            // stale hash is unreachable once attempts are exhausted.
+            session.attempts = newAttempts;
+            session.lockedUntil = lockedUntil;
+            await session.save();
 
             audit('VERIFY_LOCKOUT', {
                 phone: canonicalPhone,
@@ -1758,7 +1792,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
             return next(otpVerificationError(
                 purpose,
-                `Too many failed attempts (${newAttempts}/${MAX_OTP_ATTEMPTS}). Account locked for 15 minutes.`,
+                `Too many failed attempts (${newAttempts}/${MAX_OTP_ATTEMPTS}). Try again in ${LOCKOUT_DURATION_MS / 60000} minutes.`,
                 423
             ));
         }
@@ -1800,9 +1834,20 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         otpPurpose: null,
         otpAttempts: 0,
         otpLockedUntil: null,
-        isVerified: purpose === 'signup'
-            ? Boolean(user.isVerified || !isEmailFactorOtp)
-            : Boolean(user.isVerified),
+        // SECURITY (pre-claim takeover, CWE-284/290): a signup account is NOT
+        // activated here, whatever factor was verified. This endpoint is
+        // public and unauthenticated, and the caller only proves they received
+        // the code at the phone number that the public signup upsert
+        // (sendOtp purpose=signup) has already stored — which the caller chose.
+        // Activating on that proof let anyone pre-verify a stub planted for a
+        // not-yet-registered victim email; a pre-verified stub then defeats the
+        // claim-time phone drop in syncAuthenticatedUser, so the attacker's
+        // phone survives onto the victim's verified account and the phone-keyed
+        // forgot-password flow resets their password.
+        // Activation belongs to completePhoneFactorVerification, which requires
+        // a Firebase phone-verified token for this number AND a fresh email
+        // factor proof — neither is reachable from here.
+        isVerified: Boolean(user.isVerified),
     };
 
     if (isEmailFactorOtp) {
@@ -1848,9 +1893,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
         gender: user.gender || '',
         dob: user.dob || null,
         bio: user.bio || '',
-        isVerified: purpose === 'signup'
-            ? Boolean(user.isVerified || !isEmailFactorOtp)
-            : Boolean(user.isVerified),
+        isVerified: Boolean(user.isVerified),
         isAdmin: Boolean(user.isAdmin),
     });
 

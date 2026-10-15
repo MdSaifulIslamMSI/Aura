@@ -318,7 +318,7 @@ const persistRefundDecisionWithRestock = async ({
     finalRefundId,
     note,
     processedAt,
-    refundMutation,
+    refundEntry = null,
     restockItems,
 }) => {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -405,9 +405,19 @@ const persistRefundDecisionWithRestock = async ({
                 txRefund.processedAt = processedAt;
             }
 
-            if (refundMutation) {
-                txOrder.refundSummary = refundMutation.refundSummary;
-                txOrder.paymentState = refundMutation.paymentState;
+            if (refundEntry) {
+                // SECURITY (BUG-R2-C1-A3-H2): derive the ledger totals from the
+                // order read inside this transaction, not from a mutation the
+                // handler built against its request-start snapshot. That snapshot
+                // predates any refund.processed webhook that landed in between,
+                // and refundSummary is a full-snapshot overwrite — so applying the
+                // stale mutation silently discarded the webhook's totalRefunded,
+                // a lost update on the money ledger. buildRefundMutation is pure,
+                // so recomputing here costs nothing and always reflects the state
+                // this write actually commits.
+                const mutation = buildRefundMutation({ order: txOrder, refundEntry });
+                txOrder.refundSummary = mutation.refundSummary;
+                txOrder.paymentState = mutation.paymentState;
             }
 
             touchCommandCenter(txOrder);
@@ -919,6 +929,27 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
             : 'Refund request submitted for admin review';
 
     if (canProcessAutomatically && !requiresFraudReview) {
+        // SECURITY (BUG-R2-C1-A4-H1): write the outbox task BEFORE the provider
+        // call. createRefundForIntent is at-least-once around an irreversible
+        // mutation with no transaction spanning provider success and the ledger
+        // write, so a process death inside that window used to leave the money
+        // moved, the ledger short, and NO task scheduled — because the task was
+        // only ever written in the catch below, which a SIGTERM never reaches.
+        // Nothing could then reconcile or even notice. Writing first means a
+        // crash leaves a pending task that re-runs this exact requestId and
+        // ADOPTS the refund the provider already executed (createRefundForIntent
+        // reconciles provider state by requestId before calling the provider).
+        // Idempotent either way: on success the entry becomes 'processed', and on
+        // a terminal failure 'rejected' — both are in the outbox skip list, so the
+        // pre-written task simply retires.
+        await scheduleRefundTask({
+            intentId: order.paymentIntentId,
+            amount,
+            reason,
+            orderId: order._id,
+            requestId,
+            actorUserId: req.user._id,
+        });
         try {
             const refundResult = await createRefundForIntent({
                 actorUserId: req.user._id,
@@ -1185,7 +1216,11 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         }
     }
 
-    let refundMutation = null;
+    // The ledger entry for a manual 'processed' decision. The persistence paths
+    // recompute refundSummary/paymentState from a freshly read order (see
+    // BUG-R2-C1-A3-H2) rather than accepting a mutation built from the
+    // request-start snapshot.
+    let refundEntry = null;
     let finalStatus;
     let finalMessage;
     let finalRefundId = String(refund.refundId || externalReference || '');
@@ -1246,7 +1281,11 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
                 amount,
                 amountMode: 'settlement',
             });
-            const refundEntry = buildRefundEntry({
+            // SECURITY (BUG-R2-C1-A3-H2): carry the entry, not a finished mutation.
+            // Both persistence paths recompute the totals from a freshly read order
+            // so a refund.processed webhook landing after this handler loaded the
+            // order cannot be discarded by a full-snapshot overwrite.
+            refundEntry = buildRefundEntry({
                 providerRefund: {
                     id: finalRefundId || createCommandId('manual-rfnd'),
                     status: 'processed',
@@ -1257,12 +1296,6 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
                 fallbackRefundId: finalRefundId || createCommandId('manual-rfnd'),
                 createdAt: processedAt,
             });
-            refundMutation = buildRefundMutation({
-                order,
-                refundEntry,
-            });
-            order.refundSummary = refundMutation.refundSummary;
-            order.paymentState = refundMutation.paymentState;
         }
     }
 
@@ -1277,7 +1310,7 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
             finalRefundId,
             note,
             processedAt,
-            refundMutation,
+            refundEntry,
             restockItems: req.body.restockItems,
         });
         persistedOrder = result.order;
@@ -1291,9 +1324,19 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         if (processedAt) {
             refund.processedAt = processedAt;
         }
-        if (refundMutation) {
-            order.refundSummary = refundMutation.refundSummary;
-            order.paymentState = refundMutation.paymentState;
+        if (refundEntry) {
+            // SECURITY (BUG-R2-C1-A3-H2): same lost-update hazard without the
+            // transaction. `order` was loaded when this handler started, so any
+            // refund.processed webhook that landed since then is missing from its
+            // refundSummary — and save() writes that whole document back. Re-read
+            // and recompute so the totals derive from current state.
+            const freshOrder = await Order.findById(order._id).lean();
+            if (!freshOrder) {
+                throw new AppError('Order not found', 404);
+            }
+            const mutation = buildRefundMutation({ order: freshOrder, refundEntry });
+            order.refundSummary = mutation.refundSummary;
+            order.paymentState = mutation.paymentState;
         }
 
         touchCommandCenter(order);

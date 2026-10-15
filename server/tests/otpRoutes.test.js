@@ -220,7 +220,10 @@ describe('OTP API Routes Integration', () => {
             expect(res.body.verified).toBe(true);
             
             const updated = await User.findById(user._id);
-            expect(updated.isVerified).toBe(true);
+            // The code is accepted, but this endpoint cannot activate a signup
+            // account — see BUG-R2-C2-A2-H1. Activation lives in
+            // complete-phone-factor-verification.
+            expect(updated.isVerified).toBe(false);
         });
 
         test('should return 401 for incorrect OTP', async () => {

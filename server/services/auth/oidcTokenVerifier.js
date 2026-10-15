@@ -180,7 +180,7 @@ const mapOidcClaimsToAuthContext = (claims = {}, config = resolveAuthEnvironment
             displayName: name,
             phone: String(claims.phone_number || '').trim(),
             phoneNumber: String(claims.phone_number || '').trim(),
-            emailVerified: Boolean(claims.email_verified),
+            emailVerified: claims.email_verified === true,
             providerIds: ['keycloak'],
         },
         authToken: {
@@ -188,7 +188,7 @@ const mapOidcClaimsToAuthContext = (claims = {}, config = resolveAuthEnvironment
             uid: authUid,
             email,
             name,
-            email_verified: Boolean(claims.email_verified),
+            email_verified: claims.email_verified === true,
             phone_number: String(claims.phone_number || '').trim(),
             roles,
             firebase: {
