@@ -32,6 +32,20 @@ const loadAiRoutesWithEnv = (env = {}) => {
         archiveAiSession: jest.fn(),
     }));
 
+    // routes/aiRoutes reaches the trust fabric, which loads healthService ->
+    // socketService -> config/firebase. Under NODE_ENV=production that module
+    // calls process.exit(1) when no Admin credential is present, which killed
+    // the entire jest process and took every other suite in the nightly shard
+    // with it - reported as 43 unrelated test failures across unrelated
+    // domains. Locally this passed only because a developer's .env happens to
+    // supply credentials, so CI (which has none) was the only place it broke.
+    //
+    // This suite asserts rate-limit policy, not Firebase. Stub the one member
+    // socketService actually uses (socketService.js:204, lazily at call time).
+    jest.doMock('../config/firebase', () => ({
+        auth: () => ({ verifyIdToken: jest.fn() }),
+    }));
+
     require('../routes/aiRoutes');
     return createDistributedRateLimit;
 };
@@ -45,6 +59,7 @@ describe('AI rate-limit policy', () => {
         jest.dontMock('../middleware/authMiddleware');
         jest.dontMock('../controllers/aiController');
         jest.dontMock('../controllers/aiSessionController');
+        jest.dontMock('../config/firebase');
     });
 
     test('production AI limiters fail closed instead of using in-memory fallback', () => {

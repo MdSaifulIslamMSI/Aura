@@ -533,6 +533,7 @@
       "accountPrivacyValidators.test.js",
       "accountSessionValidators.test.js",
       "adminAbuseRoutes.test.js",
+      "abuseShield.test.js",
       "adminResponseEnvelope.test.js",
       "adminPrivilegedAccessRoutes.integration.test.js",
       "adminTrustDecisionCoverage.test.js",
