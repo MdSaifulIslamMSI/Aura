@@ -96,6 +96,8 @@
       "tests/otp-send-victim-rate-limit.security.test.js",
       "tests/otpEmailFailClosed.test.js",
       "tests/otpSystem.test.js",
+      "tests/openvulnIdentityRegression.test.js",
+      "tests/openvulnRefundIdempotency.test.js",
       "tests/paymentOrderIntegrity.test.js",
       "tests/paymentRefundState.test.js",
       "tests/paymentSecurityGuards.test.js",
