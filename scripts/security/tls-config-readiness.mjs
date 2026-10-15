@@ -105,15 +105,25 @@ const scanConfigFile = (root, relativeFile, content, repoOwned = true) => {
 
   if (terminatesTls || isExample) {
     const tls13 = hasTls13Minimum(content);
+    // A CDN distribution on the default CloudFront certificate cannot express a
+    // TLS 1.3 viewer minimum: CloudFront accepts and deploys the field but does
+    // not honour it, and enforces its own 1.2 floor. Verified by probing the live
+    // edge. Requiring TLS 1.3 here would be a gate that can never be satisfied by
+    // a real distribution — the same silent-pass problem as skipping the check
+    // entirely, only dressed up as a failure. Emit an explicit warning instead,
+    // naming the unblock (a custom ACM certificate plus aliases).
+    const defaultCertCdn = /"CloudFrontDefaultCertificate"\s*:\s*true/i.test(content);
     checks.push(check({
       id: `tls.minimum.${relative}`,
       title: `${relative} enforces TLS 1.3 where it terminates TLS`,
-      status: tls13 ? 'pass' : 'fail',
+      status: tls13 ? 'pass' : (defaultCertCdn ? 'warning' : 'fail'),
       scope: repoOwned ? 'repo' : 'system',
-      severity: tls13 ? 'info' : 'high',
+      severity: tls13 ? 'info' : (defaultCertCdn ? 'medium' : 'high'),
       summary: tls13
         ? `${relative} has a TLS 1.3 minimum directive.`
-        : `${relative} appears TLS-terminating but lacks a TLS 1.3 minimum directive.`,
+        : (defaultCertCdn
+          ? `${relative} is on the default CloudFront certificate, so a TLS 1.3 viewer minimum is not enforceable; the effective floor is TLS 1.2. A custom ACM certificate with aliases is required to raise it.`
+          : `${relative} appears TLS-terminating but lacks a TLS 1.3 minimum directive.`),
       evidence: { file: relative },
     }));
 

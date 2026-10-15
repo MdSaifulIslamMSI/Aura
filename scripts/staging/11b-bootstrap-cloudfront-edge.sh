@@ -231,7 +231,7 @@ const config = {
         HTTPPort: 80,
         HTTPSPort: 443,
         OriginProtocolPolicy: 'https-only',
-        OriginSslProtocols: { Quantity: 2, Items: ['TLSv1.3_2021', 'TLSv1.2_2021'] },
+        OriginSslProtocols: { Quantity: 1, Items: ['TLSv1.2'] },
         OriginReadTimeout: 60,
         OriginKeepaliveTimeout: 60,
       },
