@@ -1,0 +1,121 @@
+name: All Test Suites
+
+# One dispatch that runs the whole test fleet on GitHub-hosted runners instead
+# of on the dispatching machine.
+#
+# This repository is public, so standard GitHub-hosted runners are free and
+# unlimited; larger runners are billed even on public repositories, so every
+# lane below stays on the standard `ubuntu-latest` label. That is what makes
+# this the zero-cost path for machines that cannot hold the suite in memory:
+# the backend regression tier alone is 478 suites and currently runs
+# `--runInBand` to stay deterministic, so parallelism comes from the shard
+# matrix, not from raw cores on your desk.
+#
+# This workflow owns no test logic. Every lane delegates to an existing
+# canonical workflow so there is exactly one definition of each suite:
+#   ci.yml             regression tier, frontend, E2E, security, desktop, android
+#   nightly-tests.yml  nightly + quarantine tiers (the coverage CI does not do)
+#   quality.yml        lint, typecheck, coverage, hygiene, dependency scanning
+#
+# Note on repeated dispatches: ci.yml keeps its own `concurrency` group with
+# `cancel-in-progress: true`, so back-to-back dispatches of this workflow on
+# the same ref cancel each other's CI lane. The group below only serializes the
+# parent. Wait for a run to finish before starting the next one.
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_nightly:
+        description: Run the nightly and quarantine tiers (nightly-tests.yml)
+        required: false
+        default: true
+        type: boolean
+      include_quality:
+        description: Run quality, coverage, lint, and hygiene (quality.yml). Re-runs the backend regression tier to collect coverage, so it roughly doubles wall-clock time for the same assertions.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: aura-all-suites-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+
+jobs:
+  canonical-ci:
+    name: Canonical CI lanes
+    uses: ./.github/workflows/ci.yml
+    # ci.yml declares `permissions: contents: read, pull-requests: read` at the
+    # workflow level and no job overrides it, so this grant is exact. Under-
+    # granting here does not degrade the callee: GitHub rejects the entire
+    # caller file with startup_failure at dispatch time if a callee requests a
+    # permission the caller withholds.
+    permissions:
+      contents: read
+      pull-requests: read
+
+  canonical-nightly:
+    name: Nightly and quarantine tiers
+    if: inputs.include_nightly
+    uses: ./.github/workflows/nightly-tests.yml
+    permissions:
+      contents: read
+
+  canonical-quality:
+    name: Quality, coverage, and hygiene
+    if: inputs.include_quality
+    uses: ./.github/workflows/quality.yml
+    permissions:
+      contents: read
+
+  all-suites-summary:
+    name: All suites summary
+    needs:
+      - canonical-ci
+      - canonical-nightly
+      - canonical-quality
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Write all suites summary
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_RESULT: ${{ needs.canonical-ci.result }}
+          NIGHTLY_RESULT: ${{ needs.canonical-nightly.result }}
+          QUALITY_RESULT: ${{ needs.canonical-quality.result }}
+        run: |
+          {
+            echo "## All Test Suites"
+            echo
+            echo "Every lane below ran on GitHub-hosted runners, not on the dispatching machine."
+            echo
+            echo "| Lane | Result |"
+            echo "|---|---|"
+            echo "| CI: regression, frontend, E2E, security, desktop, Android | ${CI_RESULT} |"
+            echo "| Nightly and quarantine tiers | ${NIGHTLY_RESULT} |"
+            echo "| Quality, coverage, lint, hygiene | ${QUALITY_RESULT} |"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Commit | ${COMMIT_SHA} |"
+            echo "| Ref | ${REF_NAME} |"
+            echo "| Run | ${RUN_ID} |"
+            echo
+            echo "A lane reported as \`skipped\` was excluded by its dispatch input, not skipped by a"
+            echo "failure. Open the individual lane for its per-shard JUnit XML, Playwright report, and"
+            echo "coverage artifacts."
+          } >> "$GITHUB_STEP_SUMMARY"
