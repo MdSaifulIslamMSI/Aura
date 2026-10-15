@@ -9,6 +9,9 @@ const logger = require('../utils/logger');
 const { withCronMonitor } = require('../utils/sentry');
 const { scheduleCaptureTask, scheduleRefundTask } = require('./payments/outboxState');
 const { enqueueOrderPlacedEmail } = require('./email/orderEmailQueueService');
+const { DIGITAL_METHODS } = require('./payments/constants');
+
+const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -36,6 +39,7 @@ let lastSummary = {
 let lastUnsafeAlertAt = 0;
 
 const lower = (value) => String(value || '').trim().toLowerCase();
+const upper = (value) => String(value || '').trim().toUpperCase();
 
 const buildOrderEmailStatus = (notification) => {
     const status = lower(notification?.status);
@@ -173,6 +177,14 @@ const ensureCaptureTask = async ({ order, paymentIntent }) => {
 
 const ensureRefundTasks = async ({ order, paymentIntent }) => {
     if (!paymentIntent?.intentId) return 0;
+
+    // 'approved' command entries are manual-bank-transfer approvals on
+    // non-digital orders — a provider refund must never be re-driven for
+    // them — and the resolved intent must actually belong to this order,
+    // otherwise the task would refund a payment captured for a different
+    // order (a COD order can otherwise reference a foreign intent id).
+    if (!DIGITAL_PAYMENT_METHODS.has(upper(order?.paymentMethod))) return 0;
+    if (!paymentIntent.order || String(paymentIntent.order) !== String(order?._id)) return 0;
 
     let repairs = 0;
     const refunds = Array.isArray(order?.commandCenter?.refunds) ? order.commandCenter.refunds : [];

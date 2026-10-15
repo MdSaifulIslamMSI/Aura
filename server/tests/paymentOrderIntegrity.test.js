@@ -460,14 +460,21 @@ describe('Payment Order Integrity', () => {
         const originalFetch = global.fetch;
         process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
         process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
-        global.fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                id: 'rfnd_live_123',
-                amount: 100000,
-                currency: 'INR',
-                status: 'processed',
-            }),
+        // Distinct refund ids per call: a real provider never returns the id
+        // of an earlier refund for a new refund request, and the service now
+        // rejects a provider response that replays an already-recorded id.
+        let providerRefundSequence = 0;
+        global.fetch = jest.fn().mockImplementation(async () => {
+            providerRefundSequence += 1;
+            return {
+                ok: true,
+                json: async () => ({
+                    id: `rfnd_live_123_${providerRefundSequence}`,
+                    amount: 100000,
+                    currency: 'INR',
+                    status: 'processed',
+                }),
+            };
         });
 
         const firstRefund = await createRefundForIntent({
@@ -512,6 +519,80 @@ describe('Payment Order Integrity', () => {
         expect(refundEvents).toHaveLength(2);
 
         global.fetch = originalFetch;
+    });
+
+    test('createRefundForIntent rejects buyer refunds once an order ships or is delivered', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({
+            userId: owner._id,
+            totalPrice: 3000,
+        });
+        const intent = await makeIntent({
+            userId: owner._id,
+            amount: 3000,
+            method: 'CARD',
+            status: PAYMENT_STATUSES.CAPTURED,
+            order: order._id,
+        });
+        intent.providerPaymentId = 'pay_lifecycle_gate_123';
+        await intent.save();
+        await Order.updateOne({ _id: order._id }, { $set: { paymentIntentId: intent.intentId, orderStatus: 'shipped' } });
+
+        const originalFetch = global.fetch;
+        process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
+        global.fetch = jest.fn();
+
+        try {
+            await expect(createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                reason: 'shipped_self_refund',
+                requestId: 'refund-shipped-buyer',
+            })).rejects.toMatchObject({
+                statusCode: 403,
+                message: expect.stringMatching(/admin-reviewed refunds/i),
+            });
+            expect(global.fetch).not.toHaveBeenCalled();
+
+            await Order.updateOne({ _id: order._id }, { $set: { orderStatus: 'delivered', isDelivered: true } });
+            await expect(createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                reason: 'delivered_self_refund',
+                requestId: 'refund-delivered-buyer',
+            })).rejects.toMatchObject({
+                statusCode: 403,
+                message: expect.stringMatching(/admin-reviewed refunds/i),
+            });
+
+            const refreshedOrder = await Order.findById(order._id).lean();
+            expect(refreshedOrder.refundSummary?.totalRefunded || 0).toBe(0);
+            expect(global.fetch).not.toHaveBeenCalled();
+
+            // An administrator may still refund a delivered order.
+            global.fetch = jest.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    id: 'rfnd_lifecycle_admin',
+                    amount: 300000,
+                    currency: 'INR',
+                    status: 'processed',
+                }),
+            });
+            const adminRefund = await createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: true,
+                intentId: intent.intentId,
+                reason: 'admin_reviewed_refund',
+                requestId: 'refund-delivered-admin',
+            });
+            expect(adminRefund.amount).toBe(3000);
+        } finally {
+            global.fetch = originalFetch;
+        }
     });
 
     test('createRefundForIntent rejects a double refund replay after the balance is exhausted', async () => {

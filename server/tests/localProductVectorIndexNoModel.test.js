@@ -4,6 +4,7 @@ const createLeanQuery = (result) => ({
     sort: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
+    maxTimeMS: jest.fn().mockReturnThis(),
     lean: jest.fn().mockResolvedValue(result),
 });
 

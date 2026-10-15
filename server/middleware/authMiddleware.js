@@ -196,6 +196,7 @@ const AUTH_PROJECTION = {
     authAssurance: 1,
     authAssuranceAt: 1,
     authAssuranceAuthTime: 1,
+    otpAssuranceSessionId: 1,
     authTokensRevokedAfter: 1,
     adminSecurityVersion: 1,
     loginOtpAssuranceExpiresAt: 1,
@@ -533,11 +534,17 @@ const hasOtpAssurance = (req) => {
     const requiredAuthTime = Number(req.user?.authAssuranceAuthTime || 0);
     const currentAuthTime = resolveAuthTimeSeconds(req.authToken);
     const expiresAt = resolveOtpAssuranceExpiryMillis(req.user);
+    // auth_time is shared by every token of one sign-in session, so it alone
+    // cannot prove THIS session/device performed the ceremony. Accounts whose
+    // ceremony bound a browser session additionally require that session id.
+    const boundSessionId = String(req.user?.otpAssuranceSessionId || '').trim();
 
     return requiredAuthTime > 0
         && currentAuthTime > 0
         && requiredAuthTime === currentAuthTime
-        && expiresAt > Date.now();
+        && expiresAt > Date.now()
+        && (!boundSessionId
+            || String(req.authSession?.sessionId || '').trim() === boundSessionId);
 };
 
 const enforceOtpAssurance = (req) => {
