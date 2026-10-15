@@ -128,9 +128,8 @@ Know this before reasoning about whether "CI covered it."
 - **This repository is public.** Standard GitHub-hosted runners are therefore
   free and unlimited. Larger runners are billed per-minute **even on public
   repositories** — never switch a job to a larger runner for speed.
-- Because the machine may not have the memory to run the full suite locally,
-  **the suite runs in the cloud by default**. Prefer triggering CI over running
-  broad suites locally.
+- Because the machine may not have the memory or CPU to run the full suite
+  locally, **the authoritative suite run is always remote**. See §6.
 
 | Workflow | Triggers on |
 |---|---|
@@ -186,6 +185,12 @@ gh run view <run-id> --repo MdSaifulIslamMSI/Aura --log-failed
 
 **Verification standards:**
 
+- **Run broad suites remotely, not locally.** This machine may not have the
+  memory or CPU for the full matrix, and a reduced local approximation is a
+  different — and weaker — claim than a full run on the real runner. Dispatch
+  `all-suites.yml` (see §4) for any verification spanning the whole suite.
+  Reserve local runs for narrow tracers: a single suite or a handful of files.
+  State which environment produced the evidence.
 - Reproduce the failing condition locally before fixing it when the cause is
   environmental (missing dependency, wrong platform, absent service). Simulate
   it — move a directory aside, unset an env var — then confirm the fix under the
