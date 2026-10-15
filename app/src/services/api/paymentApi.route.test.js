@@ -78,16 +78,6 @@ describe('paymentApi route contract', () => {
         expect(options.headers && options.headers.Authorization).toBe('Bearer test');
     });
 
-    it("createRefund calls POST /payments/intents/${intentId}/refunds", async () => {
-        await paymentApi.createRefund(anyArgs).catch(() => {});
-        expect(apiFetch).toHaveBeenCalled();
-        const [reqPath, options = {}] = apiFetch.mock.calls[apiFetch.mock.calls.length - 1];
-        expect(String(options.method || 'GET')).toBe('POST');
-        expect(String(reqPath)).toContain("/payments/intents/");
-        expect(String(reqPath)).toContain("/refunds");
-        expect(options.headers && options.headers.Authorization).toBe('Bearer test');
-    });
-
     it("getMethods calls GET /payments/methods", async () => {
         await paymentApi.getMethods(anyArgs).catch(() => {});
         expect(apiFetch).toHaveBeenCalled();

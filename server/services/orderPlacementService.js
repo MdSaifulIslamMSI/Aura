@@ -242,7 +242,11 @@ const executeOrderCreation = async ({
             market: quote.pricing.market || null,
             charge: quote.pricing.charge || null
         },
-        paymentIntentId: paymentIntent?.intentId || body.paymentIntentId || '',
+        // Only a validated, method-matched intent may be referenced by an order.
+// The raw body fallback let buyers attach a foreign intent id to COD orders,
+// which the reconciliation worker then bound to that order's state and refund
+// flows.
+paymentIntentId: paymentIntent?.intentId || '',
         idempotencyKey: String(idempotencyKey || ''),
         paymentProvider: paymentIntent?.provider || '',
         paymentState: paymentValidation.paymentState,

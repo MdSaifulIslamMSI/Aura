@@ -663,6 +663,18 @@ const createRefund = asyncHandler(async (req, res, next) => {
         const idempotencyKey = getRequiredIdempotencyKey(req);
         const userKey = getStableUserKey(req);
 
+        // Refunds are a merchant-authorized money movement. Buyer refunds must
+        // flow through the order command center, which enforces the return
+        // window, fraud screening and admin review for shipped/delivered
+        // orders. This direct intent route bypasses every one of those gates,
+        // so it is admin-only.
+        if (!req.user?.isAdmin) {
+            return next(new AppError(
+                'Refunds must be requested through order support (command center); direct payment refunds require an administrator',
+                403
+            ));
+        }
+
         const result = await withIdempotency({
             key: idempotencyKey,
             userKey,

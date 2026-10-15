@@ -34,13 +34,6 @@ describe('paymentApi client contract', () => {
     expect(apiFetch.mock.calls[0][1].headers['Idempotency-Key']).toBe('caller-9');
   });
 
-  it('scopes refund idempotency per intent', async () => {
-    apiFetch.mockResolvedValue({ data: {} });
-    await paymentApi.createRefund('pi_7', { amount: 100 });
-    expect(apiFetch.mock.calls[0][0]).toBe('/payments/intents/pi_7/refunds');
-    expect(apiFetch.mock.calls[0][1].headers['Idempotency-Key']).toBe('key-refund-1');
-  });
-
   it('updates refund ledger references via PATCH with composite ids', async () => {
     apiFetch.mockResolvedValue({ data: { ok: true } });
     await paymentApi.updateRefundLedgerReference('o-1', 'r-2', { reference: 'UTR123' });

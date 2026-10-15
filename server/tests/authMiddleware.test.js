@@ -80,10 +80,14 @@ describe('Auth Middleware Tests', () => {
                         authAssuranceAuthTime: options.authAssuranceAuthTime ?? 1700000000,
                         loginOtpAssuranceExpiresAt: options.loginOtpAssuranceExpiresAt
                             || new Date(Date.now() + 60_000).toISOString(),
+                        otpAssuranceSessionId: options.otpAssuranceSessionId ?? '',
                     };
                     req.authToken = {
                         auth_time: options.authTime ?? 1700000000,
                     };
+                    if (options.sessionId) {
+                        req.authSession = { sessionId: options.sessionId };
+                    }
                     next();
                 },
                 requireOtpAssurance,
@@ -127,6 +131,24 @@ describe('Auth Middleware Tests', () => {
             const res = await request(testApp).get('/secure');
             expect(res.statusCode).toBe(403);
             expect(res.body.message).toMatch(/OTP verification required/i);
+        });
+
+        test('denies access when a different session presents the ceremony token', async () => {
+            const testApp = buildTestApp('password+otp', {
+                otpAssuranceSessionId: 'sess_ceremony',
+            });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(403);
+            expect(res.body.message).toMatch(/OTP verification required/i);
+        });
+
+        test('allows the ceremony session that completed the OTP assurance', async () => {
+            const testApp = buildTestApp('password+otp', {
+                otpAssuranceSessionId: 'sess_ceremony',
+                sessionId: 'sess_ceremony',
+            });
+            const res = await request(testApp).get('/secure');
+            expect(res.statusCode).toBe(200);
         });
     });
 });

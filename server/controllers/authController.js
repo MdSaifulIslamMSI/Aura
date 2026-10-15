@@ -96,6 +96,7 @@ const {
     buildPublicMfaPolicy,
     buildDesktopHandoffMfaMarker,
     evaluateLogin: evaluateMfaLoginPolicy,
+    isEligiblePasskeyMfaDevice,
     isAdminSubject,
 } = require('../services/mfaPolicyService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -533,6 +534,7 @@ const persistBrowserSessionForUser = async ({
     additionalAmr = [],
     riskState = '',
     resetAssurance = false,
+    bindOtpAssurance = false,
 } = {}) => {
     if (!user?._id) {
         return null;
@@ -563,6 +565,27 @@ const persistBrowserSessionForUser = async ({
     });
 
     req.authSession = nextSession;
+    // SECURITY: the money-movement OTP assurance is anchored to a shareable
+    // token claim (auth_time), so bind it to the verifying session as well.
+    // hasOtpAssurance then rejects any other session of the account, however
+    // it obtained a token with the same auth_time. A rotation of the bound
+    // session carries the binding forward; an unrelated session never matches.
+    const previousSessionId = String(previousSession?.sessionId || '').trim();
+    const boundOtpSessionId = String(user?.otpAssuranceSessionId || '').trim();
+    const shouldBindOtpAssurance = Boolean(
+        bindOtpAssurance
+        || (previousSessionId && boundOtpSessionId && previousSessionId === boundOtpSessionId)
+    );
+    if (
+        shouldBindOtpAssurance
+        && String(nextSession?.sessionId || '').trim()
+        && String(user?.authAssurance || '').trim() === 'password+otp'
+    ) {
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { otpAssuranceSessionId: String(nextSession.sessionId) } }
+        );
+    }
     // New-device alert (A3): fire-and-forget. The notifier never throws and
     // never delays the login response; alerting failures stay local to it.
     void notifyNewDeviceSignIn({ req, user }).catch(() => undefined);
@@ -1306,12 +1329,17 @@ const completeDuoLogin = asyncHandler(async (req, res) => {
     const email = normalizeEmail(claims.email);
     const authUid = `duo:${claims.sub}`;
     const authTime = Number(claims.auth_time || claims.iat || Math.floor(Date.now() / 1000));
+    // SECURITY (CWE-290): never fabricate the IdP's email-verification
+    // attestation. Deployments whose Duo tokens omit email_verified fail
+    // closed at syncAuthenticatedUser's verification gate — the same
+    // semantics the Keycloak path already implements.
+    const emailVerified = Boolean(claims.email_verified);
     const authUser = {
         uid: authUid,
         email,
         name: claims.name || claims.preferred_username || email.split('@')[0],
         displayName: claims.name || claims.preferred_username || email.split('@')[0],
-        emailVerified: true,
+        emailVerified,
         providerIds: ['duo_oidc'],
         signInProvider: 'duo_oidc',
     };
@@ -1319,7 +1347,7 @@ const completeDuoLogin = asyncHandler(async (req, res) => {
         uid: authUid,
         email,
         name: authUser.name,
-        email_verified: true,
+        email_verified: emailVerified,
         auth_time: authTime,
         iat: Number(claims.iat || authTime),
         exp: Number(claims.exp || (authTime + 3600)),
@@ -1548,9 +1576,19 @@ const syncSession = asyncHandler(async (req, res) => {
             res,
             user,
             rotate: Boolean(req.authSession?.sessionId),
-            stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
-            additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+            // Only the session that completed the login-assurance ceremony in
+            // THIS request (flowToken verified above) may carry the
+            // account-level OTP window forward as session step-up, and only
+            // while that ceremony's own TTL is live and bound to this token.
+            stepUpUntil: flowToken ? (user?.loginOtpAssuranceExpiresAt || null) : null,
+            additionalAmr: (
+                String(user?.authAssurance || '').trim() === 'password+otp'
+                && Number(user?.authAssuranceAuthTime || 0) > 0
+                && Number(req.authToken?.auth_time || 0) === Number(user.authAssuranceAuthTime)
+                && new Date(user?.loginOtpAssuranceExpiresAt || 0).getTime() > Date.now()
+            ) ? ['otp'] : [],
             riskState: loginRisk.riskState,
+            bindOtpAssurance: Boolean(flowToken),
         });
     }
 
@@ -1796,6 +1834,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
         rotate: Boolean(req.authSession?.sessionId),
         stepUpUntil: updatedUser?.loginOtpAssuranceExpiresAt || null,
         additionalAmr: ['otp'],
+        bindOtpAssurance: true,
     });
 
     recordAuthSecurityEvent({
@@ -2196,9 +2235,6 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
 
-    const webAuthnProof = verification.method === 'webauthn';
-    const webAuthnVerified = webAuthnProof
-        && verification.trustedDevice?.webauthnUserVerified === true;
     const trustedDevices = Array.isArray(req.user?.trustedDevices)
         ? req.user.trustedDevices.filter((device) => (
             String(device?.deviceId || '').trim() !== String(verification.trustedDevice?.deviceId || '').trim()
@@ -2207,6 +2243,19 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     const policyUser = verification.trustedDevice
         ? { ...req.user, trustedDevices: [...trustedDevices, verification.trustedDevice] }
         : req.user;
+    const webAuthnProof = verification.method === 'webauthn';
+    // A passkey ceremony confers MFA-grade session assurance only when the
+    // credential itself is MFA-eligible (mfa/admin scope or mfa.passkeys
+    // membership; admins require a verified admin-scope passkey — see
+    // mfaPolicyService.isEligiblePasskeyMfaDevice, the same check the
+    // mfa-passkey-login flow applies). A recognition-scope enrollment
+    // performed during this same login is device recognition, not an
+    // independent second factor: it must never mint the `webauthn` amr,
+    // aal2, or a step-up window.
+    const webAuthnVerified = webAuthnProof
+        && Boolean(verification.trustedDevice)
+        && isEligiblePasskeyMfaDevice({ user: policyUser, device: verification.trustedDevice })
+        && verification.trustedDevice?.webauthnUserVerified === true;
     const desktopHandoffBootstrap = desktopHandoffTargetProof
         ? verification.desktopHandoffBootstrap
         : null;

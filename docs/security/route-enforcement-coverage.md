@@ -104,7 +104,7 @@ npm run security:routes:coverage:strict
 | POST /api/payments/intents | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.paymentPayoutChange` |
 | POST /api/payments/intents/:intentId/challenge/complete | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.paymentPayoutChange` |
 | POST /api/payments/intents/:intentId/confirm | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.paymentPayoutChange` |
-| POST /api/payments/intents/:intentId/refunds | PAYMENT_REFUND | `protect`, active account, OTP assurance, `sensitiveActions.paymentRefund` |
+| POST /api/payments/intents/:intentId/refunds | PAYMENT_REFUND | `protect`, active account, OTP assurance, `sensitiveActions.paymentRefund`, admin-only (buyer refunds run through the order command center) |
 | POST /api/payments/methods/setup-intent | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.paymentPayoutChange` |
 | POST /api/payments/methods | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.paymentPayoutChange` |
 | PATCH /api/payments/methods/:methodId/default | PAYMENT_PAYOUT_CHANGE | `protect`, active account, OTP assurance, `authorizePaymentMethodOwner`, `sensitiveActions.paymentPayoutChange` |

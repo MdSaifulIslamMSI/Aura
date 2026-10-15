@@ -862,7 +862,7 @@ describe('POST /api/otp/verify', () => {
         expect(updated.resetOtpVerifiedAt).toBeNull();
     });
 
-    test('75aa. legacy login verification still upgrades assurance when a single backend OTP is used', async () => {
+    test('75aa. legacy login verification records the marker without arming the money-movement window', async () => {
         const user = await seedVerified({ otp: '323232', otpPurpose: 'login', isVerified: false });
         await User.updateOne({ _id: user._id }, { $set: { isVerified: false } });
 
@@ -875,7 +875,11 @@ describe('POST /api/otp/verify', () => {
         expect(updated.isVerified).toBe(false);
         expect(updated.loginEmailOtpVerifiedAt).toBeNull();
         expect(updated.loginOtpVerifiedAt).not.toBeNull();
-        expect(updated.loginOtpAssuranceExpiresAt).not.toBeNull();
+        // The OTP verification alone must never open the payment OTP gate:
+        // only the completing ceremony (/api/auth/sync with the flow token,
+        // or the phone-factor login) binds the window to the verifying
+        // session, so a token cloned from the sign-in session cannot reuse it.
+        expect(updated.loginOtpAssuranceExpiresAt).toBeNull();
         expect(updated.resetOtpVerifiedAt).toBeNull();
     });
 
