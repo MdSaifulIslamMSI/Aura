@@ -33,6 +33,21 @@ describe('cryptoPolicy config', () => {
         });
     });
 
+    test('keeps the required edge policy strict despite an unsafe measured floor', () => {
+        const root = path.resolve(__dirname, '..', '..');
+        const posture = JSON.parse(fs.readFileSync(path.join(root, 'config', 'security', 'tls-edge-posture.json'), 'utf8'));
+        expect(posture.requirements).toMatchObject({ rejectLegacyTls: true, requireTls13Available: true });
+        expect(posture.edges.find((edge) => edge.provider === 'AWS CloudFront').minExpected).toBe('TLSv1.2');
+    });
+
+    test('CloudFront bootstrap uses origin protocol enums rather than viewer policy names', () => {
+        const root = path.resolve(__dirname, '..', '..');
+        const bootstrap = fs.readFileSync(path.join(root, 'infra', 'aws', 'bootstrap-frontend-cloudfront.ps1'), 'utf8');
+        const origins = bootstrap.match(/OriginSslProtocols\s*=\s*@\{\s*Quantity\s*=\s*1\s*Items\s*=\s*@\("TLSv1\.2"\)\s*\}/g);
+        expect(origins).toHaveLength(2);
+        expect(bootstrap).not.toContain('TLSv1.3_2021');
+    });
+
     test('throws on malformed policy in test mode', () => {
         process.env.NODE_ENV = 'test';
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pqc-policy-'));
