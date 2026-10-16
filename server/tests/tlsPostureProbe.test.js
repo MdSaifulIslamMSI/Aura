@@ -21,6 +21,11 @@ const config = () => loadPostureConfig(repoRoot);
 const edge = (host, minExpected = 'TLSv1.2') => ({
     label: host, host, provider: 'test', minExpected,
 });
+const certificateErrorCodes = [
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    'CERT_HAS_EXPIRED',
+    'ERR_TLS_CERT_ALTNAME_INVALID',
+];
 
 describe('TLS host probing', () => {
     let socket;
@@ -29,6 +34,7 @@ describe('TLS host probing', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         socket = new EventEmitter();
+        socket.authorized = true;
         socket.getProtocol = jest.fn();
         socket.setTimeout = jest.fn().mockReturnValue(socket);
         socket.destroy = jest.fn(() => {
@@ -52,7 +58,7 @@ describe('TLS host probing', () => {
         expect(jest.getTimerCount()).toBe(0);
     };
 
-    test.each(PROBE_VERSIONS)('pins %s and lowers client security only for legacy probes', async (version) => {
+    test.each(PROBE_VERSIONS)('pins %s with verified certificates and socket-local legacy ciphers', async (version) => {
         const defaultCiphers = tls.DEFAULT_CIPHERS;
         socket.getProtocol.mockReturnValue(version);
         const pending = probeHost('edge.test', version, 50);
@@ -62,7 +68,7 @@ describe('TLS host probing', () => {
             host: 'edge.test',
             port: 443,
             servername: 'edge.test',
-            rejectUnauthorized: false,
+            rejectUnauthorized: true,
             minVersion: version,
             maxVersion: version,
             ...(['TLSv1', 'TLSv1.1'].includes(version) ? { ciphers: 'DEFAULT:@SECLEVEL=0' } : {}),
@@ -70,6 +76,42 @@ describe('TLS host probing', () => {
         expect(tls.DEFAULT_CIPHERS).toBe(defaultCiphers);
         socket.emit('secureConnect');
         await expect(pending).resolves.toBe('accepted');
+        expectCleanup();
+    });
+
+    test.each(PROBE_VERSIONS.flatMap((version) => (
+        certificateErrorCodes.map((code) => [version, code])
+    )))('keeps %s authorization failure %s inconclusive on secureConnect', async (version, code) => {
+        socket.authorized = false;
+        socket.authorizationError = code;
+        socket.getProtocol.mockReturnValue(version);
+        const pending = probeHost('edge.test', version, 50);
+        socket.emit('secureConnect');
+
+        await expect(pending).resolves.toBe(`error:${code}`);
+        expectCleanup();
+    });
+
+    test.each([false, undefined, null, 1, 'true'])('requires authorized === true, not %p, even without an authorization error', async (authorized) => {
+        socket.authorized = authorized;
+        socket.getProtocol.mockReturnValue('TLSv1.3');
+        const pending = probeHost('edge.test', 'TLSv1.3', 50);
+        socket.emit('secureConnect');
+
+        await expect(pending).resolves.toBe('unknown');
+        expectCleanup();
+    });
+
+    test('preserves an authorization error code supplied as an Error object', async () => {
+        socket.authorized = false;
+        socket.authorizationError = Object.assign(new Error('hostname mismatch'), {
+            code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+        });
+        socket.getProtocol.mockReturnValue('TLSv1.3');
+        const pending = probeHost('edge.test', 'TLSv1.3', 50);
+        socket.emit('secureConnect');
+
+        await expect(pending).resolves.toBe('error:ERR_TLS_CERT_ALTNAME_INVALID');
         expectCleanup();
     });
 
@@ -84,6 +126,7 @@ describe('TLS host probing', () => {
     });
 
     test.each([
+        ...certificateErrorCodes,
         'ERR_SSL_NO_PROTOCOLS_AVAILABLE',
         'ERR_SSL_UNSUPPORTED_PROTOCOL',
         'ERR_SSL_NO_CIPHERS_AVAILABLE',
@@ -274,7 +317,8 @@ describe('production TLS edge posture', () => {
     });
 
     test.each(['TLSv1', 'TLSv1.1'].flatMap((version) => (
-        ['timeout', 'unknown', 'error:ERR_SSL_NO_PROTOCOLS_AVAILABLE', 'error:ENOTFOUND', 'error:ECONNRESET', 'unexpected', undefined]
+        ['timeout', 'unknown', 'error:ERR_SSL_NO_PROTOCOLS_AVAILABLE', 'error:ENOTFOUND', 'error:ECONNRESET',
+            ...certificateErrorCodes.map((code) => `error:${code}`), 'unexpected', undefined]
             .map((outcome) => [version, outcome])
     )))('fails closed for inconclusive %s (%s) despite modern successes', async (version, outcome) => {
         const probe = async (_host, requested) => {
@@ -328,6 +372,15 @@ describe('production TLS edge posture', () => {
         expect(markdown).toContain('| TLSv1.2 | yes | unknown |');
         expect(markdown).toContain('legacy_tls_inconclusive');
         expect(markdown).not.toContain('cannot be changed from this repository');
+    });
+
+    test('documents verified acceptance and unauthenticated alert limitations', () => {
+        const markdown = renderPostureMarkdown(evaluatePosture([], config()));
+
+        expect(markdown).toContain('Accepted handshakes require certificate-chain and hostname verification.');
+        expect(markdown).toContain('Pre-handshake alerts are unauthenticated and do not prove the intended server sent them.');
+        expect(markdown).toContain('Certificate, client, and network failures leave legacy checks inconclusive');
+        expect(markdown).not.toContain('not certificate trust');
     });
 
     test('probes versions weakest-first to record the lowest observed acceptance', () => {

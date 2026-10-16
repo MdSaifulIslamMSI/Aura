@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Measures negotiated TLS versions at production edges and checks declared policy.
-// Client/network failures are inconclusive, not proof that an edge rejects TLS.
+// Certificate/client/network failures are inconclusive, not proof of TLS rejection.
 // Remediation controls depend on the TLS terminator and provider configuration;
 // hostname ownership alone does not establish which controls are available.
 //
@@ -23,8 +23,8 @@ const CONFIG_RELATIVE = 'config/security/tls-edge-posture.json';
 const PROBE_VERSIONS = ['TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3'];
 const LEGACY_VERSIONS = new Set(['TLSv1', 'TLSv1.1']);
 const VERSION_RANK = Object.fromEntries(PROBE_VERSIONS.map((v, i) => [v, i]));
-// Only a peer's protocol_version alert (70) proves protocol rejection. Generic
-// handshake alerts, local OpenSSL errors, and transport failures do not.
+// Only an explicit protocol_version alert (70) counts as reported rejection.
+// Pre-handshake alerts are unauthenticated; other failures remain inconclusive.
 const PEER_PROTOCOL_REJECTION_CODES = new Set(['ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION']);
 const probeErrorResult = (error) => (
     typeof error?.code === 'string' ? `error:${error.code}` : 'unknown'
@@ -51,7 +51,14 @@ const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) =>
         }
         resolve(result);
     };
-    const onSecureConnect = () => finish(socket.getProtocol() === version ? 'accepted' : 'unknown');
+    const onSecureConnect = () => {
+        if (socket.authorized !== true) {
+            const error = socket.authorizationError;
+            finish(probeErrorResult(typeof error === 'string' ? { code: error } : error));
+            return;
+        }
+        finish(socket.getProtocol() === version ? 'accepted' : 'unknown');
+    };
     const onError = (error) => finish(
         PEER_PROTOCOL_REJECTION_CODES.has(error?.code) ? 'rejected' : probeErrorResult(error)
     );
@@ -70,8 +77,7 @@ const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) =>
             host,
             port: 443,
             servername: host,
-            // We are measuring what the edge offers, not validating the chain.
-            rejectUnauthorized: false,
+            rejectUnauthorized: true,
             minVersion: version,
             maxVersion: version,
             // OpenSSL's default security level can disable legacy TLS locally.
@@ -134,7 +140,7 @@ const evaluatePosture = (edges, config) => {
                 severity: 'blocker',
                 code: 'legacy_tls_inconclusive',
                 edge: edge.host,
-                message: `${edge.host} legacy TLS checks are inconclusive (${inconclusiveLegacy.map((v) => `${v}: ${edge.results?.[v] ?? 'unknown'}`).join(', ')}). Client/network failures do not prove the peer rejects legacy TLS.`,
+                message: `${edge.host} legacy TLS checks are inconclusive (${inconclusiveLegacy.map((v) => `${v}: ${edge.results?.[v] ?? 'unknown'}`).join(', ')}). Certificate/client/network failures do not prove the peer rejects legacy TLS.`,
             });
         }
 
@@ -186,10 +192,12 @@ const renderPostureMarkdown = (result) => {
         '',
         `Status: **${result.status}**`,
         '',
-        'This probe measures negotiated TLS versions, not certificate trust or HTTP behavior.',
-        'Only an explicit peer protocol-version alert counts as rejection; client and network',
-        'failures leave legacy checks inconclusive and fail the legacy-rejection gate.',
-        'The lowest accepted version establishes a floor only when weaker probes are conclusive.',
+        'Accepted handshakes require certificate-chain and hostname verification.',
+        'This probe measures negotiated TLS versions, not HTTP behavior.',
+        'Only an explicit protocol-version alert counts as rejection.',
+        'Pre-handshake alerts are unauthenticated and do not prove the intended server sent them.',
+        'Certificate, client, and network failures leave legacy checks inconclusive and fail the legacy-rejection gate.',
+        'The lowest accepted version is an observation, not an authenticated proof of the edge\'s protocol floor.',
         'Remediation controls depend on the TLS terminator and provider configuration,',
         'not hostname ownership alone.',
         '',

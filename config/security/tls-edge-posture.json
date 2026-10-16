@@ -13,7 +13,7 @@
       "owner": "provider",
       "provider": "AWS CloudFront",
       "minExpected": "TLSv1.2",
-      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). Observed 2026-10-16: TLS 1.0 and 1.1 both negotiated and served HTTP 200. With CloudFrontDefaultCertificate=true, AWS uses the TLSv1 viewer policy regardless of a claimed MinimumProtocolVersion. Do not lower minExpected to match this exposure."
+      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). Observed 2026-10-16: TLS 1.0 and 1.1 both negotiated and served HTTP 200. With CloudFrontDefaultCertificate=true, AWS uses the TLS 1.0 viewer policy regardless of a claimed MinimumProtocolVersion. Do not lower minExpected to match this exposure."
     },
     {
       "label": "storefront (Vercel)",
