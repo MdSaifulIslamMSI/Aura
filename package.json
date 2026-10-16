@@ -14,6 +14,7 @@
     "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
     "quality:test": "npm test && npm --prefix app test && npm run test:desktop",
     "test:desktop": "node --test \"desktop/**/*.test.cjs\"",
+    "test:gate-contract": "node --test \"scripts/desktop/*.test.mjs\"",
     "test:desktop:boot": "node scripts/desktop/boot-smoke.mjs",
     "lint:desktop": "node scripts/desktop/lint-syntax.mjs",
     "lint:node": "eslint desktop scripts server --no-warn-ignored",

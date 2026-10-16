@@ -33,7 +33,15 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const desktopDir = path.join(repoRoot, 'desktop');
+
+// AURA_DESKTOP_LINT_ROOT exists so scripts/desktop/lint-syntax.test.mjs can run
+// this gate against a synthetic fixture tree and assert that it FAILS on inputs
+// it is supposed to reject. Without it this gate had no test proving it could
+// fail at all — it only ever demonstrated that it passed, which is how three
+// sibling gates ended up silently skipping whole file extensions.
+const desktopDir = process.env.AURA_DESKTOP_LINT_ROOT
+    ? path.resolve(process.env.AURA_DESKTOP_LINT_ROOT)
+    : path.join(repoRoot, 'desktop');
 
 // Extensions `node --check` can parse as CommonJS script grammar. Note this is
 // why the gate cannot just widen: `--check` rejects a `.mjs` that uses ESM
