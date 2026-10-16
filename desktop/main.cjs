@@ -4,6 +4,18 @@ const { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, screen, 
 
 // Guarded main-process error reporting (the renderer is covered by the web
 // SDK baked into app/dist). No-op without SENTRY_DSN; never blocks boot.
+//
+// @sentry/electron is a devDependency, not a dependency: electron-builder ships
+// only `dependencies` into the asar, and the Sentry tree measured 36.9 MB of the
+// 364 MB Linux artifact (71% of a 51.9 MB node_modules, dragged in structurally
+// via @sentry/node -> @sentry/server-utils at 16.2 MB and @sentry/browser ->
+// @sentry/replay). No desktop release job sets SENTRY_DSN, so that shipped to
+// every install and could never activate — it is 10% of the artifact for a code
+// path that is dead on arrival.
+//
+// Restoring it is deliberate, not accidental: move @sentry/electron back to
+// `dependencies` AND set SENTRY_DSN in desktop-release.yml, or the init below
+// will silently no-op via the catch.
 try {
     if (process.env.SENTRY_DSN) {
         const desktopRelease = String(
