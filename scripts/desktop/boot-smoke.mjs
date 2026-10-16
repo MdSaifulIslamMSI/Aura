@@ -17,6 +17,15 @@
  *   3. The local runtime serves the built SPA over HTTP.
  *   4. The DNS-rebinding Host guard is armed in the live server (421).
  *   5. The process is still alive at the end, i.e. it did not crash after boot.
+ *   6. Startup timing is reported, and enforced only when explicitly asked for.
+ *
+ * Startup timing: main.cjs logs `[desktop:sre] startup ready in <N>ms (budget
+ * <B>ms)` to stderr (console.warn) BEFORE the boot marker is written, so the
+ * measurement is already in the captured stream — it was simply never read. It
+ * is reported on every run instead of being enforced by default, because the app
+ * currently boots OVER its 3000ms budget; defaulting to enforcement would turn a
+ * pre-existing regression into a red build on every desktop/** PR and bury the
+ * real signal. Set AURA_DESKTOP_STARTUP_STRICT=1 to enforce once met.
  *
  * Usage: npm run test:desktop:boot
  * Requires `npm run desktop:frontend:build` to have produced app/dist.
@@ -209,6 +218,73 @@ if (!bootReport) {
 log(`booted ${bootReport.version} on ${bootReport.platform}`);
 log(`runtime url: ${bootReport.runtimeUrl}`);
 log(`window url:  ${bootReport.windowUrl}`);
+
+// main.cjs writes the boot marker with fs.writeSync(1) because stdout is async
+// when piped, but the SRE line goes through console.info/console.warn — which
+// land on DIFFERENT streams depending on whether the budget was met. Electron
+// does not pin them, so both are searched rather than assuming one.
+const readStartupTiming = async () => {
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+        const line = `${output.stdout}\n${output.stderr}`
+            .split(/\r?\n/)
+            .find((entry) => entry.includes('[desktop:sre]'));
+        const match = line?.match(
+            /startup ready in (\d+)ms \(budget (\d+)ms\), interactive in (\d+)ms(?: \(backstop (\d+)ms\))?/
+        );
+        if (match) {
+            return {
+                durationMs: Number(match[1]),
+                budgetMs: Number(match[2]),
+                interactiveMs: Number(match[3]),
+                backstopMs: match[4] ? Number(match[4]) : null,
+            };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return null;
+};
+
+const startupTiming = await readStartupTiming();
+
+if (!startupTiming) {
+    // A missing measurement is itself a regression: startupReliability.cjs
+    // stopped reporting, so the budget would silently stop being visible.
+    dumpOutput();
+    fail('No [desktop:sre] startup timing line in the Electron output.');
+}
+
+// Two separate figures, deliberately. `durationMs` is the perceived startup —
+// the launch shell painting and the window being revealed. `interactiveMs` is
+// the full /login navigation. Budgeting only the first would let a hung SPA
+// pass; budgeting only the second reports a 2.6s-slower number for a window the
+// user saw almost immediately (measured: 513-953ms reveal vs 3159-3742ms
+// interactive). Both are gated; the second only against a loose backstop.
+const revealOverageMs = startupTiming.durationMs - startupTiming.budgetMs;
+const revealVerdict = revealOverageMs <= 0
+    ? `within budget by ${Math.abs(revealOverageMs)}ms`
+    : `OVER budget by ${revealOverageMs}ms`;
+log(`startup: ${startupTiming.durationMs}ms (budget ${startupTiming.budgetMs}ms) — ${revealVerdict}`);
+log(`interactive: ${startupTiming.interactiveMs}ms${startupTiming.backstopMs ? ` (backstop ${startupTiming.backstopMs}ms)` : ''}`);
+
+const startupStrict = ['1', 'true', 'yes', 'on']
+    .includes(String(process.env.AURA_DESKTOP_STARTUP_STRICT || '').trim().toLowerCase());
+
+if (startupTiming.backstopMs && startupTiming.interactiveMs > startupTiming.backstopMs) {
+    // Always enforced, strict or not: the reveal budget cannot catch this, and
+    // a silent multi-second SPA hang is exactly what the backstop exists for.
+    fail(
+        `Interactive startup took ${startupTiming.interactiveMs}ms, over the `
+        + `${startupTiming.backstopMs}ms backstop.`
+    );
+}
+
+if (revealOverageMs > 0 && startupStrict) {
+    fail(
+        `Startup took ${startupTiming.durationMs}ms, over the ${startupTiming.budgetMs}ms budget `
+        + `by ${revealOverageMs}ms (AURA_DESKTOP_STARTUP_STRICT=1).`
+    );
+}
 
 if (!bootReport.ok) {
     dumpOutput();

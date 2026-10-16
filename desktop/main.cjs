@@ -4,6 +4,18 @@ const { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, screen, 
 
 // Guarded main-process error reporting (the renderer is covered by the web
 // SDK baked into app/dist). No-op without SENTRY_DSN; never blocks boot.
+//
+// @sentry/electron is a devDependency, not a dependency: electron-builder ships
+// only `dependencies` into the asar, and the Sentry tree measured 36.9 MB of the
+// 364 MB Linux artifact (71% of a 51.9 MB node_modules, dragged in structurally
+// via @sentry/node -> @sentry/server-utils at 16.2 MB and @sentry/browser ->
+// @sentry/replay). No desktop release job sets SENTRY_DSN, so that shipped to
+// every install and could never activate — it is 10% of the artifact for a code
+// path that is dead on arrival.
+//
+// Restoring it is deliberate, not accidental: move @sentry/electron back to
+// `dependencies` AND set SENTRY_DSN in desktop-release.yml, or the init below
+// will silently no-op via the catch.
 try {
     if (process.env.SENTRY_DSN) {
         const desktopRelease = String(
@@ -42,6 +54,7 @@ const {
     isTrustedDesktopIpcSender,
 } = require('./securityPolicy.cjs');
 const {
+    DEFAULT_DESKTOP_INTERACTIVE_BACKSTOP_MS,
     buildDesktopStartupUrl,
     evaluateDesktopStartup,
     loadWindowUrlSafely,
@@ -270,10 +283,20 @@ const resolveIconPath = () => (
 );
 const resolvePreloadPath = () => path.join(app.getAppPath(), 'desktop', 'preload.cjs');
 
+// The launch shell renders the mark at 58x58 CSS px (launchShell.cjs), so a
+// 512px source is ~8x oversized: it base64-encodes into a ~676 KB data URL that
+// Chromium must decode and paint before the real app load starts. 192px covers
+// 2x DPI with headroom at a sixth of the bytes, and measured materially faster
+// to navigate. Do not "improve" this back to the 512 icon.
+//
+// This is deliberately a DIFFERENT resource from resolveIconPath() above, which
+// feeds BrowserWindow's `icon:` and should stay 512px because the OS scales that
+// one across taskbar densities. Shipping only one file would have silently
+// capped the window icon to 192px, so build.extraResources carries both.
 const resolveLaunchIconDataUrl = () => {
     const iconPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'app-icon.png')
-        : path.join(app.getAppPath(), 'app', 'public', 'assets', 'icon-512.png');
+        ? path.join(process.resourcesPath, 'app-launch-icon.png')
+        : path.join(app.getAppPath(), 'app', 'public', 'assets', 'icon-192.png');
 
     try {
         return `data:image/png;base64,${fs.readFileSync(iconPath).toString('base64')}`;
@@ -381,10 +404,16 @@ const reportDesktopBootSmoke = (window) => {
 
 const createMainWindow = async () => {
     const startupStartedAt = Date.now();
+    const mark = (label) => {
+        if (process.env.AURA_DESKTOP_TRACE_BOOT !== '1') return;
+        console.error(`[desktop:trace] ${label} @${Date.now() - startupStartedAt}ms`);
+    };
+    mark('enter');
     const iconPath = resolveIconPath();
     const initialBounds = getInitialWindowBounds(
         screen.getPrimaryDisplay().workAreaSize
     );
+    mark('bounds');
     mainWindow = new BrowserWindow({
         ...initialBounds,
         minWidth: MIN_WINDOW_WIDTH,
@@ -398,12 +427,24 @@ const createMainWindow = async () => {
             preloadPath: resolvePreloadPath(),
         }),
     });
+    mark('browserwindow-created');
     mainWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
 
     const activeWindow = mainWindow;
-    const revealActiveWindow = () => revealWindow(activeWindow, {
-        maximize: process.env.AURA_DESKTOP_START_MAXIMIZED !== 'false',
-    });
+    // When the window first became visible. This — not the /login navigation
+    // resolving — is what the startup budget measures, so it must be captured on
+    // every path that can reveal the window, including the failure and timeout
+    // fallbacks. Falls back to "now" if none fired.
+    let revealedAt = 0;
+    const recordReveal = () => {
+        if (!revealedAt) revealedAt = Date.now();
+    };
+    const revealActiveWindow = () => {
+        recordReveal();
+        return revealWindow(activeWindow, {
+            maximize: process.env.AURA_DESKTOP_START_MAXIMIZED !== 'false',
+        });
+    };
     const revealTimer = setTimeout(() => {
         console.warn('[desktop] ready-to-show was delayed; revealing the startup window.');
         revealActiveWindow();
@@ -411,6 +452,7 @@ const createMainWindow = async () => {
 
     mainWindow.once('ready-to-show', () => {
         clearTimeout(revealTimer);
+        mark('ready-to-show');
         revealActiveWindow();
     });
 
@@ -423,6 +465,7 @@ const createMainWindow = async () => {
 
     mainWindow.webContents.on('did-finish-load', () => {
         if (activeWindow.isDestroyed()) return;
+        mark('did-finish-load');
         activeWindow.webContents.setZoomFactor(MAIN_WINDOW_ZOOM);
         Promise.resolve(
             activeWindow.webContents.setVisualZoomLevelLimits(MAIN_WINDOW_ZOOM, MAIN_WINDOW_ZOOM)
@@ -436,14 +479,15 @@ const createMainWindow = async () => {
         }
     });
 
-    const launchShellLoaded = await loadWindowUrlSafely(
-        activeWindow,
-        buildLaunchShellDataUrl({
-            iconDataUrl: resolveLaunchIconDataUrl(),
-        })
-    );
-    if (!launchShellLoaded) return null;
-
+    mark('before-launch-shell');
+    // Start the runtime concurrently with the launch-shell load instead of after
+    // it. The two are independent — the launch shell is a data: URL that never
+    // touches the runtime — so running them in series added the server's cold
+    // start plus its first-request warmup (~90-215ms measured) directly onto the
+    // startup critical path. The eager .catch keeps a server failure (EADDRINUSE)
+    // from surfacing as an unhandled rejection while the shell is still loading;
+    // it is re-thrown at the await below, where the caller already handles it.
+    let pendingRuntime = null;
     if (!runtime) {
         const runtimeOptions = {
             distDir: resolveDistDir(),
@@ -464,7 +508,23 @@ const createMainWindow = async () => {
         if (requestedPort) {
             runtimeOptions.port = requestedPort;
         }
-        runtime = await startRuntimeServer(runtimeOptions);
+        mark('runtime-kickoff');
+        pendingRuntime = startRuntimeServer(runtimeOptions);
+        pendingRuntime.catch(() => {});
+    }
+
+    const launchShellLoaded = await loadWindowUrlSafely(
+        activeWindow,
+        buildLaunchShellDataUrl({
+            iconDataUrl: resolveLaunchIconDataUrl(),
+        })
+    );
+    mark('after-launch-shell');
+    if (!launchShellLoaded) return null;
+
+    if (pendingRuntime) {
+        runtime = await pendingRuntime;
+        mark('after-runtime');
     }
     if (activeWindow.isDestroyed()) return null;
 
@@ -532,17 +592,28 @@ const createMainWindow = async () => {
         });
     });
 
+    mark('before-app-load');
     const appLoaded = await loadWindowUrlSafely(
         activeWindow,
         buildDesktopStartupUrl(runtime.url, app.getVersion())
     );
+    mark('after-app-load');
     if (appLoaded) {
+        const interactiveMs = Date.now() - startupStartedAt;
+        // Budget the reveal the user actually perceives, and hold the full
+        // interactive cost to a separate loose backstop. Reporting only one of
+        // the two would hide a regression in the other: budget the navigation
+        // and a fast splash looks slow, budget the reveal and a hung SPA looks
+        // fine.
         const startup = evaluateDesktopStartup({
             startedAt: startupStartedAt,
-            finishedAt: Date.now(),
+            finishedAt: revealedAt || Date.now(),
         });
-        const message = `[desktop:sre] startup ready in ${startup.durationMs}ms (budget ${startup.budgetMs}ms).`;
-        if (startup.withinBudget) {
+        const interactiveWithinBackstop = interactiveMs <= DEFAULT_DESKTOP_INTERACTIVE_BACKSTOP_MS;
+        const message = `[desktop:sre] startup ready in ${startup.durationMs}ms `
+            + `(budget ${startup.budgetMs}ms), interactive in ${interactiveMs}ms `
+            + `(backstop ${DEFAULT_DESKTOP_INTERACTIVE_BACKSTOP_MS}ms).`;
+        if (startup.withinBudget && interactiveWithinBackstop) {
             console.info(message);
         } else {
             console.warn(message);

@@ -121,8 +121,47 @@ These run in the `desktop-package-smoke` CI job whenever `desktop/**` changes.
   - Requires `npm run desktop:frontend:build` first. On a headless Linux runner, wrap it in `xvfb-run -a`.
   - Close any running dev instance first: Electron's single-instance lock makes a second shell exit before the window loads.
   - The shell is launched unpackaged with `AURA_DESKTOP_BOOT_SMOKE=1`, which makes `desktop/main.cjs` report the loaded URL and skip the rest of boot. The hook is gated on `!app.isPackaged`, so it cannot run in a shipped build.
+  - It also reports the two startup figures the shell logs — the perceived reveal and the interactive backstop — and enforces both. The reveal budget additionally fails the build when `AURA_DESKTOP_STARTUP_STRICT=1`, which CI sets.
 - `node scripts/desktop/verify-packaged-runtime.mjs`
   - Packaging assertion, run against `desktop-release/linux-unpacked`. Extracts `app.asar` and `require()`s the packaged runtime to prove `config/backend-origin.json` shipped and resolves.
+
+## Desktop Startup Budget
+
+`desktop/startupReliability.cjs` defines two budgets, because "startup" is two different numbers and conflating them hides a regression in either one.
+
+**Reveal** (`DEFAULT_DESKTOP_STARTUP_BUDGET_MS = 3000`) budgets the phase a user actually perceives: the launch shell painting and the window being shown. It is recorded on every path that can reveal the window — `ready-to-show`, the 8-second fallback, and `did-fail-load` — so a slow first paint or a failed load still produces a real measurement.
+
+**Interactive** (`DEFAULT_DESKTOP_INTERACTIVE_BACKSTOP_MS = 6000`) is a deliberately loose backstop on the full `/login` navigation resolving. It is enforced by `boot-smoke` unconditionally, not behind `AURA_DESKTOP_STARTUP_STRICT`, because a reveal-only budget cannot catch a hung SPA: a 10-second navigation hang would still show a fast splash and pass.
+
+This split replaced a single measurement taken at `loadURL` resolution. That number was consistently ~2.6s behind the reveal — measured 513–953ms to show the window against 3159–3742ms to resolve `/login` — so a build that felt fast was reported as 21% over budget. Budgeting the navigation penalised exactly the change (an early reveal) that improved perceived startup.
+
+Current measurements, unpackaged dev build on Windows:
+
+- Reveal: 262–585ms against the 3000ms budget.
+- Interactive: 1626–3865ms against the 6000ms backstop.
+
+CI sets `AURA_DESKTOP_STARTUP_STRICT=1` on the boot step, so the reveal budget is enforced on every `desktop/**` change. Reveal holds 83–91% headroom, so normal machine variance does not fail a build.
+
+Set `AURA_DESKTOP_TRACE_BOOT=1` locally to print a per-phase breakdown (`enter`, `browserwindow-created`, `runtime-kickoff`, `did-finish-load`, `ready-to-show`, `after-app-load`) to stderr. That trace is what located the two costs below.
+
+The dominant remaining cost is the SPA's own parse, React mount, and Firebase initialisation — renderer CPU, not the local runtime server, which accounts for well under 100ms. Loopback requests against the warm runtime serve in 5–24ms. Replacing `desktop/runtimeServer.cjs` with another JavaScript runtime does not move the reveal number; it only adds a process to start.
+
+Two startup costs that were removed rather than budgeted:
+
+- The launch shell renders its mark at 58×58 CSS px but was inlining a 512px source, base64-encoded into a ~676KB data URL Chromium had to decode and paint before the real load could begin. It now ships a dedicated 192px launch icon (`app-launch-icon.png`) as a separate `extraResources` entry, because `resolveIconPath()` feeds `BrowserWindow`'s `icon:` and must stay 512px for taskbar densities.
+- The runtime server now starts concurrently with the launch-shell load rather than after it, and performs one throwaway warmup `GET /` after `listen()`. The first request through a fresh express + node:http stack measured 218ms against 5–24ms warm, and running the two phases in series put that cost directly on the critical path.
+
+## Desktop Bundle Size
+
+`build.extraResources` copies the whole of `app/dist` into the installer, so the packaged artifact carries every route chunk and image whether or not a given user ever navigates to it.
+
+Current shape, from a fresh `npm run desktop:frontend:build`:
+
+- `app/dist` totals ~33 MB: ~19.6 MB of JS, ~12.6 MB of PNG, the rest CSS/icons/HTML.
+- Only ~1.2 MB raw (~333 KB gzip) is fetched at first paint. The rest is route-split and lazy-loaded — `check_bundle_budget.mjs` measures eager shell JS specifically so lazy chunks do not count against first-load budgets.
+- Electron plus its bundled Chromium accounts for roughly 330 MB of the ~364 MB packaged artifact. Everything Aura itself ships is the ~33 MB above, so frontend asset work moves the installer by single-digit percentages while the browser engine dominates it by an order of magnitude.
+
+The ~12.6 MB of PNG is seeded demo catalogue imagery (`nano_*`, `banner_*`) referenced by `server/seeders/data/products.js` and `server/seeders/update_images.js` as `/assets/...` paths served to the storefront. It is fixture data, but it is load-bearing for the seeded development catalogue: deleting it to shrink the installer would break local and staging seeds. Reducing it means converting those images to a modern format and updating the seed data to match, which is a deliberate change with visual-review cost, not a build tweak.
 
 ## First-Time Setup
 

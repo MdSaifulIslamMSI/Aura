@@ -803,7 +803,14 @@ jobs:
       # shipped. Neither launches Electron, so nothing caught a regression that
       # broke window creation or the local runtime server. xvfb-run because the
       # runner is headless.
+      #
+      # STRICT enforces the startup budget on the reveal the user actually
+      # perceives (measured 262-585ms against a 3000ms budget). The interactive
+      # backstop is enforced unconditionally by boot-smoke itself, so enabling
+      # strict here cannot loosen the gross-regression check.
       - name: Boot the desktop shell
+        env:
+          AURA_DESKTOP_STARTUP_STRICT: '1'
         run: xvfb-run -a npm run test:desktop:boot
 
       - name: Package Linux desktop directory smoke test

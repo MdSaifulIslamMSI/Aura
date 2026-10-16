@@ -44,6 +44,10 @@ const {
 // runtimeServer.test.cjs, and scripts/desktop/verify-packaged-runtime.mjs (which
 // loads this file from an extracted asar) all resolve names from here.
 
+// Bounds the throwaway startup request below. Deliberately short: if the loopback
+// stack is not answering, booting should continue rather than wait on warmup.
+const WARMUP_TIMEOUT_MS = 2000;
+
 const createLocalRateLimiter = ({ windowMs, max }) => {
     const windows = new Map();
 
@@ -300,6 +304,28 @@ const startRuntimeServer = async ({
 
     const runtimeUrl = buildRuntimeUrl(address.port);
     const runtimeCallbackUrl = buildRuntimeCallbackUrl(address.port);
+
+    // The first request through a freshly-built express + node:http stack costs
+    // roughly 200ms more than steady state (measured: 218ms first vs 5-24ms
+    // warm). The window's /login navigation is that first request, so the penalty
+    // otherwise lands on the desktop startup critical path. One throwaway GET /
+    // moves it here, where desktop/main.cjs overlaps it with the launch-shell
+    // load instead of paying for it serially.
+    //
+    // Never fatal: a failed warmup must not stop the app booting. fetch sets
+    // Host from the URL, which is the loopback public host the Host guard
+    // requires, so this cannot 421 itself.
+    try {
+        const warmupController = new AbortController();
+        const warmupTimer = setTimeout(() => warmupController.abort(), WARMUP_TIMEOUT_MS);
+        try {
+            await fetch(`${runtimeUrl}/`, { signal: warmupController.signal });
+        } finally {
+            clearTimeout(warmupTimer);
+        }
+    } catch {
+        // Best effort only.
+    }
 
     return {
         backendOrigin,

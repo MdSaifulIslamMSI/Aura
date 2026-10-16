@@ -295,13 +295,13 @@
     "env:ssm-parity": "node scripts/env/ssm-parity-report.mjs"
   },
   "dependencies": {
-    "@sentry/electron": "^7.18.0",
     "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "http-proxy-middleware": "^4.2.0"
   },
   "devDependencies": {
+    "@sentry/electron": "^7.18.0",
     "@eslint/js": "^10.0.1",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
@@ -336,6 +336,9 @@
     "appId": "com.aura.marketplace.desktop",
     "productName": "Aura Marketplace",
     "asar": true,
+    "electronLanguages": [
+      "en-US"
+    ],
     "directories": {
       "app": ".",
       "output": "desktop-release"
@@ -377,6 +380,10 @@
       {
         "from": "app/public/assets/icon-512.png",
         "to": "app-icon.png"
+      },
+      {
+        "from": "app/public/assets/icon-192.png",
+        "to": "app-launch-icon.png"
       },
       {
         "from": "config/backend-origin.json",

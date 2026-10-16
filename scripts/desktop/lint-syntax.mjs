@@ -15,6 +15,14 @@
  * instead of surfacing as an opaque boot crash, and the ~1,800 lines of
  * unlinted shell get a gate that costs no install time.
  *
+ * Why it also *rejects* files it cannot parse: this gate used to collect
+ * `**\/*.cjs` and ignore everything else, so adding a `.ts` or `.mjs` desktop
+ * module silently removed it from the syntax floor AND from knip's project glob
+ * (`desktop/**\/*.{js,cjs}`). The shell would then lose coverage with every gate
+ * still reporting green. A gate that cannot check a file must say so, so an
+ * unhandled JS extension fails here by name until someone decides how to check
+ * it.
+ *
  * Usage: npm run lint:desktop
  */
 
@@ -27,21 +35,69 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const desktopDir = path.join(repoRoot, 'desktop');
 
+// Extensions `node --check` can parse as CommonJS script grammar. Note this is
+// why the gate cannot just widen: `--check` rejects a `.mjs` that uses ESM
+// syntax, and a `.ts` outright, so "parse everything" is not available.
+const PARSED_EXTENSIONS = new Set(['.cjs']);
+
+// The JS family this gate does NOT cover. Derived from the full set so adding a
+// language here is one edit, and filtering keeps `.cjs` out so a parsed file is
+// never also reported as unhandled.
+const JS_FAMILY_EXTENSIONS = [
+    '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts',
+];
+const UNHANDLED_SOURCE_EXTENSIONS = new Set(
+    JS_FAMILY_EXTENSIONS.filter((extension) => !PARSED_EXTENSIONS.has(extension))
+);
+
+// Non-source files (images, fixtures) are irrelevant to a syntax floor and are
+// skipped by extension rather than by directory, so a stray .ts inside assets/
+// is still caught.
 const collectModules = (dir) => {
-    const out = [];
-    if (!fs.existsSync(dir)) return out;
+    const parsed = [];
+    const unhandled = [];
+    if (!fs.existsSync(dir)) return { parsed, unhandled };
+
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-            out.push(...collectModules(full));
-        } else if (entry.name.endsWith('.cjs')) {
-            out.push(full);
+            const nested = collectModules(full);
+            parsed.push(...nested.parsed);
+            unhandled.push(...nested.unhandled);
+            continue;
+        }
+
+        const extension = path.extname(entry.name).toLowerCase();
+        if (PARSED_EXTENSIONS.has(extension)) {
+            parsed.push(full);
+        } else if (UNHANDLED_SOURCE_EXTENSIONS.has(extension)) {
+            unhandled.push(full);
         }
     }
-    return out.sort();
+
+    return { parsed: parsed.sort(), unhandled: unhandled.sort() };
 };
 
-const modules = collectModules(desktopDir);
+const { parsed: modules, unhandled: unhandledModules } = collectModules(desktopDir);
+
+if (unhandledModules.length > 0) {
+    // Reported before the parse loop and independently of it: an unhandled file
+    // is a coverage hole even when every parseable module is fine, so folding
+    // this into `failures` would let it hide behind a parse count.
+    console.error(
+        `[desktop-lint] ${unhandledModules.length} desktop file(s) use an extension this gate cannot parse.`
+        + ' They are excluded from the syntax floor and from knip, so nothing is checking them:\n'
+    );
+    for (const file of unhandledModules) {
+        console.error(`  ${path.relative(repoRoot, file)}\n`);
+    }
+    console.error(
+        'Either convert them to .cjs, or extend this gate with a real check for that'
+        + ' extension before committing. Do not delete this file to make the gate green.'
+    );
+    process.exit(1);
+}
+
 if (modules.length === 0) {
     console.error('[desktop-lint] No desktop modules found — did desktop/ move?');
     process.exit(1);

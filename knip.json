@@ -20,7 +20,7 @@
         "scripts/**/*.{js,mjs,cjs}"
       ],
       "project": [
-        "desktop/**/*.{js,cjs}",
+        "desktop/**/*.{js,jsx,cjs,mjs,ts,tsx,mts,cts}",
         "scripts/**/*.{js,mjs,cjs}"
       ]
     },
