@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "comment": "Declared production TLS posture per edge. These hostnames are platform-assigned (cloudfront.net, vercel.app, netlify.app, up.railway.app) - none is a domain this project controls. That has a concrete consequence recorded in config/security/post-quantum-policy.json: a TLS 1.3 *minimum* cannot be enforced from this repository, because ACM validation requires control of the domain and the protocol floor is set by each provider. What IS enforceable is that no edge regresses into legacy TLS and that TLS 1.3 stays available. The probe gates exactly those two things.",
+  "comment": "Required production TLS posture, not a claim that every edge complies. Live probes must distinguish explicit peer rejection from client/network errors. The default-certificate CloudFront edge accepted TLS 1.0/1.1 on 2026-10-16; keep its required minimum at TLS 1.2 so the gate remains failing until the edge is remediated. A controllable viewer policy requires an owned custom domain and suitable certificate.",
   "requirements": {
     "rejectLegacyTls": true,
     "requireTls13Available": true,
-    "comment": "A TLS 1.3 minimum is deliberately NOT required. Every edge below is measured at a TLS 1.2 floor with 1.3 available; requiring 1.3 here would be a gate no real edge could satisfy, which is the same silent-pass as skipping the check, only dressed as a failure."
+    "comment": "These checks require legacy rejection and TLS 1.3 availability; they do not prove TLS 1.3-only operation or hybrid-PQC negotiation. The stricter TLS 1.3-only configuration target remains in post-quantum-policy.json and tls-config-readiness.mjs."
   },
   "edges": [
     {
@@ -13,7 +13,7 @@
       "owner": "provider",
       "provider": "AWS CloudFront",
       "minExpected": "TLSv1.2",
-      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). MinimumProtocolVersion is not honoured on CloudFrontDefaultCertificate distributions - CloudFront enforces its own 1.2 floor. Verified by probing, not by reading config."
+      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). Observed 2026-10-16: TLS 1.0 and 1.1 both negotiated and served HTTP 200. With CloudFrontDefaultCertificate=true, AWS uses the TLSv1 viewer policy regardless of a claimed MinimumProtocolVersion. Do not lower minExpected to match this exposure."
     },
     {
       "label": "storefront (Vercel)",

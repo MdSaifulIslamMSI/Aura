@@ -165,13 +165,14 @@ function New-ProxyCacheBehavior {
 }
 
 Require-Command -Name "aws"
+Require-Command -Name "node"
 
 if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
     $env:AWS_PROFILE = $AwsProfile.Trim()
 }
 
 $accountId = aws sts get-caller-identity --query "Account" --output text
-if ([string]::IsNullOrWhiteSpace($accountId) -or $accountId -eq "None") {
+if ($LASTEXITCODE -ne 0 -or $accountId -notmatch '^\d{12}$') {
     throw "Could not resolve AWS account id."
 }
 
@@ -287,6 +288,7 @@ if ($null -eq $distributionSummary) {
                         HTTPPort = 80
                         HTTPSPort = 443
                         OriginProtocolPolicy = "https-only"
+                        # CloudFront origin protocol values are not viewer security-policy names.
                         OriginSslProtocols = @{
                             Quantity = 1
                             Items = @("TLSv1.2")
@@ -400,6 +402,7 @@ $backendOriginConfig = @{
         HTTPPort = 80
         HTTPSPort = 443
         OriginProtocolPolicy = "https-only"
+        # TLS 1.2 is the highest configurable origin floor; this is not TLS 1.3 proof.
         OriginSslProtocols = @{
             Quantity = 1
             Items = @("TLSv1.2")
@@ -471,10 +474,13 @@ $bucketPolicyFile = Write-JsonFile -Name "$resolvedBucketName-cloudfront-policy.
     )
 }
 
-aws s3api put-bucket-policy `
-    --bucket $resolvedBucketName `
-    --policy "file://$bucketPolicyFile" `
-    --region $AwsRegion | Out-Null
+# Append the OAC grant and HTTPS denial without replacing unrelated policy statements.
+& node (Join-Path $PSScriptRoot "../../scripts/security/enforce-s3-https.mjs") `
+    --apply --region $AwsRegion --bucket $resolvedBucketName `
+    --expected-bucket-owner $accountId --merge-policy $bucketPolicyFile
+if ($LASTEXITCODE -ne 0) {
+    throw "HTTPS-only CloudFront bucket policy maintenance failed."
+}
 
 aws s3api put-public-access-block `
     --bucket $resolvedBucketName `

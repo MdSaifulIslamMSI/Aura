@@ -58,8 +58,16 @@ function Configure-BucketDefaults {
         [string]$BucketName,
         [string]$StackName,
         [string]$Purpose,
-        [string]$LifecycleConfigurationJson = ""
+        [string]$LifecycleConfigurationJson = "",
+        [string]$Region,
+        [string]$ExpectedBucketOwner
     )
+
+    & node (Join-Path $PSScriptRoot "../../scripts/security/enforce-s3-https.mjs") `
+        --apply --region $Region --bucket $BucketName --expected-bucket-owner $ExpectedBucketOwner
+    if ($LASTEXITCODE -ne 0) {
+        throw "HTTPS-only bucket policy maintenance failed for '$BucketName'."
+    }
 
     $encryptionConfiguration = @{
         Rules = @(
@@ -264,6 +272,7 @@ function Ensure-InstanceRole {
 }
 
 Require-Command -Name "aws"
+Require-Command -Name "node"
 $script:AwsCliPath = (Get-Command aws -CommandType Application -ErrorAction Stop).Source
 Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script
 
@@ -385,8 +394,8 @@ $mediaLifecycle = @{
         }
     )
 } | ConvertTo-Json -Depth 8 -Compress
-Configure-BucketDefaults -BucketName $DeployBucketName -StackName $StackPrefix -Purpose "deploy-artifacts" -LifecycleConfigurationJson $deployLifecycle
-Configure-BucketDefaults -BucketName $MediaBucketName -StackName $StackPrefix -Purpose "review-media" -LifecycleConfigurationJson $mediaLifecycle
+Configure-BucketDefaults -BucketName $DeployBucketName -StackName $StackPrefix -Purpose "deploy-artifacts" -LifecycleConfigurationJson $deployLifecycle -Region $AwsRegion -ExpectedBucketOwner $awsAccountId
+Configure-BucketDefaults -BucketName $MediaBucketName -StackName $StackPrefix -Purpose "review-media" -LifecycleConfigurationJson $mediaLifecycle -Region $AwsRegion -ExpectedBucketOwner $awsAccountId
 
 $roleName = "$StackPrefix-backend-ec2-role"
 $profileName = "$StackPrefix-backend-ec2-profile"
