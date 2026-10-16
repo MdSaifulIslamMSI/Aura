@@ -5,8 +5,33 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
-const readText = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
-const readJson = (relativePath) => JSON.parse(readText(relativePath));
+
+// A surface that moved or was deleted must fail by name instead of throwing.
+// The previous bare readFileSync aborted the audit at whichever line happened to
+// hit the missing file, so every assertion after that line silently never ran —
+// one renamed file could turn the rest of the contract into a no-op and the
+// ENOENT stack trace reads like an unrelated crash. Collecting the failures and
+// reporting them keeps every other assertion alive.
+const unreadableSurfaces = new Set();
+
+const readText = (relativePath) => {
+    try {
+        return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+    } catch {
+        unreadableSurfaces.add(relativePath);
+        return '';
+    }
+};
+
+const readJson = (relativePath) => {
+    const text = readText(relativePath);
+    try {
+        return JSON.parse(text);
+    } catch {
+        unreadableSurfaces.add(relativePath);
+        return {};
+    }
+};
 
 const failures = [];
 const addFailure = (message) => failures.push(message);
@@ -178,6 +203,10 @@ requireNotIncludes(orderPlacementService, 'scanForMarketplaceAnomalies', 'Order 
 requireNotIncludes(orderPlacementService, 'integrityInsights', 'Order placement must not persist synthetic integrity insights in priceBreakdown.');
 requireIncludes(marketplaceIntegrityService, 'limitedData.forEach', 'Marketplace integrity scans must iterate the bounded neighborhood only.');
 requireIncludes(marketplaceIntegrityService, "protectionLevel: 'bounded-graph-heuristic'", 'Marketplace integrity scan output must not claim theatrical graph-isomorphism protection.');
+
+for (const surface of [...unreadableSurfaces].sort()) {
+    addFailure(`Audit surface could not be read: ${surface}. Point this audit at its new location — do not delete the check that read it.`);
+}
 
 const report = {
     checked: {
