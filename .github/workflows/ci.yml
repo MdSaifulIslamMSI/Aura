@@ -783,6 +783,13 @@ jobs:
       - name: Lint desktop sources
         run: npm run lint:desktop
 
+      # A gate never observed failing is not a gate. lint:desktop silently
+      # skipped whole file extensions until its meta-test existed — it stayed
+      # green while desktop/ coverage quietly reached zero. This asserts it
+      # REJECTS the inputs it is supposed to reject.
+      - name: Assert the desktop gate rejects what it should
+        run: npm run test:gate-contract
+
       # Real lint for desktop/ and scripts/. This is the gate that caught the
       # dropped preflight origin check in #653's runtime decomposition, which
       # every other check missed because the dead handler still parsed cleanly.
