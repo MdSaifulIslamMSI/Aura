@@ -36,6 +36,40 @@ const parseInitialAssets = (html) => {
     return [...new Set(matches.map((match) => match[1].replace(/^\//, '')))];
 };
 
+// Walks the entry's transitive STATIC import closure, which is what the browser
+// actually downloads before first paint. index.html alone is not that set: a
+// chunk reachable only via `import ... from "./x.js"` still loads eagerly, and
+// the entry can pull in eight route chunks that way (admin-*, commerce-flow,
+// marketplace, product-experience, discovery) without index.html naming any of
+// them. Reading only index.html reported 192.1 KB against a 470 KB cap while
+// the real closure was 735.2 KB — the gate passed on a payload 56% over budget.
+//
+// Only static `from "..."` specifiers are followed. `import("...")` is a
+// dynamic import and is deliberately excluded: those chunks are on-demand.
+const STATIC_IMPORT_PATTERN = /import\s*[\{*A-Za-z0-9_$][^;]{0,400}?from\s*"\.\/([^"]+\.js)"/g;
+
+const collectStaticClosure = (entryRelativePaths) => {
+    const seen = new Set();
+    const queue = [...entryRelativePaths];
+    const closure = [];
+
+    while (queue.length > 0) {
+        const relativePath = queue.shift();
+        if (seen.has(relativePath)) continue;
+        const filePath = path.join(distDir, relativePath);
+        if (!fs.existsSync(filePath)) continue;
+        seen.add(relativePath);
+        closure.push(relativePath);
+        const content = fs.readFileSync(filePath, 'utf8');
+        for (const match of content.matchAll(STATIC_IMPORT_PATTERN)) {
+            const target = path.posix.join('assets', match[1]);
+            if (!seen.has(target)) queue.push(target);
+        }
+    }
+
+    return closure.sort();
+};
+
 const formatAssetName = (filePath) => path.relative(distDir, filePath).replace(/\\/g, '/');
 
 try {
@@ -53,6 +87,23 @@ try {
         if (!fs.existsSync(filePath)) return 0;
         return gzipKb(fs.readFileSync(filePath));
     };
+
+    // Real first-load JS = the entry's static closure, not just what index.html
+    // names. Tracked separately from maxTotalJsGzipKb so the existing eager-shell
+    // budget keeps its meaning while the true closure is reported and gated on
+    // its own ceiling.
+    const staticClosure = collectStaticClosure(initialJsAssets);
+    const staticClosureGzipKb = Number(staticClosure
+        .reduce((sum, assetPath) => sum + resolveAssetGzipKb(assetPath), 0)
+        .toFixed(2));
+    const largestClosureAsset = staticClosure.reduce(
+        (largest, assetPath) => (
+            resolveAssetGzipKb(assetPath) > largest.gzipKb
+                ? { file: assetPath, gzipKb: resolveAssetGzipKb(assetPath) }
+                : largest
+        ),
+        { file: '', gzipKb: 0 }
+    );
 
     // Treat the JS budget as "eager shell JS" so lazy route bundles do not
     // incorrectly count against first-load guardrails.
@@ -97,12 +148,31 @@ try {
     if (initialPayloadGzipKb > budgets.mobile.maxInitialPayloadGzipKb) {
         violations.push(`initial payload gzip ${initialPayloadGzipKb}kb > ${budgets.mobile.maxInitialPayloadGzipKb}kb`);
     }
+    if (staticClosureGzipKb > budgets.bundle.maxFirstLoadJsGzipKb) {
+        violations.push(
+            `first-load js closure gzip ${staticClosureGzipKb}kb > ${budgets.bundle.maxFirstLoadJsGzipKb}kb `
+            + `(${staticClosure.length} chunks reachable statically from the entry)`
+        );
+    }
+    if (largestClosureAsset.gzipKb > budgets.bundle.maxLargestJsGzipKb) {
+        violations.push(
+            `largest first-load chunk ${largestClosureAsset.file} gzip ${largestClosureAsset.gzipKb}kb `
+            + `> ${budgets.bundle.maxLargestJsGzipKb}kb`
+        );
+    }
 
     console.log(JSON.stringify({
         budgetsVersion: budgets.version,
         totalJsGzipKb,
         allJsGzipKb,
         lazyJsGzipKb,
+        staticClosureChunkCount: staticClosure.length,
+        staticClosureGzipKb,
+        maxFirstLoadJsGzipKb: budgets.bundle.maxFirstLoadJsGzipKb,
+        largestClosureAsset: largestClosureAsset.file
+            ? formatAssetName(path.join(distDir, largestClosureAsset.file))
+            : '',
+        largestClosureGzipKb: largestClosureAsset.gzipKb,
         largestJsAsset: {
             file: largestJsAsset.file ? formatAssetName(largestJsAsset.file) : '',
             gzipKb: largestJsAsset.gzipKb,
