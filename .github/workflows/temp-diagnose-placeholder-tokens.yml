@@ -1,0 +1,48 @@
+name: TEMP diagnose placeholder provider tokens
+
+# TEMPORARY diagnostic. Reports ONLY a classification per token:
+#   DASH   -> the value is exactly "-"
+#   EMPTY  -> unset or empty
+#   SET    -> a real value
+# It never prints a secret value, never prints a length, and never hashes.
+# Delete this workflow once the diagnosis is complete.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Classify provider tokens without revealing them
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          classify() {
+            local name="$1" value="$2"
+            if [ -z "${value}" ]; then
+              echo "${name}: EMPTY"
+            elif [ "${value}" = "-" ]; then
+              echo "${name}: DASH"
+            else
+              echo "${name}: SET"
+            fi
+          }
+          classify NETLIFY_AUTH_TOKEN "${NETLIFY_AUTH_TOKEN}"
+          classify VERCEL_TOKEN "${VERCEL_TOKEN}"
+          classify RENDER_API_KEY "${RENDER_API_KEY}"
+          classify RAILWAY_API_TOKEN "${RAILWAY_API_TOKEN}"
+          classify CLOUDFLARE_API_TOKEN "${CLOUDFLARE_API_TOKEN}"
+          classify GH_PAGES_TOKEN "${GH_PAGES_TOKEN}"
+          classify SENTRY_AUTH_TOKEN "${SENTRY_AUTH_TOKEN}"
