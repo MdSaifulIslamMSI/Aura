@@ -17,12 +17,19 @@ jest.mock('../services/accountPrivacyService', () => ({
 const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const {
     claimNextPrivacyJob,
+    getRegisteredAccountPrivacyJobTypes,
+    getUnserviceableAccountPrivacyJobTypes,
     processNextPrivacyJob,
 } = require('../services/accountPrivacyWorkerService');
+const {
+    clearAccountPrivacyHandlers,
+    registerAccountPrivacyHandlers,
+} = require('../services/accountPrivacyHandlerRegistry');
 
 describe('account privacy worker service', () => {
     afterEach(() => {
         process.env = { ...ORIGINAL_ENV };
+        clearAccountPrivacyHandlers();
         jest.clearAllMocks();
     });
 
@@ -81,6 +88,76 @@ describe('account privacy worker service', () => {
             _id: '507f1f77bcf86cd799439299',
             status: 'processing',
             workerId: 'privacy-worker-1',
+        });
+    });
+
+    test('never leaves a job pending when its handler is unavailable', async () => {
+        AccountPrivacyJob.findOneAndUpdate
+            .mockResolvedValueOnce({
+                _id: '507f1f77bcf86cd799439299',
+                type: 'deletion',
+                status: 'processing',
+                workerId: 'privacy-worker-1',
+            })
+            .mockResolvedValueOnce({
+                _id: '507f1f77bcf86cd799439299',
+                type: 'deletion',
+                status: 'failed',
+                failureCode: 'handler_unavailable',
+            });
+
+        await processNextPrivacyJob({ workerId: 'privacy-worker-1' });
+
+        const update = AccountPrivacyJob.findOneAndUpdate.mock.calls[1][1].$set;
+        expect(update).toMatchObject({
+            status: 'failed',
+            failureCode: 'handler_unavailable',
+            lockedAt: null,
+            workerId: '',
+        });
+        expect(update.completedAt).toBeUndefined();
+    });
+
+    test('reports every job type as unserviceable until a handler is registered', () => {
+        expect(getRegisteredAccountPrivacyJobTypes()).toEqual([]);
+        expect(getUnserviceableAccountPrivacyJobTypes()).toEqual([
+            'export',
+            'deactivation',
+            'deletion',
+        ]);
+    });
+
+    test('services a claimed job with a handler registered in the registry', async () => {
+        const handler = jest.fn(async () => ({ status: 'ready' }));
+        registerAccountPrivacyHandlers({ export: handler });
+
+        expect(getRegisteredAccountPrivacyJobTypes()).toEqual(['export']);
+        expect(getUnserviceableAccountPrivacyJobTypes()).toEqual([
+            'deactivation',
+            'deletion',
+        ]);
+
+        AccountPrivacyJob.findOneAndUpdate
+            .mockResolvedValueOnce({
+                _id: '507f1f77bcf86cd799439299',
+                type: 'export',
+                status: 'processing',
+                workerId: 'privacy-worker-1',
+            })
+            .mockResolvedValueOnce({
+                _id: '507f1f77bcf86cd799439299',
+                type: 'export',
+                status: 'ready',
+                failureCode: '',
+            });
+
+        const result = await processNextPrivacyJob({ workerId: 'privacy-worker-1' });
+
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(result).toMatchObject({ type: 'export', status: 'ready' });
+        expect(AccountPrivacyJob.findOneAndUpdate.mock.calls[1][1].$set).toMatchObject({
+            status: 'ready',
+            failureCode: '',
         });
     });
 });

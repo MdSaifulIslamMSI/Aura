@@ -1,9 +1,25 @@
 const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const { requireEnabledPolicy, serializePrivacyJob } = require('./accountPrivacyService');
 const { recordAccountPrivacyJobState } = require('./accountProductTelemetryService');
+const {
+    getRegisteredAccountPrivacyHandler,
+    getRegisteredAccountPrivacyJobTypes,
+    getUnserviceableAccountPrivacyJobTypes,
+    hasAccountPrivacyHandler,
+} = require('./accountPrivacyHandlerRegistry');
 
 const CLAIMABLE_TYPES = Object.freeze(['export', 'deactivation', 'deletion']);
 const SAFE_HANDLER_STATUSES = new Set(['ready', 'completed', 'blocked']);
+
+// An explicitly injected handler wins over the registry, so a caller (or a
+// test) can service a job without touching the process-wide registration.
+const resolveJobHandler = (type, handlers = {}) => {
+    const injected = handlers?.[type];
+    if (typeof injected === 'function') {
+        return injected;
+    }
+    return getRegisteredAccountPrivacyHandler(type);
+};
 
 const claimNextPrivacyJob = async ({ workerId, now = new Date() }) => {
     requireEnabledPolicy();
@@ -84,7 +100,7 @@ const processNextPrivacyJob = async ({
         type: job.type,
         status: 'processing',
     });
-    const handler = handlers[job.type];
+    const handler = resolveJobHandler(job.type, handlers);
     let outcome;
     try {
         outcome = typeof handler === 'function'
@@ -112,5 +128,8 @@ module.exports = {
     CLAIMABLE_TYPES,
     claimNextPrivacyJob,
     completeClaimedPrivacyJob,
+    getRegisteredAccountPrivacyJobTypes,
+    getUnserviceableAccountPrivacyJobTypes,
+    hasAccountPrivacyHandler,
     processNextPrivacyJob,
 };

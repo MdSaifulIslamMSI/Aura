@@ -2,6 +2,11 @@ const crypto = require('crypto');
 const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const AppError = require('../utils/AppError');
 const { getAccountPrivacyActivation } = require('../config/accountPrivacyFlags');
+const {
+    hasAccountPrivacyHandler,
+    getRegisteredAccountPrivacyJobTypes,
+    getUnserviceableAccountPrivacyJobTypes,
+} = require('./accountPrivacyHandlerRegistry');
 
 const CANCELLABLE_STATUSES = Object.freeze(['queued', 'awaiting_grace', 'blocked', 'failed']);
 
@@ -34,8 +39,21 @@ const requireEnabledPolicy = () => {
     return activation;
 };
 
+// Fail closed on the request path too: without a registered handler nothing
+// would ever service the job, so accepting it would promise the data subject
+// a result the platform cannot deliver.
+const requireServiceableJobType = (type) => {
+    if (hasAccountPrivacyHandler(type)) {
+        return;
+    }
+    const error = new AppError('This data-subject request is not available', 503);
+    error.code = 'ACCOUNT_PRIVACY_UNSUPPORTED';
+    throw error;
+};
+
 const createPrivacyJob = async ({ userId, type, idempotencyKey }) => {
     const activation = requireEnabledPolicy();
+    requireServiceableJobType(type);
     const ownerId = String(userId || '').trim();
     const key = String(idempotencyKey || '').trim();
     if (!ownerId) throw new AppError('Not authorized', 401);
@@ -117,16 +135,24 @@ const cancelPrivacyJob = async ({ userId, requestId, type }) => {
 
 const getPublicPrivacyCapabilities = () => {
     const activation = getAccountPrivacyActivation();
+    // A capability is only advertised when a handler that can actually finish
+    // the job is wired. The policy contract being active is not enough.
+    const serviceable = new Set(getRegisteredAccountPrivacyJobTypes());
+    const isServiceable = (type) => activation.enabled && serviceable.has(type);
+
     return {
         contractVersion: 1,
         enabled: activation.enabled,
         policyApproved: activation.policyApproved,
         policyVersion: activation.policyVersion,
         blockedReason: activation.blockedReason,
+        // Job types this deployment cannot service right now.
+        unsupportedJobTypes: getUnserviceableAccountPrivacyJobTypes(),
         capabilities: {
-            export: activation.enabled,
-            deactivation: activation.enabled,
-            deletion: activation.enabled,
+            export: isServiceable('export'),
+            deactivation: isServiceable('deactivation'),
+            deletion: isServiceable('deletion'),
+            // Cancellation is handled inline by the API and needs no worker.
             cancellation: activation.enabled,
         },
     };
