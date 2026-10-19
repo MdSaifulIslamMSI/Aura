@@ -1,16 +1,20 @@
 // Guards the admin authorization surface against silent fail-open.
 //
-// evaluateAuthorization returns allowed:true with reason 'no_policy_match' for
-// any route absent from the policy table, and enforceAdminAuthorizationPolicy
-// (run by the `admin` middleware) is the only thing standing between an
-// unmapped admin route and unrestricted access. This test walks every route
-// mounted under /api/admin in server/index.js that carries the `admin`
-// middleware and asserts each one has a matching policy entry, so a newly
-// added admin endpoint can never ship authorized by nothing.
+// evaluateAuthorization used to return allowed:true with reason
+// 'no_policy_match' for any route absent from the policy table, and
+// enforceAdminAuthorizationPolicy (run by the `admin` middleware) is the only
+// thing standing between an unmapped admin route and unrestricted access.
+// The PDP now refuses an unmapped /api/admin/ route outright; this test walks
+// every route mounted under /api/admin in server/index.js that carries the
+// `admin` middleware and asserts each one has a matching policy entry, so a
+// newly added admin endpoint can never ship authorized by nothing.
 //
 // Routes mounted with `protect` only (the caller's own security status, own
 // passkey enrollment, own recovery exchange) operate on the authenticated
-// user's own identity and are intentionally outside the admin policy surface.
+// user's own identity and are not gated by the `admin` middleware, but they
+// are still represented in the policy table — see
+// tests/adminAuthorizationPolicyFailClosed.test.js, which asserts that every
+// route mounted under /api/admin/ is covered.
 const { resolveAuthorizationPolicy } = require('../services/auth/authorizationService');
 const { admin: adminMiddleware } = require('../middleware/authMiddleware');
 

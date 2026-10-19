@@ -113,6 +113,16 @@ const normalizeRequestPath = (value = '') => {
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// The admin surface is the one place where an unmapped route must never be
+// treated as "authorized by nothing". The PDP is consulted by the `admin`
+// middleware, so a route that is mounted under /api/admin/ but has no policy
+// entry would otherwise sail through with reason 'no_policy_match'.
+const ADMIN_ROUTE_PATTERN = /^\/api\/admin(?:\/|$)/i;
+
+const isAdminRequestPath = (requestPath = '') => (
+    ADMIN_ROUTE_PATTERN.test(normalizeRequestPath(requestPath))
+);
+
 const routePatternToRegex = (pattern = '') => {
     const normalizedPattern = normalizeRequestPath(pattern);
     if (!normalizedPattern) return /^$/;
@@ -237,6 +247,25 @@ const evaluateAuthorization = ({
 } = {}) => {
     const matchedPolicy = policy || resolveAuthorizationPolicy({ method, path, policies });
     if (!matchedPolicy) {
+        // Admin routes fail closed. Every route mounted under /api/admin/ has
+        // a policy entry, so an unmatched admin route means a NEW route was
+        // added without one — that must be refused, never allowed.
+        //
+        // Other surfaces keep the historical fail-open behaviour: several
+        // admin-gated routes live OUTSIDE /api/admin/ (order admin commands,
+        // product administration, support administration, observability) and
+        // have no policy entry, so flipping them all to deny would break the
+        // app. Their own middleware still authenticates and authorises them.
+        if (isAdminRequestPath(path)) {
+            return buildDecision({
+                allowed: false,
+                reason: 'no_policy_match_admin',
+                code: 'AUTHZ_NO_POLICY_MATCH',
+                statusCode: 403,
+                message: 'No authorization policy matched this admin route.',
+            });
+        }
+
         return buildDecision({
             allowed: true,
             reason: 'no_policy_match',

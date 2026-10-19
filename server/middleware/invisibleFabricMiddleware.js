@@ -16,10 +16,49 @@ const HONEYPOT_PATHS = new Set([
 
 const normalizePath = (req = {}) => String(req.path || req.originalUrl || '/').split('?')[0] || '/';
 
+// A session id issued by browserSessionService is 32 random bytes encoded as
+// base64url, so anything shorter than this (or carrying characters that a
+// session id never carries) is not plausible session material.
+const SESSION_ID_PATTERN = /^[A-Za-z0-9._~+/=-]{8,}$/;
+
+const resolveSessionCookieName = () => (
+    String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid'
+);
+
+const readCookieValue = (cookieHeader = '', name = '') => {
+    for (const part of String(cookieHeader || '').split(';')) {
+        const separator = part.indexOf('=');
+        if (separator === -1) continue;
+        if (part.slice(0, separator).trim() !== name) continue;
+        return part.slice(separator + 1).trim();
+    }
+    return '';
+};
+
+/**
+ * Whether the request carries auth material that is PLAUSIBLY real.
+ *
+ * The cloak answers 404 to anonymous probes of admin/internal routes, so it
+ * must not switch itself off for material that any anonymous client can make
+ * up: a bare "Bearer " prefix or an empty `aura_sid` cookie was enough to
+ * turn the cloak off and learn that the route exists.
+ *
+ * THIS IS NOT AN ACCESS-CONTROL BOUNDARY. The cloak only decides what an
+ * unauthenticated probe sees; every admin/internal route is still gated by
+ * the `protect` / `admin` middleware, which authenticates and authorises the
+ * request on its own.
+ */
 const hasAuthMaterial = (req = {}) => {
     const authorization = String(req.headers?.authorization || '').trim();
     const cookie = String(req.headers?.cookie || '').trim();
-    return authorization.startsWith('Bearer ') || /\baura_sid=/.test(cookie);
+
+    const bearerToken = /^Bearer\s+(\S+)$/i.exec(authorization);
+    if (bearerToken) return true;
+
+    const sessionId = readCookieValue(cookie, resolveSessionCookieName());
+    if (sessionId && SESSION_ID_PATTERN.test(sessionId)) return true;
+
+    return false;
 };
 
 const sendCloakedNotFound = (req, res) => {

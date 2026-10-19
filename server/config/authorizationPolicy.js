@@ -63,6 +63,18 @@ const ADMIN_ROUTE_POLICIES = [
     ['POST', '/api/admin/abuse/denylist', 'admin.security.write'],
     ['DELETE', '/api/admin/abuse/denylist/:identity', 'admin.security.write'],
     ['GET', '/api/admin/security/assurance/:userId', 'admin.security.read'],
+    // The remaining admin-security routes are self-service: they act on the
+    // caller's own security state (own status, own recovery grant, own
+    // passkey enrollment/challenge) and are gated by `protect` alone. They
+    // are listed here anyway so that EVERY route mounted under /api/admin/
+    // has a policy entry — an unmapped admin route is what the authorization
+    // PDP has to refuse, never authorise by default.
+    ['GET', '/api/admin/security/status', 'admin.security.read'],
+    ['POST', '/api/admin/security/recovery/exchange', 'admin.security.write'],
+    ['POST', '/api/admin/security/passkeys/enrollment/options', 'admin.security.write'],
+    ['POST', '/api/admin/security/passkeys/enrollment/verify', 'admin.security.write'],
+    ['POST', '/api/admin/security/passkeys/challenge/options', 'admin.security.write'],
+    ['POST', '/api/admin/security/passkeys/challenge/verify', 'admin.security.write'],
     ['GET', '/api/admin/status', 'admin.status.read'],
     ['POST', '/api/admin/status/components', 'admin.status.write'],
     ['PATCH', '/api/admin/status/components/:id', 'admin.status.write'],

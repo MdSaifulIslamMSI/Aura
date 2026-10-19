@@ -142,6 +142,12 @@ const mfaSchema = mongoose.Schema({
         pendingCreatedAt: { type: Date, default: null },
         confirmedAt: { type: Date, default: null },
         lastVerifiedAt: { type: Date, default: null },
+        // Last TOTP time step that was accepted for this account. A code is
+        // only valid once: without this the same code stays replayable for
+        // the whole verification window (and the +/-1 step tolerance extends
+        // that to roughly 90 seconds), so a captured code could mint a second
+        // session.
+        lastUsedTimeStep: { type: Number, default: null },
         disabledAt: { type: Date, default: null },
     },
     passkeys: { type: [mfaPasskeySchema], default: [] },

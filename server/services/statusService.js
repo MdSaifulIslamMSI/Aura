@@ -395,14 +395,31 @@ const generateIncidentSlug = async (title) => {
     return candidate;
 };
 
+// The unsubscribe token is an HMAC over the subscriber address, so the key is
+// what stops an outsider from forging a token for somebody else's address and
+// silently muting that person's status/security notifications.
+//
+// There is deliberately NO shared fallback key. A public constant (or a
+// cross-purpose secret such as AUTH_VAULT_SECRET) would make every token
+// forgeable by anyone who has read the source, so the function fails closed
+// instead: outside `test` the deployment must provide a real secret.
+//
+// The secret must also be IDENTICAL in the API and the worker process: the
+// API stores the token hash at subscription time and the worker regenerates
+// the unsubscribe link that the API later matches against that hash, so a
+// per-process random key would silently break incident unsubscribe links.
 const resolveStatusUnsubscribeSecret = () => {
     const configuredSecret = String(process.env.STATUS_UNSUBSCRIBE_SECRET || '').trim();
     if (configuredSecret) return configuredSecret;
     if (process.env.NODE_ENV === 'test') return 'test-status-unsubscribe-secret';
-    if (process.env.NODE_ENV !== 'production') {
-        return String(process.env.AUTH_VAULT_SECRET || 'dev-status-unsubscribe-secret').trim();
-    }
-    throw new Error('STATUS_UNSUBSCRIBE_SECRET is required for production status subscriptions');
+    throw new Error('STATUS_UNSUBSCRIBE_SECRET is required for status subscriptions');
+};
+
+// Mirrors resolveStatusUnsubscribeSecret for callers that only need to know
+// whether a usable key exists (health signals) without building a token.
+const hasStatusUnsubscribeSecret = () => {
+    if (String(process.env.STATUS_UNSUBSCRIBE_SECRET || '').trim()) return true;
+    return process.env.NODE_ENV === 'test';
 };
 
 const buildUnsubscribeToken = (email) => {
@@ -2457,8 +2474,7 @@ const resolveEmailHealth = (snapshot = {}, { requireSubscriptionSecret = false }
 
     if (
         requireSubscriptionSecret
-        && process.env.NODE_ENV === 'production'
-        && !String(process.env.STATUS_UNSUBSCRIBE_SECRET || '').trim()
+        && !hasStatusUnsubscribeSecret()
     ) {
         return buildSignalResult({ ok: false, errorMessage: 'status_unsubscribe_secret_missing' });
     }
@@ -2946,11 +2962,14 @@ module.exports = {
     writeStatusAuditLog,
     writeStatusSnapshot,
     __testables: {
+        buildUnsubscribeToken,
         enqueueStatusEmail,
         getAllowedMonitorHosts,
         getDefaultMonitorHostnames,
+        hasStatusUnsubscribeSecret,
         normalizeStatusCheckRetentionDays,
         resolveStatusCheckRetentionCutoff,
         resolveInternalHealthSignalStatus,
+        resolveStatusUnsubscribeSecret,
     },
 };

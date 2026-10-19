@@ -35,6 +35,17 @@ const parseBooleanMaybe = (value) => {
 
 const makeActionId = (prefix = 'ugl') => `${prefix}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
 
+// A scrubbed account keeps a stable, non-routable placeholder address.
+//
+// WHY A PLACEHOLDER INSTEAD OF A BLANK: `email` is required and carries a
+// unique index, and other surfaces (order history, support tooling, the
+// admin list) still expect the field to be present on a deleted row. RFC 2606
+// reserves `.invalid` for exactly this case — it can never resolve, so a
+// scrubbed account can never receive mail and nothing can be delivered to it.
+const buildScrubbedUserEmail = (userId) => (
+    `deleted-user-${String(userId || '').trim()}@deleted.invalid`
+);
+
 const sanitizeReason = (value, fallback = '') => {
     const normalized = String(value || '').trim();
     return normalized || fallback;
@@ -806,6 +817,9 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
     const reason = sanitizeReason(req.body.reason, 'Account deleted by admin');
     const scrubPII = Boolean(req.body.scrubPII);
     const now = new Date();
+    // Captured before the scrub: the cached session is keyed by the real
+    // address and the deletion notice still has to reach the user.
+    const originalEmail = String(targetUser.email || '').trim();
 
     targetUser.accountState = 'deleted';
     targetUser.softDeleted = true;
@@ -821,6 +835,9 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
 
     if (scrubPII) {
         targetUser.name = `Deleted User ${String(targetUser._id).slice(-6)}`;
+        // The address is the primary identifier, so leaving it in place made
+        // the "PII scrubbed: yes" report on the deletion notice untrue.
+        targetUser.email = buildScrubbedUserEmail(targetUser._id);
         targetUser.phone = '';
         targetUser.avatar = '';
         targetUser.bio = '';
@@ -880,9 +897,13 @@ const deleteAdminUser = asyncHandler(async (req, res, next) => {
         subject: 'Appeal account disablement',
     });
 
-    invalidateUserCacheByEmail(targetUser.email);
+    // The cached session is keyed by the real address, so the invalidation
+    // has to happen against the address the session was issued for.
+    invalidateUserCacheByEmail(originalEmail);
     await safeNotifyAdminActionToUser({
-        targetUser,
+        // The notice still has to reach the user's inbox, so it is addressed
+        // to the original address even when the record itself was scrubbed.
+        targetUser: { ...targetUser.toObject(), email: originalEmail },
         actorUser: req.user,
         actionKey: 'admin.user.delete',
         actionTitle: 'Account Access Disabled',

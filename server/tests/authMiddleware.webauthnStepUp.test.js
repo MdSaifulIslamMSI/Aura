@@ -21,7 +21,10 @@ const configureAdminWebAuthnStepUpEnv = () => {
 const buildAdminRequest = ({
     authAgeSeconds = 60,
     authSession = {},
-    originalUrl = '/api/admin/users/target',
+    // A real, policy-covered admin state-change route: the authorization PDP
+    // refuses admin routes that have no policy entry, so the fixture has to
+    // point at a route that actually exists.
+    originalUrl = '/api/admin/users/507f1f77bcf86cd799439011/warn',
     trustedDevices = [],
 } = {}) => {
     const nowSeconds = Math.floor(Date.now() / 1000);

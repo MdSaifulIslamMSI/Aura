@@ -237,19 +237,49 @@ const getPendingTotpSetup = async ({ userId } = {}) => {
     return buildTotpSetupPayload({ user, secret });
 };
 
-const verifyTotpSecret = ({ secret = '', code = '' } = {}) => (
-    Boolean(secret && normalizeCode(code))
-    && Array.from({ length: (TOTP_WINDOW * 2) + 1 }, (_, index) => index - TOTP_WINDOW)
-        .some((offset) => {
-            const expected = generateTotpCode({
-                secret,
-                timestamp: Date.now() + (offset * TOTP_PERIOD_SECONDS * 1000),
-            });
-            const expectedBuffer = Buffer.from(expected);
-            const candidateBuffer = Buffer.from(normalizeCode(code));
-            return expectedBuffer.length === candidateBuffer.length
-                && crypto.timingSafeEqual(expectedBuffer, candidateBuffer);
-        })
+// The TOTP time step (RFC 6238 counter) a timestamp belongs to.
+const getTotpTimeStep = (timestamp = Date.now()) => (
+    Math.floor(Number(timestamp || Date.now()) / 1000 / TOTP_PERIOD_SECONDS)
+);
+
+/**
+ * Finds the time step whose code matches the supplied one.
+ *
+ * The window spans TOTP_WINDOW steps on each side of "now" so a small clock
+ * skew between the server and the phone does not lock a user out, but the
+ * matched STEP is what the caller needs: the step is what makes a code
+ * single-use (a code that was already accepted for a step must not be
+ * accepted again for the same or an earlier step).
+ *
+ * @returns {number|null} the matched time step, or null when nothing matches.
+ */
+const findMatchingTotpTimeStep = ({ secret = '', code = '', timestamp = Date.now() } = {}) => {
+    const normalizedCode = normalizeCode(code);
+    if (!secret || !normalizedCode) return null;
+
+    const candidateBuffer = Buffer.from(normalizedCode);
+    const currentStep = getTotpTimeStep(timestamp);
+
+    for (let offset = -TOTP_WINDOW; offset <= TOTP_WINDOW; offset += 1) {
+        const step = currentStep + offset;
+        const expected = generateTotpCode({
+            secret,
+            timestamp: step * TOTP_PERIOD_SECONDS * 1000,
+        });
+        const expectedBuffer = Buffer.from(expected);
+        if (
+            expectedBuffer.length === candidateBuffer.length
+            && crypto.timingSafeEqual(expectedBuffer, candidateBuffer)
+        ) {
+            return step;
+        }
+    }
+
+    return null;
+};
+
+const verifyTotpSecret = ({ secret = '', code = '', timestamp = Date.now() } = {}) => (
+    findMatchingTotpTimeStep({ secret, code, timestamp }) !== null
 );
 
 const verifyTotpCode = ({ user = null, code = '', pending = false } = {}) => {
@@ -260,6 +290,20 @@ const verifyTotpCode = ({ user = null, code = '', pending = false } = {}) => {
     return verifyTotpSecret({
         secret: decryptTotpSecret(encrypted),
         code,
+    });
+};
+
+// Resolves the time step a code matches for a given user, or null when the
+// code does not match at all.
+const resolveTotpTimeStepForUser = ({ user = null, code = '', pending = false, timestamp = Date.now() } = {}) => {
+    const encrypted = pending
+        ? user?.mfa?.totp?.pendingSecretEncrypted
+        : user?.mfa?.totp?.secretEncrypted;
+    if (!encrypted) return null;
+    return findMatchingTotpTimeStep({
+        secret: decryptTotpSecret(encrypted),
+        code,
+        timestamp,
     });
 };
 
@@ -317,9 +361,27 @@ const verifyEnabledTotpForUser = async ({ userId, code } = {}) => {
     assertTotpEnabled();
     const user = await User.findById(userId).select('+mfa.totp.secretEncrypted').lean();
     if (!user?._id) throw new AppError('User not found.', 404);
-    if (!user?.mfa?.totp?.enabled || !verifyTotpCode({ user, code })) {
+    if (!user?.mfa?.totp?.enabled) {
         throw new AppError('Authenticator app code is invalid.', 401);
     }
+
+    const matchedTimeStep = resolveTotpTimeStepForUser({ user, code });
+    if (matchedTimeStep === null) {
+        throw new AppError('Authenticator app code is invalid.', 401);
+    }
+
+    // Replay guard: a TOTP code is single use. The check and the write are a
+    // single atomic update, so two concurrent requests carrying the same code
+    // cannot both win. The error message is deliberately identical to the
+    // invalid-code error — telling the caller that the code was CORRECT but
+    // already spent would be an oracle.
+    const notSpentYet = {
+        $or: [
+            { 'mfa.totp.lastUsedTimeStep': { $exists: false } },
+            { 'mfa.totp.lastUsedTimeStep': null },
+            { 'mfa.totp.lastUsedTimeStep': { $lt: matchedTimeStep } },
+        ],
+    };
 
     // Opportunistic forward-migration of pre-HKDF ciphertext. Fire-and-forget:
     // the code above already verified, so a failed write must not fail login.
@@ -333,12 +395,16 @@ const verifyEnabledTotpForUser = async ({ userId, code } = {}) => {
     }
 
     const now = new Date();
-    return User.findByIdAndUpdate(
-        user._id,
+    // findOneAndUpdate (not findByIdAndUpdate) because the replay guard has to
+    // be part of the filter for the check and the write to be one atomic
+    // operation.
+    const updated = await User.findOneAndUpdate(
+        { _id: user._id, ...notSpentYet },
         {
             $set: {
                 'mfa.enabled': true,
                 'mfa.totp.lastVerifiedAt': now,
+                'mfa.totp.lastUsedTimeStep': matchedTimeStep,
                 'mfa.lastMfaAt': now,
                 'mfa.lastMfaMethod': 'totp',
             },
@@ -349,6 +415,14 @@ const verifyEnabledTotpForUser = async ({ userId, code } = {}) => {
             lean: true,
         }
     );
+
+    if (!updated) {
+        const error = new AppError('Authenticator app code is invalid.', 401);
+        error.code = 'TOTP_CODE_REPLAYED';
+        throw error;
+    }
+
+    return updated;
 };
 
 const buildFreshMfaRequiredError = () => {
@@ -412,10 +486,13 @@ module.exports = {
     disableTotpAfterFreshMfa,
     enableTotpAfterVerification,
     encryptTotpSecret,
+    findMatchingTotpTimeStep,
     generateTotpCode,
     generateTotpSecret,
     getPendingTotpSetup,
+    getTotpTimeStep,
     reencryptTotpSecretIfNeeded,
+    resolveTotpTimeStepForUser,
     rotateTotpSecret,
     verifyEnabledTotpForUser,
     verifyTotpCode,
