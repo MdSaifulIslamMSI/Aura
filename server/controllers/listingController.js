@@ -31,7 +31,7 @@ const {
     SELLER_PRIVATE_THREAD,
 } = require('../services/listingService');
 const { getPaymentProvider } = require('../services/payments/providerFactory');
-const { captureIntentNow } = require('../services/payments/paymentService');
+const { captureIntentNow, createEscrowRefundForIntent } = require('../services/payments/paymentService');
 const {
     DIGITAL_METHODS,
     INTENT_EXPIRY_MINUTES,
@@ -1715,64 +1715,81 @@ const cancelEscrow = asyncHandler(async (req, res, next) => {
     }
 
     const paymentIntentId = String(listing.escrow?.paymentIntentId || '').trim();
-    if (paymentIntentId) {
-        const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow?.buyer });
-        if (intent) {
-            if (intent.status === PAYMENT_STATUSES.CAPTURED) {
-                if (!intent.providerPaymentId) {
-                    return next(new AppError('Captured escrow payment is missing provider payment reference', 409));
-                }
+    const intent = paymentIntentId
+        ? await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow?.buyer })
+        : null;
 
-                const provider = await getPaymentProvider({
-                    amount: intent.amount,
-                    currency: intent.currency,
-                    paymentMethod: intent.method,
-                    userId: intent.user,
-                });
-                const providerRefund = await provider.refund({
-                    paymentId: intent.providerPaymentId,
-                    amount: intent.amount,
-                    notes: {
-                        reason: 'marketplace_escrow_cancelled',
-                        listingId: String(listing._id),
-                        cancelledBy: String(req.user._id),
-                    },
-                });
+    // Once the escrow money is CAPTURED it is the seller's to release: the
+    // seller confirms delivery, or an administrator resolves a dispute. A
+    // buyer cancelling at this point would take the money back while keeping
+    // the goods, so the buyer is refused. Before capture the buyer cancelling
+    // is harmless - it only releases an authorization that was never taken.
+    const isAdminActor = req.user?.isAdmin === true;
+    if (
+        intent
+        && intent.status === PAYMENT_STATUSES.CAPTURED
+        && isBuyer
+        && !isSeller
+        && !isAdminActor
+    ) {
+        return next(new AppError(
+            'A captured escrow can only be released by the seller or an administrator',
+            403
+        ));
+    }
 
-                intent.status = PAYMENT_STATUSES.REFUNDED;
-                await intent.save();
-                await appendEscrowPaymentEvent({
-                    intentId: paymentIntentId,
-                    source: 'api',
-                    type: 'marketplace.escrow.refunded',
-                    payload: {
-                        listingId: String(listing._id),
-                        refundId: providerRefund.id || '',
-                        amount: intent.amount,
-                    },
-                });
-
-                listing.escrow.paymentState = PAYMENT_STATUSES.REFUNDED;
-                listing.escrow.refundReference = String(providerRefund.id || '');
-                listing.escrow.refundedAt = new Date();
-            } else if (
-                intent.status === PAYMENT_STATUSES.AUTHORIZED
-                || intent.status === PAYMENT_STATUSES.CREATED
-                || intent.status === PAYMENT_STATUSES.CHALLENGE_PENDING
-            ) {
-                intent.status = PAYMENT_STATUSES.EXPIRED;
-                await intent.save();
-                await appendEscrowPaymentEvent({
-                    intentId: paymentIntentId,
-                    source: 'api',
-                    type: 'marketplace.escrow.authorization_released',
-                    payload: {
-                        listingId: String(listing._id),
-                        cancelledBy: String(req.user._id),
-                    },
-                });
-                listing.escrow.paymentState = PAYMENT_STATUSES.EXPIRED;
+    if (intent) {
+        if (intent.status === PAYMENT_STATUSES.CAPTURED) {
+            if (!intent.providerPaymentId) {
+                return next(new AppError('Captured escrow payment is missing provider payment reference', 409));
             }
+
+            // Route the refund through the payments service so it takes the
+            // refund lock, reconciles provider state by requestId, and
+            // stamps a provider idempotency key. A raw provider.refund()
+            // here could pay out twice on a concurrent or retried cancel.
+            // The requestId is derived from the intent so a retried cancel
+            // resolves to the SAME request and adopts the refund the
+            // provider already executed instead of paying out again.
+            const escrowRefund = await createEscrowRefundForIntent({
+                intentId: paymentIntentId,
+                amount: intent.amount,
+                reason: 'marketplace_escrow_cancelled',
+                requestId: `escrow-rfnd-${intent.intentId}`,
+                actorUserId: String(req.user._id),
+            });
+
+            await appendEscrowPaymentEvent({
+                intentId: paymentIntentId,
+                source: 'api',
+                type: 'marketplace.escrow.refunded',
+                payload: {
+                    listingId: String(listing._id),
+                    refundId: escrowRefund.refundId || '',
+                    amount: intent.amount,
+                },
+            });
+
+            listing.escrow.paymentState = PAYMENT_STATUSES.REFUNDED;
+            listing.escrow.refundReference = String(escrowRefund.refundId || '');
+            listing.escrow.refundedAt = new Date();
+        } else if (
+            intent.status === PAYMENT_STATUSES.AUTHORIZED
+            || intent.status === PAYMENT_STATUSES.CREATED
+            || intent.status === PAYMENT_STATUSES.CHALLENGE_PENDING
+        ) {
+            intent.status = PAYMENT_STATUSES.EXPIRED;
+            await intent.save();
+            await appendEscrowPaymentEvent({
+                intentId: paymentIntentId,
+                source: 'api',
+                type: 'marketplace.escrow.authorization_released',
+                payload: {
+                    listingId: String(listing._id),
+                    cancelledBy: String(req.user._id),
+                },
+            });
+            listing.escrow.paymentState = PAYMENT_STATUSES.EXPIRED;
         }
     }
 
@@ -1780,6 +1797,8 @@ const cancelEscrow = asyncHandler(async (req, res, next) => {
     listing.escrow.enabled = true;
     listing.escrow.confirmedAt = null;
     listing.escrow.releasedAt = null;
+    listing.escrow.cancelledBy = String(req.user._id);
+    listing.escrow.cancelledAt = new Date();
     listing.status = 'active';
     listing.soldAt = null;
     if (!isBuyer) {

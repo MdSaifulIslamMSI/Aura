@@ -12,9 +12,12 @@ const {
     isPreShipmentOrder,
     isInsideReturnWindow,
     hasActiveCommandRequest,
+    applyRefundCancellationSideEffects,
+    raiseRefundCancellationAlert,
     dispatchOrderShipment,
     recordShipmentCheckpoint,
 } = require('../services/orderService');
+const logger = require('../utils/logger');
 const { checkServiceability } = require('../services/deliveryServiceabilityService');
 const { getRequiredIdempotencyKey, getStableUserKey } = require('../services/payments/idempotencyService');
 const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
@@ -950,6 +953,7 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
             requestId,
             actorUserId: req.user._id,
         });
+        let refundProcessed = false;
         try {
             const refundResult = await createRefundForIntent({
                 actorUserId: req.user._id,
@@ -978,6 +982,7 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
             message = refundStatus === 'processed'
                 ? 'Refund processed successfully'
                 : `Refund ${refundStatus}`;
+            refundProcessed = refundStatus === 'processed';
         } catch (error) {
             const isTransient = Number(error?.statusCode || 500) >= 500;
             if (isTransient) {
@@ -1004,6 +1009,47 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
             message = isTransient
                 ? 'Refund queued for retry due to provider issue'
                 : 'Refund request rejected';
+        }
+
+        // A full refund on a pre-shipment order must also stop fulfilment and
+        // unwind the commerce side effects. The provider refund is
+        // irreversible, so the money is already gone at this point; if the
+        // order were left `placed` the buyer would be refunded AND the order
+        // would still ship.
+        //
+        // This runs OUTSIDE the provider try/catch on purpose: a failure to
+        // stop fulfilment is not a failed refund. The money is back, so
+        // reporting "refund rejected" would be wrong, and the order would be
+        // left shippable without anyone being told.
+        if (refundProcessed && amount >= refundableTotal) {
+            try {
+                const sideEffects = await applyRefundCancellationSideEffects({
+                    order,
+                    reason: `Refunded before dispatch: ${reason || 'customer request'}`,
+                    actor: 'customer',
+                });
+                if (sideEffects.applied && sideEffects.warnings.length === 0) {
+                    message = 'Refund processed successfully; the order was cancelled and will not ship.';
+                } else if (sideEffects.applied) {
+                    // The order is cancelled, but an unwind (restock, coupon
+                    // release, points clawback) did not complete. That is
+                    // operational debt, not a security failure - but it must
+                    // be visible, and it must not be swallowed.
+                    logger.warn('order.refund_cancellation_side_effects_incomplete', {
+                        orderId: String(order._id),
+                        requestId,
+                        warnings: sideEffects.warnings,
+                    });
+                    message = 'Refund processed successfully; the order was cancelled but some side effects need review.';
+                }
+            } catch (error) {
+                await raiseRefundCancellationAlert({
+                    order,
+                    requestId,
+                    reason: error?.message || 'unknown',
+                }).catch(() => {});
+                message = 'Refund processed successfully, but the order could not be cancelled automatically. Support has been notified.';
+            }
         }
     }
 
@@ -1347,6 +1393,34 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         });
         order.markModified('commandCenter');
         await order.save();
+    }
+
+    // A full refund on a pre-shipment order must also stop fulfilment and
+    // unwind the commerce side effects, on the admin path exactly as on the
+    // buyer path. The admin review flow owns inventory disposition through its
+    // own explicit item-level restock control, so the blanket restock is
+    // skipped here to avoid restoring the same units twice.
+    if (finalStatus === 'processed') {
+        const refundableTotal = Math.max(
+            0,
+            Number(order.totalPrice || 0) - Number(order.refundSummary?.totalRefunded || 0)
+        );
+        if (refundableTotal > 0 && amount >= refundableTotal) {
+            try {
+                await applyRefundCancellationSideEffects({
+                    order,
+                    reason: `Refunded before dispatch by admin review: ${note || reasonForProvider}`,
+                    actor: 'admin',
+                    skipRestock: true,
+                });
+            } catch (error) {
+                await raiseRefundCancellationAlert({
+                    order,
+                    requestId,
+                    reason: error?.message || 'unknown',
+                }).catch(() => {});
+            }
+        }
     }
 
     await notifyOrderOwnerAdminAction({

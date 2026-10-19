@@ -137,7 +137,7 @@ const releaseCouponRedemptionForOrder = async ({ order, session }) => {
     return Boolean(result?.deletedCount);
 };
 
-const reverseLoyaltyPointsForOrder = async ({ order, session }) => {
+const reverseLoyaltyPointsForOrder = async ({ order, session, reason = 'Order cancellation clawback' }) => {
     const points = Number(order?.loyaltyPointsAwarded || 0);
     const ownerId = order?.user?._id || order?.user;
     if (!Number.isFinite(points) || points <= 0 || !ownerId) return 0;
@@ -145,10 +145,195 @@ const reverseLoyaltyPointsForOrder = async ({ order, session }) => {
         userId: ownerId,
         points,
         refId: String(order._id),
-        reason: 'Order cancellation clawback',
+        reason,
         session,
     });
     return Number(result?.reversed || 0);
+};
+
+/**
+ * Retries a single-document write that failed with a transient conflict.
+ *
+ * A transaction must acquire every lock it needs up front, and MongoDB's
+ * default lock-request timeout is 5ms - short enough that a busy instance
+ * fails the whole transaction and rolls back work that would have succeeded.
+ * Each unwind below is a SINGLE-document atomic operation, so none of them
+ * needs a transaction: running them individually and retrying on conflict is
+ * both simpler and far more likely to land.
+ */
+const runWriteWithRetry = async (fn, { maxAttempts = 3 } = {}) => {
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            if (!isRetryableTransactionError(error) || attempt >= maxAttempts) throw error;
+            // The conflicting writer usually releases its lock in a moment.
+            await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+        }
+    }
+    throw lastError;
+};
+
+/**
+ * Applies the commerce side effects that a FULL pre-shipment refund must
+ * trigger.
+ *
+ * A provider refund is irreversible, so this runs AFTER the money has moved.
+ * Without it a refunded order keeps every property of a live paid order:
+ *   - `orderStatus` stays `placed`, so fulfilment continues and the buyer
+ *     receives goods they were refunded for;
+ *   - `isPaid` stays true, so the refunded order still qualifies as a
+ *     "verified purchase" for product reviews;
+ *   - the one-per-user coupon redemption stays consumed, so the discount is
+ *     retained on an order that was paid for with a refund;
+ *   - the loyalty points awarded at placement stay on the buyer's balance.
+ *
+ * The cancellation is written FIRST and as a single guarded document update.
+ * A single-document write is atomic on its own, so the fulfilment stop does
+ * not depend on the deployment supporting transactions - which matters,
+ * because "the money is already back and the order is still shippable" is the
+ * worst state this function can be in. The unwinds (restock, coupon release,
+ * points clawback) follow and are best-effort: a failure there is recorded and
+ * surfaced, never allowed to undo the cancellation.
+ */
+const applyRefundCancellationSideEffects = async ({
+    order,
+    reason = 'Refunded before dispatch',
+    actor = 'system',
+    skipRestock = false,
+}) => {
+    const now = new Date();
+    const warnings = [];
+
+    // The fulfilment stop. The guard mirrors isPreShipmentOrder so an order
+    // that was dispatched between the refund decision and this write is left
+    // alone: the goods left, so cancelling it now would be wrong.
+    //
+    // This write touches no array field, so it cannot be rejected because a
+    // legacy order is missing `statusTimeline`. The timeline append below is a
+    // separate best-effort write: an audit nicety must never be able to leave
+    // the order shippable, which is the exact state this function exists to
+    // prevent.
+    const cancelResult = await Order.updateOne(
+        {
+            _id: order._id,
+            orderStatus: { $in: [...PRE_SHIPMENT_STATUSES] },
+            isDelivered: { $ne: true },
+            $or: [{ cancelledAt: { $exists: false } }, { cancelledAt: null }],
+        },
+        {
+            $set: {
+                orderStatus: 'cancelled',
+                cancelledAt: now,
+                cancelReason: reason,
+                // A refunded order is no longer a paid order: clearing isPaid
+                // keeps it out of the verified-purchase review gate.
+                isPaid: false,
+                paidAt: null,
+                'commandCenter.lastUpdatedAt': now,
+            },
+        }
+    );
+
+    if (!cancelResult?.matchedCount) {
+        return { applied: false, reason: 'not_pre_shipment', warnings: [] };
+    }
+
+    try {
+        await Order.updateOne(
+            { _id: order._id },
+            {
+                $push: {
+                    statusTimeline: {
+                        status: 'cancelled',
+                        message: reason,
+                        actor,
+                        at: now,
+                    },
+                },
+            }
+        );
+    } catch (error) {
+        warnings.push(`status_timeline_append_failed:${error?.message || 'unknown'}`);
+    }
+
+    const orderItems = Array.isArray(order.orderItems) ? order.orderItems : [];
+
+    // The goods were never dispatched, so the reserved stock goes back.
+    // A missing product is a permanent condition, not a transient one, so it
+    // is recorded and the unwind continues. The admin review path owns its
+    // own item-level restock disposition, so it can opt out of the blanket
+    // restore.
+    if (!skipRestock) {
+        for (const item of orderItems) {
+            try {
+                const restockResult = await runWriteWithRetry(async () => Product.updateOne(
+                    { _id: item.product },
+                    { $inc: { stock: Number(item.quantity || 0) } }
+                ));
+                if (Number(restockResult?.matchedCount || 0) !== 1) {
+                    warnings.push(`restock_failed:${String(item.product || '')}`);
+                }
+            } catch (error) {
+                warnings.push(`restock_error:${error?.message || 'unknown'}`);
+            }
+        }
+    }
+
+    try {
+        await runWriteWithRetry(async () => releaseCouponRedemptionForOrder({ order }));
+    } catch (error) {
+        warnings.push(`coupon_release_failed:${error?.message || 'unknown'}`);
+    }
+
+    try {
+        await runWriteWithRetry(async () => reverseLoyaltyPointsForOrder({
+            order,
+            reason: 'Order refund clawback',
+        }));
+    } catch (error) {
+        warnings.push(`loyalty_clawback_failed:${error?.message || 'unknown'}`);
+    }
+
+    return { applied: true, reason: 'cancelled', warnings };
+};
+
+/**
+ * Raises an admin alert for a refund that could not stop fulfilment.
+ *
+ * The provider refund is irreversible, so reaching this point means the money
+ * is already back while the order may still be shippable. That is the state an
+ * operator has to resolve by hand, so it must be surfaced loudly rather than
+ * folded into the refund's own status.
+ */
+const raiseRefundCancellationAlert = async ({ order, requestId = '', reason = '' }) => {
+    const orderId = String(order?._id || '');
+    console.error(`Refund cancellation side effects failed for order ${orderId}: ${reason}`);
+    try {
+        await AdminNotification.create({
+            notificationId: crypto.randomUUID(),
+            source: 'system',
+            actionKey: 'order.refund_cancellation_failed',
+            title: 'Refunded order could not be cancelled automatically',
+            summary: `Order ${orderId} was refunded but the automatic cancellation failed, so the order may still be fulfilled.`,
+            severity: 'critical',
+            actorRole: 'system',
+            entityType: 'order',
+            entityId: orderId,
+            highlights: [
+                `Order ID: ${orderId}`,
+                `Refund request ID: ${requestId || 'unknown'}`,
+                `Order total: ${Number(order?.totalPrice || 0)}`,
+                `Failure: ${reason || 'unknown'}`,
+            ],
+            metadata: { orderId, requestId: String(requestId || ''), reason: String(reason || '') },
+            requestId: 'refund_cancellation_failure',
+        });
+    } catch (alertError) {
+        console.error(`Refund cancellation admin alert failed for order ${orderId}:`, alertError.message);
+    }
 };
 
 /**
@@ -807,6 +992,8 @@ module.exports = {
     hasActiveCommandRequest,
     releaseCouponRedemptionForOrder,
     reverseLoyaltyPointsForOrder,
+    applyRefundCancellationSideEffects,
+    raiseRefundCancellationAlert,
     cancelOrderForFailedCapture,
     canTransitionShipmentStatus,
     dispatchOrderShipment,

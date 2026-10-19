@@ -68,6 +68,11 @@ const listingSchema = new mongoose.Schema({
         paymentCapturedAt: { type: Date, default: null },
         refundReference: { type: String, default: '' },
         refundedAt: { type: Date, default: null },
+        // Who cancelled the escrow. A buyer releasing their own authorization
+        // is not a seller failure, so the seller risk tier only counts
+        // cancellations attributable to the seller.
+        cancelledBy: { type: String, default: '' },
+        cancelledAt: { type: Date, default: null },
         startedAt: { type: Date, default: null },
         confirmedAt: { type: Date, default: null },
         releasedAt: { type: Date, default: null },
