@@ -58,10 +58,16 @@ describe('production admin-MFA and lockout deployment contract', () => {
         }
     });
 
-    test('both settings can be supplied through Parameter Store', () => {
+    test('both settings are runtime configuration, not Parameter Store secrets', () => {
+        // MFA_ENABLED and MFA_PASSKEY_ENABLED are supplied by the instance
+        // base.env and the compose files, not by Parameter Store, and the
+        // SSM contract audit treats every listed key as a required secret.
+        // Listing a plain setting there would demand a parameter that does not
+        // exist and turn CI red, so these two follow the MFA_ENABLED pattern.
         const { DEFAULT_AWS_PARAMETER_KEYS } = require('../config/ssm-parameter-keys.cjs');
-        expect(DEFAULT_AWS_PARAMETER_KEYS).toContain('MFA_REQUIRED_FOR_ADMINS');
-        expect(DEFAULT_AWS_PARAMETER_KEYS).toContain('AUTH_LOCKOUT_MODE');
+        expect(DEFAULT_AWS_PARAMETER_KEYS).not.toContain('MFA_REQUIRED_FOR_ADMINS');
+        expect(DEFAULT_AWS_PARAMETER_KEYS).not.toContain('AUTH_LOCKOUT_MODE');
+        expect(DEFAULT_AWS_PARAMETER_KEYS).not.toContain('MFA_ENABLED');
     });
 
     test('the production environment example provides both required settings', () => {
