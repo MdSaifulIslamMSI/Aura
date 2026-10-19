@@ -1,6 +1,6 @@
 services:
   mongo:
-    image: mongo:8.0
+    image: mongo:8.0@sha256:4a4ab5d4834207389e0d7270fac988e21ffedccecba77991a552f755df229907
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
@@ -13,7 +13,7 @@ services:
       retries: 20
 
   mongo-init:
-    image: mongo:8.0
+    image: mongo:8.0@sha256:4a4ab5d4834207389e0d7270fac988e21ffedccecba77991a552f755df229907
     restart: "no"
     depends_on:
       mongo:
@@ -31,7 +31,7 @@ services:
         }"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -44,7 +44,7 @@ services:
       retries: 20
 
   clamav:
-    image: clamav/clamav:1.4
+    image: clamav/clamav:1.4@sha256:3bba6dd5ac6663d55b80f86a3126e146612d93b593cc2617188d13f637d91260
     profiles: ["malware-scan"]
     ports:
       - "3310:3310"

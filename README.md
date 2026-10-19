@@ -86,7 +86,7 @@ This repository is not a demo landing page. It is the operating surface for prod
 
 ### 🖥️ Desktop and mobile
 
-- Electron 44 desktop app: signed auto-updates, OS-keychain secret storage via `safeStorage` (memory-only fallback), a loopback OAuth handoff broker, an HTTPS-only hardened proxy, and code-signing/notarization gates in the release lane.
+- Electron 44 desktop app: OS-keychain secret storage via `safeStorage` (memory-only fallback), a loopback OAuth handoff broker, an HTTPS-only hardened proxy, Windows code-signing required by default in the release lane, and a provenance attestation on every published artifact. The free tier has no code-signing certificate, so the production release lane still publishes unsigned Windows artifacts - an unsigned build cannot verify update signatures, which is tracked as R-026 in the risk register. macOS signing/notarization is not yet implemented in the release workflow either, so macOS artifacts published to the update feed are also unsigned.
 - Capacitor 8 shell for Android and iOS: native social sign-in providers, splash and status-bar theming, and a strict `allowNavigation` allowlist.
 - PWA: installable manifest with app shortcuts and a versioned service worker (app-shell fallback; API and sockets always hit the network).
 

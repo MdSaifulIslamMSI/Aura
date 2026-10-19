@@ -1,0 +1,251 @@
+{
+  "version": "2026-10-19",
+  "purpose": "Single source of truth for the security controls that decide whether the defense-in-depth layers are actually enforced in production. Every control is either ENFORCED (the production contract must refuse to run without it) or STAGED (it may still be dark, but only with a written reason and an expiry - an expired staging acknowledgement fails the gate). A control can never be silently unclassified.",
+  "notes": [
+    "The 2026-10-12 posture assessment flipped one layer (the Auth Shield outer PDP) to enforced and left the next three dark, with nothing tracking them. The pattern was not a one-off: the contract only ever covered the layer that was just fixed. This inventory is the durable fix - it makes every remaining dark control a dated, reviewable commitment instead of a default.",
+    "When a staged control is enabled in the production environment, move it to enforcedInProduction here. The gate fails on that drift, so the inventory can never be less honest than the deployment.",
+    "STAGED entries expire. When an expiry passes, the gate fails until the control is enforced or the staging is re-justified with a new date."
+  ],
+  "controls": [
+    {
+      "id": "authShield.enabled",
+      "title": "Authorization PDP (Auth Shield) runs enforced, not shadow",
+      "envVar": "AUTH_SHIELD_ENABLED",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "enabled",
+        "expected": true
+      },
+      "notes": "Enforced by the production environment contract: AUTH_SHIELD_ENABLED=false is a boot failure."
+    },
+    {
+      "id": "authShield.shadowMode",
+      "title": "Authorization PDP is not running in shadow mode",
+      "envVar": "AUTH_SHIELD_SHADOW_MODE",
+      "enforcedInProduction": true,
+      "requiredValue": "false",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "shadowMode",
+        "expected": false
+      },
+      "notes": "AUTH_SHIELD_SHADOW_MODE=true is a boot failure in production."
+    },
+    {
+      "id": "authShield.replayGuard",
+      "title": "Request replay guard rejects a replayed nonce",
+      "envVar": "AUTH_SHIELD_REPLAY_GUARD_ENABLED",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "replayGuardEnabled",
+        "expected": true
+      },
+      "notes": "The browser client sends X-Aura-Nonce/X-Aura-Timestamp on every request, so this can be enforced."
+    },
+    {
+      "id": "authShield.dpop",
+      "title": "DPoP sender-constraint binds sessions to a browser key",
+      "envVar": "AUTH_SHIELD_DPOP_ENABLED",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "Proofs are sent and verified structurally, but sessions are not yet bound to the proof's JWK. Binding is a session-migration change (ADR 0005 step 3) and the client already emits everything step 3 needs.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "dpopEnabled",
+        "expected": false
+      },
+      "notes": "Until this is enforced, a stolen bearer token is replayable from any client."
+    },
+    {
+      "id": "authShield.deviceTrust",
+      "title": "Device trust is consulted on sensitive actions",
+      "envVar": "AUTH_SHIELD_DEVICE_TRUST_ENABLED",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "Trusted-device V2 is itself still a staged rollout (write mode off, cohorts at 0%). Enabling the Auth Shield consumer before the V2 rollout completes would read legacy decisions and enforce them.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "deviceTrustEnabled",
+        "expected": false
+      },
+      "notes": "Must move with the trusted-device V2 rollout, not before it."
+    },
+    {
+      "id": "authShield.stepUp",
+      "title": "Step-up proof is required on high-risk sensitive actions",
+      "envVar": "AUTH_SHIELD_STEP_UP_ENABLED",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "Step-up is enforced on admin state changes through the admin middleware and the Duo/WebAuthn path, which is the risk that matters. The Auth Shield step-up consumer covers the broader sensitive-action set and needs the proof contract landed first.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/security/authShield/config.js",
+        "export": "resolveAuthShieldConfig",
+        "path": "stepUpEnabled",
+        "expected": false
+      },
+      "notes": "Admin state-change step-up is separately enforced and is not affected by this control."
+    },
+    {
+      "id": "alienOtp.enabled",
+      "title": "ALIEN OTP proof is required on the actions it protects",
+      "envVar": "ALIEN_OTP_ENABLED",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "The ALIEN OTP layer is a WebAuthn-signed action proof. It is implemented and tested but not rolled out; the route guard composes it with strict:false, so enabling it without the strict rollout would add audit noise without enforcement.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/config/alienOtpConfig.js",
+        "export": "resolveAlienOtpConfig",
+        "path": "enabled",
+        "expected": false
+      },
+      "notes": "Enabling this also requires ALIEN_OTP_STRICT_MODE=true, otherwise the failure paths allow the request through."
+    },
+    {
+      "id": "trustFabric.mode",
+      "title": "Trust Fabric decisions are enforced, not audit-only",
+      "envVar": "AURA_TRUST_FABRIC_MODE",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "In shadow mode every engine failure resolves to AUDIT_ONLY, which maps to allowed:true, so ownership mismatches and high-risk signals are recorded but not blocked. The independent gates (authorizeOrderOwner, authorizeListingOwner, sensitiveActions) are the enforcing controls today; the Trust Fabric is the additional layer.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/trust/trustContext.js",
+        "export": "resolveTrustFabricConfig",
+        "path": "mode",
+        "expected": "shadow"
+      },
+      "notes": "Enforce-safe mode is also not enough on its own: AURA_TRUST_FABRIC_ENFORCE_OWNERSHIP must be true for ownership mismatches to block."
+    },
+    {
+      "id": "fieldEncryption.enabled",
+      "title": "Customer PII is encrypted at rest",
+      "envVar": "FIELD_ENCRYPTION_ENABLED",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "notes": "Production refuses to boot with encryption off unless ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION is set, which is logged at ERROR on every boot."
+    },
+    {
+      "id": "auth.lockoutMode",
+      "title": "Brute-force account lockout actually blocks",
+      "envVar": "AUTH_LOCKOUT_MODE",
+      "enforcedInProduction": true,
+      "requiredValue": "enforce",
+      "staged": null,
+      "notes": "The production contract refuses anything other than monitor|enforce. This inventory requires enforce specifically, because monitor only logs the lockout and never blocks - it is observation, not a control."
+    },
+    {
+      "id": "mfa.enabled",
+      "title": "Multi-factor authentication subsystem is enabled",
+      "envVar": "MFA_ENABLED",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/config/mfaConfig.js",
+        "export": "resolveMfaConfig",
+        "path": "enabled",
+        "expected": false
+      },
+      "notes": "The code default is false; the production contract requires it to be true (the admin passkey requirement depends on it). The inventory records both: the shipped template must enable it even though the code default is off."
+    },
+    {
+      "id": "mfa.requiredForAdmins",
+      "title": "Administrators must present a second factor",
+      "envVar": "MFA_REQUIRED_FOR_ADMINS",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/config/mfaConfig.js",
+        "export": "resolveMfaConfig",
+        "path": "requiredForAdmins",
+        "expected": false
+      },
+      "notes": "The production contract refuses MFA_REQUIRED_FOR_ADMINS=false whenever AUTH_REQUIRE_MFA_FOR_ADMIN is true, for every auth provider."
+    },
+    {
+      "id": "auth.requireMfaForAdmin",
+      "title": "Admin MFA cannot be switched off in production",
+      "envVar": "AUTH_REQUIRE_MFA_FOR_ADMIN",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "notes": "AUTH_REQUIRE_MFA_FOR_ADMIN=false is a production boot failure."
+    },
+    {
+      "id": "auth.dpopRequired",
+      "title": "DPoP is required, not verify-if-bound",
+      "envVar": "AUTH_DPOP_REQUIRED",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "The DPoP sender-constraint rollout (ADR 0005) has not completed its binding step, so requiring it would reject every client session. The contract warns instead of failing while the rollout is in flight.",
+        "expires": "2026-12-31"
+      },
+      "notes": "Pairs with authShield.dpop; both must be enforced for sender-constrained tokens."
+    },
+    {
+      "id": "invisibleFabric.enabled",
+      "title": "Invisible App Fabric (route classification, cloaking) is enabled",
+      "envVar": "INVISIBLE_FABRIC_ENABLED",
+      "enforcedInProduction": true,
+      "requiredValue": "true",
+      "staged": null,
+      "codeDefaultProbe": {
+        "module": "server/security/invisibleFabric/config.js",
+        "export": "getInvisibleFabricConfig",
+        "path": "enabled",
+        "expected": true,
+        "env": {
+          "NODE_ENV": "production"
+        }
+      },
+      "notes": "The code default is production-conditional, so the template must state it explicitly."
+    },
+    {
+      "id": "invisibleFabric.trustedEdge",
+      "title": "Requests are only trusted when they arrive through the edge",
+      "envVar": "INVISIBLE_REQUIRE_TRUSTED_EDGE",
+      "enforcedInProduction": false,
+      "requiredValue": null,
+      "staged": {
+        "reason": "Trusted-edge mode needs the CDN/WAF to inject a shared header, which is a deployment change. The application binds its API to loopback and terminates TLS at Caddy, which is the current perimeter, so the control is recorded rather than forced.",
+        "expires": "2026-12-31"
+      },
+      "codeDefaultProbe": {
+        "module": "server/security/invisibleFabric/config.js",
+        "export": "getInvisibleFabricConfig",
+        "path": "requireTrustedEdge",
+        "expected": false
+      },
+      "notes": "Until this is on, the edge-attribution header can be spoofed by a direct caller."
+    }
+  ]
+}

@@ -2155,6 +2155,129 @@ const createRefundForIntent = async ({
     }
 };
 
+/**
+ * Refunds a marketplace ESCROW payment.
+ *
+ * Escrow intents are not attached to an Order, so createRefundForIntent cannot
+ * be used for them. This is the hardened equivalent: it takes the same refund
+ * lock, reconciles provider state by requestId before executing an
+ * irreversible refund, and stamps an idempotency key on the provider call.
+ *
+ * The escrow cancel route used to issue a raw provider.refund() with none of
+ * that, so a concurrent or retried cancel could move money twice and no
+ * provider-side ledger tied the refund back to a request.
+ */
+const createEscrowRefundForIntent = async ({
+    intentId,
+    amount,
+    reason = 'marketplace_escrow_cancelled',
+    requestId = '',
+    actorUserId = '',
+}) => {
+    const intent = await PaymentIntent.findOne({ intentId });
+    if (!intent) throw new AppError('Payment intent not found', 404);
+    if (!intent.providerPaymentId) {
+        throw new AppError('Provider payment reference is missing for refund', 400);
+    }
+    if (intent.status === PAYMENT_STATUSES.REFUNDED) {
+        // Already refunded - adopt the recorded outcome rather than paying twice.
+        return {
+            refundId: String(intent.metadata?.escrowRefundId || ''),
+            status: 'refunded',
+            amount: Number(intent.amount || 0),
+            currency: intent.currency,
+            intentId,
+        };
+    }
+
+    const refundLockId = await acquireRefundLock(intent);
+    try {
+        const lockedIntent = await PaymentIntent.findOne({ intentId });
+        if (!lockedIntent || lockedIntent.metadata?.refundLock?.lockId !== refundLockId) {
+            throw new AppError('Refund lock was lost before provider mutation', 409);
+        }
+        if (!lockedIntent.providerPaymentId) {
+            throw new AppError('Provider payment reference is missing for refund', 400);
+        }
+        if (lockedIntent.status === PAYMENT_STATUSES.REFUNDED) {
+            return {
+                refundId: String(lockedIntent.metadata?.escrowRefundId || ''),
+                status: 'refunded',
+                amount: Number(lockedIntent.amount || 0),
+                currency: lockedIntent.currency,
+                intentId,
+            };
+        }
+
+        const provider = await getPaymentProvider({
+            gatewayId: lockedIntent.provider,
+            amount: lockedIntent.amount,
+            currency: lockedIntent.currency,
+            paymentMethod: lockedIntent.method,
+            userId: lockedIntent.user,
+        });
+
+        // Reconcile provider state before executing an irreversible refund, so a
+        // retried cancel cannot move the money a second time. Failing to read
+        // the provider state aborts the refund rather than executing blind.
+        let providerRefund = null;
+        if (requestId && typeof provider.fetchRefunds === 'function') {
+            let listedRefunds = null;
+            try {
+                listedRefunds = await provider.fetchRefunds({
+                    paymentId: lockedIntent.providerPaymentId,
+                });
+            } catch (fetchError) {
+                throw new AppError(
+                    'Unable to verify provider refund state before refund; the refund was not executed',
+                    503
+                );
+            }
+            providerRefund = (Array.isArray(listedRefunds?.items) ? listedRefunds.items : [])
+                .find((refund) => String(refund?.notes?.requestId || '') === String(requestId)) || null;
+        }
+        if (!providerRefund) {
+            providerRefund = await provider.refund({
+                paymentId: lockedIntent.providerPaymentId,
+                amount: Number(amount || lockedIntent.amount || 0),
+                currency: lockedIntent.currency,
+                notes: {
+                    idempotencyKey: requestId || makeEventId('escrow_refund'),
+                    reason,
+                    intentId,
+                    ...(requestId ? { requestId: String(requestId) } : {}),
+                    ...(actorUserId ? { cancelledBy: String(actorUserId) } : {}),
+                },
+            });
+        }
+
+        lockedIntent.status = PAYMENT_STATUSES.REFUNDED;
+        lockedIntent.metadata = {
+            ...(lockedIntent.metadata || {}),
+            escrowRefundId: String(providerRefund?.id || ''),
+            escrowRefundRequestId: requestId ? String(requestId) : '',
+            escrowRefundedAt: new Date().toISOString(),
+        };
+        lockedIntent.markModified('metadata');
+        await lockedIntent.save();
+
+        return {
+            refundId: String(providerRefund?.id || ''),
+            status: 'refunded',
+            amount: Number(amount || lockedIntent.amount || 0),
+            currency: lockedIntent.currency,
+            intentId,
+        };
+    } finally {
+        await releaseRefundLock({ intentId, lockId: refundLockId }).catch((error) => {
+            logger.warn('payment.escrow_refund_lock_release_failed', {
+                intentId,
+                reason: error?.message || 'unknown',
+            });
+        });
+    }
+};
+
 const extractWebhookIdentifiers = (event = {}) => {
     const paymentEntity = event.payload?.payment?.entity || {};
     const refundEntity = event.payload?.refund?.entity || {};
@@ -3305,6 +3428,7 @@ module.exports = {
     scheduleRefundTask,
     captureIntentNow,
     createRefundForIntent,
+    createEscrowRefundForIntent,
     // Exported for the settlement-variance regression suite: the order-side
     // write is otherwise only reachable through capture, and the assertion is
     // about the recorded financial record, not about capture itself.

@@ -2157,7 +2157,18 @@ describe('repo environment contract scripts', () => {
         const iamBootstrap = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
         expect(iamBootstrap).toContain('sts:AssumeRoleWithWebIdentity');
         expect(iamBootstrap).toContain('token.actions.githubusercontent.com:sub');
-        expect(iamBootstrap).toContain('repo:$github_repo:environment:staging');
+        // Assert on the GENERATED trust-policy document, not on the whole
+        // file. The environment-scoped subject used to be asserted here, but
+        // that assertion only kept passing because an explanatory comment
+        // happened to quote the removed subject. An environment-scoped OIDC
+        // sub is identical for a push run and a pull_request run, so trusting
+        // it lets a same-repo PR assume the staging operator role.
+        const trustPolicyBody = iamBootstrap
+            .split(/\r?\n/)
+            .filter((line) => !line.trim().startsWith('#'))
+            .join('\n');
+        expect(trustPolicyBody).toContain('repo:$github_repo:ref:refs/heads/main');
+        expect(trustPolicyBody).not.toContain('repo:$github_repo:environment:staging');
 
         const productionGate = fs.readFileSync(path.join(repoRoot, 'scripts', 'release', 'assert-production-mutation-gate.mjs'), 'utf8');
         expect(productionGate).toContain("gitBranch() !== 'main'");

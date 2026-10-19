@@ -195,7 +195,12 @@ jobs:
 
   deploy-production:
     needs: build-frontend
-    if: inputs.deploy == true
+    # This job declares `environment: aws-frontend-production`, so GitHub issues
+    # an ENVIRONMENT-scoped OIDC subject for it - the same value a pull-request
+    # run would receive. The live `aura-github-actions-frontend-deploy` role
+    # trusts that subject, so the event is excluded by name rather than relying
+    # on the inputs context alone.
+    if: inputs.deploy == true && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read

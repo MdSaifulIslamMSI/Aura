@@ -2,11 +2,11 @@
 # reason, enforced by scripts/security-harness-check.mjs. The temporary
 # React Router RSC advisory exception was retired on 2026-08-31: installed
 # react-router@7.18.2 / react-router-dom@7.18.3 include the 7.18.2 fix.
-
-[[IgnoredVulns]]
-id = "GHSA-vwc7-r8mq-g2x9"
-ignoreUntil = 2026-11-08
-reason = "adm-zip 0.6.0 is the latest published release; every version in the affected range (>=0.5.9 <=0.6.0) is unfixed upstream (CVE-2026-76845, CWE-59 symlink-following during extraction, Medium). Dev-only dependency of the app workspace that also pins the @lambdatest/node-tunnel transitive, and our tooling does not extract untrusted archives. Re-evaluate for an upstream fix after the expiry."
+# The adm-zip exception was retired on 2026-10-19: adm-zip 0.6.1 was
+# published and fixes the affected range, and the app workspace override was
+# converted from an exact 0.6.0 pin to ^0.6.1 so the fixed release is
+# actually installable. `npm run security:override-pins` now fails the build
+# if a pinned override would revert a security fix.
 
 [[IgnoredVulns]]
 id = "GHSA-vfj7-8cjw-p6xm"

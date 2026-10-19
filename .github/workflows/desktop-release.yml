@@ -18,7 +18,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: false
+        default: true
         type: boolean
       require_macos_signing:
         description: Require macOS signing and notarization before publishing
@@ -45,7 +45,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: false
+        default: true
         type: boolean
       require_macos_signing:
         description: Require macOS signing and notarization before publishing
@@ -432,6 +432,24 @@ jobs:
               "--config.win.azureSignOptions.publisherName=$env:WINDOWS_CODE_SIGNING_PUBLISHER_NAME"
             )
           } else {
+            # The unsigned Windows release lane is a supported product
+            # capability (the free tier has no code-signing certificate), and
+            # an unsigned build cannot verify an update signature: there is no
+            # expected publisher to compare against, so the update channel would
+            # break for every install.
+            #
+            # The accepted risk is that an unsigned release accepts an
+            # unverified update, so a compromised release feed becomes code
+            # execution on every install. It is bounded by three things, and
+            # the risk is recorded in docs/security/risk-register.md (R-026):
+            #   - require_windows_signing now defaults to TRUE, so an unsigned
+            #     release has to be asked for explicitly;
+            #   - the production release lane is pinned to the unsigned lane by
+            #     the production hardening contract, so the trade-off is
+            #     visible rather than accidental;
+            #   - the signed path still verifies update signatures.
+            # Turning this off requires a code-signing certificate, not a
+            # workflow edit.
             $builderArgs += @('--config.win.signAndEditExecutable=false', '--config.win.verifyUpdateCodeSignature=false')
           }
           npm run $env:WINDOWS_BUILD_SCRIPT -- @builderArgs

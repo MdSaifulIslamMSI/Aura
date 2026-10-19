@@ -38,6 +38,21 @@ const { initRedis, assertProductionRedisConfig } = require('./config/redis');
 const { assertProductionPaymentConfig, assertWebhookConfig } = require('./config/paymentFlags');
 const { assertProductionEmailConfig } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
+const { assertSigningSecretsConfig } = require('./config/signingSecrets');
+const { assertAuthRiskSignalConfig } = require('./services/authRiskSignalService');
+const { assertAuthVaultConfig } = require('./config/authVaultFlags');
+const {
+    assertFieldEncryptionConfig,
+    assertFieldEncryptionProductionReadiness,
+} = require('./services/fieldEncryptionService');
+const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
+const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
+const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
+const { assertTrustedDeviceV2RolloutConfig } = require('./config/trustedDeviceV2Rollout');
+const { assertCryptoSeparationConfig } = require('./config/cryptoSeparationPolicy');
+const { assertOtpHashSecretIsolation } = require('./controllers/otpController');
+const { assertInvisibleFabricConfig } = require('./security/invisibleFabric/config');
+const { validateMfaEnvironment } = require('./config/mfaConfig');
 const {
     startPaymentOutboxWorker,
     stopPaymentOutboxWorker,
@@ -112,15 +127,60 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
     logger.info('worker_process.health_server_ready', { port: HEALTH_PORT });
 });
 
-const startup = async () => {
-    logger.info('worker_process.starting', { env: NODE_ENV });
+// MFA key-strength contract. Mirrors the API's assertMfaCryptoConfig
+// (server/index.js): validateMfaEnvironment already rejects placeholder and
+// short keys, and this promotes its verdict to a hard startup failure so a
+// weak MFA_SECRET_ENCRYPTION_KEY cannot quietly ship with TOTP enabled.
+const assertMfaCryptoConfig = () => {
+    const report = validateMfaEnvironment();
+    if (report.ok) return;
+    throw new Error(`MFA crypto configuration is invalid: ${report.failures.join('; ')}`);
+};
 
-    // Production guards — fail closed on misconfiguration
-    assertProductionRedisConfig();
+// The worker consumes the same secrets as the API — it hashes OTPs, decrypts
+// encrypted PII, maintains trusted-device and MFA state and re-signs account
+// cursors — so it must enforce the SAME boot contract. A worker that boots on
+// a configuration the API would refuse is a split-brain deployment: the API
+// fails closed while the worker keeps processing jobs with the weaker
+// settings.
+//
+// Two API refusals are deliberately NOT mirrored here:
+//
+//   - assertProductionCorsConfig: the worker only exposes its own local
+//     health server and never answers a cross-origin browser request, so a
+//     CORS allowlist has no surface to protect.
+//   - assertProductionTurnstileConfig: Turnstile is a browser challenge and
+//     the worker never validates a Turnstile token.
+//
+// Everything else in the API's boot contract is enforced here, and the
+// omissions above are asserted by the worker/parity regression test so they
+// cannot silently grow.
+const assertWorkerStartupConfig = () => {
+    assertInvisibleFabricConfig();
+    assertSigningSecretsConfig();
+    assertAuthRiskSignalConfig();
     assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();
     assertProductionOtpSmsConfig();
+    assertProductionRedisConfig();
+    assertAuthVaultConfig();
+    assertFieldEncryptionConfig();
+    assertFieldEncryptionProductionReadiness();
+    assertAuthEnvironmentConfig();
+    assertTrustedDeviceConfig();
+    assertAdminSecurityConfig();
+    assertTrustedDeviceV2RolloutConfig();
+    assertCryptoSeparationConfig();
+    assertOtpHashSecretIsolation();
+    assertMfaCryptoConfig();
+};
+
+const startup = async () => {
+    logger.info('worker_process.starting', { env: NODE_ENV });
+
+    // Production guards — fail closed on misconfiguration
+    assertWorkerStartupConfig();
 
     await connectDB();
     logger.info('worker_process.db_connected');

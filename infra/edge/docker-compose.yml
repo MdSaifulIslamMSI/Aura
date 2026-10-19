@@ -13,7 +13,7 @@ name: aura-edge-waf
 
 services:
   aura-api-mock:
-    image: node:24-alpine
+    image: node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f
     profiles: ["verify"]
     working_dir: /srv
     volumes:
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
 
   waf:
-    image: owasp/modsecurity-crs:4.25.1-nginx-lts
+    image: owasp/modsecurity-crs:4.25.1-nginx-lts@sha256:4d5e1c4605df9a89ca85db742d8e7e39cbbf5b656264091ed9ab1211d2476e6a
     restart: unless-stopped
     # NOTE: no hard depends_on on the verify-profile mock â€” production runs
     # `up -d waf crowdsec` without that profile; readiness is asserted by
@@ -53,7 +53,7 @@ services:
       - aura-edge-internal
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8-debian
+    image: crowdsecurity/crowdsec:v1.7.8-debian@sha256:b2620289b041ba0d0518fe74ccb3da3a75c78049172e28cc375efdbf3873fe77
     restart: unless-stopped
     environment:
       COLLECTIONS: "crowdsecurity/nginx"

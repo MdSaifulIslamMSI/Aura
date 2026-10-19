@@ -10,8 +10,13 @@ const isPlainObject = (value) => (
     && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
 );
 
-const findDangerousPayloadKeys = (value, path = '') => {
+const findDangerousPayloadKeys = (value, path = '', seen = new Set()) => {
     if (!value || typeof value !== 'object') return [];
+    // A payload that references itself would otherwise recurse forever. The
+    // guard now runs on the request path (before the NoSQL sanitizer), so it
+    // must not be less robust than the sanitizer it fronts.
+    if (seen.has(value)) return [];
+    seen.add(value);
     const findings = [];
     const entries = Array.isArray(value)
         ? value.map((entry, index) => [String(index), entry])
@@ -22,7 +27,7 @@ const findDangerousPayloadKeys = (value, path = '') => {
         if (DANGEROUS_KEYS.has(String(key))) {
             findings.push(nextPath);
         }
-        findings.push(...findDangerousPayloadKeys(entryValue, nextPath));
+        findings.push(...findDangerousPayloadKeys(entryValue, nextPath, seen));
     }
 
     return findings;

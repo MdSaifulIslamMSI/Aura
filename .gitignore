@@ -58,6 +58,13 @@ infra/labs/pqc/*.crt
 infra/labs/pqc/*.csr
 infra/labs/pqc/*.pfx
 
+# Key material and cloud credentials (repo scope): these must never be staged
+# from anywhere in the tree, not only from the PQC lab directory above.
+*.pem
+*.key
+*.pfx
+service-account*.json
+
 # Firebase
 .firebase/
 firebase-debug.log

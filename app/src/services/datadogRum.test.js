@@ -7,11 +7,20 @@ import {
   captureRumError,
   resetDatadogRumForTests,
 } from './datadogRum';
+import {
+  TELEMETRY_CONSENT_GRANTED,
+  TELEMETRY_CONSENT_STORAGE_KEY,
+} from './telemetryConsent';
+
+const grantTelemetryConsent = () => {
+  window.localStorage.setItem(TELEMETRY_CONSENT_STORAGE_KEY, TELEMETRY_CONSENT_GRANTED);
+};
 
 describe('datadogRum config', () => {
   beforeEach(() => {
     resetDatadogRumForTests();
     delete window.DD_RUM;
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -81,6 +90,8 @@ describe('datadogRum config', () => {
   });
 
   it('initializes RUM from the CDN bundle and forwards errors', async () => {
+    // RUM is a consent-gated capture surface: it only starts after an opt-in.
+    grantTelemetryConsent();
     const addError = vi.fn();
     const init = vi.fn();
     window.DD_RUM = { init, addError };
@@ -118,6 +129,7 @@ describe('datadogRum config', () => {
   });
 
   it('fails open when the CDN script cannot load', async () => {
+    grantTelemetryConsent();
     const pending = initDatadogRum({
       applicationId: 'app-id',
       clientToken: 'client-token',

@@ -24,6 +24,7 @@ import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
 import SkeletonLoader from './components/shared/SkeletonLoader';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
+import ConsentBanner from './components/shared/ConsentBanner';
 import EmergencyBanner from './components/shared/EmergencyBanner';
 import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
 import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
@@ -306,6 +307,16 @@ function AppContent() {
       {showSiteChrome && showBackendStatusBanner ? (
         <AppErrorBoundary>
           <BackendStatusBanner />
+        </AppErrorBoundary>
+      ) : null}
+      {/* Third-party telemetry consent gate (session replay / RUM). Mounted
+          once in the app shell: it owns the opt-in, opt-out and the start of
+          the capture surfaces it unlocks. The desktop auth handshake window
+          is excluded — it is a transient machine-driven route with no room
+          for a banner. */}
+      {chromePathname !== DESKTOP_LOGIN_PATH ? (
+        <AppErrorBoundary>
+          <ConsentBanner />
         </AppErrorBoundary>
       ) : null}
       <main

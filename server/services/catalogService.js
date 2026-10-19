@@ -684,7 +684,7 @@ const buildFilterFromQuery = async (query = {}, { market = null } = {}) => {
     if (query.brand) {
         const brands = safeString(query.brand).split(',').map((entry) => entry.trim()).filter(Boolean);
         if (brands.length > 0) {
-            filter.brand = { $in: brands.map((brand) => new RegExp(`^${brand}$`, 'i')) };
+            filter.brand = { $in: brands.map((brand) => new RegExp(`^${escapeRegExp(brand)}$`, 'i')) };
         }
     }
 

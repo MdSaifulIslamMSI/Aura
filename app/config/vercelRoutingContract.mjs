@@ -98,6 +98,39 @@ const buildFrontendStyleElementSrc = () => [
     'https://fonts.googleapis.com',
 ].join(' ');
 
+// Third-party egress allowlist.
+//
+// Every entry is a CONCRETE host on purpose. A wildcard on a shared provider
+// zone is an exfiltration channel: every Firebase project is handed
+// <project>.web.app / <project>.firebaseio.com / <project>.firebaseapp.com,
+// and every LiveKit Cloud tenant is handed <project>.livekit.cloud, so a
+// wildcard there lets an attacker's own tenant satisfy the policy and a
+// successful XSS can post the session out of the page without tripping CSP.
+//
+// Host-by-host provenance (grep evidence):
+// - api.github.com, api.stripe.com, js.stripe.com, hooks.stripe.com:
+//   GitHub REST + Stripe checkout/webhook calls from the storefront.
+// - checkout.razorpay.com, api.razorpay.com: the Razorpay checkout script
+//   (app/src/utils/razorpay.js) and the Razorpay order/payment API it calls.
+// - securetoken.googleapis.com, identitytoolkit.googleapis.com,
+//   firebaseinstallations.googleapis.com, firebaselogging.googleapis.com:
+//   the exact Google endpoints firebase/auth uses (app/src/config/firebase.js
+//   imports firebase/auth + firebase/analytics only).
+// - www.google.com, www.gstatic.com: reCAPTCHA + Google sign-in.
+// - www.recaptcha.net, challenges.cloudflare.com: reCAPTCHA / Turnstile.
+// - billy-b674c.firebaseapp.com: the Firebase Auth domain of THIS project
+//   (VITE_FIREBASE_AUTH_DOMAIN / VITE_FIREBASE_PROJECT_ID=billy-b674c).
+//   Firebase Hosting (*.web.app) and Realtime Database (*.firebaseio.com) are
+//   NOT used by this app, so neither is allowlisted. Changing the Firebase
+//   project means updating this list and the frame-src copy below.
+// - ggfchv-3nwkwwrh.livekit.cloud: the single LiveKit Cloud tenant this
+//   deployment dials (LIVEKIT_URL, surfaced to the client as session.wsUrl).
+// - Sentry: the envelope host is org-scoped and injected per environment
+//   through VITE_SENTRY_DSN (for example o4511422841421824.ingest.us.sentry.io),
+//   so a static policy cannot name it. Sentry owns the sentry.io zone, so this
+//   wildcard is NOT attacker-registrable; it is the one wildcard that has to
+//   stay, and it is one label deep under a vendor-controlled domain.
+// - browser-intake-us5-datadoghq.com: Datadog RUM browser intake (US5 org).
 export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options = {}) => [
     "'self'",
     trimTrailingSlash(origin),
@@ -110,8 +143,6 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options 
     'https://hooks.stripe.com',
     'https://checkout.razorpay.com',
     'https://api.razorpay.com',
-    'https://*.razorpay.com',
-    'https://*.googleapis.com',
     'https://securetoken.googleapis.com',
     'https://identitytoolkit.googleapis.com',
     'https://firebaseinstallations.googleapis.com',
@@ -120,11 +151,13 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options 
     'https://www.gstatic.com',
     'https://www.recaptcha.net',
     'https://challenges.cloudflare.com',
-    'https://*.firebaseio.com',
-    'https://*.firebaseapp.com',
-    'https://*.web.app',
-    'https://*.livekit.cloud',
-    'wss://*.livekit.cloud',
+    // Firebase Auth domain of this project (not a wildcard: *.firebaseapp.com
+    // would also match every other Firebase tenant).
+    'https://billy-b674c.firebaseapp.com',
+    // LiveKit Cloud tenant this deployment dials (not a wildcard: every
+    // LiveKit Cloud tenant owns a <project>.livekit.cloud host).
+    'https://ggfchv-3nwkwwrh.livekit.cloud',
+    'wss://ggfchv-3nwkwwrh.livekit.cloud',
     // Sentry event + trace ingest (regional + global endpoints).
     'https://*.ingest.sentry.io',
     'https://*.ingest.us.sentry.io',
@@ -146,7 +179,10 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
     `connect-src ${buildFrontendConnectSrc(origin, options).join(' ')}`,
-    "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com",
+    // frame-src carries the same wildcard problem as connect-src: the
+    // Firebase Auth popup is framed from THIS project's auth domain only
+    // (https://billy-b674c.firebaseapp.com). *.web.app is not used at all.
+    "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://billy-b674c.firebaseapp.com https://app.powerbi.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     ...(options.includeFrameAncestors === false ? [] : ["frame-ancestors 'none'"]),

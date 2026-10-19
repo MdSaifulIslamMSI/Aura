@@ -17,21 +17,41 @@ const buildSellerTrustPassport = async ({ sellerId, sellerUser = null }) => {
     const soldListings = listings.filter((entry) => entry.status === 'sold');
     const activeListings = listings.filter((entry) => entry.status === 'active').length;
 
+    // A listing marked sold is a SELLER-DECLARED state: markSold writes
+    // `status: 'sold'` with no payment, escrow, or order evidence. Only an
+    // escrow that was RELEASED carries evidence - the money was captured and
+    // delivery was confirmed. The two are counted separately so a seller
+    // cannot mint trust, or dilute their own dispute rate, by declaring sales.
+    const verifiedSoldListings = listings.filter((entry) => entry.escrow?.state === 'released');
+    const declaredSoldListings = soldListings.filter((entry) => entry.escrow?.state !== 'released');
+    const verifiedTransactions = verifiedSoldListings.length;
+
     let onTimeSold = 0;
-    soldListings.forEach((entry) => {
-        const createdAt = entry.createdAt ? new Date(entry.createdAt).getTime() : null;
-        const soldAt = entry.soldAt ? new Date(entry.soldAt).getTime() : null;
-        if (!createdAt || !soldAt || soldAt <= createdAt) return;
-        const days = (soldAt - createdAt) / (1000 * 60 * 60 * 24);
+    verifiedSoldListings.forEach((entry) => {
+        const startedAt = entry.escrow?.startedAt ? new Date(entry.escrow.startedAt).getTime() : null;
+        const releasedAt = entry.escrow?.releasedAt ? new Date(entry.escrow.releasedAt).getTime() : null;
+        if (!startedAt || !releasedAt || releasedAt <= startedAt) return;
+        const days = (releasedAt - startedAt) / (1000 * 60 * 60 * 24);
         if (days <= 14) onTimeSold += 1;
     });
 
     const disputeCount = listings.reduce((sum, entry) => sum + (Number(entry.disputeCount) || 0), 0);
-    const escrowReleased = listings.filter((entry) => entry.escrow?.state === 'released').length;
-    const escrowCancelled = listings.filter((entry) => entry.escrow?.state === 'cancelled').length;
-    const completedTransactions = Math.max(1, soldListings.length + escrowReleased);
+    const escrowReleased = verifiedSoldListings.length;
+    // A buyer releasing their own escrow authorization is not a seller
+    // failure, so only seller-initiated cancellations count against the
+    // seller. Legacy rows carry no cancelledBy and are counted conservatively.
+    const escrowCancelled = listings.filter((entry) => (
+        entry.escrow?.state === 'cancelled'
+        && (!entry.escrow?.cancelledBy || String(entry.escrow.cancelledBy) === String(sellerId))
+    )).length;
+    // The dispute-rate denominator counts only evidence-backed completions.
+    // Including self-declared sales let a seller dilute a real dispute rate
+    // by declaring extra sales, which dropped them out of the high-risk tier.
+    const completedTransactions = Math.max(1, verifiedTransactions);
     const disputeRate = clamp(disputeCount / completedTransactions, 0, 1);
-    const onTimeRate = soldListings.length > 0 ? clamp((onTimeSold / soldListings.length) * 100, 0, 100) : 82;
+    const onTimeRate = verifiedSoldListings.length > 0
+        ? clamp((onTimeSold / verifiedSoldListings.length) * 100, 0, 100)
+        : 82;
 
     const responseSlaHours = totalListings >= 40
         ? 2
@@ -59,7 +79,10 @@ const buildSellerTrustPassport = async ({ sellerId, sellerUser = null }) => {
 
     const verifiedBadges = [];
     if (sellerUser?.isVerified) verifiedBadges.push('verified_identity');
-    if (completedTransactions >= 10 && disputeRate <= 0.02) verifiedBadges.push('trusted_seller');
+    // The trusted-seller badge is a trust claim, so it is earned with
+    // evidence-backed transactions. A badge that ten mark-sold calls can mint
+    // is not a trust signal.
+    if (verifiedTransactions >= 10 && disputeRate <= 0.02) verifiedBadges.push('trusted_seller');
     if (responseSlaHours <= 4) verifiedBadges.push('fast_response');
     if (escrowReleased >= 3) verifiedBadges.push('escrow_ready');
 
@@ -74,6 +97,8 @@ const buildSellerTrustPassport = async ({ sellerId, sellerUser = null }) => {
             totalListings,
             activeListings,
             soldListings: soldListings.length,
+            verifiedTransactions,
+            declaredSoldListings: declaredSoldListings.length,
             disputes: disputeCount,
             escrowReleased,
             escrowCancelled,

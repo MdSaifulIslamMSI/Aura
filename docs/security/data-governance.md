@@ -22,14 +22,38 @@
 
 Data export and delete routes should require owner authorization or admin authorization with recent auth and WebAuthn step-up for critical mutations. If a route does not yet exist, do not add a stub that implies compliance; add explicit acceptance criteria and tests before launch.
 
-### Current state: implemented, deliberately disabled
+### Current state: built and tested, deliberately disabled, and not yet wired
 
-The data-subject export and erasure surface is built, wired, and tested. It is **not
+The data-subject export and erasure surface is built and tested. It is **not
 enabled**, by design. `server/config/accountPrivacyFlags.js` requires an explicit
 policy approval plus a complete runtime contract, and reports
 `blockedReason: authoritative_policy_or_runtime_contract_incomplete` otherwise. This
 is the repo refusing to invent retention, grace, and jurisdiction policy — the same
 rule stated above, applied to itself.
+
+It is also **not yet wired**: no worker handler is registered for `export`,
+`deactivation` or `deletion`, so no deployment can currently finish a
+data-subject job. The surface therefore reports itself honestly instead of
+over-promising:
+
+- `server/services/accountPrivacyHandlerRegistry.js` is the single source of
+  truth for "can this job type be serviced right now". A handler is only
+  serviceable once it is registered there.
+- `GET /api/account/privacy/capabilities` reports `export`, `deactivation` and
+  `deletion` as `false` and lists the unserviceable job types in
+  `unsupportedJobTypes`, regardless of the policy flags.
+- The request endpoints refuse to queue work nothing would service
+  (`503 ACCOUNT_PRIVACY_UNSUPPORTED`), so a data subject is never handed a
+  request that stays pending forever.
+- `server/services/accountPrivacyWorkerService.js` fails closed: a claimed job
+  whose type has no handler is completed as `failed` with
+  `failureCode: handler_unavailable`, never left in `queued`/`processing`.
+
+Wiring the real surface means registering a handler that writes the export to
+`AWS_S3_PRIVACY_BUCKET` with `ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID`, plus the
+erasure pass over the models in `server/config/privacyDataInventory.js`, and a
+worker process that calls `processNextPrivacyJob()`. Until both exist, the
+capability report stays `false` on purpose.
 
 | Endpoint | Method | Gate |
 | --- | --- | --- |
@@ -50,8 +74,10 @@ Implementation: `server/controllers/accountPrivacyController.js`,
 
 ### Activation
 
-All of the following must be set. Exports are written to S3 under
-`AWS_S3_PRIVACY_BUCKET`, encrypted with `ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID`.
+All of the following must be set. `AWS_S3_PRIVACY_BUCKET` and
+`ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID` are part of the required runtime contract
+only: no export implementation writes an artifact yet, so the capability
+report stays `false` until a handler that uses them is registered.
 
 ```sh
 ACCOUNT_CENTER_V2_PRIVACY=true
@@ -77,3 +103,8 @@ tests/accountPrivacyFlags.test.js`.
 - Record the approved jurisdiction/retention policy decision before setting the flags above.
 - Add field-level retention owners to the inventory.
 - Record production retention decisions in release evidence.
+- Implement and register the real `export`, `deactivation` and `deletion`
+  handlers (S3 artifact under `AWS_S3_PRIVACY_BUCKET`, KMS key
+  `ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID`, erasure across
+  `server/config/privacyDataInventory.js`) and run a worker process that calls
+  `processNextPrivacyJob()`.

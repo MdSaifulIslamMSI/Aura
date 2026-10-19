@@ -43,6 +43,30 @@ env:
   ROLLBACK_ARTIFACT_URI: ${{ vars.ROLLBACK_ARTIFACT_URI }}
   ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}
 
+# OIDC trust boundary for the staging gates
+#
+# The jobs below that mint an OIDC token (permissions: id-token: write) must
+# NOT declare an `environment:`. GitHub issues an environment-scoped `sub`
+# claim ("repo:<owner>/<repo>:environment:<env>") for every run of a job that
+# references the environment, whether the run was started by push,
+# workflow_dispatch or pull_request, so an environment subject is identical for
+# a reviewed main-branch run and for an unreviewed pull request and cannot
+# anchor a trust policy. Without an environment the claim is ref-based: a
+# pull_request run presents "ref:refs/pull/<n>/merge" and can never match the
+# "ref:refs/heads/main" subject the staging operator role trusts
+# (scripts/staging/00-create-iam-auth.sh).
+#
+# Every AWS-auth step is additionally guarded with
+# "if: github.event_name != 'pull_request'" so a pull request never reaches
+# sts:AssumeRoleWithWebIdentity. The guard alone is not a trust boundary (a
+# pull request can edit this file), which is why the ref-based subject and the
+# trust policy matter.
+#
+# Consequence for the operator: the staging values these gates read
+# (vars.STAGING_BASE_URL, vars.STAGING_AWS_DEPLOY_ROLE_ARN, ...) must resolve
+# from repository or organization level. The "staging" environment keeps holding
+# the environment-scoped values for staging-smoke.yml, staging-frontend-smoke.yml
+# and staging-aws-deploy.yml, but these jobs no longer read it.
 jobs:
   test:
     name: test
@@ -81,7 +105,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -131,7 +154,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -174,7 +196,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -224,7 +245,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -271,7 +291,6 @@ jobs:
     name: aws:observability:guard
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
     # Same staging-parity skip contract as the other staging-scoped gates
     # (staging:off-proof self-proves staging is stopped on ack'd deploys).
     if: inputs.staging_off_acknowledged != true
@@ -315,7 +334,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -374,7 +392,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -426,7 +443,6 @@ jobs:
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -478,7 +494,6 @@ jobs:
     if: inputs.staging_off_acknowledged == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: staging
     permissions:
       contents: read
       id-token: write
@@ -494,8 +509,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -504,6 +521,9 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - name: Prove staging is actually stopped
+        # Consumes the AWS credentials minted by the guarded step above, so it
+        # must be skipped on pull requests for the same reason.
+        if: github.event_name != 'pull_request'
         run: |
           refresh_log="$(npm run staging:state:refresh 2>&1)" && refresh_status=ok || refresh_status=fail
           printf '%s\n' "$refresh_log"

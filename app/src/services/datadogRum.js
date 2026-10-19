@@ -1,11 +1,15 @@
 import { releaseInfo } from '../config/releaseInfo';
 import { CLIENT_DIAGNOSTIC_EVENT } from './clientObservability';
+import {
+    TELEMETRY_CONSENT_GRANTED,
+    resolveTelemetryConsent,
+} from './telemetryConsent';
 
 const INIT_FLAG = '__AURA_DATADOG_RUM_INITIALIZED__';
 const BRIDGE_FLAG = '__AURA_DATADOG_RUM_BRIDGE_ATTACHED__';
 const SCRIPT_ID = 'aura-datadog-rum';
 
-let initState = { enabled: false, configured: false };
+let initState = { enabled: false, configured: false, telemetryEnabled: false };
 
 const trimValue = (value = '') => (typeof value === 'string' ? value.trim() : '');
 
@@ -63,6 +67,25 @@ export const resolveDatadogRumConfig = (env = import.meta.env, release = release
     trackUserInteractions: enabled ? toBool(env?.VITE_DD_TRACK_INTERACTIONS, true) : false,
   };
 };
+
+// RUM records the session (and, at a 20% sample rate, replays it), so it is
+// a third-party capture surface that only starts with an explicit opt-in.
+// The gate is applied last so no caller can switch it off by passing overrides.
+const applyTelemetryConsent = (config, consent) => {
+  const telemetryEnabled = Boolean(config.enabled) && consent === TELEMETRY_CONSENT_GRANTED;
+  return {
+    ...config,
+    telemetryEnabled,
+    sessionSampleRate: telemetryEnabled ? config.sessionSampleRate : 0,
+    sessionReplaySampleRate: telemetryEnabled ? config.sessionReplaySampleRate : 0,
+  };
+};
+
+export const resolveDatadogRumTelemetryConfig = (
+  env = import.meta.env,
+  release = releaseInfo,
+  consent = resolveTelemetryConsent(),
+) => applyTelemetryConsent(resolveDatadogRumConfig(env, release), consent);
 
 const redactText = (value = '') => String(value || '')
   .replace(/\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g, '[REDACTED]')
@@ -147,7 +170,7 @@ export const captureRumError = (error, context = {}) => {
 export const isDatadogRumEnabled = () => initState.enabled;
 
 export const resetDatadogRumForTests = () => {
-  initState = { enabled: false, configured: false };
+  initState = { enabled: false, configured: false, telemetryEnabled: false };
   if (typeof window !== 'undefined') {
     delete window[INIT_FLAG];
     delete window[BRIDGE_FLAG];
@@ -157,15 +180,42 @@ export const resetDatadogRumForTests = () => {
   }
 };
 
+// Consent withdrawal: stop recording and stop forwarding diagnostics. The
+// Datadog RUM global cannot be re-initialised in the same page view, so a
+// later opt-in only takes effect on the next navigation.
+export const stopDatadogRumTelemetry = () => {
+  const rum = getRumGlobal();
+  initState = { enabled: false, configured: initState.configured, telemetryEnabled: false };
+  try {
+    rum?.stopSessionRecording?.();
+  } catch {
+    // Stopping is best-effort; the bridge is already disabled by initState.
+  }
+  return initState;
+};
+
 export const initDatadogRum = async (overrides = {}) => {
-  if (typeof window !== 'undefined' && window[INIT_FLAG]) return initState;
-  const config = { ...resolveDatadogRumConfig(), ...overrides };
-  initState = { enabled: false, configured: config.configured };
+  const config = applyTelemetryConsent(
+    { ...resolveDatadogRumConfig(), ...overrides },
+    resolveTelemetryConsent(),
+  );
 
   if (!config.enabled) {
     if (typeof window !== 'undefined') window[INIT_FLAG] = true;
+    initState = { enabled: false, configured: config.configured, telemetryEnabled: false };
     return initState;
   }
+
+  if (!config.telemetryEnabled) {
+    // No consent: RUM (and its session replay) must not start, and the
+    // vendor bundle must not even be fetched. The init flag stays unset so a
+    // later opt-in can still start it in this page view.
+    initState = { enabled: false, configured: config.configured, telemetryEnabled: false };
+    return initState;
+  }
+
+  if (typeof window !== 'undefined' && window[INIT_FLAG]) return initState;
+  initState = { enabled: false, configured: config.configured, telemetryEnabled: false };
 
   try {
     // Official CDN bundle: zero npm dep, zero app-bundle impact. Fail-open.
@@ -173,11 +223,11 @@ export const initDatadogRum = async (overrides = {}) => {
     const rum = getRumGlobal();
     if (!rum?.init) throw new Error('Datadog RUM global missing after script load.');
     rum.init(buildRumInitOptions(config));
-    initState = { enabled: true, configured: true };
+    initState = { enabled: true, configured: true, telemetryEnabled: true };
     if (typeof window !== 'undefined') window[INIT_FLAG] = true;
     attachDiagnosticBridge();
   } catch {
-    initState = { enabled: false, configured: config.configured };
+    initState = { enabled: false, configured: config.configured, telemetryEnabled: false };
   }
   return initState;
 };

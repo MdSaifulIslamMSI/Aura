@@ -113,11 +113,12 @@ describe('authMiddleware admin second-factor enforcement', () => {
             [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
         };
         const req = {
+            method: 'GET',
             user,
             authUid: 'firebase-admin-uid',
             authToken,
             headers,
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: (header) => headers[header],
         };
         const next = jest.fn();
@@ -179,11 +180,12 @@ describe('authMiddleware admin second-factor enforcement', () => {
             [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
         };
         const req = {
+            method: 'GET',
             user,
             authUid: 'firebase-admin-uid',
             authToken,
             headers,
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: (header) => headers[header],
         };
         const next = jest.fn();
@@ -243,6 +245,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
             [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
         };
         const req = {
+            method: 'GET',
             user,
             authUid: 'firebase-admin-uid',
             authToken,
@@ -260,7 +263,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 ],
             },
             headers,
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: (header) => headers[header],
         };
         const next = jest.fn();
@@ -323,11 +326,12 @@ describe('authMiddleware admin second-factor enforcement', () => {
             [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
         };
         const req = {
+            method: 'GET',
             user,
             authUid: 'firebase-admin-uid',
             authToken,
             headers,
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: (header) => headers[header],
         };
         const next = jest.fn();
@@ -378,6 +382,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const admin = loadAdminMiddleware();
         const req = {
+            method: 'GET',
             user: {
                 _id: 'user-1',
                 isAdmin: true,
@@ -392,7 +397,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 iat: nowSeconds - 60,
             },
             headers: {},
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: () => '',
         };
         const next = jest.fn();
@@ -423,6 +428,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const admin = loadAdminMiddleware();
         const req = {
+            method: 'GET',
             user: {
                 _id: 'user-1',
                 isAdmin: true,
@@ -436,7 +442,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 iat: nowSeconds - 60,
             },
             headers: {},
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: () => '',
         };
         const next = jest.fn();
@@ -464,6 +470,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         const nowSeconds = Math.floor(Date.now() / 1000);
         const admin = loadAdminMiddleware();
         const req = {
+            method: 'GET',
             user: {
                 _id: 'user-1',
                 isAdmin: true,
@@ -486,7 +493,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 emailVerified: false,
             },
             headers: {},
-            originalUrl: '/api/admin/dashboard',
+            originalUrl: '/api/admin/users',
             get: () => '',
         };
         const next = jest.fn();
@@ -540,7 +547,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 email: 'admin@example.com',
             },
             headers: {},
-            originalUrl: '/api/admin/users/target',
+            originalUrl: '/api/admin/users/507f1f77bcf86cd799439011/warn',
             get: () => '',
         };
         const next = jest.fn();
@@ -595,7 +602,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 amr: ['password'],
             },
             headers: {},
-            originalUrl: '/api/admin/users/target',
+            originalUrl: '/api/admin/users/507f1f77bcf86cd799439011/warn',
             get: () => '',
         };
         const next = jest.fn();
@@ -651,7 +658,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
             },
             headers: {},
-            originalUrl: '/api/admin/users/target',
+            originalUrl: '/api/admin/users/507f1f77bcf86cd799439011/warn',
             get: () => '',
         };
         const next = jest.fn();

@@ -55,7 +55,7 @@ services:
       start_period: 30s
 
   mongo:
-    image: mongo:7
+    image: mongo:7@sha256:c53852c00c23ca9f23fc39690350ffa9a80e3642fe8f96879726d8da0abe80a7
     container_name: aura-mongo
     ports:
       - "27017:27017"
@@ -71,7 +71,7 @@ services:
       start_period: 20s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     container_name: aura-redis
     ports:
       - "6379:6379"
@@ -84,7 +84,7 @@ services:
       retries: 10
 
   clamav:
-    image: clamav/clamav:1.4
+    image: clamav/clamav:1.4@sha256:3bba6dd5ac6663d55b80f86a3126e146612d93b593cc2617188d13f637d91260
     container_name: aura-clamav
     profiles: ["malware-scan"]
     ports:

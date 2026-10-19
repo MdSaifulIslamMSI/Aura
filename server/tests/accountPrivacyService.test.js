@@ -14,8 +14,13 @@ const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const {
     cancelPrivacyJob,
     createPrivacyJob,
+    getPublicPrivacyCapabilities,
     serializePrivacyJob,
 } = require('../services/accountPrivacyService');
+const {
+    clearAccountPrivacyHandlers,
+    registerAccountPrivacyHandlers,
+} = require('../services/accountPrivacyHandlerRegistry');
 
 const enableCompletePolicy = () => {
     process.env.ACCOUNT_CENTER_V2_PRIVACY = 'true';
@@ -33,14 +38,17 @@ const enableCompletePolicy = () => {
 describe('account privacy service', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        clearAccountPrivacyHandlers();
         enableCompletePolicy();
     });
 
     afterEach(() => {
         process.env = { ...ORIGINAL_ENV };
+        clearAccountPrivacyHandlers();
     });
 
     test('creates an idempotent asynchronous deletion request with a grace boundary', async () => {
+        registerAccountPrivacyHandlers({ deletion: jest.fn() });
         AccountPrivacyJob.findOne.mockReturnValue(leanResult(null));
         AccountPrivacyJob.create.mockImplementation(async (payload) => ({
             _id: '507f1f77bcf86cd799439299',
@@ -67,6 +75,7 @@ describe('account privacy service', () => {
     });
 
     test('returns the same safe request for an idempotent replay', async () => {
+        registerAccountPrivacyHandlers({ export: jest.fn() });
         AccountPrivacyJob.findOne.mockReturnValue(leanResult({
             _id: '507f1f77bcf86cd799439299',
             type: 'export',
@@ -128,5 +137,52 @@ describe('account privacy service', () => {
             artifactKeyEncrypted: expect.anything(),
             idempotencyHash: expect.anything(),
         }));
+    });
+
+    test('reports export, deactivation and deletion as unsupported while no handler is wired', () => {
+        const capabilities = getPublicPrivacyCapabilities();
+
+        expect(capabilities.enabled).toBe(true);
+        expect(capabilities.capabilities).toMatchObject({
+            export: false,
+            deactivation: false,
+            deletion: false,
+            cancellation: true,
+        });
+        expect(capabilities.unsupportedJobTypes).toEqual([
+            'export',
+            'deactivation',
+            'deletion',
+        ]);
+    });
+
+    test('advertises a job type only once a handler can service it', () => {
+        registerAccountPrivacyHandlers({ export: jest.fn() });
+
+        const capabilities = getPublicPrivacyCapabilities();
+
+        expect(capabilities.capabilities).toMatchObject({
+            export: true,
+            deactivation: false,
+            deletion: false,
+        });
+        expect(capabilities.unsupportedJobTypes).toEqual([
+            'deactivation',
+            'deletion',
+        ]);
+    });
+
+    test('refuses to queue a data-subject request that no handler can service', async () => {
+        AccountPrivacyJob.findOne.mockReturnValue(leanResult(null));
+
+        await expect(createPrivacyJob({
+            userId: '507f1f77bcf86cd799439211',
+            type: 'export',
+            idempotencyKey: 'export-request-0001',
+        })).rejects.toMatchObject({
+            code: 'ACCOUNT_PRIVACY_UNSUPPORTED',
+            statusCode: 503,
+        });
+        expect(AccountPrivacyJob.create).not.toHaveBeenCalled();
     });
 });
