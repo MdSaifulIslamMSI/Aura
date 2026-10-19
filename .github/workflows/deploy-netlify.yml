@@ -25,6 +25,18 @@ on:
         options:
           - preview
           - production
+      allow_missing_rollback_target:
+        # The workflow_call input of the same name already exists, and the
+        # capture step tells an operator to "re-run with
+        # allow_missing_rollback_target=true" when a host has no prior deploy
+        # to restore. Before this input existed on workflow_dispatch that
+        # instruction pointed at an unreachable action: a manual re-run could
+        # not pass the flag it was being told to pass. Mirrors the
+        # workflow_call input: same name, type, default and meaning.
+        description: Allow the release to proceed when a host has no prior deploy to restore (first-ever release); auto-rollback for that host then fails closed
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       target:

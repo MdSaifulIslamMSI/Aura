@@ -80,3 +80,37 @@ describe('storefront deploy resilience', () => {
         });
     }
 });
+
+describe('the storefront rollback-target escape hatch is reachable', () => {
+    const WORKFLOW = '.github/workflows/deploy-netlify.yml';
+
+    test('workflow_dispatch exposes allow_missing_rollback_target', () => {
+        const parsed = yaml.load(readRepoFile(WORKFLOW));
+        const inputs = (parsed.on || parsed[true]).workflow_dispatch.inputs;
+        expect(inputs).toBeTruthy();
+        expect(Object.keys(inputs)).toContain('allow_missing_rollback_target');
+        expect(inputs.allow_missing_rollback_target.type).toBe('boolean');
+        // Off by default: the escape hatch must be an explicit acknowledgement.
+        expect(inputs.allow_missing_rollback_target.default).toBe(false);
+    });
+
+    test('the dispatch input matches the workflow_call input it mirrors', () => {
+        const parsed = yaml.load(readRepoFile(WORKFLOW));
+        const triggers = parsed.on || parsed[true];
+        const dispatch = triggers.workflow_dispatch.inputs.allow_missing_rollback_target;
+        const call = triggers.workflow_call.inputs.allow_missing_rollback_target;
+        expect(dispatch.type).toBe(call.type);
+        expect(dispatch.default).toBe(call.default);
+        expect(dispatch.description).toBe(call.description);
+    });
+
+    test('the capture step reads the same input name it tells an operator to pass', () => {
+        const parsed = yaml.load(readRepoFile(WORKFLOW));
+        const steps = Object.values(parsed.jobs).flatMap((job) => job.steps || []);
+        const capture = steps.find((s) => s.name === 'Capture provider-specific production rollback targets');
+        expect(capture).toBeTruthy();
+        const env = capture.env || {};
+        expect(Object.keys(env)).toContain('ALLOW_MISSING_ROLLBACK_TARGET');
+        expect(String(env.ALLOW_MISSING_ROLLBACK_TARGET)).toContain('allow_missing_rollback_target');
+    });
+});
