@@ -832,7 +832,14 @@ jobs:
 
   validate-aws-production-access:
     needs: build-frontend
-    if: inputs.target == 'production'
+    # `inputs` is empty on a pull_request run, so the target check already
+    # excludes one - but this job declares `environment: aws-frontend-production`,
+    # and GitHub issues an ENVIRONMENT-scoped OIDC subject for every run of such
+    # a job, including pull-request runs. The live
+    # `aura-github-actions-frontend-deploy` role still trusts that subject, so
+    # the event is excluded explicitly here rather than relying on the inputs
+    # context alone.
+    if: inputs.target == 'production' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -1244,7 +1251,10 @@ jobs:
       - build-frontend
       - validate-aws-production-access
       - preflight-github-pages-pat
-    if: inputs.target == 'production'
+    # See validate-aws-production-access: this job declares the production
+    # environment, so its OIDC subject is environment-scoped and the event is
+    # excluded explicitly.
+    if: inputs.target == 'production' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

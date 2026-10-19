@@ -1365,6 +1365,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "ਇਜਾਜ਼ਤ ਦਿਓ",
   "consent.banner.decline": "ਨਹੀਂ, ਧੰਨਵਾਦ",
   "consent.banner.detail": "Aura ਮੁੱਕਾਂ ਨੂੰ ਜਲਦੀ ਠੀਕ ਕਰਨ ਲਈ ਇਹ ਸੈਸ਼ਨ ਦਾ ਮਾਸਕ ਕੀਤਾ ਰੀਪਲੇ ਰਿਕਾਰਡ ਕਰ ਸਕਦਾ ਹੈ ਅਤੇ ਵਰਤੋਂ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਭੇਜ ਸਕਦਾ ਹੈ। ਲਿਖਤ ਅਤੇ ਮੀਡੀਆ ਮਾਸਕ ਕੀਤੇ ਰਹਿੰਦੇ ਹਨ, ਅਤੇ ਡਾਟਾ ਸੰਯੁਕਤ ਰਾਜਾਂ ਵਿੱਚ ਪ੍ਰਕ੍ਰਿਆ ਕੀਤਾ ਜਾਂਦਾ ਹੈ। ਤੁਹਾਡੀ ਇਜਾਜ਼ਤ ਤੱਕ ਕੁਝ ਵੀ ਰਿਕਾਰਡ ਨਹੀਂ ਹੁੰਦਾ।",
+  "consent.banner.dismiss": "ਬੰਦ ਕਰੋ",
   "consent.banner.eyebrow": "ਗੋਪਨੀਯਤਾ",
   "consent.banner.granted.detail": "ਵਿਕਲਪਿਕ ਸੈਸ਼ਨ ਰੀਪਲੇ ਚਾਲੂ ਹੈ।",
   "consent.banner.title": "ਕੀ ਵਿਕਲਪਿਕ ਸੈਸ਼ਨ ਰੀਪਲੇ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ?",

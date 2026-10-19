@@ -2381,6 +2381,7 @@
   "consent.banner.allow": "Permitir",
   "consent.banner.decline": "No, gracias",
   "consent.banner.detail": "Aura puede registrar una reproducción enmascarada de esta sesión y enviar análisis de uso para corregir los problemas más rápido. El texto y los medios permanecen enmascarados, y los datos se procesan en Estados Unidos. No se registra nada hasta que lo permitas.",
+  "consent.banner.dismiss": "Descartar",
   "consent.banner.eyebrow": "Privacidad",
   "consent.banner.granted.detail": "La reproducción opcional de sesión está activada.",
   "consent.banner.title": "¿Permitir la reproducción opcional de sesión?",

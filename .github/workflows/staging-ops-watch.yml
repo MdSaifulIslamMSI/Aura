@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   watch-staging:
+    # This job declares `environment: staging`, so its OIDC subject is
+    # environment-scoped. Excluding the pull_request event by name keeps that
+    # subject from ever being minted for a pull request.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 25

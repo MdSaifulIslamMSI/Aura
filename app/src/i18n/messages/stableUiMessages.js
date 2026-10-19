@@ -7563,6 +7563,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Aura can record a masked replay of this session and report usage analytics so we can fix problems faster. Text and media stay masked, and the data is processed in the United States. Nothing is recorded until you allow it.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "consent.banner.dismiss": {
+        id: "consent.banner.dismiss",
+        defaultMessage: "Dismiss",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "consent.banner.eyebrow": {
         id: "consent.banner.eyebrow",
         defaultMessage: "Privacy",

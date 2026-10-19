@@ -1362,6 +1362,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "許可する",
   "consent.banner.decline": "許可しない",
   "consent.banner.detail": "Aura は、問題をより早く解決するために、このセッションをマスクしたリプレイとして記録し、利用状況の分析を送信できます。テキストとメディアはマスクされたままがあり、データは米国で処理されます。許可するまで何も記録されません。",
+  "consent.banner.dismiss": "閉じる",
   "consent.banner.eyebrow": "プライバシー",
   "consent.banner.granted.detail": "オプションのセッションリプレイはオンです。",
   "consent.banner.title": "オプションのセッションリプレイを許可しますか？",

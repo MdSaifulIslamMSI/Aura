@@ -1362,6 +1362,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "Permitir",
   "consent.banner.decline": "Não, obrigado",
   "consent.banner.detail": "O Aura pode gravar uma reprodução mascarada desta sessão e enviar análises de utilização para corrigir problemas mais rapidamente. O texto e os ficheiros multimídia permanecem mascarados, e os dados são processados nos Estados Unidos. Nada é registado até você permitir.",
+  "consent.banner.dismiss": "Dispensar",
   "consent.banner.eyebrow": "Privacidade",
   "consent.banner.granted.detail": "A reprodução opcional de sessão está ativada.",
   "consent.banner.title": "Permitir a reprodução opcional de sessão?",

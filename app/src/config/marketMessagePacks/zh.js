@@ -1362,6 +1362,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "允许",
   "consent.banner.decline": "不用了，谢谢",
   "consent.banner.detail": "Aura 可以记录经过掩码处理的本次会话回放，并发送使用情况分析，以便更快地修复问题。文本和媒体会保持掩码，数据在美国处理。在你允许之前不会记录任何内容。",
+  "consent.banner.dismiss": "关闭",
   "consent.banner.eyebrow": "隐私",
   "consent.banner.granted.detail": "可选的会话回放已开启。",
   "consent.banner.title": "允许可选的会话回放吗？",

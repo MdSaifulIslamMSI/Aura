@@ -1362,6 +1362,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "अनुमति दें",
   "consent.banner.decline": "नहीं, धन्यवाद",
   "consent.banner.detail": "Aura समस्याओं को जल्दी ठीक करने के लिए इस सेशन का मास्क किया गया रीप्ले रिकॉर्ड कर सकता है और उपयोग विश्लेषण भेज सकता है। टेक्स्ट और मीडिया मास्क किए रहते हैं, और डेटा संयुक्त राज्य अमेरिका में संसाधित होता है। आपकी अनुमति तक कुछ भी रिकॉर्ड नहीं किया जाता।",
+  "consent.banner.dismiss": "बंद करें",
   "consent.banner.eyebrow": "गोपनीयता",
   "consent.banner.granted.detail": "वैकल्पिक सेशन रीप्ले चालू है।",
   "consent.banner.title": "वैकल्पिक सेशन रीप्ले की अनुमति दें?",

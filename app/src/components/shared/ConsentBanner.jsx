@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { EyeOff, ShieldCheck } from 'lucide-react';
+import { EyeOff, ShieldCheck, X } from 'lucide-react';
 import { useOptionalMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import useTelemetryConsent from '@/hooks/useTelemetryConsent';
@@ -75,9 +75,23 @@ const ConsentBanner = () => {
           <ShieldCheck className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">
-            {t('consent.banner.eyebrow', {}, 'Privacy')}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">
+              {t('consent.banner.eyebrow', {}, 'Privacy')}
+            </p>
+            {/* The banner is a fixed bottom overlay, so it can sit on top of a
+                page's primary control. It must always be dismissible: closing
+                it is the same posture as declining, because the default is
+                "nothing is captured". */}
+            <button
+              type="button"
+              onClick={deny}
+              aria-label={t('consent.banner.dismiss', {}, 'Dismiss')}
+              className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <h2 className="mt-1 text-base font-black">
             {t('consent.banner.title', {}, 'Allow optional session replay?')}
           </h2>

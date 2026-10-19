@@ -142,6 +142,40 @@ describe('CI OIDC trust boundary', () => {
         expect(unguarded).toEqual([]);
     });
 
+    test('every environment-scoped OIDC job excludes the pull_request event explicitly', () => {
+        // The first test only asks whether a job is REACHABLE from a pull
+        // request, and it treats "requires a dispatch input" as unreachable.
+        // That is a GitHub-context subtlety, not a property of the job: a
+        // later edit such as `inputs.target == 'production' ||
+        // github.event_name == 'pull_request'` would make the job reachable
+        // again while the role keeps trusting the environment subject.
+        //
+        // So the rule is stricter: any job that holds `id-token: write` inside
+        // an environment must exclude the pull_request event by name. The
+        // trust anchor stays ref-scoped on the role side, and this keeps the
+        // workflow side honest about it.
+        const unguarded = [];
+
+        for (const fileName of listWorkflowFiles()) {
+            const workflow = readWorkflow(fileName);
+
+            for (const [jobName, job] of Object.entries(workflow.jobs || {})) {
+                if (effectivePermissions(workflow, job)['id-token'] !== 'write') continue;
+                if (!environmentName(job)) continue;
+
+                const condition = typeof job.if === 'string' ? job.if : '';
+                if (condition.includes("github.event_name != 'pull_request'")) continue;
+
+                unguarded.push(
+                    `${fileName} job ${jobName}: id-token: write inside environment `
+                    + `"${environmentName(job)}" must exclude the pull_request event explicitly`
+                );
+            }
+        }
+
+        expect(unguarded).toEqual([]);
+    });
+
     test('the staging release gates anchor their OIDC subject on the main ref', () => {
         // Locks the fix in place: none of the staging gates may declare an
         // environment, because an environment-scoped subject cannot separate a

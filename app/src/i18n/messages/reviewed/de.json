@@ -2381,6 +2381,7 @@
   "consent.banner.allow": "Erlauben",
   "consent.banner.decline": "Nein, danke",
   "consent.banner.detail": "Aura kann eine maskierte Wiedergabe dieser Sitzung aufzeichnen und Nutzungsanalysen senden, um Probleme schneller zu beheben. Text und Medien bleiben maskiert, und die Daten werden in den Vereinigten Staaten verarbeitet. Es wird nichts aufgezeichnet, bis du es erlaubst.",
+  "consent.banner.dismiss": "Schließen",
   "consent.banner.eyebrow": "Datenschutz",
   "consent.banner.granted.detail": "Die optionale Sitzungswiedergabe ist aktiviert.",
   "consent.banner.title": "Optionale Sitzungswiedergabe erlauben?",

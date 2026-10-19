@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { seedTelemetryConsent } from './support/telemetryConsent';
 
 const buildStreamFrame = (eventName, payload) => `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
 
@@ -8,6 +9,10 @@ test.describe('Assistant Terminal', () => {
             window.localStorage.clear();
             window.sessionStorage.clear();
         });
+        // The first-visit consent prompt is a fixed bottom overlay and would
+        // sit on top of the composer this suite drives. Seed the decision so
+        // the suite exercises the assistant, not the prompt.
+        await seedTelemetryConsent(page);
     });
 
     test('renders the controlled terminal shell', async ({ page }) => {

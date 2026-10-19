@@ -1365,6 +1365,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "অনুমতি দিয়ক",
   "consent.banner.decline": "নহয়, ধন্যবাদ",
   "consent.banner.detail": "Aura সমস্যাবোৰ দ্ৰুত সমাধান কৰিবলৈ এই ছেশ্বনৰ মাস্ক কৰা ৰিপ্লে ৰেকৰ্ড কৰি আৰু ব্যবহাৰৰ বিশ্লেষণ পঠিয়াব পাৰে। লেখা আৰু মিডিয়া মাস্ক কৰা থাকে, আৰু ডেটা যুক্তৰাষ্ট্ৰ ৰাজ্যত প্ৰক্ৰিয়া কৰা হয়। আপুনি অনুমতি নদিওৱাৰ আগতে কিবাই এটাও ৰেকৰ্ড কৰা হোৱা নাযায়।",
+  "consent.banner.dismiss": "বন্ধ কৰক",
   "consent.banner.eyebrow": "গোপনীয়তা",
   "consent.banner.granted.detail": "ঐচ্ছিক ছেশ্বন ৰিপ্লে চালু আছে।",
   "consent.banner.title": "ঐচ্ছিক ছেশ্বন ৰিপ্লে চালু কৰিব নাকি?",

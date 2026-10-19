@@ -2381,6 +2381,7 @@
   "consent.banner.allow": "Allow",
   "consent.banner.decline": "No thanks",
   "consent.banner.detail": "Aura can record a masked replay of this session and report usage analytics so we can fix problems faster. Text and media stay masked, and the data is processed in the United States. Nothing is recorded until you allow it.",
+  "consent.banner.dismiss": "Dismiss",
   "consent.banner.eyebrow": "Privacy",
   "consent.banner.granted.detail": "Optional session replay is on.",
   "consent.banner.title": "Allow optional session replay?",

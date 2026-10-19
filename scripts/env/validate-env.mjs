@@ -168,6 +168,15 @@ if (environment === 'staging' || environment === 'production') {
       'FIELD_ENCRYPTION_PREVIOUS_KEYS',
       'MONGO_AUTO_INDEX',
       'MONGO_REQUIRE_REPLICA_SET',
+      // The admin-MFA and lockout refusals are production-only bootstrap
+      // settings: the production contract refuses to boot without them, and
+      // the staging surface has no admin surface to protect.
+      'AUTH_REQUIRE_MFA_FOR_ADMIN',
+      'AUTH_LOCKOUT_MODE',
+      // The status unsubscribe HMAC secret is a production-only secret; the
+      // API and the worker must share the same value or every incident
+      // unsubscribe link breaks.
+      'STATUS_UNSUBSCRIBE_SECRET',
     ]);
     const thisKeys = new Set(Object.keys(fileEnv));
     const otherKeys = new Set(Object.keys(otherEnvFile));

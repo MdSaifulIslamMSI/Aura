@@ -2381,6 +2381,7 @@
   "consent.banner.allow": "Autoriser",
   "consent.banner.decline": "Non, merci",
   "consent.banner.detail": "Aura peut enregistrer une relecture masquée de cette session et envoyer des analyses d’utilisation pour corriger les problèmes plus rapidement. Le texte et les médias restent masqués, et les données sont traitées aux États-Unis. Rien n’est enregistré tant que vous ne l’autorisez pas.",
+  "consent.banner.dismiss": "Ignorer",
   "consent.banner.eyebrow": "Confidentialité",
   "consent.banner.granted.detail": "La relecture de session optionnelle est activée.",
   "consent.banner.title": "Autoriser la relecture de session optionnelle ?",

@@ -1365,6 +1365,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "అనుమతించండి",
   "consent.banner.decline": "ఇల్లే, నంది",
   "consent.banner.detail": "Aura సమస్యలను వేగంగా పరిష్కరించడానికి ఈ సెషన్ మాస్క్ చేసిన రీప్లేను రికార్డ్ చేసి, వినియోగ విశ్లేషణను పంపవచ్చు. వచనం మరియు మీడియా మాస్క్ చేసినట్లే ఉంటాయి, మరియు డేటా యునైటెడ్ స్టేట్స్‌లో ప్రాసెస్ అవుతుంది. మీరు అనుమతించే వరకు ఏదీ రికార్డ్ కాదు.",
+  "consent.banner.dismiss": "మూసివేయండి",
   "consent.banner.eyebrow": "గోప్యత",
   "consent.banner.granted.detail": "ఐచ్ఛిక సెషన్ రీప్లే చెల్లుగా ఉంది.",
   "consent.banner.title": "ఐచ్ఛిక సెషన్ రీప్లేను అనుమతించాలా?",

@@ -1365,6 +1365,7 @@ export const MARKET_MESSAGE_PACK = {
   "consent.banner.allow": "अनुमतिः ददातु",
   "consent.banner.decline": "न, धन्यवादम्",
   "consent.banner.detail": "Aura च समस्याः शीघ्रं समाधातुं एतत् सत्रं मास्कितं पुनःप्रदर्शनं अभिलिख्य अनुपयोगविश्लेषणं प्रेषयितुं शक्नोति। पाठ्यं माध्यमं च मास्कितानि भवन्ति, दत्तं च संयुक्तराज्ये प्रक्रियते। भवतः अनुमतिदानपर्यन्तं किमपि अभिलिख्यते न।",
+  "consent.banner.dismiss": "पिधानम्",
   "consent.banner.eyebrow": "गोपनीयता",
   "consent.banner.granted.detail": "ऐच्छिकसत्रपुनःप्रदर्शनं प्रचलति।",
   "consent.banner.title": "ऐच्छिकसत्रपुनःप्रदर्शनाय अनुमति अस्ति?",
