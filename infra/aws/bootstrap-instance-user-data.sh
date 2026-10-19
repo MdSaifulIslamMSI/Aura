@@ -75,6 +75,10 @@ AUTH_WEBAUTHN_USER_VERIFICATION=required
 MFA_ENABLED=true
 MFA_PASSKEY_ENABLED=true
 MFA_TOTP_ENABLED=true
+# The production environment contract refuses to boot unless admin MFA is
+# required and the brute-force lockout is armed, for EVERY auth provider.
+MFA_REQUIRED_FOR_ADMINS=true
+AUTH_LOCKOUT_MODE=enforce
 AURA_DESKTOP_OWNER_ACCESS_ENABLED=false
 AUTH_RISK_IP_DENYLIST=
 AUTH_RISK_IP_WATCHLIST=

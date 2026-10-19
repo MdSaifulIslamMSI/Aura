@@ -15,6 +15,12 @@ const DEFAULT_AWS_PARAMETER_KEYS = Object.freeze([
     // (FIELD_ENCRYPTION_KMS_KEY_ID is already listed further down.)
     'SECURITY_LOG_HASH_KEY',
     'FIELD_ENCRYPTION_ENABLED',
+    // The production environment contract refuses to boot without admin MFA
+    // required and the brute-force lockout armed, for every auth provider.
+    // They are listed here so an operator can set them in Parameter Store
+    // rather than only in the instance bootstrap.
+    'MFA_REQUIRED_FOR_ADMINS',
+    'AUTH_LOCKOUT_MODE',
     'ACCOUNT_CURSOR_SIGNING_SECRET',
     'OBSERVABILITY_HASH_SECRET',
     'FIREBASE_SERVICE_ACCOUNT',

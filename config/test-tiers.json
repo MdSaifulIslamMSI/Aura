@@ -8,6 +8,7 @@
       "tests/adminAuthorizationPolicyFailClosed.test.js",
       "tests/adminUserDeletePiiScrub.test.js",
       "tests/ciOidcTrustBoundary.test.js",
+      "tests/productionAdminMfaContract.test.js",
       "tests/overridePinGate.test.js",
       "tests/escrowRefundHardening.test.js",
       "tests/invisibleFabricCloakAuthMaterial.test.js",
