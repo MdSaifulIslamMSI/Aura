@@ -45,6 +45,10 @@ services:
       MFA_ENABLED: "true"
       MFA_PASSKEY_ENABLED: "true"
       MFA_TOTP_ENABLED: "true"
+      # The production environment contract refuses to boot without these, for
+      # every auth provider - not only the Keycloak one.
+      MFA_REQUIRED_FOR_ADMINS: "true"
+      AUTH_LOCKOUT_MODE: "enforce"
       AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"
       UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
       UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}

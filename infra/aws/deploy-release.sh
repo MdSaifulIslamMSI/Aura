@@ -823,6 +823,11 @@ upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_USER_VERIFICATION" "require
 upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "MFA_TOTP_ENABLED" "true"
+# The production environment contract refuses to boot without these two, for
+# every auth provider. Persist them so a deploy cannot leave the runtime
+# without them and fail the next start.
+upsert_env_value "${staged_base_env}" "MFA_REQUIRED_FOR_ADMINS" "true"
+upsert_env_value "${staged_base_env}" "AUTH_LOCKOUT_MODE" "enforce"
 upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"
 upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"
