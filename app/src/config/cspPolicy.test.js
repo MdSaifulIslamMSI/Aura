@@ -32,6 +32,32 @@ const getDirectiveSources = (policy = '', name = '') => getDirective(policy, nam
 const hostedBackendOrigin = DEFAULT_HOSTED_BACKEND_ORIGIN.replace(/\/+$/, '');
 const hostedBackendSocketOrigin = hostedBackendOrigin.replace(/^https:/i, 'wss:');
 
+// Provider zones where EVERY tenant gets a subdomain of their own. A wildcard
+// here is an exfiltration channel: an attacker's own tenant satisfies the
+// policy, so a successful XSS can post the session out of the page.
+const ATTACKER_REGISTRABLE_WILDCARDS = [
+  'https://*.razorpay.com',
+  'https://*.googleapis.com',
+  'https://*.firebaseio.com',
+  'https://*.firebaseapp.com',
+  'https://*.web.app',
+  'https://*.livekit.cloud',
+  'wss://*.livekit.cloud',
+];
+
+// The concrete hosts this deployment actually calls.
+const EXPECTED_CONNECT_SOURCES = [
+  'https://securetoken.googleapis.com',
+  'https://identitytoolkit.googleapis.com',
+  'https://firebaseinstallations.googleapis.com',
+  'https://firebaselogging.googleapis.com',
+  'https://checkout.razorpay.com',
+  'https://api.razorpay.com',
+  'https://billy-b674c.firebaseapp.com',
+  'https://ggfchv-3nwkwwrh.livekit.cloud',
+  'wss://ggfchv-3nwkwwrh.livekit.cloud',
+];
+
 const expectHardenedConnectSrc = (policy = '', {
   requiresHostedBackend = true,
   allowLocalDevelopmentSources = false,
@@ -57,9 +83,22 @@ const expectHardenedConnectSrc = (policy = '', {
   }
   expect(sources).toContain('https://api.stripe.com');
   expect(sources).toContain('https://api.github.com');
-  expect(sources).toContain('https://*.googleapis.com');
+  EXPECTED_CONNECT_SOURCES.forEach((source) => {
+    expect(sources).toContain(source);
+  });
+  ATTACKER_REGISTRABLE_WILDCARDS.forEach((source) => {
+    expect(sources).not.toContain(source);
+  });
   expect(sources).not.toContain('https:');
   expect(sources).not.toContain('wss:');
+};
+
+const expectNarrowFrameSrc = (policy = '') => {
+  const sources = getDirectiveSources(policy, 'frame-src');
+
+  expect(sources).toContain('https://billy-b674c.firebaseapp.com');
+  expect(sources).not.toContain('https://*.firebaseapp.com');
+  expect(sources).not.toContain('https://*.web.app');
 };
 
 const expectProductionStylePolicy = (policy = '') => {
@@ -135,13 +174,27 @@ describe('auth CSP allowlists', () => {
     expectHardenedConnectSrc(FRONTEND_CONTENT_SECURITY_POLICY);
     expectProductionStylePolicy(FRONTEND_CONTENT_SECURITY_POLICY);
     expectDesktopLoopbackPolicy(FRONTEND_CONTENT_SECURITY_POLICY);
+    expectNarrowFrameSrc(FRONTEND_CONTENT_SECURITY_POLICY);
 
     const html = readProjectFile('index.html');
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
     expectHardenedConnectSrc(htmlCsp);
     expectProductionStylePolicy(htmlCsp);
     expectDesktopLoopbackPolicy(htmlCsp);
+    expectNarrowFrameSrc(htmlCsp);
     expect(getDirective(htmlCsp, 'frame-ancestors')).toBe('');
+  });
+
+  it('keeps only vendor-owned Sentry wildcards in the production connect-src allowlist', () => {
+    const wildcards = getDirectiveSources(FRONTEND_CONTENT_SECURITY_POLICY, 'connect-src')
+      .filter((source) => source.includes('*'));
+
+    // Sentry owns the sentry.io zone, so its org-scoped ingest host is not
+    // attacker-registrable. Every other provider is pinned to one host.
+    expect(wildcards).toEqual([
+      'https://*.ingest.sentry.io',
+      'https://*.ingest.us.sentry.io',
+    ]);
   });
 
   it('keeps generated deployment CSP headers aligned with the hardened connect-src policy', () => {
@@ -154,6 +207,7 @@ describe('auth CSP allowlists', () => {
       expectProductionStylePolicy(policy);
       expectFrameAncestorHeaderPolicy(policy);
       expectDesktopLoopbackPolicy(policy);
+      expectNarrowFrameSrc(policy);
     });
   });
 

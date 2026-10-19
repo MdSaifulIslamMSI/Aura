@@ -1,11 +1,15 @@
 import { releaseInfo } from '../config/releaseInfo';
 import { CLIENT_DIAGNOSTIC_EVENT } from './clientObservability';
+import {
+    TELEMETRY_CONSENT_GRANTED,
+    resolveTelemetryConsent,
+} from './telemetryConsent';
 
 const INIT_FLAG = '__AURA_SENTRY_INITIALIZED__';
 const BRIDGE_FLAG = '__AURA_SENTRY_BRIDGE_ATTACHED__';
 
 let sentryModule = null;
-let initState = { enabled: false, dsnConfigured: false };
+let initState = { enabled: false, dsnConfigured: false, replayEnabled: false };
 
 const trimValue = (value = '') => (typeof value === 'string' ? value.trim() : '');
 
@@ -42,6 +46,24 @@ export const resolveSentryConfig = (env = import.meta.env, release = releaseInfo
   };
 };
 
+// Error reporting is always allowed; session replay is a capture surface that
+// needs an explicit opt-in. The gate is applied last so no caller can switch
+// it off by passing overrides.
+const applyTelemetryConsent = (config, consent) => {
+  const replayEnabled = Boolean(config.enabled) && consent === TELEMETRY_CONSENT_GRANTED;
+  return {
+    ...config,
+    replayEnabled,
+    replaysOnErrorSampleRate: replayEnabled ? config.replaysOnErrorSampleRate : 0,
+  };
+};
+
+export const resolveSentryTelemetryConfig = (
+  env = import.meta.env,
+  release = releaseInfo,
+  consent = resolveTelemetryConsent(),
+) => applyTelemetryConsent(resolveSentryConfig(env, release), consent);
+
 const redactText = (value = '') => String(value || '')
   .replace(/\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g, '[REDACTED]')
   .replace(/([?&](?:access_token|auth|authorization|code|password|refresh_token|secret|session|token|api_key|apikey)=)[^&#\s]+/gi, '$1[REDACTED]');
@@ -54,7 +76,10 @@ const buildInitOptions = (config, Sentry) => ({
     // Pageload + navigation spans (no per-route names without router wiring).
     Sentry.browserTracingIntegration(),
     // Error-only replay; text/media masked by default (payments-safe).
-    Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+    // Installed ONLY with consent: replay records what the visitor does.
+    ...(config.replayEnabled
+      ? [Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true })]
+      : []),
   ],
   tracesSampleRate: config.tracesSampleRate,
   replaysSessionSampleRate: 0,
@@ -129,7 +154,7 @@ export const isSentryEnabled = () => initState.enabled;
 
 export const resetSentryForTests = () => {
   sentryModule = null;
-  initState = { enabled: false, dsnConfigured: false };
+  initState = { enabled: false, dsnConfigured: false, replayEnabled: false };
   if (typeof window !== 'undefined') {
     delete window[INIT_FLAG];
     delete window[BRIDGE_FLAG];
@@ -137,9 +162,19 @@ export const resetSentryForTests = () => {
 };
 
 export const initSentry = async (overrides = {}) => {
-  if (typeof window !== 'undefined' && window[INIT_FLAG]) return initState;
-  const config = { ...resolveSentryConfig(), ...overrides };
-  initState = { enabled: false, dsnConfigured: config.dsnConfigured };
+  const config = applyTelemetryConsent(
+    { ...resolveSentryConfig(), ...overrides },
+    resolveTelemetryConsent(),
+  );
+  const alreadyInitialised = typeof window !== 'undefined' && window[INIT_FLAG];
+
+  // Re-initialise only when the replay posture changed (consent granted or
+  // revoked). Everything else keeps the running client untouched.
+  if (alreadyInitialised && initState.replayEnabled === config.replayEnabled) {
+    return initState;
+  }
+
+  initState = { enabled: false, dsnConfigured: config.dsnConfigured, replayEnabled: false };
 
   if (!config.enabled) {
     if (typeof window !== 'undefined') window[INIT_FLAG] = true;
@@ -148,6 +183,16 @@ export const initSentry = async (overrides = {}) => {
 
   try {
     sentryModule = await import('@sentry/react');
+    if (alreadyInitialised) {
+      // The previous client may still hold the replay integration, and
+      // re-initialising alone would leave it running. Closing it is what
+      // actually stops a revoked consent from shipping replays.
+      try {
+        await sentryModule.close?.(2000);
+      } catch {
+        // Closing is best-effort: the fresh client below is what matters.
+      }
+    }
     sentryModule.init(buildInitOptions(config, sentryModule));
     try {
       // Segments Capacitor native-webview issues from mobile-browser ones.
@@ -158,12 +203,12 @@ export const initSentry = async (overrides = {}) => {
     } catch {
       // Tagging must never break init.
     }
-    initState = { enabled: true, dsnConfigured: true };
+    initState = { enabled: true, dsnConfigured: true, replayEnabled: config.replayEnabled };
     if (typeof window !== 'undefined') window[INIT_FLAG] = true;
     attachDiagnosticBridge();
   } catch {
     sentryModule = null;
-    initState = { enabled: false, dsnConfigured: config.dsnConfigured };
+    initState = { enabled: false, dsnConfigured: config.dsnConfigured, replayEnabled: false };
   }
   return initState;
 };

@@ -7548,6 +7548,41 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Warranty coverage adds long-term confidence.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "consent.banner.allow": {
+        id: "consent.banner.allow",
+        defaultMessage: "Allow",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.decline": {
+        id: "consent.banner.decline",
+        defaultMessage: "No thanks",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.detail": {
+        id: "consent.banner.detail",
+        defaultMessage: "Aura can record a masked replay of this session and report usage analytics so we can fix problems faster. Text and media stay masked, and the data is processed in the United States. Nothing is recorded until you allow it.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.eyebrow": {
+        id: "consent.banner.eyebrow",
+        defaultMessage: "Privacy",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.granted.detail": {
+        id: "consent.banner.granted.detail",
+        defaultMessage: "Optional session replay is on.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.title": {
+        id: "consent.banner.title",
+        defaultMessage: "Allow optional session replay?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "consent.banner.turnOff": {
+        id: "consent.banner.turnOff",
+        defaultMessage: "Turn off",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "deliveryWindow.1to2Days": {
         id: "deliveryWindow.1to2Days",
         defaultMessage: "1-2 days",
