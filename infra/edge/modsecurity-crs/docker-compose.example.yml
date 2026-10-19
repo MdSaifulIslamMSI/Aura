@@ -1,6 +1,6 @@
 services:
   waf:
-    image: owasp/modsecurity-crs:nginx
+    image: owasp/modsecurity-crs:nginx@sha256:7698c48a41a43138ae317feeec964d1515b861cc1d9e50617bc1cdfe9f314e1d
     restart: unless-stopped
     environment:
       BACKEND: http://api:5000

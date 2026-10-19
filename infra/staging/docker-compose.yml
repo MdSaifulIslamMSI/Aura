@@ -31,7 +31,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     environment:
       POSTGRES_DB: aura_staging
       POSTGRES_USER: aura_staging
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   mongo:
-    image: mongo:7
+    image: mongo:7@sha256:c53852c00c23ca9f23fc39690350ffa9a80e3642fe8f96879726d8da0abe80a7
     command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]
     healthcheck:
       test:
@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -72,7 +72,7 @@ services:
     restart: unless-stopped
 
   scanner:
-    image: clamav/clamav:1.4_base
+    image: clamav/clamav:1.4_base@sha256:41f0d067c0f2e87a7083d4ca202373aeec18dd0a3f8619c1a8c8556d747705e2
     profiles: ["malware-scan"]
     environment:
       CLAMD_CONF_ConcurrentDatabaseReload: "no"

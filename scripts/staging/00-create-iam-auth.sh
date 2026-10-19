@@ -47,6 +47,28 @@ operator_policy="$STATE_DIR/operator-policy.json"
 instance_trust="$STATE_DIR/instance-trust-policy.json"
 instance_policy="$STATE_DIR/instance-policy.json"
 
+# The GitHub OIDC trust anchor for this operator role is the REF subject only.
+#
+# The subject "repo:$github_repo:environment:staging" was removed from the
+# trust policy on purpose. GitHub issues an environment-scoped `sub` claim
+# ("repo:<owner>/<repo>:environment:<env>") for ANY job that references the
+# environment, no matter which event started the run - push, workflow_dispatch
+# and pull_request all mint the same claim. An environment subject therefore
+# cannot distinguish a reviewed main-branch run from an unreviewed pull
+# request, so trusting it let a same-repo pull request assume this role (GitHub
+# only withholds `id-token: write` for FORK pull requests, so a same-repo branch
+# PR receives a real OIDC token). This role carries ssm:SendCommand (RCE on the
+# staging host), ssm:PutParameter/DeleteParameter (runtime secret writes),
+# ec2:AuthorizeSecurityGroupIngress and ec2:TerminateInstances, so that trust
+# boundary had to be a reviewed ref, not a shared environment name.
+#
+# The ref subject below is the only claim a pull request cannot forge: a
+# pull_request run presents "ref:refs/pull/<n>/merge", which never matches
+# "ref:refs/heads/main".
+#
+# NOTE: this script is the GENERATOR for the live IAM role. The live role keeps
+# the old, broader trust policy until an operator re-runs this script without
+# STAGING_IAM_DRY_RUN; the durable fix is not live until then.
 cat > "$operator_trust" <<JSON
 {
   "Version": "2012-10-17",
@@ -70,8 +92,7 @@ cat > "$operator_trust" <<JSON
         },
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
-            "repo:$github_repo:ref:refs/heads/main",
-            "repo:$github_repo:environment:staging"
+            "repo:$github_repo:ref:refs/heads/main"
           ]
         }
       }

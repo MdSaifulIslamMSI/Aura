@@ -1,6 +1,6 @@
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.114.0
+    image: otel/opentelemetry-collector-contrib:0.114.0@sha256:37fa87091cfaaec7234a27e4e395a40c31c2bfaea97a349a4afef6d9e9681197
     container_name: aura-otel-collector
     command: ["--config=/etc/otelcol/config.yaml"]
     ports:
@@ -13,7 +13,7 @@ services:
       - aura-observability
 
   prometheus:
-    image: prom/prometheus:v3.0.1
+    image: prom/prometheus:v3.0.1@sha256:565ee86501224ebbb98fc10b332fa54440b100469924003359edf49cbce374bd
     container_name: aura-prometheus
     ports:
       - "9090:9090"
@@ -24,7 +24,7 @@ services:
       - aura-observability
 
   grafana:
-    image: grafana/grafana:11.4.0
+    image: grafana/grafana:11.4.0@sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb
     container_name: aura-grafana
     ports:
       - "3002:3000"
@@ -42,7 +42,7 @@ services:
       - aura-observability
 
   loki:
-    image: grafana/loki:3.3.1
+    image: grafana/loki:3.3.1@sha256:7e30f1aa1b17970a29739432b5f3df30bf2b3e4bdfc22e896452c18bcfe017be
     container_name: aura-loki
     command: ["-config.file=/etc/loki/config.yaml"]
     ports:
@@ -54,7 +54,7 @@ services:
       - aura-observability
 
   promtail:
-    image: grafana/promtail:3.3.1
+    image: grafana/promtail:3.3.1@sha256:f90460fd8f56d1d14846bb871f86c379f6b73d06c6ef6475cc31ea7f62e14887
     container_name: aura-promtail
     volumes:
       - /var/log:/var/log:ro

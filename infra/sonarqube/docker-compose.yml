@@ -1,6 +1,6 @@
 services:
   sonarqube-db:
-    image: postgres:17.5-alpine
+    image: postgres:17.5-alpine@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${SONAR_DB_NAME:?Set SONAR_DB_NAME in .env}
@@ -15,7 +15,7 @@ services:
       retries: 10
 
   sonarqube:
-    image: sonarqube:community
+    image: sonarqube:community@sha256:0b3408443fb6a311253de27941b10977c9b977fd53be2265947bfe14161308b8
     restart: unless-stopped
     depends_on:
       sonarqube-db:

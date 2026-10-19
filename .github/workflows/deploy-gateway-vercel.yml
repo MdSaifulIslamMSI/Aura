@@ -67,7 +67,9 @@ jobs:
           exit 1
 
   deploy-preview:
-    if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview'
+    # Preview deploys publish with the production Vercel credential, so they
+    # are dispatch/call-only: a pull_request run must never receive it.
+    if: inputs.target == 'preview'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -89,8 +91,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Validate gateway deployment configuration
+        # VERCEL_TOKEN is a production deploy credential: a same-repo pull
+        # request receives repository secrets, so an unguarded binding would
+        # hand the gateway deploy token to unmerged code. The step guard is the
+        # first layer and the emptied credential binding is the second, because
+        # a pull request can edit this file and drop a guard. The dispatch and
+        # reusable-workflow deployment paths are unaffected: they never run on a
+        # pull_request event.
+        if: github.event_name != 'pull_request'
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ github.event_name != 'pull_request' && secrets.VERCEL_TOKEN || '' }}
         run: |
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_SCOPE}" || { echo "Missing gateway scope"; exit 1; }
@@ -98,8 +108,9 @@ jobs:
           test -n "${VERCEL_GATEWAY_ALIAS}" || { echo "Missing gateway production alias"; exit 1; }
 
       - name: Link gateway project
+        if: github.event_name != 'pull_request'
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ github.event_name != 'pull_request' && secrets.VERCEL_TOKEN || '' }}
         run: |
           set -euo pipefail
           npx vercel link \
@@ -111,8 +122,13 @@ jobs:
 
       - name: Publish preview deploy
         id: deploy
+        # A pull-request run must not publish a gateway preview with the
+        # production Vercel token. Pull requests therefore no longer receive a
+        # preview URL; the dispatch and reusable-workflow preview paths are
+        # unchanged.
+        if: github.event_name != 'pull_request'
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ github.event_name != 'pull_request' && secrets.VERCEL_TOKEN || '' }}
         run: |
           set -euo pipefail
           DEPLOY_LOG="${RUNNER_TEMP}/gateway-preview.log"
@@ -147,6 +163,7 @@ jobs:
           fi
 
       - name: Add preview to job summary
+        if: steps.deploy.outputs.deploy_url != ''
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
           INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
@@ -162,7 +179,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment preview URL on pull request
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.deploy.outputs.deploy_url != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
@@ -209,9 +226,9 @@ jobs:
         # Gateway previews are consumed only by this job, so deleting them here
         # keeps the team's retained Deployment Storage flat. Placed last so the
         # summary and PR comment above still resolve a live URL.
-        if: always() && steps.deploy.outputs.deployment_id != ''
+        if: always() && github.event_name != 'pull_request' && steps.deploy.outputs.deployment_id != ''
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TOKEN: ${{ github.event_name != 'pull_request' && secrets.VERCEL_TOKEN || '' }}
           DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
           VERCEL_GATEWAY_ALIAS: ${{ env.VERCEL_GATEWAY_ALIAS }}
         run: |

@@ -19,7 +19,7 @@ services:
       - "5000:5000"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -28,7 +28,7 @@ services:
 
   pgbouncer:
     profiles: ["pgbouncer"]
-    image: edoburu/pgbouncer:1.24.1
+    image: pgbouncer/pgbouncer:1.24.1@sha256:3d6fbf93c72009fc9ecb3e4b9957974ffca3e66cc2641fc85df8fbc2429bb2ba
     environment:
       DB_USER: ${PGBOUNCER_DB_USER:-app}
       DB_PASSWORD: ${PGBOUNCER_DB_PASSWORD:-password}
@@ -42,7 +42,7 @@ services:
       - ./pgbouncer/userlist.txt.example:/etc/pgbouncer/userlist.txt:ro
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     ports:
       - "8080:8080"
     volumes:
@@ -55,28 +55,28 @@ services:
       - redis
 
   prometheus:
-    image: prom/prometheus:v3.0.1
+    image: prom/prometheus:v3.0.1@sha256:565ee86501224ebbb98fc10b332fa54440b100469924003359edf49cbce374bd
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
-    image: grafana/grafana:11.4.0
+    image: grafana/grafana:11.4.0@sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb
     ports:
       - "3001:3000"
     volumes:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
   jaeger:
-    image: jaegertracing/all-in-one:1.63.0
+    image: jaegertracing/all-in-one:1.63.0@sha256:fd5697c37ba041a91cfca1d62621d32cdeb2041c0febc2f1579e5bac6f21e34b
     ports:
       - "16686:16686"
       - "4317:4317"
       - "4318:4318"
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.115.1@sha256:d2da12c4336a79758826700be9e21ecf4a9f7d945b7f8a58ba55ee3fa45427c8
     command: ["--config=/etc/otelcol-contrib/collector.yml"]
     ports:
       - "4319:4318"
