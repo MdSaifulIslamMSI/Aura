@@ -91,7 +91,10 @@ const assistantAudioSchema = z.object({
 });
 
 const conversationEntrySchema = z.object({
-    role: z.enum(['user', 'assistant', 'system']).optional(),
+    // A client-supplied role must never be able to label its own text as
+    // model-managed: the prompt guard inspects every entry, and the rendered
+    // history is prefixed from this label, so 'system' is not accepted.
+    role: z.enum(['user', 'assistant']).optional(),
     content: z.string().trim().min(1).max(2400),
 }).strict();
 

@@ -137,8 +137,9 @@ const inspectAssistantOutput = (text) => {
 
 /**
  * Inspect multi-turn conversation history for delayed (second-order) prompt
- * injection planted in earlier user turns. Only `user`-role entries are
- * evaluated — assistant/system entries are model-managed content.
+ * injection planted in earlier turns. Every entry is evaluated regardless of
+ * its role label: the role comes from the client, so trusting it would let a
+ * caller mark attacker text as model-managed and skip the hard-reject guard.
  *
  * @param {Array<{ role?: string, content?: string }>} history
  * @returns {{ blocked: boolean, entries: Array<{ index: number, reasons: string[] }> }}
@@ -147,7 +148,6 @@ const inspectConversationHistory = (history) => {
     if (!Array.isArray(history)) return { blocked: false, entries: [] };
     const flagged = [];
     history.forEach((entry, index) => {
-        if (String(entry?.role || '') !== 'user') return;
         const decision = inspectUserPrompt(typeof entry?.content === 'string' ? entry.content : '');
         if (decision.blocked) flagged.push({ index, reasons: decision.reasons });
     });
