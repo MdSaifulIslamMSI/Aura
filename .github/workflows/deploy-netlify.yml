@@ -603,6 +603,15 @@ jobs:
         # project with the production release token, so the step is skipped
         # there and the token binding is emptied for the same reason as the
         # deploy tokens above.
+        #
+        # `continue-on-error` is what makes "never blocks deploys" true once the
+        # secrets DO exist. Sentry's release API rate-limits (HTTP 429) and the
+        # upload is an optional telemetry artifact, not a release gate - a
+        # third-party throttle must not fail the production storefront deploy.
+        # The step still reports as failed in the run so it stays visible, and
+        # the sourcemap prune below stays hard-failing, so no unminified source
+        # can ever reach the public origin.
+        continue-on-error: true
         if: github.event_name != 'pull_request'
         working-directory: .
         env:

@@ -18,6 +18,7 @@
       "tests/statusUnsubscribeSecretHardening.test.js",
       "tests/totpMfaReplayProtection.test.js",
       "tests/workerBootContractParity.test.js",
+      "tests/storefrontDeployResilience.test.js",
       "tests/indexIntegrityMigrations.test.js",
       "tests/statusWebhookDuplicateDelivery.test.js",
       "tests/adaptiveRateLimit.memorySafety.test.js",
