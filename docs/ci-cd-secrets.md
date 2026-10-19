@@ -57,16 +57,25 @@ frontend deploy uploads releases/sourcemaps only when `SENTRY_AUTH_TOKEN` exists
 | `BACKEND_HEALTH_PATH` | Optional smoke tests | Backend health path, defaults to `/health`. |
 | `GATEWAY_HEALTH_PATH` | Optional smoke tests | Gateway health path, defaults to `/`. |
 
-## Signing Secrets Are Optional by Default
-
-The production orchestrator passes signing requirements as false:
+## Signing Secrets: Windows Required by Default
 
 | Platform | Input passed by orchestrator | Default behavior |
 |---|---|---|
-| Windows | `require_windows_signing: false` | Build unsigned Windows artifacts when possible. |
+| Windows | `require_windows_signing: true` | **Required.** The release fails closed when no Windows signing secret is configured. |
 | macOS | `require_macos_signing: false` | Skip macOS signing and notarization. |
 | Android | `require_android_signing: false` | Build an unsigned debug APK when possible. |
 | iOS | `require_ios_signing: false` | Build simulator validation artifacts only. |
+
+Windows signing is required because the desktop app auto-downloads and
+auto-installs updates from the public GitHub Releases feed. An unsigned release
+puts unreviewed code in front of every install, and the updater's signature
+verification is never disabled to compensate — an unsigned build simply has a
+broken update channel rather than a hijackable one.
+
+macOS signing and notarization are still not implemented in the release
+workflow, so `require_macos_signing: true` fails the build with an explicit
+error. Until that is implemented, macOS artifacts published to the update feed
+are unsigned and should not be shipped to users.
 
 These signing secrets are not required while signing is disabled:
 

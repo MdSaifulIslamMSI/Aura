@@ -4,6 +4,28 @@ Run date: 2026-05-25
 Branch: `security/zero-trust-production-architecture`
 Latest 10/10 evidence branch: `codex/enterprise-security-10-layers`
 
+> **This is a point-in-time snapshot from 2026-05-25 and its counts are stale.**
+> It predates the current dependency tree, the 57-workflow CI topology, the
+> Auth Shield / ALIEN OTP / Trust Fabric / Invisible Fabric layers, the
+> hardened payment and refund paths, and the multi-host release train. Do not
+> quote the counts below as the current posture.
+>
+> The authoritative current evidence is:
+> - the CI run for the commit under review (`.github/workflows/security-gates.yml`);
+> - `npm run security:controls` — the control inventory, which records whether
+>   each security control is enforced in production or staged with a dated
+>   justification;
+> - `npm run security:supply-chain-pins` — action and container-image pins;
+> - `npm run security:audit:prod` — the production dependency set at the
+>   policy's Medium threshold;
+> - `docs/security/threat-model.md` and `docs/security/risk-register.md`, which
+>   carry the current threat and risk picture.
+>
+> A local run of every scanner is NOT a substitute for the CI run: the scanner
+> artifacts under `security-reports/` are gitignored, and the CI artifact
+> retention is short, so absence of a file here is not evidence that a check
+> was never run.
+
 ## Local Results
 
 | Check | Command | Result | Notes |

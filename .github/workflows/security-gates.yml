@@ -97,6 +97,28 @@ jobs:
         run: npm ci
       - name: Run high and critical dependency audit
         run: npm run security:deps
+      # The audit above includes devDependencies and only blocks at high. The
+      # production dependency set was therefore never gated at the severity the
+      # vulnerability-management policy actually sets an SLA for (Medium, 30
+      # days). This step closes that gap: production-only, blocking at
+      # moderate and above.
+      - name: Block medium-or-worse production dependency vulnerabilities
+        run: npm run security:audit:prod
+      - name: Block deprecated packages
+        run: npm run security:deprecated
+      # Every security control is either enforced in production or staged with a
+      # dated justification. This gate fails when a control is silently
+      # unclassified, when a staged control's justification has expired, or when
+      # the shipped production environment template contradicts the inventory.
+      - name: Verify the security control inventory
+        run: npm run security:controls
+      # An exact-pinned override silently reverts a Dependabot security bump,
+      # and the release-cooldown gate cannot see it: the cooldown only ages new
+      # versions, it says nothing about a pin that refuses them. This gate
+      # fails when a pinned override is holding an advisory-bearing version in
+      # place while a fixed release exists.
+      - name: Verify no pinned override reverts a security fix
+        run: npm run security:override-pins
 
   dependency-review:
     name: Dependency Review
@@ -308,10 +330,11 @@ jobs:
     name: SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # No OIDC token here. This job runs on pull_request, and a token it can
+    # mint must never be usable by a same-repository branch. The provenance
+    # attestation lives in its own push-only job for that reason.
     permissions:
       contents: read
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -321,17 +344,36 @@ jobs:
         with:
           format: spdx-json
           output-file: sbom.spdx.json
-      - name: Attest SBOM provenance
-        if: github.event_name == 'push'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
-        with:
-          subject-path: sbom.spdx.json
       - name: Upload SBOM
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom
           path: sbom.spdx.json
           retention-days: 90
+
+  sbom-provenance:
+    name: SBOM Provenance
+    # Attestation needs an OIDC token, so it is confined to a job that only
+    # runs for a push. Keeping it out of the SBOM job means a pull-request
+    # run of this workflow can never mint an identity token at all.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: sbom
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: sbom
+          path: .
+      - name: Attest SBOM provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: sbom.spdx.json
 
   zap-baseline:
     name: DAST - OWASP ZAP Baseline

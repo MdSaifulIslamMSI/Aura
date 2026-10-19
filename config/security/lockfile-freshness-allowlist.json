@@ -1,11 +1,4 @@
 {
-  "$comment": "Release-cooldown exemptions for check-lockfile-freshness.mjs. Each entry: { name, version?, reason, expires }. Expired or reason-less entries FAIL the gate (fail-closed, same contract as pqc-allowlist.json). Add an entry only for urgent fixes (e.g. a security advisory release) and let it expire.",
-  "allowed": [
-    {
-      "name": "source-map-js",
-      "version": "1.2.2",
-      "reason": "GHSA-68fv-2mgg-jv7q high-severity event-loop DoS (CVSS 7.5); official maintainer patch applied as urgent security fix to the /app dev lockfile",
-      "expires": "2026-10-20"
-    }
-  ]
+  "$comment": "Release-cooldown exemptions for check-lockfile-freshness.mjs. Each entry: { name, version?, reason, expires }. Expired or reason-less entries FAIL the gate (fail-closed, same contract as pqc-allowlist.json). Add an entry only for urgent fixes (e.g. a security advisory release) and let it expire. The entry may name a version: when it does, ONLY that version is exempt, and any other version of the same package must clear the cooldown normally.",
+  "allowed": []
 }

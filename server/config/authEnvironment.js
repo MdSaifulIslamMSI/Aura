@@ -186,29 +186,35 @@ const validateAuthEnvironment = ({
         if (!config.allowedAlgorithms.includes('RS256')) {
             failures.push('AUTH_ALLOWED_JWT_ALGORITHMS must include RS256 for the Keycloak integration');
         }
+    }
 
-        if (production && !config.requireMfaForAdmin) {
-            failures.push('AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production');
-        }
+    // The admin-MFA and lockout refusals are deliberately OUTSIDE the provider
+    // block above. They were scoped to AUTH_PROVIDER=keycloak, which meant the
+    // default (legacy Firebase) deployment could set MFA_REQUIRED_FOR_ADMINS
+    // and AUTH_LOCKOUT_MODE to their unsafe values and still boot clean: the
+    // operator would believe the contract was protecting them while it was
+    // skipping the check entirely. These are provider-independent invariants.
+    if (production && !config.requireMfaForAdmin) {
+        failures.push('AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production');
+    }
 
-        // The declarative admin-MFA flag must agree with the runtime switch
-        // consumed by mfaPolicyService/trustedDeviceManagementService: a green
-        // contract with AUTH_REQUIRE_MFA_FOR_ADMIN=true but
-        // MFA_REQUIRED_FOR_ADMINS=false would declare protection the runtime
-        // never enforces.
-        if (production && config.requireMfaForAdmin && !config.mfa.requiredForAdmins) {
-            failures.push('MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production');
-        }
+    // The declarative admin-MFA flag must agree with the runtime switch
+    // consumed by mfaPolicyService/trustedDeviceManagementService: a green
+    // contract with AUTH_REQUIRE_MFA_FOR_ADMIN=true but
+    // MFA_REQUIRED_FOR_ADMINS=false would declare protection the runtime
+    // never enforces.
+    if (production && config.requireMfaForAdmin && !config.mfa.requiredForAdmins) {
+        failures.push('MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production');
+    }
 
-        // Brute-force lockout must not be fully off in production. Anything
-        // other than monitor|enforce (including unset or misspelled modes,
-        // which loginLockoutService silently folds back to off) fails closed
-        // here. Lockout evaluation itself still fails open at runtime for
-        // availability; the distributed rate limiters remain the hard cap.
-        const lockoutMode = safeString(env.AUTH_LOCKOUT_MODE || 'off').toLowerCase();
-        if (production && !['monitor', 'enforce'].includes(lockoutMode)) {
-            failures.push('AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)');
-        }
+    // Brute-force lockout must not be fully off in production. Anything
+    // other than monitor|enforce (including unset or misspelled modes,
+    // which loginLockoutService silently folds back to off) fails closed
+    // here. Lockout evaluation itself still fails open at runtime for
+    // availability; the distributed rate limiters remain the hard cap.
+    const lockoutMode = safeString(env.AUTH_LOCKOUT_MODE || 'off').toLowerCase();
+    if (production && !['monitor', 'enforce'].includes(lockoutMode)) {
+        failures.push('AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)');
     }
 
     if (production && config.provider === 'legacy' && safeString(env.AUTH_PROVIDER) === '') {

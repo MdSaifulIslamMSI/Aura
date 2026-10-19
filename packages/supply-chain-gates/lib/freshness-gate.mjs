@@ -85,9 +85,14 @@ const validateAllowlist = (allowed, now) => {
     return problems;
 };
 
-const isAllowlisted = (allowed, name, now) => allowed.some((entry) => {
+const isAllowlisted = (allowed, name, now, version = '') => allowed.some((entry) => {
     if (entry.name !== name) return false;
     if (new Date(entry.expires).getTime() <= now) return false;
+    // When the entry names a version, only that version is exempt. Without
+    // this the `version` field was decorative and an entry written for one
+    // urgent fix silently whitelisted every future version of the package
+    // through the cooldown.
+    if (entry.version && version && String(entry.version) !== String(version)) return false;
     return true;
 });
 
@@ -177,7 +182,7 @@ export const checkFreshness = async ({
                 const version = item.key.slice(item.name.length + 1);
                 const publishedAt = await fetchPublishTime(registryUrl, item.name, version, fetchImpl);
                 const ageDays = (now - publishedAt.getTime()) / (24 * 60 * 60 * 1000);
-                if (ageDays < minAgeDays && !isAllowlisted(allowed, item.name, now)) {
+                if (ageDays < minAgeDays && !isAllowlisted(allowed, item.name, now, version)) {
                     failures.push(
                         `${item.lockfile}: ${item.key} published ${publishedAt.toISOString().slice(0, 10)} `
                         + `(${ageDays.toFixed(1)}d ago, cooldown ${minAgeDays}d).`

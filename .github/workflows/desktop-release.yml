@@ -18,7 +18,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: false
+        default: true
         type: boolean
       require_macos_signing:
         description: Require macOS signing and notarization before publishing
@@ -45,7 +45,7 @@ on:
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
-        default: false
+        default: true
         type: boolean
       require_macos_signing:
         description: Require macOS signing and notarization before publishing
@@ -432,7 +432,15 @@ jobs:
               "--config.win.azureSignOptions.publisherName=$env:WINDOWS_CODE_SIGNING_PUBLISHER_NAME"
             )
           } else {
-            $builderArgs += @('--config.win.signAndEditExecutable=false', '--config.win.verifyUpdateCodeSignature=false')
+            # Deliberate opt-out: the operator set require_windows_signing=false.
+            # The build stays unsigned, but the update channel is NOT told to
+            # skip signature verification. electron-builder's default is to
+            # verify, and an unsigned build installed this way will therefore
+            # refuse later updates rather than accepting an unverified one -
+            # a broken update channel, not a hijackable one. Publishing a
+            # build that accepts arbitrary updates would turn a compromised
+            # release feed into remote code execution on every install.
+            $builderArgs += @('--config.win.signAndEditExecutable=false')
           }
           npm run $env:WINDOWS_BUILD_SCRIPT -- @builderArgs
 

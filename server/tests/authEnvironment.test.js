@@ -296,11 +296,92 @@ describe('authEnvironment', () => {
                 MFA_ENABLED: 'true',
                 MFA_PASSKEY_ENABLED: 'true',
                 MFA_TOTP_ENABLED: 'false',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+                AUTH_LOCKOUT_MODE: 'monitor',
             },
             runtimeEnv: 'production',
         });
 
         expect(result.safe).toBe(true);
+    });
+
+    test('forbids a disabled admin-MFA requirement under the legacy provider', () => {
+        // The admin-MFA and lockout refusals are provider-independent: they
+        // used to live inside the keycloak branch, so the default (legacy
+        // Firebase) deployment could set them to their unsafe values and boot
+        // clean while the contract reported itself as protecting them.
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'legacy',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'false',
+                MFA_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+                AUTH_LOCKOUT_MODE: 'monitor',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production',
+        ]));
+    });
+
+    test('forbids a mismatched admin-MFA requirement under the legacy provider', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'legacy',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+                MFA_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'false',
+                AUTH_LOCKOUT_MODE: 'monitor',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production',
+        ]));
+    });
+
+    test('forbids an off lockout mode under the legacy provider', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'legacy',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+                MFA_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+                AUTH_LOCKOUT_MODE: 'off',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)',
+        ]));
+    });
+
+    test('refuses to boot with the lockout mode unset in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'legacy',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+                MFA_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)',
+        ]));
     });
 
     test('forbids disabling the Auth Shield PDP in production', () => {

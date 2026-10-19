@@ -94,16 +94,25 @@ Production roles:
 
 ## Trust Policy Requirements
 
-Trust policies must limit GitHub OIDC subjects to this repository, approved branches, and the intended GitHub environment.
+Trust policies must limit GitHub OIDC subjects to this repository and the
+approved branches.
 
 For staging gates in this repo, keep the allowed subjects equivalent to:
 
 ```json
 [
-  "repo:MdSaifulIslamMSI/Aura:ref:refs/heads/main",
-  "repo:MdSaifulIslamMSI/Aura:environment:staging"
+  "repo:MdSaifulIslamMSI/Aura:ref:refs/heads/main"
 ]
 ```
+
+Do NOT add an environment-scoped subject such as
+`repo:MdSaifulIslamMSI/Aura:environment:staging`. GitHub builds the `sub`
+claim from the environment whenever a job references one, and that value is
+identical for a push run and a pull-request run — GitHub only withholds
+`id-token: write` for FORK pull requests, so a same-repository PR branch would
+present a token this role accepts. A pull request only ever presents
+`ref:refs/pull/<n>/merge`, so a ref-scoped subject is the only anchor that
+distinguishes a trusted run from an attacker-controlled branch.
 
 The trust policy must also require:
 
@@ -114,6 +123,15 @@ The trust policy must also require:
 ```
 
 Do not use an organization-wide wildcard, repository wildcard, or branch wildcard for release-gate roles. If a temporary exception is required, document the expiry and remove it before marking a PR ready.
+
+`server/tests/ciOidcTrustBoundary.test.js` enforces the rule: it fails the build
+if any pull-request-reachable job holds `id-token: write` inside an
+`environment:`, if a pull-request-reachable AWS credential step is not
+PR-guarded, or if the generated trust policy contains an environment subject.
+
+The staging gates no longer declare `environment: staging` at all, so any
+staging `vars.*` they read must be defined at repository or organization level
+rather than on the environment.
 
 ## Bootstrap And Verify
 

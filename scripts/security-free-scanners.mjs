@@ -103,6 +103,25 @@ const prepareScannerSource = () => {
     copyFileSync(sourcePath, destinationPath);
   }
 
+  // A scan that covers zero packages is worse than no scan at all: it reports
+  // success while finding nothing. The 2026-10-04 run of this suite scanned an
+  // empty tree (1 inode, 0 packages) and was recorded as a clean pass, which
+  // left the dependency surface unscanned for over four months. The prepared
+  // source is now verified rather than assumed.
+  const requiredManifests = [
+    'package-lock.json',
+    'app/package-lock.json',
+    'server/package-lock.json',
+  ];
+  const missingManifests = requiredManifests.filter(
+    (relativePath) => !existsSync(path.join(scanRoot, relativePath))
+  );
+  if (missingManifests.length > 0) {
+    throw new Error(
+      `Free scanner source is missing required manifests: ${missingManifests.join(', ')}`
+    );
+  }
+
   return scanRoot;
 };
 
@@ -166,6 +185,31 @@ const writeScannerOutput = (scanner, result) => {
   writeFileSync(path.join(reportsDir, `${scanner.name}.stderr.txt`), result.stderr || '');
 };
 
+/**
+ * Detects a scanner run that covered no packages at all.
+ *
+ * The OSV scanner exits 0 after walking an empty source tree, so a broken
+ * preparation step reads as a clean scan. Treating "no package sources" or
+ * "0 inodes visited" as a failure keeps an empty scan from being published as
+ * evidence of a clean dependency posture.
+ */
+const scannerCoveredNoPackages = (result) => {
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  return /No package sources found/i.test(output)
+    || /\b0 inodes visited\b/i.test(output)
+    || /\b0 Extract calls\b/i.test(output);
+};
+
+const applyEmptyScanGuard = (scanner, result, entry) => {
+  if (scanner.name !== 'osv-scanner') return entry;
+  if (!scannerCoveredNoPackages(result)) return entry;
+  return {
+    ...entry,
+    status: 'failed',
+    reason: 'Scanner covered no packages; an empty scan is not evidence of a clean dependency posture',
+  };
+};
+
 const zapOutput = (result) => `${result.stdout || ''}\n${result.stderr || ''}`;
 const zapFindingStats = (result, severity) => {
   const matcher = new RegExp(`\\b${severity}(?:-[A-Z]+)?:\\s*(\\d+)?`, 'gi');
@@ -204,25 +248,25 @@ const results = scanners.filter((scanner) => shouldRunScanner(scanner.name)).map
   if (hasBinary) {
     const result = run(scanner.binary, scanner.binaryArgs);
     writeScannerOutput(scanner, result);
-    return {
+    return applyEmptyScanGuard(scanner, result, {
       name: scanner.name,
       command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
       status: result.status === 0 ? 'passed' : 'failed',
       exitCode: result.status,
       runner: 'binary',
-    };
+    });
   }
 
   if (dockerAvailable) {
     const result = run('docker', scanner.dockerArgs);
     writeScannerOutput(scanner, result);
-    return {
+    return applyEmptyScanGuard(scanner, result, {
       name: scanner.name,
       command: `docker ${scanner.dockerArgs.join(' ')}`,
       status: result.status === 0 ? 'passed' : 'failed',
       exitCode: result.status,
       runner: 'docker',
-    };
+    });
   }
 
   return {
