@@ -51,4 +51,38 @@ describe('ConsentBanner', () => {
         expect(window.localStorage.getItem(TELEMETRY_CONSENT_STORAGE_KEY)).toBe('denied');
         expect(screen.queryByText('Optional session replay is on.')).not.toBeInTheDocument();
     });
+
+    // The banner is a fixed bottom overlay that is mounted globally, so it
+    // physically overlaps page controls - the mobile PDP sticky buy bar is
+    // the case that broke. It must never intercept a tap meant for a control
+    // underneath, so the sheet is pointer-events-none and only its own
+    // controls are pointer-events-auto.
+    it('never intercepts pointer events meant for a control underneath', () => {
+        const { unmount } = render(<ConsentBanner />);
+
+        const sheet = screen.getByRole('dialog', { name: 'Privacy' });
+        expect(sheet.className).toContain('pointer-events-none');
+
+        for (const name of ['Allow', 'No thanks', 'Dismiss']) {
+            expect(screen.getByRole('button', { name }).className).toContain('pointer-events-auto');
+        }
+        unmount();
+
+        window.localStorage.setItem(TELEMETRY_CONSENT_STORAGE_KEY, TELEMETRY_CONSENT_GRANTED);
+        render(<ConsentBanner />);
+
+        const granted = screen.getByText('Optional session replay is on.').closest('div.pointer-events-none');
+        expect(granted).not.toBeNull();
+        expect(screen.getByRole('button', { name: 'Turn off' }).className).toContain('pointer-events-auto');
+    });
+
+    it('lifts the sheet clear of the mobile bottom action bar', () => {
+        render(<ConsentBanner />);
+
+        const sheet = screen.getByRole('dialog', { name: 'Privacy' });
+        // The mobile sticky buy bar is fixed at the bottom; the sheet must sit
+        // above it rather than on top of it.
+        expect(sheet.className).toMatch(/bottom-\[calc\(5\.9rem\+env\(safe-area-inset-bottom\)\)\]/);
+        expect(sheet.className).toContain('sm:bottom-5');
+    });
 });
