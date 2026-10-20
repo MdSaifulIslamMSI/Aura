@@ -62,6 +62,15 @@ Use a full known-good 40-character release SHA for `backend`. The rollback
 workflow never infers a target from release-directory timestamps; automatic
 post-deploy rollback uses the pre-mutation SHA captured by the backend deploy.
 
+When staging is intentionally stopped, also set `staging_off_acknowledged=true`.
+The live staging-parity smoke, environment-contract, cost, observability,
+rollback-readiness, reliability, and SRE gates are then replaced by
+`staging:off-proof`, which fails unless the staging state refresh reports
+exactly `no running EC2 instance has Environment=staging`. Leaving the flag
+`false` runs the live gates against absent staging infrastructure; setting it
+`true` while `vars.STAGING_INFRA_PAUSED` is not `true` is rejected before any
+mutation.
+
 All command-center, direct multi-host, AWS-only frontend, and gateway production
 mutations share one non-canceling production lock. Reusable children set the
 internal `parent_holds_production_lock=true` input only when their caller already

@@ -131,3 +131,7 @@ production environment approval can open, the command center calls
 smoke, environment contract, cost, observability, rollback-readiness,
 reliability, and SRE jobs to pass. Rollback-only dispatches remain available
 without deploy-only staging gates so incident recovery is not blocked.
+
+If staging is intentionally kept stopped, dispatch with
+`staging_off_acknowledged=true`: `staging:off-proof` then verifies the absence
+instead of the live gates failing against it. See `docs/ci-cd.md`.
