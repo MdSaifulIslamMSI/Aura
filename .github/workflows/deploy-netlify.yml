@@ -72,9 +72,6 @@ on:
       render_storefront_rollback_ref:
         description: Render deploy id that was live before this release
         value: ${{ jobs.build-frontend.outputs.render_rollback_ref }}
-      railway_rollback_ref:
-        description: Railway deployment id that was live before this release
-        value: ${{ jobs.build-frontend.outputs.railway_rollback_ref }}
       cloudflare_pages_rollback_ref:
         description: Cloudflare Pages deployment id that was live before this release
         value: ${{ jobs.build-frontend.outputs.cloudflare_rollback_ref }}
@@ -93,9 +90,6 @@ on:
       render_production_url:
         description: Render production URL published by this release
         value: ${{ jobs.deploy-render-production.outputs.site_url }}
-      railway_production_url:
-        description: Railway production URL published by this release
-        value: ${{ jobs.deploy-railway-production.outputs.site_url }}
       cloudflare_pages_production_url:
         description: Cloudflare Pages production URL published by this release
         value: ${{ jobs.deploy-cloudflare-production.outputs.site_url }}
@@ -118,14 +112,6 @@ on:
       RENDER_API_KEY:
         required: false
       RENDER_SERVICE_ID:
-        required: false
-      RAILWAY_API_TOKEN:
-        required: false
-      RAILWAY_PROJECT_ID:
-        required: false
-      RAILWAY_ENVIRONMENT_ID:
-        required: false
-      RAILWAY_SERVICE_ID:
         required: false
       CLOUDFLARE_API_TOKEN:
         required: false
@@ -186,7 +172,6 @@ env:
   VERCEL_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}
   RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID }}
   RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
-  RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'aura-storefront' }}
   CLOUDFLARE_PAGES_PRODUCTION_URL: ${{ vars.CLOUDFLARE_PAGES_PRODUCTION_URL || 'https://aura-storefront.pages.dev' }}
@@ -223,7 +208,6 @@ jobs:
       netlify_rollback_ref: ${{ steps.rollback_targets.outputs.netlify_ref }}
       vercel_storefront_rollback_ref: ${{ steps.rollback_targets.outputs.vercel_ref }}
       render_rollback_ref: ${{ steps.rollback_targets.outputs.render_ref }}
-      railway_rollback_ref: ${{ steps.rollback_targets.outputs.railway_ref }}
       cloudflare_rollback_ref: ${{ steps.rollback_targets.outputs.cloudflare_ref }}
       github_pages_rollback_ref: ${{ steps.rollback_targets.outputs.github_pages_ref }}
     defaults:
@@ -253,7 +237,7 @@ jobs:
       - name: Validate storefront deployment configuration
         # Production deploy credentials must never reach a pull-request run: a
         # same-repo pull request receives repository secrets, so an unguarded
-        # binding would hand the Netlify/Vercel/Render/Railway/Cloudflare/Pages
+        # binding would hand the Netlify/Vercel/Render/Cloudflare/Pages
         # credentials to unmerged code. The step guard is the first layer and
         # the emptied credential bindings are the second, because a pull
         # request can edit this file and drop a guard. The dispatch and
@@ -265,8 +249,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ github.event_name != 'pull_request' && secrets.NETLIFY_AUTH_TOKEN || '' }}
           VERCEL_TOKEN: ${{ github.event_name != 'pull_request' && secrets.VERCEL_TOKEN || '' }}
           RENDER_API_KEY: ${{ github.event_name != 'pull_request' && secrets.RENDER_API_KEY || '' }}
-          RAILWAY_API_TOKEN: ${{ github.event_name != 'pull_request' && secrets.RAILWAY_API_TOKEN || '' }}
-          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ github.event_name != 'pull_request' && secrets.CLOUDFLARE_API_TOKEN || '' }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_PAGES_TOKEN: ${{ github.event_name != 'pull_request' && secrets.GH_PAGES_TOKEN || '' }}
@@ -277,14 +259,12 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
-          # Render, Railway, Cloudflare Pages, and GitHub Pages are
+          # Render, Cloudflare Pages, and GitHub Pages are
           # production-only in CI (previews stay native), so their
           # configuration is required only where the lanes actually mutate.
           if [ "${DEPLOY_TARGET}" = "production" ]; then
             test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
             test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
-            test -n "${RAILWAY_API_TOKEN}" || { echo "Missing GitHub secret RAILWAY_API_TOKEN"; exit 1; }
-            test -n "${RAILWAY_SERVICE_ID}" || { echo "Missing GitHub variable or secret RAILWAY_SERVICE_ID"; exit 1; }
             test -n "${CLOUDFLARE_API_TOKEN}" || { echo "Missing GitHub secret CLOUDFLARE_API_TOKEN"; exit 1; }
             test -n "${CLOUDFLARE_ACCOUNT_ID}" || { echo "Missing GitHub variable or secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
             test -n "${GH_PAGES_TOKEN}" || { echo "Missing GitHub secret GH_PAGES_TOKEN"; exit 1; }
@@ -298,10 +278,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_PAGES_TOKEN: ${{ secrets.GH_PAGES_TOKEN }}
@@ -374,38 +350,6 @@ jobs:
           fi
 
           echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
-
-          # Railway rollback restores the deployment SNAPSHOT (image + variables,
-          # no rebuild) via the GraphQL deploymentRollback mutation, so the
-          # target is the deployment id Railway is currently serving. Project
-          # tokens authenticate with the Project-Access-Token header (Bearer is
-          # rejected) and can only traverse the graph from their own project,
-          # hence the nested project -> environments -> deployments shape.
-          railway_ref=""
-          if [ -n "${RAILWAY_API_TOKEN:-}" ] && [ -n "${RAILWAY_SERVICE_ID:-}" ] && [ -n "${RAILWAY_ENVIRONMENT_ID:-}" ] && [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
-            railway_deployments="$(mktemp)"
-            if curl --fail --show-error --silent --location \
-                --header "Project-Access-Token: ${RAILWAY_API_TOKEN}" \
-                --header "Content-Type: application/json" \
-                --data "$(jq -n --arg p "${RAILWAY_PROJECT_ID}" '{query: "query($p: String!) { project(id: $p) { environments { edges { node { id deployments(first: 5) { edges { node { id status } } } } } } } }", variables: { p: $p }}')" \
-                "https://backboard.railway.com/graphql/v2" \
-                > "${railway_deployments}" 2>/dev/null; then
-              railway_ref="$(jq -r --arg env "${RAILWAY_ENVIRONMENT_ID}" '[.data.project.environments.edges[]? | select(.node.id == $env) | .node.deployments.edges[]?.node] | map(select(.status == "SUCCESS")) | .[0].id // empty' "${railway_deployments}" 2>/dev/null || true)"
-            fi
-          fi
-          if [ -z "${railway_ref}" ]; then
-            # First Railway production release, or the API call failed. Fail
-            # closed unless explicitly acknowledged; the Railway rollback hook
-            # also fails closed on an empty ref.
-            if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
-              echo "Railway has no live deployment to restore (or the API call failed), so auto-rollback could not protect this release." >&2
-              echo "Re-run with allow_missing_rollback_target=true to accept a first-ever release without a Railway rollback target." >&2
-              exit 1
-            fi
-            echo "Railway has no live deployment yet (first release); proceeding WITHOUT a Railway rollback target by explicit acknowledgement." >&2
-          fi
-
-          echo "railway_ref=${railway_ref}" >> "$GITHUB_OUTPUT"
 
           # Cloudflare Pages rollback re-serves a previous deployment snapshot
           # via its REST API, so the target is the deployment id currently
@@ -535,17 +479,13 @@ jobs:
           VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
-          # Only the rebuild lanes are checked (Render builds from source,
-          # Railway builds the Dockerfile): their host-side env is inlined
+          # Only the rebuild lane is checked (Render builds from source): its
+          # host-side env is inlined
           # into the bytes they serve. Netlify/Vercel/AWS/Cloudflare/Pages
           # serve the shared artifact, so their host env cannot diverge
           # bytes and is deliberately not gated here.
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ env.RENDER_SERVICE_ID }}
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
-          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
         run: |
           set -euo pipefail
           # Emit the expected manifest from the live env with the same
@@ -553,9 +493,9 @@ jobs:
           # unset before the build, so they are `empty: true` here. Hosts
           # without creds are skipped by the verifier; collection errors
           # fail closed so a blind release cannot ship.
-          # --ignore-missing: both gated lanes backfill the full contract
-          # before building (Render pushes parity keys, Railway pushes its
-          # contract), so absence is self-healed. Extras and proven value
+          # --ignore-missing: the gated lane backfills the full contract
+          # before building (Render pushes parity keys), so absence is
+          # self-healed. Extras and proven value
           # mismatches still fail: those would leak into the rebuild bytes.
           MANIFEST="${RUNNER_TEMP}/expected-vite-manifest.json"
           MANIFEST_PATH="${MANIFEST}" node -e '
@@ -567,7 +507,7 @@ jobs:
               JSON.stringify({ vars }, null, 2)
             );
           '
-          node ./app/scripts/verify_host_env_parity.mjs --expected-file "${MANIFEST}" --ignore-missing render,railway
+          node ./app/scripts/verify_host_env_parity.mjs --expected-file "${MANIFEST}" --ignore-missing render
 
       - name: Build shared frontend artifact
         env:
@@ -1482,78 +1422,6 @@ jobs:
             echo "- Shared build time: ${BUILT_AT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  deploy-railway-production:
-    needs:
-      - build-frontend
-      - validate-aws-production-access
-      - preflight-github-pages-pat
-    if: inputs.target == 'production'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    environment:
-      name: railway-production
-      url: ${{ steps.deploy.outputs.site_url }}
-    outputs:
-      site_url: ${{ steps.deploy.outputs.site_url }}
-      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
-
-    steps:
-      - name: Mark Railway production mutation attempt
-        id: mutation
-        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli@5.63.1
-
-      - name: Publish Railway production deploy
-        id: deploy
-        env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
-          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
-          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
-          BACKEND_ORIGIN: ${{ needs.build-frontend.outputs.backend_origin }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
-          VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
-          VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY || '' }}
-          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY || secrets.VITE_TURNSTILE_SITE_KEY || '' }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN || '' }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || '' }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET || '' }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID || '' }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID || '' }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID || secrets.VITE_FIREBASE_MEASUREMENT_ID || '' }}
-          VITE_FIREBASE_CONFIG: ${{ vars.VITE_FIREBASE_CONFIG || secrets.VITE_FIREBASE_CONFIG || '' }}
-          VITE_FIREBASE_DISABLE_SOCIAL_AUTH: ${{ vars.VITE_FIREBASE_DISABLE_SOCIAL_AUTH || 'false' }}
-          VITE_FIREBASE_ENABLE_MICROSOFT_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_MICROSOFT_AUTH || 'false' }}
-          VITE_FIREBASE_ENABLE_APPLE_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_APPLE_AUTH || 'false' }}
-          VITE_DUO_LOGIN_ENABLED: ${{ vars.VITE_DUO_LOGIN_ENABLED || 'false' }}
-          VITE_ADMIN_SECURITY_STATE_ENGINE_V2: ${{ vars.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false' }}
-        run: bash scripts/deploy-railway.sh
-
-      - name: Add Railway production deploy to job summary
-        env:
-          SITE_URL: ${{ steps.deploy.outputs.site_url }}
-          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
-        run: |
-          {
-            echo "### Railway Production"
-            echo
-            echo "- Service: ${RAILWAY_SERVICE_ID}"
-            echo "- Production URL: ${SITE_URL}"
-            echo "- Shared build time: ${BUILT_AT}"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-cloudflare-production:
     needs:
@@ -1895,7 +1763,7 @@ jobs:
           # because import.meta.env inlining changes emitted bytes.
           #
           # The parity variables are deliberately left standing on the service
-          # after the deploy goes live (same policy as the Railway lane):
+          # after the deploy goes live (same policy as the other lanes):
           # restoring prior values afterwards would trigger a Render rebuild
           # WITHOUT the release metadata, and that unversioned rebuild would
           # silently replace the verified release minutes after the coherence
@@ -2130,7 +1998,6 @@ jobs:
       - deploy-vercel-production
       - deploy-aws-production
       - deploy-render-production
-      - deploy-railway-production
       - deploy-cloudflare-production
       - deploy-github-pages-production
     if: inputs.target == 'production'
@@ -2196,7 +2063,7 @@ jobs:
           done < "${RUNNER_TEMP}/aura-release/production-assets.txt"
           echo "Vercel assets fetched: $(wc -l < "${RUNNER_TEMP}/aura-release/production-assets.txt")"
 
-      - name: Verify Netlify, Vercel, AWS, Render, Railway, Cloudflare, and GitHub Pages production release coherence
+      - name: Verify Netlify, Vercel, AWS, Render, Cloudflare, and GitHub Pages production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
           AURA_EXPECTED_COMMIT: ${{ github.sha }}
@@ -2207,7 +2074,7 @@ jobs:
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","assetsDir":"${{ runner.temp }}/aura-release/assets"},
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
-              {"name":"railway-production","url":"${{ needs.deploy-railway-production.outputs.site_url }}"},
+              
               {"name":"cloudflare-pages-production","url":"${{ needs.deploy-cloudflare-production.outputs.site_url }}"},
               {"name":"github-pages-production","url":"${{ needs.deploy-github-pages-production.outputs.site_url }}"}
             ]
@@ -2227,7 +2094,7 @@ jobs:
               {"name":"vercel","url":"${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}"},
               {"name":"aws","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
-              {"name":"railway","url":"${{ needs.deploy-railway-production.outputs.site_url }}"},
+              
               {"name":"cloudflare-pages","url":"${{ needs.deploy-cloudflare-production.outputs.site_url }}"},
               {"name":"github-pages","url":"${{ needs.deploy-github-pages-production.outputs.site_url }}"}
             ]
@@ -2348,41 +2215,6 @@ jobs:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
 
-  rollback-railway-storefront-on-production-failure:
-    needs:
-      - build-frontend
-      - deploy-production
-      - deploy-vercel-production
-      - deploy-aws-production
-      - deploy-render-production
-      - deploy-railway-production
-      - verify-production-coherence
-    if: >-
-      always() &&
-      inputs.target == 'production' &&
-      inputs.auto_rollback_on_failure == true &&
-      needs.deploy-railway-production.outputs.deployment_attempted == 'true' &&
-      needs.verify-production-coherence.result != 'success'
-    uses: ./.github/workflows/rollback-railway.yml
-    permissions:
-      contents: read
-    with:
-      rollback_ref: ${{ needs.build-frontend.outputs.railway_rollback_ref }}
-      parent_holds_production_lock: true
-    secrets:
-      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-      RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
-      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-      VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
-      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-      VITE_FIREBASE_CONFIG: ${{ secrets.VITE_FIREBASE_CONFIG }}
-      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
 
   rollback-cloudflare-storefront-on-production-failure:
     needs:
@@ -2391,7 +2223,6 @@ jobs:
       - deploy-vercel-production
       - deploy-aws-production
       - deploy-render-production
-      - deploy-railway-production
       - deploy-cloudflare-production
       - verify-production-coherence
     if: >-
@@ -2417,7 +2248,6 @@ jobs:
       - deploy-vercel-production
       - deploy-aws-production
       - deploy-render-production
-      - deploy-railway-production
       - deploy-cloudflare-production
       - deploy-github-pages-production
       - verify-production-coherence

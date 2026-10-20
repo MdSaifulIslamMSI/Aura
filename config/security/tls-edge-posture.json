@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "comment": "Declared production TLS posture per edge. These hostnames are platform-assigned (cloudfront.net, vercel.app, netlify.app, up.railway.app) - none is a domain this project controls. That has a concrete consequence recorded in config/security/post-quantum-policy.json: a TLS 1.3 *minimum* cannot be enforced from this repository, because ACM validation requires control of the domain and the protocol floor is set by each provider. What IS enforceable is that no edge regresses into legacy TLS and that TLS 1.3 stays available. The probe gates exactly those two things.",
+  "comment": "Declared production TLS posture per edge. These hostnames are platform-assigned (cloudfront.net, vercel.app, netlify.app) - none is a domain this project controls. That has a concrete consequence recorded in config/security/post-quantum-policy.json: a TLS 1.3 *minimum* cannot be enforced from this repository, because ACM validation requires control of the domain and the protocol floor is set by each provider. What IS enforceable is that no edge regresses into legacy TLS and that TLS 1.3 stays available. The probe gates exactly those two things.",
   "requirements": {
     "rejectLegacyTls": true,
     "requireTls13Available": true,
@@ -27,13 +27,6 @@
       "host": "aura-gateway.vercel.app",
       "owner": "provider",
       "provider": "Vercel",
-      "minExpected": "TLSv1.2"
-    },
-    {
-      "label": "storefront (Railway)",
-      "host": "aura-storefront-production.up.railway.app",
-      "owner": "provider",
-      "provider": "Railway",
       "minExpected": "TLSv1.2"
     },
     {

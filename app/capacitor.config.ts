@@ -20,8 +20,9 @@ const config: CapacitorConfig = {
       'dip82eloip5zb.cloudfront.net',
       // Concrete fleet hosts only: allowNavigation origins get the native
       // bridge injected, so a wildcard like *.up.railway.app would grant any
-      // attacker-rentable Railway subdomain a trusted in-app WebView.
-      'aura-storefront-production.up.railway.app',
+      // attacker-rentable Railway subdomain a trusted in-app WebView. The
+      // Railway storefront lane was retired when the Railway trial expired, so
+      // no Railway host belongs here at all.
       'aura-gateway.vercel.app',
       'accounts.google.com',
       'google.com',

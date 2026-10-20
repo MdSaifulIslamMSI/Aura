@@ -125,9 +125,8 @@ const normalizedDeployTarget = String(env.VITE_DEPLOY_TARGET || env.DEPLOY_TARGE
 const isStrictReleaseBuild = parseBoolean(env.AURA_VALIDATE_FRONTEND_AUTH_ENV, false)
   || env.VERCEL === '1'
   || String(env.NETLIFY || '').toLowerCase() === 'true'
-  || Boolean(env.RAILWAY_SERVICE_NAME || env.RAILWAY_PROJECT_ID)
   || env.RENDER === 'true' || Boolean(env.RENDER_SERVICE_ID)
-  || ['aws', 'cloudfront', 'desktop', 'multi-host', 'netlify', 'production', 'railway', 'render', 'vercel'].includes(normalizedDeployTarget);
+  || ['aws', 'cloudfront', 'desktop', 'multi-host', 'netlify', 'production', 'render', 'vercel'].includes(normalizedDeployTarget);
 
 if (parseBoolean(env.AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION, false) || !isStrictReleaseBuild) {
   process.exit(0);
@@ -165,7 +164,6 @@ if (missingKeys.length || placeholderKeys.length) {
     '',
     'Set the VITE_FIREBASE_* web app values or VITE_FIREBASE_CONFIG JSON in the deployment environment before building.',
     'For Vercel, add them under Project Settings > Environment Variables for Production and Preview.',
-    'For Railway, add them under the storefront service Variables for the production environment (Root Directory app).',
     'For Render, add them under the static service Environment for production.',
     'For GitHub desktop or multi-host releases, add them as repository variables or secrets.',
     'Use AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION=true only for non-auth smoke builds.',

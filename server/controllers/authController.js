@@ -184,7 +184,6 @@ const resolveFrontendBaseUrl = () => {
         process.env.APP_PUBLIC_URL,
         process.env.VERCEL_FRONTEND_URL,
         process.env.NETLIFY_FRONTEND_URL,
-        process.env.RAILWAY_FRONTEND_URL,
         process.env.AWS_FRONTEND_URL,
     ];
     const selected = candidates.find((value) => typeof value === 'string' && value.trim());

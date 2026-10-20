@@ -109,19 +109,23 @@ describe('runtimeApiConfig', () => {
     expect(resolveServiceOrigin('/api')).toBe('https://aura-storefront.onrender.com');
   });
 
-  it('prefers the hosted proxy path on Railway when a different direct API origin is configured', () => {
+  it('does not treat a retired Railway host as a same-origin proxy', () => {
+    // The Railway storefront lane was retired when the Railway trial
+    // expired. `*.up.railway.app` is a shared-hosting namespace any Railway
+    // account can claim, so the suffix must not route API traffic
+    // same-origin to an arbitrary host on it.
     vi.stubEnv('VITE_API_URL', 'https://backend.example.com/api');
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: {
-        origin: 'https://aura-storefront-production.up.railway.app',
-        host: 'aura-storefront-production.up.railway.app',
-        hostname: 'aura-storefront-production.up.railway.app',
+        origin: 'https://attacker-chosen.up.railway.app',
+        host: 'attacker-chosen.up.railway.app',
+        hostname: 'attacker-chosen.up.railway.app',
       },
     });
 
-    expect(resolveApiBaseUrl('/api')).toBe('/api');
-    expect(resolveServiceOrigin('/api')).toBe('https://aura-storefront-production.up.railway.app');
+    expect(resolveApiBaseUrl('/api')).toBe('https://backend.example.com/api');
+    expect(isHostedFrontendRuntimeHost('attacker-chosen.up.railway.app')).toBe(false);
   });
 
   it('keeps the direct API origin on static-only lanes without a same-origin proxy', () => {
@@ -145,7 +149,6 @@ describe('runtimeApiConfig', () => {
     expect(isHostedFrontendRuntimeHost('dbtrhsolhec1s.cloudfront.net')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aurapilot.aws.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aura-storefront.onrender.com')).toBe(true);
-    expect(isHostedFrontendRuntimeHost('aura-storefront-production.up.railway.app')).toBe(true);
     expect(isHostedFrontendRuntimeHost('aura-storefront.pages.dev')).toBe(false);
     expect(isHostedFrontendRuntimeHost('mdsaifulislammsi.github.io')).toBe(false);
     expect(isHostedFrontendRuntimeHost('localhost')).toBe(false);
