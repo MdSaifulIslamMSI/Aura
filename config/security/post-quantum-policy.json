@@ -18,8 +18,8 @@
   ],
   "minimumTlsVersion": "TLSv1.3",
   "minimumTlsVersionIsTarget": true,
-  "measuredTlsFloor": "TLSv1.2",
-  "minimumTlsVersionComment": "minimumTlsVersion is a TARGET the project aims at, not an enforced floor - server/config/cryptoPolicy.js validates that this field stays TLSv1.3, and nothing in the codebase can actually raise a production edge to TLS 1.3. Every production hostname is platform-assigned (cloudfront.net, vercel.app, netlify.app, up.railway.app), so ACM validation cannot be satisfied (none of those zones belong to this project) and a custom certificate, the only way to change a CloudFront viewer minimum, cannot be issued. The protocol floor is set by each provider. Measured 2026-10-15 across all five production edges: floor TLSv1.2, TLS 1.3 offered on every edge, TLS 1.0/1.1 accepted nowhere. So TLS 1.3 is AVAILABLE everywhere and REQUIRED nowhere. The enforceable requirements live in config/security/tls-edge-posture.json and are measured by scripts/security/tls-posture-probe.cjs.",
+  "measuredTlsFloor": "TLSv1",
+  "minimumTlsVersionComment": "TLSv1.3 is a required hardening target, not evidence of deployed enforcement. On 2026-10-16, certificate-verified legacy-capable probes negotiated TLS 1.0/1.1 and received HTTP 200 from dip82eloip5zb.cloudfront.net, correcting the prior false-negative measurement. OpenSSL client-side ERR_SSL_NO_PROTOCOLS_AVAILABLE must not count as server rejection. The backend origin rejected both legacy versions; CloudFront and the origin each accepted TLS 1.3 with only X25519MLKEM768 offered. This proves optional hybrid handshake capability, not full-path PQC. CloudFront's default certificate forces the TLSv1 viewer policy; no owned domain or us-east-1 ACM certificate was found in this AWS account. CloudFront origin API values currently stop at TLSv1.2; that configured minimum alone does not establish the negotiated origin protocol. Keep the legacy-rejection and TLS 1.3-only gates strict while these deployment limits remain unresolved.",
   "allowedSymmetricCrypto": [
     "AES-256-GCM",
     "ChaCha20-Poly1305"

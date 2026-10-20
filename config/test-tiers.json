@@ -450,6 +450,7 @@
       "tests/reviewMediaMagicBytes.test.js",
       "tests/reviewMediaStorageService.test.js",
       "tests/rollbackFrontendS3.test.js",
+      "tests/s3HttpsPolicy.test.js",
       "tests/safeTrafficSimulation.test.js",
       "tests/security/payloadHardening.test.js",
       "tests/sensitiveActionMiddleware.test.js",
@@ -505,6 +506,7 @@
       "tests/trafficResponseSmoothness.test.js"
     ],
     "noDbFiles": [
+      "s3HttpsPolicy.test.js",
       "httpServerTimeouts.test.js",
       "runtimeRoles.test.js",
       "browserSessionCap.test.js",

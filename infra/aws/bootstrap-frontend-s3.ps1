@@ -57,7 +57,8 @@ function Configure-FrontendBucket {
     param(
         [string]$ResolvedBucketName,
         [string]$Region,
-        [string]$ResolvedStackPrefix
+        [string]$ResolvedStackPrefix,
+        [string]$ExpectedBucketOwner
     )
 
     $ownershipFile = Write-JsonFile -Name "$ResolvedBucketName-ownership.json" -Value @{
@@ -177,9 +178,13 @@ function Configure-FrontendBucket {
         --bucket $ResolvedBucketName `
         --website-configuration "file://$websiteFile" | Out-Null
 
-    aws s3api put-bucket-policy `
-        --bucket $ResolvedBucketName `
-        --policy "file://$policyFile" | Out-Null
+    # Keep the public HTTPS object grant, but never replace unrelated statements.
+    & node (Join-Path $PSScriptRoot "../../scripts/security/enforce-s3-https.mjs") `
+        --apply --region $Region --bucket $ResolvedBucketName `
+        --expected-bucket-owner $ExpectedBucketOwner --merge-policy $policyFile
+    if ($LASTEXITCODE -ne 0) {
+        throw "HTTPS-only frontend bucket policy maintenance failed."
+    }
 }
 
 function Ensure-FrontendBudget {
@@ -273,13 +278,14 @@ function Ensure-FrontendBudget {
 }
 
 Require-Command -Name "aws"
+Require-Command -Name "node"
 
 if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
     $env:AWS_PROFILE = $AwsProfile.Trim()
 }
 
 $accountId = aws sts get-caller-identity --query "Account" --output text
-if ([string]::IsNullOrWhiteSpace($accountId) -or $accountId -eq "None") {
+if ($LASTEXITCODE -ne 0 -or $accountId -notmatch '^\d{12}$') {
     throw "Could not resolve AWS account id."
 }
 
@@ -296,7 +302,7 @@ $resolvedBudgetName = if ([string]::IsNullOrWhiteSpace($BudgetName)) {
 }
 
 Ensure-Bucket -ResolvedBucketName $resolvedBucketName -Region $AwsRegion
-Configure-FrontendBucket -ResolvedBucketName $resolvedBucketName -Region $AwsRegion -ResolvedStackPrefix $StackPrefix
+Configure-FrontendBucket -ResolvedBucketName $resolvedBucketName -Region $AwsRegion -ResolvedStackPrefix $StackPrefix -ExpectedBucketOwner $accountId
 Ensure-FrontendBudget `
     -AccountId $accountId `
     -ResolvedBudgetName $resolvedBudgetName `
@@ -308,6 +314,7 @@ $websiteUrl = "http://$resolvedBucketName.s3-website.$AwsRegion.amazonaws.com"
 Write-Host "AWS frontend bucket ready."
 Write-Host "Bucket: $resolvedBucketName"
 Write-Host "Website URL: $websiteUrl"
+Write-Warning "S3 website endpoints are HTTP-only and are blocked by the HTTPS-only policy. Use an HTTPS S3 REST endpoint or the CloudFront bootstrap for serving."
 Write-Host "Public access: bucket policy allows s3:GetObject for built static files only."
 if (-not [string]::IsNullOrWhiteSpace($BudgetEmail)) {
     Write-Host "Budget guardrail: $resolvedBudgetName ($($MonthlyBudgetUsd.ToString("0.##")) USD/month)"

@@ -448,7 +448,7 @@
   "CustomErrorResponses": {
     "Quantity": 0
   },
-  "Comment": "Aura frontend HTTPS static site (new-account replica of E34Z9POGIQYOCS). TLS notes: this distribution uses CloudFrontDefaultCertificate with no aliases, and CloudFront does not honour a TLS 1.3 viewer minimum in that configuration - it enforces its own 1.2 floor and ignores the field, verified by probing the live edge. Reaching a 1.3 viewer minimum requires a custom ACM certificate plus aliases, which is not in place. OriginSslProtocols accepts only bare legacy-spelled versions and no 1.3 at all, so CloudFront-to-origin is capped at 1.2 even though the origin itself serves 1.3.",
+  "Comment": "Aura frontend HTTPS static site (new-account replica of E34Z9POGIQYOCS)",
   "Logging": {
     "Enabled": false,
     "IncludeCookies": false,
@@ -458,10 +458,7 @@
   "PriceClass": "PriceClass_100",
   "Enabled": true,
   "ViewerCertificate": {
-    "CloudFrontDefaultCertificate": true,
-    "SSLSupportMethod": "vip",
-    "MinimumProtocolVersion": "TLSv1.2_2021",
-    "CertificateSource": "cloudfront"
+    "CloudFrontDefaultCertificate": true
   },
   "Restrictions": {
     "GeoRestriction": {
