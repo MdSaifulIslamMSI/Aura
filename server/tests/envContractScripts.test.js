@@ -1351,6 +1351,33 @@ describe('repo environment contract scripts', () => {
         expect(workflow).not.toContain("needs.security-gates.result == 'skipped'");
     });
 
+    test('production command center never strands a deploy behind an auto-skipped promotion gate', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const jobSection = (jobName) => {
+            const match = workflow.match(new RegExp(`\\n  ${jobName}:\\n[\\s\\S]*?(?=\\n  [a-zA-Z0-9_-]+:\\n|$)`));
+            expect(match).toBeTruthy();
+            return match[0];
+        };
+
+        // GitHub auto-skips a job whose `needs` is a reusable-workflow call that
+        // ended with skipped internal jobs, even though the call itself reports
+        // success (community discussion 189172). The acknowledged-staging path
+        // skips eight live gates by design, so without always() the promotion
+        // gate is skipped and every deploy behind it no-ops while the run still
+        // reports success.
+        const promotionGate = jobSection('staging-promotion-gate');
+        expect(promotionGate).toContain('always()');
+        expect(promotionGate).toContain("needs.release-safety-gates.result == 'success'");
+        expect(promotionGate).toContain("needs.release-safety-gates.result == 'skipped'");
+
+        // The gate stays load-bearing: a deploy only runs when it actually passed.
+        for (const jobName of ['deploy-backend', 'deploy-frontend-netlify', 'deploy-frontend-aws', 'deploy-gateway']) {
+            const section = jobSection(jobName);
+            expect(section).toContain('staging-promotion-gate');
+            expect(section).toContain("needs.staging-promotion-gate.result == 'success'");
+        }
+    });
+
     test('same-SHA gate evidence trust rule behavioral suite passes', () => {
         const result = execFileSync(process.execPath, [
             '--test', path.join(repoRoot, 'scripts', 'github', 'verify-production-gate-evidence.test.mjs'),

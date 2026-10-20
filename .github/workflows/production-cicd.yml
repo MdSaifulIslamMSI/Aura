@@ -992,7 +992,20 @@ jobs:
   staging-promotion-gate:
     name: Staging promotion gate
     needs:
+      - plan
       - release-safety-gates
+    # GitHub auto-skips a job whose `needs` is a reusable-workflow call that
+    # ended with skipped internal jobs, even though the call itself reports
+    # success (known Actions behaviour, community discussion 189172). The ack
+    # path skips eight live staging gates by design, so this gate was skipped
+    # on every command-center run and every deploy behind it no-opped. always()
+    # forces evaluation; the result check keeps the gate fail-closed, and it
+    # accepts an evidence-backed skip for the same reason production-approval
+    # does.
+    if: |
+      always() &&
+      needs.plan.outputs.planned_production_action == 'true' &&
+      (needs.release-safety-gates.result == 'success' || needs.release-safety-gates.result == 'skipped')
     uses: ./.github/workflows/staging-promotion-gate.yml
     permissions:
       actions: write
