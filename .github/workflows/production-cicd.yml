@@ -994,14 +994,13 @@ jobs:
     needs:
       - plan
       - release-safety-gates
-    # GitHub auto-skips a job whose `needs` is a reusable-workflow call that
-    # ended with skipped internal jobs, even though the call itself reports
-    # success (known Actions behaviour, community discussion 189172). The ack
-    # path skips eight live staging gates by design, so this gate was skipped
-    # on every command-center run and every deploy behind it no-opped. always()
-    # forces evaluation; the result check keeps the gate fail-closed, and it
-    # accepts an evidence-backed skip for the same reason production-approval
-    # does.
+    # always() is load-bearing. Before #699 this job had no `if` and a single
+    # `needs` entry, which is a reusable-workflow call; GitHub skipped it on all
+    # three command-center runs before #699 even though that call ran, so every
+    # deploy behind it no-opped. `plan` is in `needs` now to read
+    # planned_production_action. The explicit result check keeps the gate
+    # fail-closed, and `skipped` is accepted for the same reason
+    # production-approval accepts it.
     if: |
       always() &&
       needs.plan.outputs.planned_production_action == 'true' &&
