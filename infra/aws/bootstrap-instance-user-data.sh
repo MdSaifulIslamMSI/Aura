@@ -66,7 +66,7 @@ AUTH_SESSION_COOKIE_SECURE=true
 AUTH_SESSION_SAME_SITE=lax
 # Hosts allowed to receive SameSite=None session cookies. Must mirror the
 # cross-site frontends in CORS_ORIGIN; an origin not listed here gets lax.
-AUTH_CROSS_SITE_COOKIE_ORIGINS=aurapilot.vercel.app,aurapilot.netlify.app,aura-storefront.onrender.com,aurapilot.aws.app,aura-storefront.pages.dev,mdsaifulislammsi.github.io,aura-storefront-production.up.railway.app,aura-mdsaifulislammsiss-projects.vercel.app
+AUTH_CROSS_SITE_COOKIE_ORIGINS=aurapilot.vercel.app,aurapilot.netlify.app,aura-storefront.onrender.com,aurapilot.aws.app,aura-storefront.pages.dev,mdsaifulislammsi.github.io,aura-mdsaifulislammsiss-projects.vercel.app
 AUTH_SESSION_ALLOW_MEMORY_FALLBACK=false
 AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true
 AUTH_WEBAUTHN_RP_ID=aurapilot.vercel.app

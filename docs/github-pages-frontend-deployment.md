@@ -1,6 +1,6 @@
 # GitHub Pages Storefront Deployment
 
-Seventh storefront lane (Netlify, Vercel, AWS CloudFront, Render, Railway,
+Seventh storefront lane (Netlify, Vercel, AWS CloudFront, Render,
 Cloudflare Pages, GitHub Pages). The shared CI artifact is published to the
 deployment-dedicated **user-site repo** (`mdsaifulislammsi.github.io`), which
 serves at the account root — so the artifact deploys byte-identically with no

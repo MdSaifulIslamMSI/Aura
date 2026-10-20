@@ -1,8 +1,8 @@
 # Render Storefront Deployment
 
 Fourth static storefront lane (Vercel, Netlify, AWS CloudFront, Render) of the
-five-host multi-host release (Railway is the fifth — see
-[railway-frontend-deployment.md](railway-frontend-deployment.md)).
+multi-host release. The Railway lane was retired when its trial expired — see
+[railway-frontend-deployment.md](railway-frontend-deployment.md).
 Same `app/dist` artifact, same backend proxy rewrites, same security
 headers — all generated from `app/config/vercelRoutingContract.mjs`.
 Render is a full member of the coordinated multi-host release: the
