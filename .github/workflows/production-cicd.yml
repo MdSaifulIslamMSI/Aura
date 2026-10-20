@@ -1345,6 +1345,18 @@ jobs:
       VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
       VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
       VITE_FIREBASE_WEB_CONFIG: ${{ secrets.VITE_FIREBASE_WEB_CONFIG }}
+      # The called workflow declares these too. Omitting them silently built
+      # without the Sentry/DataDog values a direct deploy passes, so Render
+      # (which rebuilds from source) diverged from the shared artifact and the
+      # host-parity gate failed closed. Pass every declared secret so the
+      # command center and a direct dispatch build identical bytes.
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      SENTRY_URL: ${{ secrets.SENTRY_URL }}
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID }}
+      VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN }}
 
   deploy-frontend-netlify-noop:
     name: Deploy Netlify frontend no-op

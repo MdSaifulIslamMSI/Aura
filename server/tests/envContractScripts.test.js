@@ -1378,6 +1378,44 @@ describe('repo environment contract scripts', () => {
         }
     });
 
+    test('production command center forwards every storefront secret the called workflow declares', () => {
+        const netlify = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+        const cicd = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        // Secret names declared under on.workflow_call.secrets. Extracted by
+        // indentation because the server test tier installs only server
+        // dependencies and must not rely on the root-only YAML parser.
+        const callIndex = netlify.indexOf('\n  workflow_call:');
+        expect(callIndex).toBeGreaterThan(-1);
+        const lines = netlify.slice(callIndex + 1).split('\n');
+        const secretsIndex = lines.indexOf('    secrets:');
+        expect(secretsIndex).toBeGreaterThan(-1);
+        const declared = [];
+        for (let i = secretsIndex + 1; i < lines.length; i += 1) {
+            const line = lines[i];
+            if (line.trim() === '' || line.trim().startsWith('#')) continue;
+            const name = line.match(/^      ([A-Z][A-Z0-9_]+):$/);
+            if (name) {
+                declared.push(name[1]);
+                continue;
+            }
+            if (/^\s{0,4}\S/.test(line)) break;
+        }
+        expect(declared).toContain('VITE_SENTRY_DSN');
+
+        const jobStart = cicd.indexOf('\n  deploy-frontend-netlify:\n');
+        const jobEnd = cicd.indexOf('\n  deploy-frontend-netlify-noop:\n');
+        expect(jobStart).toBeGreaterThan(-1);
+        expect(jobEnd).toBeGreaterThan(jobStart);
+        const job = cicd.slice(jobStart, jobEnd);
+
+        // A secret the caller drops reaches the called workflow empty, so the
+        // command center builds different bytes than a direct dispatch. That is
+        // exactly the divergence the Render host-parity gate rejects.
+        const missing = declared.filter((name) => !job.includes(`${name}: \${{ secrets.${name} }}`));
+        expect(missing).toEqual([]);
+    });
+
     test('same-SHA gate evidence trust rule behavioral suite passes', () => {
         const result = execFileSync(process.execPath, [
             '--test', path.join(repoRoot, 'scripts', 'github', 'verify-production-gate-evidence.test.mjs'),
