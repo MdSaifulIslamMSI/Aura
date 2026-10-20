@@ -1,6 +1,6 @@
 # Cloudflare Pages Storefront Deployment
 
-Sixth storefront lane (Netlify, Vercel, AWS CloudFront, Render, Railway,
+Sixth storefront lane (Netlify, Vercel, AWS CloudFront, Render,
 Cloudflare Pages). Unlike the source-building lanes, Cloudflare Pages receives
 the shared CI artifact directly (`npx wrangler pages deploy`), so its bytes
 are identical to the other artifact hosts **by construction** — and the
