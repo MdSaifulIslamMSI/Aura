@@ -4,7 +4,7 @@
 
 **A production-grade commerce platform — AI-assisted shopping, bank-grade checkout integrity, and a byte-verified release train.**
 
-One release train. Seven storefront hosts. Byte-identical and fail-closed.
+One release train. Six storefront hosts. Byte-identical and fail-closed.
 
 [![Quality Foundation](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml)
 [![Security Gates](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security-gates.yml?branch=main&label=security%20gates&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security-gates.yml)
@@ -15,7 +15,7 @@ One release train. Seven storefront hosts. Byte-identical and fail-closed.
 
 [Storefront](https://aurapilot.vercel.app) &middot; [Host fleet](#live-production-surfaces) &middot; [Gateway](https://aura-gateway.vercel.app) &middot; [Status page](https://aurapilot.vercel.app/status) &middot; [Architecture](docs/system-architecture.md) &middot; [Security](SECURITY.md) &middot; [The story](AURA-STORY.md)
 
-**1,688** commits &nbsp;·&nbsp; **≈550K** lines of first-party code &nbsp;·&nbsp; **714** test files &nbsp;·&nbsp; **50** workflows &nbsp;·&nbsp; **20** languages &nbsp;·&nbsp; **11** currencies &nbsp;·&nbsp; **7** storefront hosts
+**1,929** commits &nbsp;·&nbsp; **≈550K** lines of first-party code &nbsp;·&nbsp; **767** test files &nbsp;·&nbsp; **56** workflows &nbsp;·&nbsp; **20** languages &nbsp;·&nbsp; **11** currencies &nbsp;·&nbsp; **6** storefront hosts
 
 </div>
 
@@ -35,19 +35,19 @@ This repository is not a demo landing page. It is the operating surface for prod
 
 | Indicator | Value | Receipt |
 |---|---:|---|
-| Commits | 1,688 | `git rev-list --count HEAD` |
-| Tracked files | 3,025 | `git ls-files` |
+| Commits | 1,929 | `git rev-list --count HEAD` |
+| Tracked files | 3,213 | `git ls-files` |
 | First-party source | ≈550,000 lines | `app/src` · `server` · `desktop` · `scripts` |
-| Frontend unit tests | 229 files, ~1,578 cases | `app/src/**/*.test.*` (Vitest) |
-| Backend test files | 461 | `server/tests/` (Jest) |
-| Tiered suites | 190 regression · 254 nightly · 0 quarantine | `config/test-tiers.json` |
-| Playwright E2E | 15 specs, 55 cases | `app/e2e/` |
-| Desktop tests | 9 files, 60 cases | `desktop/*.test.cjs` |
-| GitHub Actions workflows | 50, incl. 9 rollback lanes | `.github/workflows/` |
-| npm scripts | 260 | root `package.json` |
-| Documentation | 230+ markdown docs | `docs/` + root |
+| Frontend unit tests | 239 files, 1,670 cases | `app/src/**/*.test.*` (Vitest) |
+| Backend test files | 500 | `server/tests/` (Jest) |
+| Tiered suites | 225 regression · 257 nightly · 0 quarantine | `config/test-tiers.json` |
+| Playwright E2E | 17 specs, 93 cases | `app/e2e/` |
+| Desktop tests | 11 files, 79 cases | `desktop/*.test.cjs` |
+| GitHub Actions workflows | 56, incl. 8 rollback lanes | `.github/workflows/` |
+| npm scripts | 288 | root `package.json` |
+| Documentation | 310+ markdown docs | `docs/` + root |
 | Languages · currencies | 20 (+RTL) · 11 | `app/src/config/marketConfig.js` |
-| Storefront hosts | 7, byte-identical | `deploy-netlify.yml` byte gate |
+| Storefront hosts | 6, byte-identical | `deploy-netlify.yml` byte gate |
 | Catalog scale | 1,000,000-product dataset | `server/data/catalog_1m.jsonl` |
 
 ---
@@ -93,7 +93,7 @@ This repository is not a demo landing page. It is the operating surface for prod
 ### 📡 Operate in public
 
 - Admin emergency controls with feature kill-switches, plus a client-diagnostics bus surfaced in an admin panel.
-- Nightly test fleet (254 suites) with a quarantine ratchet; a 30-minute uptime probe; and a workflow status watcher feeding the status page.
+- Nightly test fleet (257 suites) with a quarantine ratchet; a 30-minute uptime probe; and a workflow status watcher feeding the status page.
 - Sentry and Datadog RUM wired end to end, with sourcemaps uploaded per release.
 
 ---
@@ -124,7 +124,7 @@ flowchart LR
     C --> D[Production release gate on push]
     D --> E[Manual command center - PRODUCTION confirmation required]
     E --> F[Backend deploy - blue-green slot switch]
-    F --> G[One storefront artifact to 7 hosts]
+    F --> G[One storefront artifact to 6 hosts]
     G --> H{Byte gate - sha256 every asset on every host}
     H -->|mismatch| I[Per-host rollback]
     H -->|identical| J[Record last-known-good in SSM]
@@ -133,7 +133,7 @@ flowchart LR
 - Pull requests build and test the changed surface; a push to `main` runs the non-mutating production gate.
 - Real production actions run through the manual production command center and require the explicit `PRODUCTION` confirmation input, after twelve release gates (tests, security, env contract, staging smokes, cost guard, observability guard, rollback readiness, synthetic and latency SRE checks).
 - Storefront deploys publish **the same built artifact** to all hosts, then the byte gate fetches each host's shell HTML and every referenced asset, hashes them with SHA-256, and fails if any host serves different bytes.
-- Every deploy target has a matched rollback workflow (9 lanes), and deploys record a last-known-good pointer for one-command recovery.
+- Every deploy target has a matched rollback workflow (8 lanes), and deploys record a last-known-good pointer for one-command recovery.
 
 Details: [CI/CD and command center](docs/ci-cd.md) · [rollback runbook](docs/rollback-runbook.md)
 
@@ -161,7 +161,7 @@ Production pages expose release traceability through `aura-release-id` and `aura
 
 - **Field-level encryption** (`server/services/fieldEncryptionService.js`): per-record AES-256-GCM with fresh IVs; DEKs exist only in process memory, wrapped by AWS KMS and persisted as an SSM SecureString to survive restarts; versioned ciphertext format enables zero-downtime key rotation; a single flag is the kill switch.
 - **Searchable ciphertext**: deterministic HMAC-SHA256 blind indexes (`blindIndexService.js`) power phone/email lookups with no plaintext fallback.
-- **CI scanners**: CodeQL, a custom Semgrep policy for Aura-specific patterns, Gitleaks, Trivy, CheckOV, OSV-Scanner, zizmor (Actions audit), OpenSSF Scorecard, and dependency review — consolidated into a 7-job security gate.
+- **CI scanners**: CodeQL, a custom Semgrep policy for Aura-specific patterns, Gitleaks, Trivy, CheckOV, OSV-Scanner, zizmor (Actions audit), OpenSSF Scorecard, and dependency review — consolidated into a 14-job security gate.
 - **Edge verification**: a self-hosted ModSecurity/CRS + CrowdSec WAF is continuously verified against SQLi, XSS, traversal, and command-injection probes in CI.
 - **AI guardrails**: a promptfoo red-team corpus runs against the assistant prompt guard and fails the build on any miss.
 - **Post-quantum readiness**: an OpenSSL 3.5 PQC lab evaluates migration paths before they are needed.
@@ -204,7 +204,7 @@ Further reading: [performance contract](docs/performance-contract.md) · [perfor
 - **Observability stack**: OpenTelemetry Collector → Prometheus, Grafana, Loki, and Promtail; bearer-protected `/metrics`; `/health`, `/health/live`, and `/health/ready` on both API and worker processes; Alertmanager wired to the status page via a two-phase activation workflow.
 - **Backups**: nightly Atlas dumps to S3 via SSM — versioned bucket, KMS-encrypted archives, 35-day retention, and an isolated restore-drill job that proves recoverability rather than assuming it.
 - **Probes**: a 30-minute liveness probe treats an unconfigured probe as a P0; a status watcher follows 13 workflows.
-- **Test tiers**: every backend suite is triaged into regression (190), nightly (254), or quarantine (0) — the untriaged count must stay zero or CI fails the ratchet.
+- **Test tiers**: every backend suite is triaged into regression (225), nightly (257), or quarantine (0) — the untriaged count must stay zero or CI fails the ratchet.
 - **SRE**: SLO definitions, latency budgets, synthetic checks, and a rollback-after-bad-latency runbook.
 
 Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](docs/sre/latency-and-reliability-budgets.md) · [incident runbook](docs/incident-runbook.md) · [runbooks](docs/runbooks/)
@@ -219,16 +219,16 @@ Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](do
 |---|---|
 | Storefront | React 19.3, Vite 8.3, React Router 7, Tailwind CSS 4, framer-motion, PWA service worker |
 | State | zustand 5 stores + React Context; optimistic commerce runtime with cross-tab sync |
-| i18n | FormatJS / react-intl 10, ICU message packs, pseudo-locale QA pipeline |
+| i18n | FormatJS / react-intl 12, ICU message packs, pseudo-locale QA pipeline |
 | Backend | Node 26 runtime, Express 5.2, Helmet/CSP, zod, prom-client |
-| Data | MongoDB (Mongoose 9.9.4), Redis 6, TTL-indexed collections, Atlas Search |
+| Data | MongoDB (Mongoose 9.10.2), Redis 6, TTL-indexed collections, Atlas Search |
 | Realtime | Socket.IO 4.8 with Redis adapter backplane, LiveKit voice/video |
 | AI | Gemini · Ollama · OpenCode Zen · Groq · Voyage embeddings · ElevenLabs TTS |
 | Payments | Razorpay + optional Stripe routing, double-entry ledger, payment outbox |
 | Desktop | Electron 44, electron-builder, electron-updater, safeStorage |
 | Mobile | Capacitor 8 (Android + iOS), native Firebase auth providers |
 | Testing | Vitest 5, Jest, Playwright 1.63, axe-core, visual regression, k6, Lighthouse CI |
-| CI/CD | 50 GitHub Actions workflows, 12-gate production command center, 9 rollback lanes |
+| CI/CD | 56 GitHub Actions workflows, 12-gate production command center, 8 rollback lanes |
 | Observability | OpenTelemetry, Prometheus, Grafana, Loki, Alertmanager, Sentry, Datadog RUM |
 | Cloud | AWS EC2/S3/CloudFront/SSM/KMS via OIDC, Docker Compose, OpenTofu, self-hosted edge WAF |
 
@@ -236,14 +236,14 @@ Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](do
 
 | Area | Scale | Owns |
 |---|---|---|
-| [`app/`](app/) | ~306K lines, 229 test files | React storefront, AI assistant UX, admin suite, PWA, Capacitor shell, Playwright E2E |
-| [`server/`](server/) | ~214K lines incl. 461 test files | Express API, worker runtime, auth, commerce, payments, AI gateways, jobs |
-| [`desktop/`](desktop/) | ~4K lines, 60 tests | Electron main process, secure storage, auth handoff, hardened proxy |
+| [`app/`](app/) | ~306K lines, 239 test files | React storefront, AI assistant UX, admin suite, PWA, Capacitor shell, Playwright E2E |
+| [`server/`](server/) | ~214K lines incl. 500 test files | Express API, worker runtime, auth, commerce, payments, AI gateways, jobs |
+| [`desktop/`](desktop/) | ~4K lines, 79 tests | Electron main process, secure storage, auth handoff, hardened proxy |
 | [`gateway/`](gateway/) | static site | Public gateway and release-link directory |
 | [`infra/`](infra/) | scripts + IaC | AWS automation, blue-green deploy scripts, edge WAF, OpenTofu, PQC lab |
-| [`scripts/`](scripts/) | ~28K lines, 234 files | CI doctors, validators, generators, rollback and smoke tooling |
-| [`docs/`](docs/) | 230+ documents | Architecture, security, payments, SRE, runbooks, ADRs |
-| [`.github/workflows/`](.github/workflows/) | 50 workflows | CI, security gates, deploy lanes, rollback lanes, nightly fleet |
+| [`scripts/`](scripts/) | ~28K lines, 262 files | CI doctors, validators, generators, rollback and smoke tooling |
+| [`docs/`](docs/) | 310+ documents | Architecture, security, payments, SRE, runbooks, ADRs |
+| [`.github/workflows/`](.github/workflows/) | 56 workflows | CI, security gates, deploy lanes, rollback lanes, nightly fleet |
 
 ---
 
@@ -295,7 +295,7 @@ Run the narrowest check that covers the surface you changed; widen only when the
 | Main branch protection policy | `npm run github:main-protection` |
 | Production mutation guard | `npm run release:production-mutation-gate` |
 
-The default root `npm test` runs the curated backend regression tracer (190 suites), not every test in the repository.
+The default root `npm test` runs the curated backend regression tracer (225 suites), not every test in the repository.
 
 ## Documentation map
 
@@ -319,7 +319,7 @@ The default root `npm test` runs the curated backend regression tracer (190 suit
 
 ## The story
 
-Aura is designed, built, and operated by a solo builder directing AI agents — from the first import to a byte-verified seven-host production fleet. The receipts-first narrative lives in [AURA-STORY.md](AURA-STORY.md).
+Aura is designed, built, and operated by a solo builder directing AI agents — from the first import to a byte-verified six-host production fleet. The receipts-first narrative lives in [AURA-STORY.md](AURA-STORY.md).
 
 ## Maintainer notes
 
