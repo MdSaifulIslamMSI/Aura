@@ -1,5 +1,21 @@
 # Railway Storefront Deployment
 
+> **RETIRED.** The Railway storefront lane was decommissioned after the Railway
+> trial expired: there is no Railway deploy job, no Railway rollback job, and
+> `aura-storefront-production.up.railway.app` is no longer a trusted frontend
+> host, is no longer in the backend CORS allowlist, and is no longer in the
+> Capacitor WebView allowlist.
+>
+> This document and the platform build config it describes (`app/railway.toml`,
+> `app/Dockerfile.railway`, `scripts/deploy-railway.sh`,
+> `scripts/rollback-railway.sh`, `scripts/railway-vars.cjs`,
+> `scripts/railway-release-env.cjs`) are retained so the lane can be restored
+> without re-deriving the build. `app/railway.toml` is a generated artifact of
+> `sync_vercel_configs.mjs`, so deleting it would break that generator's
+> contract. Restoring the lane needs a Railway account with a current plan, a
+> project token, and the deploy/rollback jobs re-added to
+> `deploy-netlify.yml` and `production-cicd.yml`.
+
 Fifth static storefront lane (Vercel, Netlify, AWS CloudFront, Render, Railway).
 Same `app/dist` build, same backend proxy routes, same security headers — all
 generated from `app/config/vercelRoutingContract.mjs`.

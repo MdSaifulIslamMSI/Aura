@@ -22,14 +22,14 @@ override the committed default with the GitHub repo variable
 | `vercel.json`, `app/vercel.json` (rewrites + CSP headers) | generated |
 | `netlify.toml`, `app/netlify.toml` (redirects + headers) | generated |
 | `render.yaml` (routes + headers) | generated |
-| `app/Caddyfile`, `app/railway.toml` (Railway lane) | generated |
+| `app/Caddyfile` | generated |
 | `cloudflare/_headers` (CSP) | generated |
 | `app/index.html` + committed mobile copies (meta CSP) | generated |
 | `gateway/index.html` (portal links) | generated |
 | `app/capacitor.config.ts` (allowNavigation) | generated |
 | `config/backend-origin.json` | generated — consumed by `server/index.js` (backend CSP) and `desktop/runtimeServer.cjs` (desktop proxy default) |
 | `scripts/env-contract-lib.mjs` `KNOWN_PRODUCTION_HOSTS` | imports the contract directly |
-| CI builds, Vercel prebuilt config, Render parity env, Railway env push | repo variable `AURA_BACKEND_ORIGIN` |
+| CI builds, Vercel prebuilt config, Render parity env | repo variable `AURA_BACKEND_ORIGIN` |
 
 ## Swap procedure
 
@@ -109,7 +109,7 @@ keeps serving the previous edge even though every committed file is correct.
 
 ## Notes
 
-- Hosted lanes (Vercel/Netlify/Render/Railway/AWS) call the API **same-origin**
+- Hosted lanes (Vercel/Netlify/Render/AWS) call the API **same-origin**
   (`/api`) through their platform proxy; the app bundle carries the absolute
   origin only for the proxy-less lanes (Cloudflare Pages, GitHub Pages) — see
   `app/src/services/runtimeApiConfig.js`.

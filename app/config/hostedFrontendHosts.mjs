@@ -15,13 +15,19 @@ export const PLANNED_CUSTOM_FRONTEND_HOSTS = ['aurapilot.aws.app'];
 // proxy. Same-origin /api proxy semantics live in
 // app/src/services/runtimeApiConfig.js (HOSTED_FRONTEND_HOST_SUFFIXES),
 // which is deliberately narrower than this list.
+//
+// The Railway suffixes are gone: the Railway storefront lane was retired when
+// the Railway trial expired. They were the widest hole in this list -
+// `*.up.railway.app` is a shared-hosting namespace any Railway account can
+// claim, so listing the suffix trusted EVERY tenant on it as a first-party
+// Aura storefront (Firebase social-auth gate + same-origin /api proxy).
+// Trusting a whole shared-hosting suffix is only safe while the fleet
+// actually needs it.
 export const HOSTED_DEPLOYMENT_HOST_SUFFIXES = [
     '.vercel.app',
     '.netlify.app',
     '.cloudfront.net',
     '.onrender.com',
-    '.railway.app',
-    '.up.railway.app',
     '.pages.dev',
     '.github.io',
 ];

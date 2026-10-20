@@ -27,16 +27,20 @@ const HOSTED_FRONTEND_EXACT_HOSTS = new Set(PLANNED_CUSTOM_FRONTEND_HOSTS);
 
 // Suffixes for frontend hosts that proxy /api (and /health, /uploads,
 // /socket.io) same-origin to the backend edge (Netlify/Vercel rewrites,
-// Render routes, Railway Caddy). Static-only lanes (Cloudflare Pages,
-// GitHub Pages, S3 website) have no same-origin proxy and call the backend
-// directly, so they are deliberately NOT listed here.
+// Render routes). Static-only lanes (Cloudflare Pages, GitHub Pages,
+// S3 website) have no same-origin proxy and call the backend directly, so
+// they are deliberately NOT listed here.
+//
+// The Railway suffixes are gone with the retired Railway storefront lane.
+// `*.up.railway.app` is a shared-hosting namespace any Railway account can
+// claim, and listing the suffix told the client to route its API traffic
+// same-origin to ANY host on it - so a tenant who claimed an arbitrary
+// `*.up.railway.app` name would have received Aura's API traffic.
 const HOSTED_FRONTEND_HOST_SUFFIXES = [
   '.vercel.app',
   '.netlify.app',
   '.cloudfront.net',
   '.onrender.com',
-  '.railway.app',
-  '.up.railway.app',
 ];
 
 export const isHostedFrontendRuntimeHost = (host = '') => {

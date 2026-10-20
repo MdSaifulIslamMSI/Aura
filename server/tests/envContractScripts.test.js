@@ -1423,17 +1423,33 @@ describe('repo environment contract scripts', () => {
     test('multi-host deploy rolls back every provider whose mutation was attempted', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
 
-        expect(workflow.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g)).toHaveLength(7);
+        expect(workflow.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g)).toHaveLength(6);
         expect(workflow).toContain("needs.deploy-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-aws-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-render-production.outputs.deployment_attempted == 'true'");
-        expect(workflow).toContain("needs.deploy-railway-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-cloudflare-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-github-pages-production.outputs.deployment_attempted == 'true'");
         expect(workflow).not.toContain("needs.deploy-production.outputs.deploy_url != ''");
         expect(workflow).not.toContain("needs.deploy-vercel-production.outputs.deploy_url != ''");
         expect(workflow).not.toContain("needs.deploy-aws-production.outputs.site_url != ''");
+    });
+
+    test('the retired Railway storefront lane is gone from the release pipeline', () => {
+        const multiHost = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+        const production = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        // The Railway trial expired and the lane was decommissioned. It must
+        // not come back as a half-wired deploy job, and a lane that cannot
+        // deploy must not fail every release either.
+        expect(multiHost).not.toContain('deploy-railway-production');
+        expect(multiHost).not.toContain('rollback-railway-storefront-on-production-failure');
+        expect(multiHost).not.toContain('RAILWAY_API_TOKEN');
+        expect(multiHost).not.toContain('RAILWAY_PRODUCTION_URL');
+        expect(production).not.toContain('deploy-frontend-railway');
+        expect(production).not.toContain('RAILWAY_PRODUCTION_URL');
+        expect(production).not.toContain('rollback_railway_ref');
+        expect(fs.existsSync(path.join(repoRoot, '.github', 'workflows', 'rollback-railway.yml'))).toBe(false);
     });
 
     test('multi-host deploy captures exact rollback targets before mutation', () => {
@@ -1562,7 +1578,6 @@ describe('repo environment contract scripts', () => {
             'rollback-storefront-vercel.yml',
             'rollback-frontend-aws.yml',
             'rollback-render.yml',
-            'rollback-railway.yml',
             'rollback-cloudflare.yml',
             'rollback-github-pages.yml',
             'rollback-gateway-vercel.yml',
@@ -1570,7 +1585,7 @@ describe('repo environment contract scripts', () => {
 
         expect(production).toContain('group: aura-production-mutation');
         expect(production).toContain('cancel-in-progress: false');
-        expect(production.match(/parent_holds_production_lock: true/g)).toHaveLength(11);
+        expect(production.match(/parent_holds_production_lock: true/g)).toHaveLength(10);
 
         serializedChildren.forEach((workflow) => {
             expect(workflow).toContain('parent_holds_production_lock:');
@@ -1578,7 +1593,7 @@ describe('repo environment contract scripts', () => {
             expect(workflow).toContain('cancel-in-progress: false');
         });
 
-        expect(multiHost.match(/parent_holds_production_lock: true/g)).toHaveLength(7);
+        expect(multiHost.match(/parent_holds_production_lock: true/g)).toHaveLength(6);
         [multiHost, gateway].forEach((workflow) => {
             expect(workflow).toContain("inputs.target == 'production' && 'aura-production-mutation'");
             expect(workflow).toContain("cancel-in-progress: ${{ inputs.target != 'production' }}");

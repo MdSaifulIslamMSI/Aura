@@ -15,7 +15,6 @@ describe('hostedFrontendHosts shared contract', () => {
         'aurapilot.netlify.app',
         'dbtrhsolhec1s.cloudfront.net',
         'aura-storefront.onrender.com',
-        'aura-storefront-production.up.railway.app',
         'aura-storefront.pages.dev',
         'mdsaifulislammsi.github.io',
     ];
@@ -30,6 +29,20 @@ describe('hostedFrontendHosts shared contract', () => {
     test('static-only lanes are explicitly covered', () => {
         expect(HOSTED_DEPLOYMENT_HOST_SUFFIXES).toContain('.pages.dev');
         expect(HOSTED_DEPLOYMENT_HOST_SUFFIXES).toContain('.github.io');
+    });
+
+    test('the retired Railway lane is no longer trusted', () => {
+        // The Railway storefront lane was retired when the Railway trial
+        // expired. `*.up.railway.app` is a shared-hosting namespace any
+        // Railway account can claim, so trusting the suffix trusted every
+        // tenant on it as a first-party Aura storefront.
+        for (const suffix of ['.railway.app', '.up.railway.app']) {
+            expect(HOSTED_DEPLOYMENT_HOST_SUFFIXES).not.toContain(suffix);
+        }
+        const matched = HOSTED_DEPLOYMENT_HOST_SUFFIXES.some((suffix) =>
+            'attacker-chosen.up.railway.app'.endsWith(suffix),
+        );
+        expect(matched).toBe(false);
     });
 
     test('planned custom host stays a documented slot', () => {
