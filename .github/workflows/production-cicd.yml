@@ -507,6 +507,12 @@ jobs:
             '.github/workflows/rollback-backend-aws.yml' \
             '.github/workflows/production-cicd.yml')"
 
+          # The Railway storefront lane was retired when the Railway trial
+          # expired: there is no Railway deploy job, no Railway rollback job,
+          # and the Railway origin is no longer trusted. The platform build
+          # config below is deliberately RETAINED - app/railway.toml is a
+          # generated artifact of sync_vercel_configs.mjs, and keeping it
+          # means the lane can be restored without re-deriving the build.
           frontend_netlify_changed="$(surface_changed frontend_netlify \
             'app/*' \
             'netlify.toml' \
@@ -516,12 +522,6 @@ jobs:
             '.vercelignore' \
             'render.yaml' \
             'app/Caddyfile' \
-            # The Railway storefront lane was retired when the Railway trial
-            # expired: there is no Railway deploy job, no Railway rollback job,
-            # and the Railway origin is no longer trusted. The platform build
-            # config below is deliberately RETAINED - app/railway.toml is a
-            # generated artifact of sync_vercel_configs.mjs, and keeping it
-            # means the lane can be restored without re-deriving the build.
             'app/railway.toml' \
             'app/Dockerfile.railway' \
             'cloudflare/_headers' \
