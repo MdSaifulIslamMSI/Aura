@@ -19,7 +19,6 @@
 // reset (browser_key and revoked records are never touched). Non-interactive
 // runs (SSM/CI) require --confirm RESET.
 
-const readline = require('readline/promises');
 const mongoose = require('mongoose');
 const { loadLocalEnvFiles } = require('../config/runtimeConfig');
 

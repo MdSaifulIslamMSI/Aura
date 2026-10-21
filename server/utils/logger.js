@@ -10,7 +10,10 @@ const SENSITIVE_KEY_PATTERN = /(phone|mobile|email|authorization|token|password|
 const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actorId|resourceId|ownerId|tenantId|sellerId|buyerId)$/i;
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
-const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
+// A URL-ish token is the longest run of characters that are not whitespace, a
+// quote or a backtick. This is the unit the query-string redaction operates
+// on, so the text is tokenised first and the query rule is applied per token.
+const URL_TOKEN_PATTERN = /[^\s"'`]+/g;
 const SENSITIVE_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 // Free-text PII: an email address, a 13-19 digit card (with or without
 // separators), or a 10+ digit run (phone numbers, unseparated cards) embedded
@@ -36,8 +39,59 @@ const maskPhone = (phone) => {
     return `***${digits.slice(-4)}`;
 };
 
-const redactUrlQueriesInText = (value) => String(value || '')
-    .replace(URL_WITH_QUERY_PATTERN, `$1?${REDACTED_PLACEHOLDER}`);
+/**
+ * Redacts the query string of one URL-ish token.
+ *
+ * The query string starts at the first '?' a URL prefix can reach. A prefix
+ * is either a scheme ("http://" / "https://") or a single '/', and the path
+ * that follows it must be at least one character long and must not itself
+ * start with '?'. The scheme form is never the deciding one: every scheme
+ * contains a '/', and the '/' form accepts everything the scheme form does,
+ * so one '/' test covers both.
+ *
+ * WHY THIS IS NOT A REGULAR EXPRESSION: the same rule used to be expressed as
+ * one, and the ambiguity between the literal '/' in the prefix and the '/'
+ * that the path character class also matched made the match quadratic. The
+ * text being redacted is attacker-influenced log content, so a token of 20k
+ * '/' characters took ~1.4s to redact. One pass over the token is linear in
+ * its length and produces byte-for-byte the same output.
+ */
+const redactUrlQueryInToken = (token) => {
+    // `candidate` is the earliest '/' that can open a URL: the character after
+    // it must exist and must not itself be the '?' that starts the query.
+    let candidate = -1;
+    for (let index = 0; index < token.length; index += 1) {
+        if (token[index] === '?') {
+            // The query is reachable when the candidate leaves at least one
+            // path character before it.
+            if (candidate !== -1 && candidate + 2 <= index) {
+                return `${token.slice(0, index)}?${REDACTED_PLACEHOLDER}`;
+            }
+            continue;
+        }
+        if (candidate === -1
+            && token[index] === '/'
+            && index + 1 < token.length
+            && token[index + 1] !== '?') {
+            candidate = index;
+        }
+    }
+    return token;
+};
+
+const redactUrlQueriesInText = (value) => {
+    const text = String(value || '');
+    if (!text) return text;
+
+    let redacted = '';
+    let cursor = 0;
+    for (const match of text.matchAll(URL_TOKEN_PATTERN)) {
+        redacted += text.slice(cursor, match.index);
+        redacted += redactUrlQueryInToken(match[0]);
+        cursor = match.index + match[0].length;
+    }
+    return redacted + text.slice(cursor);
+};
 
 const redactSensitiveText = (value) => redactUrlQueriesInText(value)
     .replace(SENSITIVE_TEXT_PATTERN, REDACTED_PLACEHOLDER)
@@ -165,6 +219,7 @@ const logger = {
         }
     },
     redactSensitiveData,
+    redactUrlQueriesInText,
     REDACTED_PLACEHOLDER,
     sanitizeUrlLikeValue,
 };

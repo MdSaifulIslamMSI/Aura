@@ -145,6 +145,61 @@ describe('code scanning hardening contracts', () => {
         expect(policy).toContain('- server/services/listingService.js');
     });
 
+    test('workflows keep the GITHUB_TOKEN top level read-only', () => {
+        // Scorecard's Token-Permissions check only emits SARIF results while
+        // its score is below the policy minimum, so a top-level write scope
+        // silently re-opens a `TokenPermissionsID` code-scanning alert on the
+        // next weekly Scorecard run. The full model is reproduced by
+        // scripts/security/check-workflow-token-permissions.mjs (wired into
+        // the Security Gates workflow); this pins the load-bearing half of it
+        // in the server test tier, where it runs on every pull request.
+        //
+        // The check is textual on purpose: the server test tier installs only
+        // server/node_modules, so it cannot depend on a YAML parser.
+        // The scopes Scorecard treats as "of interest": a write to any of them
+        // at the top level reduces its Token-Permissions score and emits a
+        // code-scanning alert. Other scopes (id-token, attestations,
+        // pull-requests, issues) are recorded as unknown and never affect the
+        // score, so they are not violations here either.
+        const trackedScopes = new Set([
+            'actions',
+            'checks',
+            'contents',
+            'deployments',
+            'packages',
+            'security-events',
+            'statuses',
+        ]);
+
+        const workflowDir = path.join(repoRoot, '.github', 'workflows');
+        const offenders = [];
+
+        for (const name of fs.readdirSync(workflowDir).filter((file) => /\.ya?ml$/i.test(file))) {
+            const lines = fs.readFileSync(path.join(workflowDir, name), 'utf8').split(/\r?\n/);
+            for (let index = 0; index < lines.length; index += 1) {
+                const topLevel = /^permissions:\s*(.*)$/.exec(lines[index]);
+                if (!topLevel) continue;
+                if (topLevel[1].trim().length > 0) {
+                    // `read-all` and `{}` are read-only; `write-all` is not.
+                    if (/^write-all$/i.test(topLevel[1].trim())) {
+                        offenders.push(`${name}: permissions: ${topLevel[1].trim()}`);
+                    }
+                    continue;
+                }
+                for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+                    if (!/^\s+\S/.test(lines[cursor])) break;
+                    const scope = lines[cursor].trim();
+                    const [scopeName, scopeValue] = scope.split(':').map((part) => part.trim());
+                    if (trackedScopes.has(scopeName) && scopeValue === 'write') {
+                        offenders.push(`${name}: ${scope}`);
+                    }
+                }
+            }
+        }
+
+        expect(offenders).toEqual([]);
+    });
+
     test('allowlisted hash sites carry fully qualified nosemgrep annotations', () => {
         // Semgrep namespaces local-config rules by their config path, so the
         // effective rule id is security.semgrep.<rule> and the inline

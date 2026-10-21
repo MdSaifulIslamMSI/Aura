@@ -71,7 +71,6 @@ describe('TOTP secret format migration', () => {
 
 describe('OTP flow token format migration', () => {
     const OTP_SECRET = 'otp-flow-test-secret-that-is-long-enough-1234';
-    const NEW_CONTEXT = 'otp.flow.token.payload';
     // Frozen: the legacy key is a literal sha256 over the OLD context string.
     // HKDF cannot reproduce it, which is exactly why this stays hardcoded.
     const LEGACY_CONTEXT = 'aura-otp-flow-token';

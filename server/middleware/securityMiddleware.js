@@ -16,6 +16,29 @@ const mongoSanitize = () => {
     );
 
     /**
+     * Writes an own, enumerable, writable data property.
+     *
+     * WHY NOT `target[key] = value`: a plain assignment to `__proto__` invokes
+     * the inherited setter and mutates the object's PROTOTYPE instead of
+     * storing a value. `Object.defineProperty` uses own-property semantics, so
+     * a `__proto__` key becomes an ordinary own data property and can never
+     * reach Object.prototype.
+     *
+     * The dangerous keys are still dropped by `isUnsafeKey`; this closes the
+     * second line of defence as well, and it keeps the property name out of
+     * an assignment sink, which is what a remote property-injection scan
+     * looks for.
+     */
+    const defineOwn = (target, key, value) => {
+        Object.defineProperty(target, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+        });
+    };
+
+    /**
      * Rebuilds a sub-tree with the SAME key filter, using an explicit work
      * list instead of recursion.
      *
@@ -59,16 +82,16 @@ const mongoSanitize = () => {
             for (const [key, value] of Object.entries(source)) {
                 if (isUnsafeKey(key)) continue;
                 if (value === null || typeof value !== 'object') {
-                    target[key] = value;
+                    defineOwn(target, key, value);
                     continue;
                 }
                 if (visited.has(value)) {
-                    target[key] = Array.isArray(value) ? [] : {};
+                    defineOwn(target, key, Array.isArray(value) ? [] : {});
                     continue;
                 }
                 visited.add(value);
                 const copy = Array.isArray(value) ? [] : {};
-                target[key] = copy;
+                defineOwn(target, key, copy);
                 queue.push({ source: value, target: copy });
             }
         }

@@ -35,6 +35,58 @@ const BACKUP_DIR = path.join(repoRoot, 'output', 'render-edge-config');
 
 const readEnv = (name) => String(process.env[name] || '').trim();
 
+// A CloudFront distribution host is a single label under cloudfront.net.
+const CLOUDFRONT_HOSTNAME_SUFFIX = '.cloudfront.net';
+
+/**
+ * True when `hostname` is a CloudFront distribution host.
+ *
+ * The label is compared as a string, not as a regular expression, so there is
+ * no anchoring to get wrong: `\A` and `\z` are whole-string anchors in some
+ * regex dialects but are plain identity escapes in JavaScript, where only
+ * `^`/`$` (without the `m` flag) anchor the whole string.
+ */
+const isCloudfrontHostname = (hostname) => {
+    if (!hostname.endsWith(CLOUDFRONT_HOSTNAME_SUFFIX)) return false;
+    const label = hostname.slice(0, -CLOUDFRONT_HOSTNAME_SUFFIX.length);
+    if (!label) return false;
+    for (const character of label) {
+        const isLowerCaseLetter = character >= 'a' && character <= 'z';
+        const isDigit = character >= '0' && character <= '9';
+        if (!isLowerCaseLetter && !isDigit) return false;
+    }
+    return true;
+};
+
+/**
+ * Extracts the CloudFront origins a live Content-Security-Policy still names.
+ *
+ * The CSP value is a list of whitespace/semicolon separated source
+ * expressions. Each candidate is PARSED and its hostname compared against the
+ * CloudFront shape - never matched as a substring - because an unanchored
+ * pattern also matches `https://x.cloudfront.net.attacker.example` and
+ * `https://attacker.example/https://x.cloudfront.net`. Either one would make
+ * this drift report name a CloudFront origin the edge does not actually
+ * serve, which is exactly the signal this report exists to raise.
+ */
+const extractCloudfrontOrigins = (cspValue) => {
+    const origins = [];
+    for (const token of String(cspValue || '').split(/[\s;]+/)) {
+        const lower = token.toLowerCase();
+        if (!lower.startsWith('http://') && !lower.startsWith('https://')) continue;
+        let hostname;
+        try {
+            hostname = new URL(token).hostname;
+        } catch {
+            continue;
+        }
+        if (isCloudfrontHostname(hostname)) {
+            origins.push(`https://${hostname}`);
+        }
+    }
+    return origins;
+};
+
 const request = async (method, endpoint, body) => {
     const apiKey = readEnv('RENDER_API_KEY');
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -153,7 +205,7 @@ const main = async () => {
         const liveOrigins = [...new Set(
             liveHeaders
                 .filter(({ name }) => name.toLowerCase() === 'content-security-policy')
-                .flatMap(({ value }) => value.match(/https?:\/\/[a-z0-9]+\.cloudfront\.net/gi) || []),
+                .flatMap(({ value }) => extractCloudfrontOrigins(value)),
         )];
 
         if (liveOrigins.length > 0) {

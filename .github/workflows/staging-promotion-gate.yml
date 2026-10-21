@@ -11,8 +11,12 @@ name: Staging promotion gate
 on:
   workflow_call:
 
+# Read-only at the workflow level on purpose: Scorecard's Token-Permissions
+# check only awards full marks when the top-level block is read-only, and it
+# turns every top-level write into a `TokenPermissionsID` code-scanning alert.
+# The `actions: write` scope this workflow needs to dispatch the reusable
+# workflow lives on the job below.
 permissions:
-  actions: write
   contents: read
 
 jobs:
@@ -20,6 +24,11 @@ jobs:
     name: Staging promotion gate
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    # Job-level permissions REPLACE the workflow-level block, so this block has
+    # to restate `contents: read` for the checkout step below.
+    permissions:
+      actions: write
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

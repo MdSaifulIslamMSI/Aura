@@ -26,7 +26,6 @@ jest.mock('../services/fraudDecisioningService', () => ({
 
 const PaymentIntent = require('../models/PaymentIntent');
 const Listing = require('../models/Listing');
-const User = require('../models/User');
 const { createEscrowRefundForIntent } = require('../services/payments/paymentService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
 const { createTestUser } = require('./helpers/securityTestHelpers');

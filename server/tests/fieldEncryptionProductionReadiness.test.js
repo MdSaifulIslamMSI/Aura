@@ -1,7 +1,3 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-
 /**
  * Production must never silently store PII in plaintext.
  *

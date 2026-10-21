@@ -15,7 +15,6 @@ const crypto = require('crypto');
  */
 
 const SECRET = 'backfill-test-phone-secret-0123456789';
-const EMAIL_SECRET = 'backfill-test-email-secret-01';
 
 const deriveHkdf = (secret, context) => Buffer.from(crypto.hkdfSync(
     'sha256',

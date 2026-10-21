@@ -41,6 +41,32 @@ const loadPostureConfig = (root = defaultRoot) => JSON.parse(
     fs.readFileSync(path.join(root, CONFIG_RELATIVE), 'utf8')
 );
 
+// Certificate-verification failures reported by Node/OpenSSL. A handshake
+// that fails on one of these still PROVES the server negotiated the probed
+// protocol version: the version is chosen in the ServerHello, which precedes
+// certificate validation. Treating them as a rejected version would blame the
+// protocol floor for a certificate problem.
+const CERTIFICATE_ERROR_CODES = new Set([
+    'CERT_CHAIN_TOO_LONG',
+    'CERT_HAS_EXPIRED',
+    'CERT_NOT_YET_VALID',
+    'CERT_PATH_LENGTH_EXCEEDED',
+    'CERT_REVOKED',
+    'CERT_SIGNATURE_FAILURE',
+    'CERT_UNTRUSTED',
+    'DEPTH_ZERO_SELF_SIGNED_CERT',
+    'ERR_TLS_CERT_ALTNAME_INVALID',
+    'INVALID_CA',
+    'SELF_SIGNED_CERT_IN_CHAIN',
+    'UNABLE_TO_GET_ISSUER_CERT',
+    'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+]);
+
+const isCertificateVerificationError = (error) => (
+    Boolean(error) && CERTIFICATE_ERROR_CODES.has(String(error.code || ''))
+);
+
 /** Live TLS probe for one host. Never throws; every outcome is a string. */
 const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) => {
     let settled = false;
@@ -53,8 +79,19 @@ const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) =>
         host,
         port: 443,
         servername: host,
-        // We are measuring what the edge offers, not validating the chain.
-        rejectUnauthorized: false,
+        // We are measuring what the edge offers, not whether we trust its
+        // chain - but the chain is still verified. Only the HOSTNAME match is
+        // waived (the edge hostnames are provider-owned and are listed in
+        // config/security/tls-edge-posture.json), and a chain failure is
+        // reported as 'accepted' below because the protocol version was
+        // already negotiated by then.
+        //
+        // Certificate validation is deliberately NOT disabled here: this
+        // probe opens a real TLS session to a production edge, and a probe
+        // that accepts any certificate would also accept a session to an
+        // impostor. The version measurement does not need it.
+        rejectUnauthorized: true,
+        checkServerIdentity: () => undefined,
         minVersion: version,
         maxVersion: version,
     }, () => {
@@ -66,7 +103,7 @@ const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) =>
         socket.destroy();
         finish('timeout');
     });
-    socket.on('error', () => finish('rejected'));
+    socket.on('error', (error) => finish(isCertificateVerificationError(error) ? 'accepted' : 'rejected'));
 });
 
 const probeEdge = async (edge, { timeoutMs = 15000, probe = probeHost } = {}) => {
