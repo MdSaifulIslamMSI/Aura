@@ -35,7 +35,7 @@ probes) after the teardown.
 | Logging | CloudTrail trail `aura-account-trail` (stopped, then deleted), log groups `/aws/cloudtrail/aura-account-trail` and `/aws/vpc/aura-backend-flow-logs` |
 | Config | recorder `aura-config-recorder`, delivery channel `aura-config-delivery` |
 | App | SNS topic `aura-backend-guardrails`, 4 CloudWatch alarms, 2 budgets, all 166 SSM parameters, SES templates |
-| IAM | user `aura-admin-cli` (access key `AKIA5W7ATDIN66M7HCPO` revoked), 16 roles, 2 instance profiles, account password policy |
+| IAM | user `aura-admin-cli` (its access key revoked), 16 roles, 2 instance profiles, account password policy |
 
 **5 service-linked roles remain** (`AWSServiceRoleForCloudFrontLogger`,
 `...ForRDS`, `...ForResourceExplorer`, `...ForSupport`, `...ForTrustedAdvisor`).
