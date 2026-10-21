@@ -138,6 +138,27 @@ The deploy workflow refreshes OIDC credentials after the image build and again b
 - Never put origin, risk-signal, health, or runtime secrets in the frontend bundle or workflow logs.
 - Checked-in defaults and placeholders live in [server/.env.example](../server/.env.example) and [server/.env.aws-secrets.example](../server/.env.aws-secrets.example). The real `server/.env.aws-secrets` remains ignored and local.
 
+### Runtime secrets file drift
+
+`/opt/aura/shared/runtime-secrets.env` is a rendered snapshot of `/aura/prod/*`, not the source of truth. Parameter Store is the source of truth; the file exists only so Compose can inject the values into the container as `env_file`. A release re-renders it wholesale, so a stale file is overwritten rather than merged.
+
+To check the file against Parameter Store without touching it, render a throwaway copy and diff it. The host's instance role carries `ssm:GetParametersByPath`, so the render runs on the box:
+
+```bash
+export AWS_REGION=ap-south-1 AWS_DEFAULT_REGION=ap-south-1
+export AWS_PARAMETER_STORE_PATH_PREFIX=/aura/prod
+AURA_RUNTIME_SECRETS_FILE=/tmp/render-check.env \
+  bash /opt/aura/current/infra/aws/render-runtime-secrets.sh
+diff /tmp/render-check.env /opt/aura/shared/runtime-secrets.env
+```
+
+Two traps make a hand-rolled comparison report false drift:
+
+- **Values are not shell-safe.** `FIELD_ENCRYPTION_WRAPPED_DEK` and `last-known-good` are JSON objects, so interpolating a value into a shell command mangles it. Pipe the value rather than quoting it: `printf '%s' "$(grep "^$k=" "$f" | cut -d= -f2-)" | sha256sum`.
+- **`cut -d= -f2-` keeps the trailing newline** when piped straight into `sha256sum`, which makes every key look different. Command substitution strips it; `head -c -1` is the alternative.
+
+`last-known-good` is the one key that is expected to differ between renders: it is a rollback pointer the release workflow rewrites after every successful deploy, and the server never reads it from the environment. Nothing in the runtime consumes it — CI reads the pointer straight from Parameter Store.
+
 ## Verification
 
 Before release:

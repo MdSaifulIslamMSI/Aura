@@ -40,6 +40,18 @@ jobs:
           results_format: sarif
           publish_results: true
 
+      # The Token-Permissions gate in this repository reproduces Scorecard's
+      # scoring by hand. This step compares that port with the upstream
+      # sources it was derived from, so a model change upstream cannot leave
+      # the gate reporting 10/10 while the real Scorecard score drops.
+      #
+      # Scheduled only: a drift needs a human to re-derive the port, and
+      # failing a push to main for that would block releases over a change
+      # nobody made yet.
+      - name: Check the ported Token-Permissions model against upstream
+        if: github.event_name == 'schedule'
+        run: node scripts/security/check-scorecard-model-drift.mjs
+
       - name: Upload analysis artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

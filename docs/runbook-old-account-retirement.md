@@ -1,16 +1,16 @@
 # Runbook — old AWS account (942679464475) retirement
 
-**Status: replication and cutover COMPLETE (2026-10-10). Drain pending.**
+**Status: COMPLETE. The account is empty and awaiting console closure (2026-10-21).**
 
-The new account (517353742644) now serves production static + `/api` through
-CloudFront `EZZ7ARQ9QFQ71` (`https://dip82eloip5zb.cloudfront.net`) backed by
-S3 `aura-frontend-517353742644-ap-south-1`. All seven storefront lanes proxy
-`/api` at the new edge via the single-sourced routing contract.
+The old account `942679464475` ("MD SAIFUL ISLAM", created 2026-03-09) served the
+Aura storefront until the 2026-09/10 migration to `517353742644` ("esmat"). It has
+now been drained: every resource is deleted and the audit evidence is preserved in
+the new account.
 
-The old account retains three resources, still enabled and rollback-capable:
-CloudFront `E34Z9POGIQYOCS`, S3 `aura-frontend-942679464475-ap-south-1`
-(25,619 objects / ~6 GB, including `_aura-rollback/` snapshots), OAC
-`E88GSUA02J7JC`, plus the `aura-cloudtrail-logs-*` audit bucket.
+**Last remaining step: close the account in the AWS console.** It cannot be
+scripted — AWS CLI 2.34.3 has no `account close-account` operation
+(`Found invalid choice 'close-account'`) and the account has no Premium Support,
+so the `support` API is unavailable. See "Closing the account" below.
 
 ## Timeline
 
@@ -19,55 +19,113 @@ CloudFront `E34Z9POGIQYOCS`, S3 `aura-frontend-942679464475-ap-south-1`
 | 2026-09-18 | Old-account zombies drained: staging distro + both EC2s terminated, 52 GB EBS auto-deleted, 4 stale buckets deleted |
 | 2026-09-19 | Edge config exported + committed; new-account OAC `E1IPOYOIPU8DVP` created |
 | 2026-09-22 → 10-02 | CloudFront creation denied by AWS account verification (support case `178895182300548`, "minimal usage and no billing history") |
-| **2026-10-10** | **Verification gate lifted.** Distribution `EZZ7ARQ9QFQ71` created and enabled |
-| 2026-10-10 | Bucket policy → OAC + full public-access-block; bucket seeded; deploy role fixed; frontend vars flipped; deploy run `38028629353` green |
+| **2026-10-10** | **Verification gate lifted.** Distribution `EZZ7ARQ9QFQ71` created and enabled; bucket policy → OAC + full public-access-block; deploy run `38028629353` green |
+| 2026-10-21 | **Old account fully drained** (this document) |
 
-## What the block-clearing actually required
+## What was deleted from the old account
 
-Three defects in `infra/aws/cloudfront-edge-replica.json` would have produced a
-broken replica if applied verbatim:
+Every line below was verified empty by a 49-group sweep (`verify-empty` style
+probes) after the teardown.
 
-1. Backend origin pointed at `13.127.230.58.sslip.io` — **dead since
-   2026-09-25** when the EIP was pinned. Corrected to `13.205.7.2.sslip.io`.
-2. `FunctionARN` referenced `arn:aws:cloudfront::942679464475:function/…` — a
-   CloudFront Function ARN is account-scoped. The new account already had a
-   logically identical `aura-frontend-spa-rewrite` (created 2026-09-08, differing
-   only in CRLF vs LF); the ARN was repointed.
-3. `CallerReference` reused the abandoned 2026-09-19 value.
+| Area | Deleted |
+| --- | --- |
+| CloudFront | distribution `E34Z9POGIQYOCS`, OAC `E88GSUA02J7JC`, function `aura-frontend-spa-rewrite` (both stages) |
+| S3 | `aura-cloudtrail-logs-942679464475-ap-south-1` (108,568 objects / 213,921,303 bytes + 217,144 noncurrent versions and delete markers — the bucket was versioned) |
+| EC2 / VPC | AMI `ami-0190a0d8273891dd1`, snapshot `snap-0af3bc32abc9b5b53` (32 GB), key pair `aura-staging-key`, 3 security groups, 3 subnets, internet gateway, route tables, VPC `vpc-0285b12b9face02d2`, VPC flow log `fl-0cd57bd032bdea126` |
+| Logging | CloudTrail trail `aura-account-trail` (stopped, then deleted), log groups `/aws/cloudtrail/aura-account-trail` and `/aws/vpc/aura-backend-flow-logs` |
+| Config | recorder `aura-config-recorder`, delivery channel `aura-config-delivery` |
+| App | SNS topic `aura-backend-guardrails`, 4 CloudWatch alarms, 2 budgets, all 166 SSM parameters, SES templates |
+| IAM | user `aura-admin-cli` (its access key revoked), 16 roles, 2 instance profiles, account password policy |
 
-One non-obvious blocker: `.github/workflows/production-cicd.yml` reads
-`${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}` **directly** at lines 1264, 1368
-and 1857 rather than through the `vars. || secrets.` fallback used elsewhere.
-Flipping the repo variable alone leaves CI assuming the **old-account** role.
+**5 service-linked roles remain** (`AWSServiceRoleForCloudFrontLogger`,
+`...ForRDS`, `...ForResourceExplorer`, `...ForSupport`, `...ForTrustedAdvisor`).
+These live under `/aws-service-role/` and cannot be deleted by hand — AWS removes
+them when the account closes.
 
-## Divergences from the original plan
+## What was preserved first
 
-- **No manual 6 GB copy.** The plan's `aws s3 sync` round-trip was unnecessary:
-  once `AWS_FRONTEND_BUCKET` / `AWS_FRONTEND_DEPLOY_ROLE_ARN` point at the new
-  account, the existing deploy lane seeds the bucket as part of a normal
-  release and invalidates the new distribution.
-- **New-account role needed `cloudfront:CreateInvalidation`.** The bootstrap role
-  only carried S3 permissions, so the deploy would have synced successfully and
-  then failed at the invalidation step.
-- **Bucket policy hardening.** The pre-existing `PublicReadStaticWebsite`
-  policy was replaced with the OAC statement, after which full
-  public-access-block was enabled (matching the old bucket's posture).
+Nothing was deleted before it was secured. Archive root:
+`~/.aws/archive/aura-old-account-942679464475/`
 
-## Remaining: drain the old account
+| Preserved | Where |
+| --- | --- |
+| 90 `/aura/prod/*` SSM parameters | already in the new account — values diffed, **0 mismatches** |
+| 76 `/aura/staging/*` SSM parameters | **existed only in the old account** — restored into the new account's `/aura/staging/` |
+| 108,568 CloudTrail objects (213,921,303 bytes) | `s3://aura-archived-cloudtrail-942679464475-ap-south-1` in the new account (SSE-AES256, full public-access-block, IA lifecycle after 30 days) |
+| SSM parameter metadata (names, types, versions, timestamps) | `ssm-parameter-metadata.json` — no secret values on disk |
+| IAM credential report | `iam-credential-report.csv` |
+| CloudFront distribution config | `cloudfront-E34Z9POGIQYOCS.json` |
+| Full resource inventory | `resource-inventory.json` |
+| The old `/aura/prod/SENTRY_DSN` value | `reviewed-differences-old-values.json` — see below |
 
-Do not start until the new edge has served production cleanly for ~2 weeks.
+### The one value difference, and why it was not "fixed"
 
-1. Confirm no lane still references `dbtrhsolhec1s`:
-   `git grep dbtrhsolhec1s` (only inert test fixtures and this runbook should
-   remain).
-2. Disable `E34Z9POGIQYOCS` — **keep it disabled, do not delete**, so rollback
-   stays possible.
-3. Empty + delete `aura-frontend-942679464475-ap-south-1` (contains
-   `_aura-rollback/` snapshots; confirm nothing references them first).
-4. Delete OAC `E88GSUA02J7JC` and the CloudFront Function
-   `aura-frontend-spa-rewrite`.
-5. Export/keep `aura-cloudtrail-logs-942679464475-ap-south-1` if audit history
-   is wanted before closing the account.
+`/aura/prod/SENTRY_DSN` differed between the accounts. The old account held a real
+Sentry DSN (org `o4511422841421824`, project `4511428819877888`); the new account
+holds Sentry's no-op placeholder `o0.ingest.us.sentry.io/0`.
 
-Old-account cost while draining is ~$0–1/month (CloudFront free tier + a few
-GB of S3).
+The running production EC2 is in the **new** account, so the placeholder is what
+production actually resolves — the old value is a stale leftover, not the live
+config. Overwriting the live value would be a production behaviour change
+dressed up as cleanup, so the old value was archived for recovery and the live
+value was left alone.
+
+**Resolved 2026-10-22.** `/aura/prod/SENTRY_DSN` was pointed at the archived DSN
+above and the api container was recreated to load it. The live production
+frontend bundle already shipped that exact DSN, so the Sentry project was live
+and only the backend had been left on the no-op placeholder — the two halves of
+the app now report to the same project. The `SENTRY_AUTH_TOKEN` in the same
+prefix is separately stale (401 against the Sentry API); it is used by the
+student-pack CLI tooling, not by the runtime SDK, so it does not affect error
+reporting.
+
+## Closing the account
+
+1. Sign in to the console as the **root user** of `942679464475`:
+   <https://console.aws.amazon.com/console/home?region=ap-south-1>
+2. **Account & Billing → Account → Account closure → Close account**.
+3. AWS disables the root user and all credentials, deletes anything left, and
+   marks the account closed.
+
+Pre-conditions, all verified:
+
+- Standalone account — `describe-account` returns `AWSOrganizationsNotInUseException`
+- Root MFA enabled — `get-account-summary` → `AccountMFAEnabled: 1`
+- Root has no access keys — `AccountAccessKeysPresent: 0`
+- Contact information present — `RISHRA, West Bengal, IN 712248`
+- No resources remain — 49-group sweep returns empty
+- Budgets deleted (so no cost alerts fire into a closed account)
+
+**The account can be reactivated within 90 days of closure.** After that the
+account ID is gone for good.
+
+## After closure
+
+- Remove the local `[default]` profile that `aws login` created in `~/.aws/config`
+  (`login_session = arn:aws:iam::942679464475:root`) and the cached token under
+  `~/.aws/login/cache/`.
+- The archived CloudTrail evidence stays in the new account and does not depend on
+  the old one existing.
+
+## Traps hit during this teardown (read before repeating it)
+
+- **`aws s3 sync` silently skips zero-byte keys ending in `/`** (folder markers).
+  Two markers were missing from the copy and had to be copied with `s3 cp` for the
+  archive to be byte-complete.
+- **The CloudTrail trail keeps writing while you copy.** The count check must run
+  *after* `stop-logging`, or the source grows past the destination and the copy
+  looks incomplete forever.
+- **The bucket was versioned.** `s3 rb --force` empties the visible objects but
+  leaves noncurrent versions and delete markers, so `delete-bucket` still fails
+  with `BucketNotEmpty`. Those need `DeleteObjects` with explicit `VersionId`s.
+- **AWS CLI v2 `s3api delete-objects` cannot take the object list** in this build
+  (`Unknown parameter in input: 'Objects'`), the `--delete` boolean shorthand
+  collides with `--cli-input-json`, and a 1000-key inline payload overflows the
+  Windows command-line limit (`ENAMETOOLONG`). Use the SDK's `DeleteObjectsCommand`
+  with a payload file instead.
+- **`aws cloudfront get-function` requires `--outfile`** (it downloads the code).
+  Use `describe-function` to read the ETag.
+- **`delete-function` and `delete-origin-access-control` reject `--if-match '*'`** —
+  they need the real ETag.
+- **A distribution cannot be deleted while its config update is in flight**
+  (`DistributionNotDisabled`). Re-read the ETag and retry.

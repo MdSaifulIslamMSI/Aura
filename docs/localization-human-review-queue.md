@@ -4,42 +4,42 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## Summary
 
-- Stable ICU message IDs: 3739
-- Former raw review rows: 93867
-- Actionable grouped queue entries: 1765
-- Actionable affected locale-message pairs: 29618
-- Native-review audit grouped entries: 3071
-- Native-review audit affected locale-message pairs: 64249
-- High-risk actionable entries: 950 (16585 affected pairs)
+- Stable ICU message IDs: 3737
+- Former raw review rows: 93829
+- Actionable grouped queue entries: 1763
+- Actionable affected locale-message pairs: 29586
+- Native-review audit grouped entries: 3069
+- Native-review audit affected locale-message pairs: 64243
+- High-risk actionable entries: 948 (16553 affected pairs)
 - Medium-risk actionable entries: 308 (4771 affected pairs)
 - Low-risk actionable entries: 507 (8262 affected pairs)
 
 ## Actionable Queue By Locale
 
-- `bn`: 1463 grouped entries / 1502 affected pairs
-- `hi`: 1411 grouped entries / 1448 affected pairs
-- `te`: 1540 grouped entries / 1582 affected pairs
-- `mr`: 1534 grouped entries / 1576 affected pairs
-- `ur`: 1524 grouped entries / 1565 affected pairs
-- `gu`: 1565 grouped entries / 1611 affected pairs
-- `pa`: 1552 grouped entries / 1597 affected pairs
-- `ml`: 1544 grouped entries / 1585 affected pairs
-- `kn`: 1537 grouped entries / 1579 affected pairs
-- `or`: 1575 grouped entries / 1621 affected pairs
-- `as`: 1522 grouped entries / 1564 affected pairs
-- `sa`: 1551 grouped entries / 1594 affected pairs
-- `es`: 1527 grouped entries / 1570 affected pairs
-- `fr`: 1537 grouped entries / 1589 affected pairs
-- `de`: 1542 grouped entries / 1590 affected pairs
-- `ar`: 1444 grouped entries / 1483 affected pairs
-- `ja`: 1460 grouped entries / 1502 affected pairs
-- `pt`: 1524 grouped entries / 1564 affected pairs
-- `zh`: 1456 grouped entries / 1496 affected pairs
+- `bn`: 1461 grouped entries / 1500 affected pairs
+- `hi`: 1410 grouped entries / 1447 affected pairs
+- `te`: 1538 grouped entries / 1580 affected pairs
+- `mr`: 1532 grouped entries / 1574 affected pairs
+- `ur`: 1522 grouped entries / 1563 affected pairs
+- `gu`: 1563 grouped entries / 1609 affected pairs
+- `pa`: 1550 grouped entries / 1595 affected pairs
+- `ml`: 1542 grouped entries / 1583 affected pairs
+- `kn`: 1535 grouped entries / 1577 affected pairs
+- `or`: 1573 grouped entries / 1619 affected pairs
+- `as`: 1520 grouped entries / 1562 affected pairs
+- `sa`: 1549 grouped entries / 1592 affected pairs
+- `es`: 1525 grouped entries / 1568 affected pairs
+- `fr`: 1536 grouped entries / 1588 affected pairs
+- `de`: 1541 grouped entries / 1589 affected pairs
+- `ar`: 1442 grouped entries / 1481 affected pairs
+- `ja`: 1459 grouped entries / 1501 affected pairs
+- `pt`: 1523 grouped entries / 1563 affected pairs
+- `zh`: 1455 grouped entries / 1495 affected pairs
 
 ## Actionable Queue By Reason
 
-- `brand-term-corruption-uses-english-fallback`: 74 grouped entries / 749 affected pairs
-- `exact-english-fallback-needs-human-review`: 163 grouped entries / 1416 affected pairs
+- `brand-term-corruption-uses-english-fallback`: 73 grouped entries / 733 affected pairs
+- `exact-english-fallback-needs-human-review`: 162 grouped entries / 1400 affected pairs
 - `forbidden-transliteration-uses-english-fallback`: 3 grouped entries / 4 affected pairs
 - `foundation-placeholder-mismatch-uses-english-fallback`: 2 grouped entries / 30 affected pairs
 - `invalid-legacy-icu-uses-english-fallback`: 1 grouped entries / 18 affected pairs
@@ -52,7 +52,7 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 Structurally valid legacy/foundation promotions are tracked separately because they need native linguistic signoff but do not block catalog integrity or English-leakage QA by themselves.
 
 - `bn`: 2931 grouped entries / 3275 affected pairs
-- `hi`: 2985 grouped entries / 3329 affected pairs
+- `hi`: 2984 grouped entries / 3328 affected pairs
 - `te`: 3024 grouped entries / 3399 affected pairs
 - `mr`: 3027 grouped entries / 3405 affected pairs
 - `ur`: 2917 grouped entries / 3256 affected pairs
@@ -64,12 +64,12 @@ Structurally valid legacy/foundation promotions are tracked separately because t
 - `as`: 3045 grouped entries / 3417 affected pairs
 - `sa`: 3022 grouped entries / 3387 affected pairs
 - `es`: 3028 grouped entries / 3411 affected pairs
-- `fr`: 3016 grouped entries / 3392 affected pairs
-- `de`: 3005 grouped entries / 3391 affected pairs
+- `fr`: 3015 grouped entries / 3391 affected pairs
+- `de`: 3004 grouped entries / 3390 affected pairs
 - `ar`: 3053 grouped entries / 3294 affected pairs
-- `ja`: 3186 grouped entries / 3479 affected pairs
-- `pt`: 3019 grouped entries / 3417 affected pairs
-- `zh`: 3191 grouped entries / 3485 affected pairs
+- `ja`: 3185 grouped entries / 3478 affected pairs
+- `pt`: 3018 grouped entries / 3416 affected pairs
+- `zh`: 3190 grouped entries / 3484 affected pairs
 
 ## Review Order
 

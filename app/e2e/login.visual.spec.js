@@ -37,7 +37,7 @@ test.describe('Login Visual Regression', () => {
   });
 
   test('country chooser matches the approved baseline', async ({ page }) => {
-    await page.getByRole('button', { name: /change country code/i }).click();
+    await page.getByRole('button', { name: /country code/i }).click();
     const dialog = page.getByRole('dialog', { name: /choose country code/i });
     await expect(dialog).toBeVisible();
     await page.mouse.move(1, 1);

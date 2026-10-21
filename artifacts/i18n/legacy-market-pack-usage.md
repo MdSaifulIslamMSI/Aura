@@ -1,15 +1,15 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-10-07T13:27:00.460Z
+Generated: 2026-10-21T20:26:01.213Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
 ## Summary
 
-- Tracked files: 159
-- Stable ICU hook files: 98
+- Tracked files: 160
+- Stable ICU hook files: 99
 - Delegated stable ICU translator files: 10
-- Migrated stable ICU message IDs observed across files: 3487
+- Migrated stable ICU message IDs observed across files: 3493
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -17,7 +17,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Runtime enum compatibility files: 0
 - High-risk files: 0
 - Medium-risk files: 18
-- Low-risk files: 141
+- Low-risk files: 142
 - Dynamic runtime translation files: 18
 - Legacy pack import files: 40
 
@@ -98,14 +98,15 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/components/shared/VoiceSearch.jsx` | 14 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/shared/BackendStatusBanner.jsx` | 13 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
-| low | `app/src/pages/Login/BrandVisualPanel.jsx` | 12 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/TicketInbox.jsx` | 12 | 0 | delegated-stable-icu |
-| low | `app/src/pages/Login/CountryCodePicker.jsx` | 11 | 0 | stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Login/BrandVisualPanel.jsx` | 11 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/OrdersSection.jsx` | 11 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/hooks/useProfileDeck.js` | 11 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/components/shared/ProtectedRoute.jsx` | 10 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Login/CountryCodePicker.jsx` | 10 | 0 | stable-icu-hook |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/components/AccountStatusBanner.jsx` | 9 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/components/shared/ConsentBanner.jsx` | 8 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/hooks/useAddresses.js` | 7 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/pages/Profile/hooks/profileUtils.js` | 4 | 0 | delegated-stable-icu |
 | low | `app/src/pages/VisualSearch/index.jsx` | 4 | 0 | useMarket, stable-icu-hook |

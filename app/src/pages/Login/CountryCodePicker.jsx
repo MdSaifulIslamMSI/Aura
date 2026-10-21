@@ -120,22 +120,24 @@ const CountryCodePicker = ({
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-controls={panelId}
-        aria-label={t(
-          'login.country.changeAriaLabel',
-          {
-            country: selectedCountry?.name || '',
-            dialCode: selectedCountry?.dialCode || '',
-          },
-          'Change country code: {country} {dialCode}'
-        )}
+        // No aria-label on purpose. axe-core 4.14 enables
+        // `label-content-name-mismatch` by default, and that rule compares the
+        // visible text of an explicitly labelled element against its accessible
+        // name word by word. The visible text here includes the decorative flag
+        // glyph, which is aria-hidden and so must stay out of the accessible
+        // name - no aria-label string can satisfy the rule. Letting the name
+        // come from the content gives it "Country code <country> +<dial>",
+        // which is exactly what the button shows.
       >
         <span className="login-country-picker__flag" aria-hidden="true">
           {selectedCountry?.flag || selectedCountry?.countryCode}
         </span>
         <span className="login-country-picker__selection">
           <span>{t('login.country.controlLabel', {}, 'Country code')}</span>
+          {' '}
           <strong>{selectedCountry?.name || selectedCountry?.countryCode}</strong>
         </span>
+        {' '}
         <span className="login-country-picker__dial">{selectedCountry?.dialCode}</span>
         <ChevronDown className={isOpen ? 'login-country-picker__chevron login-country-picker__chevron--open' : 'login-country-picker__chevron'} aria-hidden="true" />
       </button>

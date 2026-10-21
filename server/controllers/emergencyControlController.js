@@ -18,13 +18,17 @@ const {
 } = require('../services/emergencyControlService');
 
 const stripInternalFlagFields = (flag = {}) => {
+    // The underscore prefix marks these as deliberately dropped: the rest
+    // spread is what survives into the admin-facing payload. It is also the
+    // convention `no-unused-vars` accepts, so the omission stays explicit
+    // instead of reading as dead code.
     const {
-        internalReason,
-        activatedByUserId,
-        activatedByEmail,
-        approvedByUserId,
-        approvedByEmail,
-        metadata,
+        internalReason: _internalReason,
+        activatedByUserId: _activatedByUserId,
+        activatedByEmail: _activatedByEmail,
+        approvedByUserId: _approvedByUserId,
+        approvedByEmail: _approvedByEmail,
+        metadata: _metadata,
         ...publicSafe
     } = flag || {};
     return publicSafe;

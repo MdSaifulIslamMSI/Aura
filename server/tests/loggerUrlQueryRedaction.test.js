@@ -109,6 +109,22 @@ describe('logger URL query redaction', () => {
         }
     });
 
+    test('produces the same output for every string over a small alphabet', () => {
+        // An EXHAUSTIVE sweep, not a sample: every string of length 1..5 over
+        // the three characters that drive the rule (a path character, a slash
+        // and the query marker). The rule's edge cases - a query marker
+        // immediately after a slash, a slash at the end of a token, a query
+        // marker with no path before it - are all inside this space, so a
+        // change in the rule cannot hide in a gap the random sweep missed.
+        const symbols = ['a', '/', '?'];
+        const build = (prefix, depth) => {
+            expect(logger.redactUrlQueriesInText(prefix)).toBe(legacyRedact(prefix));
+            if (depth === 0) return;
+            for (const symbol of symbols) build(prefix + symbol, depth - 1);
+        };
+        build('', 5);
+    });
+
     test('redacts a long adversarial token in linear time', () => {
         // The quadratic version needed ~1.4s for this input. The budget is
         // deliberately loose: it only has to fail if the work becomes

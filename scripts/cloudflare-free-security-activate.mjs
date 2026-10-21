@@ -25,7 +25,8 @@ if (!token) {
 
 const api = async (method, endpoint, body) => {
   // Body data comes from repo-owned Cloudflare rule JSON plus explicit operator args; production mode is refused above.
-  // codeql[js/file-access-to-http]
+  // CodeQL for JavaScript does NOT honour inline `// codeql[...]` comments; an accepted
+  // finding is recorded in config/security/codeql-accepted-findings.json instead.
   const response = await fetch(`https://api.cloudflare.com/client/v4${endpoint}`, {
     method,
     headers: {

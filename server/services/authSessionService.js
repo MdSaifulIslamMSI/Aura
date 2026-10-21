@@ -210,7 +210,7 @@ const bootstrapUserRecord = async ({ email, authUid = '', authUser = {}, project
         if (getDuplicateField(error) !== 'phone') {
             throw error;
         }
-        const { phone, ...withoutPhone } = setOnInsert;
+        const { phone: _phone, ...withoutPhone } = setOnInsert;
         return User.findOneAndUpdate(
             identityQuery,
             { $setOnInsert: withoutPhone },
