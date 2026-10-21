@@ -44,7 +44,7 @@ describe('TLS config readiness checker', () => {
             },
         }, null, 2));
         const reportDir = path.join(tempDir, 'reports');
-        const result = runScript(['--config', cfg, '--report-dir', reportDir, '--json', '--markdown']);
+        runScript(['--config', cfg, '--report-dir', reportDir, '--json', '--markdown']);
 
         const report = JSON.parse(fs.readFileSync(path.join(reportDir, 'tls-config-readiness.json'), 'utf8'));
         const check = report.checks.find((c) => c.id.includes('tls.minimum'));
@@ -81,7 +81,7 @@ describe('TLS config readiness checker', () => {
             },
         }, null, 2));
         const reportDir = path.join(tempDir, 'reports');
-        const result = runScript(['--config', goodCdnConfig, '--report-dir', reportDir, '--json', '--markdown']);
+        runScript(['--config', goodCdnConfig, '--report-dir', reportDir, '--json', '--markdown']);
 
         const report = JSON.parse(fs.readFileSync(path.join(reportDir, 'tls-config-readiness.json'), 'utf8'));
         expect(report.checks).toEqual(expect.arrayContaining([

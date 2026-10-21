@@ -6,12 +6,10 @@ import {
   countNucleiGatingFindings,
   filterNucleiJsonlReport,
   filterNucleiSarifReport,
-  isAcceptedNucleiFinding,
   loadNucleiExceptions,
   markNucleiSarifExecutionSuccessful,
   nucleiMatchedHost,
   nucleiTemplateId,
-  readNucleiJsonlFindings,
 } from './nuclei-baseline.mjs';
 
 const tool = process.argv[2] || '';
@@ -987,17 +985,32 @@ const isKnownProductionHost = (targetUrl) => {
 // (PRODUCTION_TOKEN_PATTERN) so "products" in a hostname is not rejected.
 const productionTokenPattern = /(^|[^a-z0-9])(prod|production|live)([^a-z0-9]|$)/i;
 
+const IDENTITYTOOLKIT_HOST = 'identitytoolkit.googleapis.com';
+
+// The Auth Emulator serves the same REST surface under an explicit
+// /identitytoolkit.googleapis.com path prefix; the hosted endpoint has that
+// host in the origin already.
+//
+// The host is compared as a PARSED hostname, never as a substring: an origin
+// such as `https://identitytoolkit.googleapis.com.attacker.example` contains
+// the host as a substring but is a different host, and treating it as the
+// real endpoint would post the seeded scan account's credentials to it.
+const isIdentityToolkitOrigin = (candidate) => {
+  try {
+    return new URL(candidate).hostname.toLowerCase() === IDENTITYTOOLKIT_HOST;
+  } catch {
+    return false;
+  }
+};
+
 // Mint a Firebase ID token with the same REST exchange the storefront uses, so
 // the scan context can authenticate with a bearer header. Done host-side with
 // plain fetch: no SDK, and no ZAP script engine (the stable image does not
 // enable the GraalJS alpha add-on that script-based authentication requires).
 const mintFirebaseIdToken = async ({ apiKey, origin, email, password }) => {
-  // The Auth Emulator serves the same REST surface under an explicit
-  // /identitytoolkit.googleapis.com path prefix; the hosted endpoint has that
-  // host in the origin already.
-  const base = origin.includes('identitytoolkit.googleapis.com')
+  const base = isIdentityToolkitOrigin(origin)
     ? origin
-    : `${origin.replace(/\/+$/, '')}/identitytoolkit.googleapis.com`;
+    : `${origin.replace(/\/+$/, '')}/${IDENTITYTOOLKIT_HOST}`;
   const url = `${base}/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(url, {
     method: 'POST',
@@ -1023,7 +1036,6 @@ const runZapAuth = async () => {
   const password = process.env.ZAP_AUTH_PASSWORD || '';
   const firebaseApiKey = process.env.ZAP_AUTH_FIREBASE_API_KEY || '';
   const firebaseOrigin = process.env.ZAP_AUTH_FIREBASE_ORIGIN || '';
-  const syncPath = process.env.ZAP_AUTH_SYNC_PATH || '/api/auth/sync';
 
   if (!targetUrl) {
     console.error('Refusing authenticated ZAP scan: ZAP_AUTH_TARGET is not set.');

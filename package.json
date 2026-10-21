@@ -171,6 +171,7 @@
     "security:install-scripts": "node scripts/security/check-install-scripts-allowlist.mjs",
     "security:lockfile-freshness": "node scripts/security/check-lockfile-freshness.mjs",
     "security:lockfile-registry": "node scripts/security/check-lockfile-registry.mjs",
+    "security:workflow-token-permissions": "node scripts/security/check-workflow-token-permissions.mjs",
     "security:repair-lockfile": "node scripts/security/repair-lockfile-resolutions.mjs",
     "security:sarif-contract": "node scripts/security/validate-sarif-contract.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
@@ -178,6 +179,7 @@
     "security:nuclei": "node scripts/security/run-docker-tool.mjs nuclei",
     "security:nuclei:strict": "node scripts/security/run-docker-tool.mjs nuclei --strict",
     "test:nuclei-baseline": "node --test scripts/security/nuclei-baseline.test.mjs",
+    "test:workflow-token-permissions": "node --test scripts/security/check-workflow-token-permissions.test.mjs",
     "security:csp-drift": "node scripts/security/check-csp-drift.mjs",
     "security:admin-chunk-isolation": "node scripts/security/check-admin-chunk-isolation.mjs",
     "security:artifact-posture": "node scripts/security/check-artifact-security-posture.mjs",
@@ -311,6 +313,7 @@
     "electron-builder": "^26.15.3",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
+    "js-yaml": "4.3.2",
     "knip": "^6.35.1"
   },
   "overrides": {

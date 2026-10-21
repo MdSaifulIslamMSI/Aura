@@ -52,7 +52,7 @@ const isSelectableIdentityCandidate = (user = null, identity = {}) => {
 };
 
 const scoreIdentityCandidate = (user = null, identity = {}) => {
-    const { email = '', authUid = '' } = identity;
+    const { authUid = '' } = identity;
     const userEmail = normalizeEmail(user?.email);
     const userUid = normalizeUid(user?.authUid);
     const safeUid = normalizeUid(authUid);

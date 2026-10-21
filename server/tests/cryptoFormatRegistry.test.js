@@ -5,7 +5,6 @@ const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const auditScript = path.join(repoRoot, 'scripts', 'security', 'crypto-format-audit.mjs');
-const registryPath = path.join(repoRoot, 'config', 'security', 'crypto-format-registry.json');
 
 const runAudit = (root) => spawnSync(process.execPath, [auditScript, '--root', root], {
     cwd: repoRoot,

@@ -22,13 +22,12 @@
  * Exit code 0 = pass, 1 = fail.
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { MANIFESTS, isExactPin, compareVersions, collectExactPins } = require('./override-pin-logic.cjs');
+const { MANIFESTS, compareVersions, collectExactPins } = require('./override-pin-logic.cjs');
 
 const repoRoot = process.cwd();
 
@@ -54,7 +53,11 @@ const queryOsv = async (pins) => {
 };
 
 const fetchLatestVersion = async (name) => {
-  const scoped = name.startsWith('@') ? name.replace('/', '%2f') : name;
+  // A scoped package name has exactly one '/', but `replace` only rewrites the
+  // FIRST occurrence, so a name carrying a second '/' would silently reach the
+  // registry with an unescaped path separator. `replaceAll` removes the
+  // first-occurrence trap entirely.
+  const scoped = name.startsWith('@') ? name.replaceAll('/', '%2f') : name;
   const response = await fetch(`${REGISTRY_URL}/${scoped}`, {
     headers: { accept: 'application/vnd.npm.install-v1+json, application/json' },
   });

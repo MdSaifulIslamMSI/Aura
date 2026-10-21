@@ -79,6 +79,11 @@ jobs:
       # surfacing only when a scan runs.
       - name: Run nuclei baseline unit tests
         run: npm run test:nuclei-baseline
+      # The Scorecard Token-Permissions model is unit-testable without the
+      # network; wire it into CI so a top-level write scope fails the PR path
+      # instead of surfacing as a code-scanning alert a week later.
+      - name: Run workflow token-permission unit tests
+        run: npm run test:workflow-token-permissions
 
   dependency-scan:
     name: Dependency Scan
@@ -312,6 +317,11 @@ jobs:
         with:
           node-version: 24.x
           cache: npm
+      # --ignore-scripts keeps the Electron binary from being downloaded: this
+      # job only needs the JavaScript dependencies the gates import, and the
+      # root install-script packages are gated separately below.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
       - name: Verify action and scanner image pins
         run: npm run security:supply-chain-pins
       - name: Verify code scanning SARIF contract
@@ -325,6 +335,8 @@ jobs:
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+      - name: Enforce least-privilege GITHUB_TOKEN permissions
+        run: npm run security:workflow-token-permissions
 
   sbom:
     name: SBOM

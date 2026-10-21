@@ -35,10 +35,6 @@ const ADMIN_MOUNTS = [
     ['/api/admin/status', '../routes/adminStatusRoutes'],
 ];
 
-const layerHandles = (layer) => (
-    Array.isArray(layer?.handle) ? layer.handle : [layer?.handle]
-);
-
 // Collects EVERY route a router exposes — inline `admin` middleware,
 // router-level `router.use(protect, admin)` and the self-service routes that
 // only carry `protect`. Every route mounted under /api/admin/ has to be

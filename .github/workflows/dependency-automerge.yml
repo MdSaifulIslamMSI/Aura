@@ -17,13 +17,12 @@ on:
         type: boolean
         default: false
 
+# Read-only at the workflow level on purpose. Scorecard's Token-Permissions
+# check only awards full marks when the top-level block is read-only, and it
+# turns every top-level write into a `TokenPermissionsID` code-scanning alert.
+# The write scopes this workflow actually needs live on the job below.
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
-  # The daily sweep re-runs failed check jobs on held safe-lane PRs so the
-  # release-cooldown age gate can clear as real time passes.
-  actions: write
 
 concurrency:
   group: dep-automerge-${{ github.event.pull_request.number || 'sweep' }}
@@ -34,6 +33,15 @@ jobs:
     name: Dependency automerge policy
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Job-level permissions REPLACE the workflow-level block, so this block has
+    # to restate `contents: read` for the checkout step above.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      # The daily sweep re-runs failed check jobs on held safe-lane PRs so the
+      # release-cooldown age gate can clear as real time passes.
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

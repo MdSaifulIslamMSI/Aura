@@ -8,8 +8,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // hangs -> proceed without a proof). Nothing proved the happy path emits a
 // valid, correctly signed token, so the client/server contract was untested.
 
-const DPOP_DB_NAME = 'aura_dpop_keys';
-const DPOP_STORE_NAME = 'keys';
 const DPOP_KEY_ID = 'browser-session-binding-v1';
 
 // Minimal in-memory IndexedDB stand-in: apiBase persists the ECDSA key pair

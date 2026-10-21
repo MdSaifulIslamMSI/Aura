@@ -24,56 +24,90 @@ const mongoSanitize = () => {
      * the boundary survived into req.body / req.query and reached the query
      * layer. The boundary exists to bound the STACK, not to skip the
      * sanitisation, so the value it returns is rebuilt key by key here.
+     *
+     * The rebuild runs in two passes:
+     *
+     *   1. The first pass discovers the shape of the sub-tree with an
+     *      explicit work list - never recursion, so a deep or cyclic payload
+     *      cannot exhaust the stack.
+     *   2. The second pass materialises the copies bottom-up. A parent is
+     *      always discovered before its children, so walking the list
+     *      backwards guarantees a child copy exists before its parent needs
+     *      it.
+     *
+     * Objects are built with `Object.fromEntries`, like the shallow path
+     * above. That creates OWN properties, so a `__proto__` key can never
+     * reach Object.prototype through the inherited setter, and the property
+     * name never becomes the target of an assignment.
      */
     const sanitizeSubTree = (root) => {
         if (root === null || typeof root !== 'object') return root;
 
-        const rootCopy = Array.isArray(root) ? [] : {};
+        // One entry per discovered object, in discovery order.
+        const nodes = [];
+        // The visited set makes a repeated node terminate: the FIRST
+        // occurrence is rebuilt, every later one becomes an empty placeholder
+        // of the same shape.
         const visited = new Set([root]);
-        const queue = [{ source: root, target: rootCopy }];
 
-        while (queue.length > 0) {
-            const { source, target } = queue.pop();
+        nodes.push({ isArray: Array.isArray(root), entries: null });
+        const work = [{ source: root, index: 0 }];
 
-            if (Array.isArray(source)) {
-                for (let index = 0; index < source.length; index += 1) {
-                    const value = source[index];
-                    if (value === null || typeof value !== 'object') {
-                        target[index] = value;
-                        continue;
-                    }
-                    // A repeated node is a cycle: break it rather than walk
-                    // it again, so the work list always terminates.
-                    if (visited.has(value)) {
-                        target[index] = Array.isArray(value) ? [] : {};
-                        continue;
-                    }
-                    visited.add(value);
-                    const copy = Array.isArray(value) ? [] : {};
-                    target[index] = copy;
-                    queue.push({ source: value, target: copy });
-                }
-                continue;
-            }
+        while (work.length > 0) {
+            const { source, index } = work.pop();
+            const entries = [];
 
-            for (const [key, value] of Object.entries(source)) {
-                if (isUnsafeKey(key)) continue;
+            const consider = (key, value) => {
                 if (value === null || typeof value !== 'object') {
-                    target[key] = value;
-                    continue;
+                    entries.push({ key, value, childIndex: null });
+                    return;
                 }
                 if (visited.has(value)) {
-                    target[key] = Array.isArray(value) ? [] : {};
-                    continue;
+                    entries.push({
+                        key,
+                        value: Array.isArray(value) ? [] : {},
+                        childIndex: null,
+                    });
+                    return;
                 }
                 visited.add(value);
-                const copy = Array.isArray(value) ? [] : {};
-                target[key] = copy;
-                queue.push({ source: value, target: copy });
+                const childIndex = nodes.length;
+                nodes.push({ isArray: Array.isArray(value), entries: null });
+                entries.push({ key, value: null, childIndex });
+                work.push({ source: value, index: childIndex });
+            };
+
+            if (Array.isArray(source)) {
+                for (let position = 0; position < source.length; position += 1) {
+                    consider(String(position), source[position]);
+                }
+            } else {
+                for (const [key, value] of Object.entries(source)) {
+                    if (isUnsafeKey(key)) continue;
+                    consider(key, value);
+                }
             }
+            nodes[index].entries = entries;
         }
 
-        return rootCopy;
+        const copies = new Array(nodes.length);
+        for (let index = nodes.length - 1; index >= 0; index -= 1) {
+            const node = nodes[index];
+            const resolved = node.entries.map(({ key, value, childIndex }) => (
+                [key, childIndex === null ? value : copies[childIndex]]
+            ));
+            if (node.isArray) {
+                // The source indices are in order, so the copy is built by
+                // appending rather than by assigning to a computed index.
+                const copy = [];
+                for (const [, value] of resolved) copy.push(value);
+                copies[index] = copy;
+                continue;
+            }
+            copies[index] = Object.fromEntries(resolved);
+        }
+
+        return copies[0];
     };
 
     return (req, res, next) => {

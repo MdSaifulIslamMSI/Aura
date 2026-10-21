@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest';
 import { collectSourceMaps, pruneSourceMaps } from '../../scripts/lib/prune-sourcemaps.mjs';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const repoRoot = path.resolve(appRoot, '..');
 
 const buildFixtureTree = async (root) => {
     await mkdir(path.join(root, 'assets'), { recursive: true });

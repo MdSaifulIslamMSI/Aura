@@ -19,7 +19,6 @@ const {
     decryptTotpSecret,
     enableTotpAfterVerification,
     generateTotpCode,
-    generateTotpSecret,
     getTotpTimeStep,
     verifyEnabledTotpForUser,
 } = require('../services/totpMfaService');
@@ -57,7 +56,7 @@ describe('totp replay protection', () => {
             recoveryCodeState: { activeCount: 1 },
         });
 
-        const setup = await require('../services/totpMfaService').beginTotpSetup({ userId: user._id });
+        await require('../services/totpMfaService').beginTotpSetup({ userId: user._id });
         const pending = await User.findById(user._id)
             .select('+mfa.totp.pendingSecretEncrypted')
             .lean();

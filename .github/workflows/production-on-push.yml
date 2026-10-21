@@ -11,12 +11,18 @@ on:
         default: ""
         type: string
 
+# Read-only at the workflow level on purpose. Scorecard's Token-Permissions
+# check only awards full marks when the top-level block is read-only, and it
+# turns every top-level write into a `TokenPermissionsID` code-scanning alert.
+#
+# Every job in this workflow already declares its own `permissions:` block, and
+# a job-level block REPLACES the workflow-level one, so these grants were
+# already dead configuration: the jobs that mint OIDC tokens or upload SARIF
+# (canonical-security-gates) and the jobs that dispatch reusable workflows
+# (staging-promotion-gate, deploy-*) request those scopes themselves.
 permissions:
   contents: read
   pull-requests: read
-  id-token: write
-  security-events: write
-  attestations: write
 
 concurrency:
   group: aura-production-on-push-${{ github.ref }}

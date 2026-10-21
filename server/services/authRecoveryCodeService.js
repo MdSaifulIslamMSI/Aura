@@ -115,8 +115,6 @@ const findMatchingRecoveryCode = (entries, code) => {
     )) || null;
 };
 
-const safeCompare = safeCompareHex;
-
 const formatRecoveryCode = () => {
     const raw = crypto.randomBytes(RECOVERY_CODE_BYTES).toString('base64url').toUpperCase();
     return normalizeRecoveryCode(raw).slice(0, 16).match(/.{1,4}/g).join('-');

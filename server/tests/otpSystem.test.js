@@ -1174,7 +1174,7 @@ describe('Full OTP Flow — E2E & Hardened Security', () => {
     });
 
     test('92. E2E login: seed verified user → send → verify', async () => {
-        const { user: verUser, otpPlain } = await seedPending({ otp: '321321', otpPurpose: 'signup', isVerified: true });
+        const { user: verUser } = await seedPending({ otp: '321321', otpPurpose: 'signup', isVerified: true });
         // A registered account is already verified; the login leg must find it.
         expect(verUser.isVerified).toBe(true);
 

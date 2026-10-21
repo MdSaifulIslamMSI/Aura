@@ -133,7 +133,7 @@ describe('backup archive encryption', () => {
     test('still decrypts a v1 archive written before the per-archive salt', () => {
         // v1 headers carry no salt and were produced with a hardcoded salt at
         // Node's default cost. That derivation is frozen for reading only.
-        const { inputPath, payload } = makeArchive(workDir);
+        const { payload } = makeArchive(workDir);
         const master = 'legacy-v1-compat-master-key-material-0000';
         const encryptedPath = path.join(workDir, 'legacy.enc');
         const decryptedPath = path.join(workDir, 'legacy.out');
