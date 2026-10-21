@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertTriangle, AlertOctagon, XCircle } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';

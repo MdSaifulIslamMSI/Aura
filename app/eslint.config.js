@@ -42,6 +42,16 @@ export default defineConfig([
       'no-implied-eval': 'error',
       'no-new-func': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // An unused local variable is dead code, and CodeQL reports it as
+      // `js/unused-local-variable` - the largest class of code-scanning
+      // alert this repository has carried. Variables only: unused ARGUMENTS
+      // stay excluded, because in a React tree they are mostly interface
+      // parameters (props, hook callbacks) whose shape the caller fixes.
+      'no-unused-vars': ['error', {
+        args: 'none',
+        varsIgnorePattern: '^_',
+        caughtErrors: 'none',
+      }],
     },
   },
   {
