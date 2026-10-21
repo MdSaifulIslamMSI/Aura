@@ -102,7 +102,20 @@ export default defineConfig([
       // Correctness-only for scripts/. The unused/dead-code and style rules
       // already flag real debt across this large pre-existing tree; leaving
       // them off keeps the gate useful instead of red on day one.
-      'no-unused-vars': 'off',
+      //
+      // `no-unused-vars` is the exception: it is scoped to VARIABLES only
+      // (`args: 'none'`). Unused local variables are the single largest
+      // class of CodeQL finding this repository ever carried - 24 of the 32
+      // javascript-typescript alerts were `js/unused-local-variable` - and
+      // they were invisible here only because the rule was off for the whole
+      // tree. The arguments are still excluded: most of them are interface
+      // parameters (Express handlers, Mongoose document methods) whose
+      // signature the caller fixes, not the callee.
+      'no-unused-vars': ['error', {
+        args: 'none',
+        varsIgnorePattern: '^_',
+        caughtErrors: 'none',
+      }],
       'no-useless-assignment': 'off',
       'no-control-regex': 'off',
       'preserve-caught-error': 'off',
@@ -165,7 +178,19 @@ export default defineConfig([
       'no-debugger': 'error',
 
       // Correctness-only for the pre-existing tree, mirroring scripts/.
-      'no-unused-vars': 'off',
+      //
+      // `no-unused-vars` covers VARIABLES only (`args: 'none'`), for the
+      // same reason as the scripts/ block above: an unused local variable is
+      // dead code that CodeQL flags as `js/unused-local-variable`, and that
+      // rule was the largest class of code-scanning alert this repository
+      // carried. Unused ARGUMENTS are left alone - in this tree they are
+      // overwhelmingly interface parameters (Express handlers, Mongoose
+      // document methods, middleware chains) whose shape the caller fixes.
+      'no-unused-vars': ['error', {
+        args: 'none',
+        varsIgnorePattern: '^_',
+        caughtErrors: 'none',
+      }],
       'no-useless-assignment': 'off',
       'no-control-regex': 'off',
       'preserve-caught-error': 'off',
@@ -218,7 +243,14 @@ export default defineConfig([
       'no-throw-literal': 'error',
       'no-async-promise-executor': 'error',
       'no-undef': 'error',
-      'no-unused-vars': 'off',
+      // Variables only, for the same reason as the server/ source block: an
+      // unused local in a test is dead code, and `js/unused-local-variable`
+      // was the largest class of CodeQL alert this repository carried.
+      'no-unused-vars': ['error', {
+        args: 'none',
+        varsIgnorePattern: '^_',
+        caughtErrors: 'none',
+      }],
       'no-control-regex': 'off',
       'no-useless-escape': 'off',
       'no-misleading-character-class': 'off',

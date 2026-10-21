@@ -1,0 +1,101 @@
+{
+    "$comment": "Accepted CodeQL findings for the javascript-typescript language, with the disposition that GitHub code scanning carries as a dismissal. Each entry: { rule, path, count, reason, expires }. scripts/security/check-codeql-sarif.mjs fails the build when a CodeQL SARIF contains a warning/error result that is NOT covered here, when the count for a listed (rule, path) is exceeded, or when an entry is missing a reason or has expired (fail-closed, the same contract as config/security/pqc-allowlist.json and config/security/lockfile-freshness-allowlist.json). CodeQL for JavaScript does NOT honour inline `// codeql[...]` suppression comments, so this file - not an in-code annotation - is the operative mechanism. NOTE-level results are ignored: they are quality queries, and the largest such class (unused local variables) is gated by the `no-unused-vars` ESLint rule instead.",
+    "acceptedFindings": [
+        {
+            "rule": "js/file-access-to-http",
+            "path": "scripts/security/openfga-verification.mjs",
+            "count": 1,
+            "reason": "Intentional: dev verification script uploads repo-controlled authorization-model.json to a local OpenFGA server (default 127.0.0.1:8080). File-to-HTTP taint is the purpose; no untrusted input.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-09-05T10:50:04Z"
+        },
+        {
+            "rule": "js/http-to-file-access",
+            "path": "app/scripts/i18n/repair_pack_gaps.mjs",
+            "count": 1,
+            "reason": "Intentional: local i18n script translates missing pack strings via Google and writes validated results (placeholder protection + native-script checks) into marketMessagePacks. Dev-only tool; never shipped.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-09-05T10:50:06Z"
+        },
+        {
+            "rule": "js/http-to-file-access",
+            "path": "scripts/lib/release-guard-utils.mjs",
+            "count": 1,
+            "reason": "FP: sink is writeJsonAtomic; content is JSON-escaped and the path is hard-allowlisted to repo root/tmpdir before write. Rationale: docs/security/code-scanning-triage-2026-09-14.md",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-09-13T20:25:42Z"
+        },
+        {
+            "rule": "js/http-to-file-access",
+            "path": "server/services/catalogSnapshotService.js",
+            "count": 1,
+            "reason": "False positive: trusted-host and private-network SSRF checks run before a hashed file is written into a private cache. Tests cover localhost, metadata IPs, private DNS, and untrusted hosts.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T15:53:54Z"
+        },
+        {
+            "rule": "js/indirect-command-line-injection",
+            "path": "scripts/student-pack-sentry-release.mjs",
+            "count": 1,
+            "reason": "False positive: the release id passes a strict charset validator (alphanumerics plus . _ + @ / only) before reaching cmd.exe argv, so no injection is possible. The codeql[] suppression comment is present on the flagged line but not honored by this analysis.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-10-03T21:06:13Z"
+        },
+        {
+            "rule": "js/insufficient-password-hash",
+            "path": "server/services/ai/providerRegistry.js",
+            "count": 1,
+            "reason": "This is an HMAC-SHA256 signature for LiveKit access tokens, not a password hash. A fast keyed MAC is the correct primitive for token signing; bcrypt or another password KDF would be incorrect here.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T13:21:42Z"
+        },
+        {
+            "rule": "js/insufficient-password-hash",
+            "path": "server/tests/pwnedPasswordCheck.test.js",
+            "count": 1,
+            "reason": "False positive: test fixture derives the same HIBP k-anonymity lookup token for a mocked range response - never password storage. Inline codeql[] suppression present but not honored by this analysis.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-10-03T21:06:11Z"
+        },
+        {
+            "rule": "js/insufficient-password-hash",
+            "path": "server/utils/pwnedPasswordCheck.js",
+            "count": 1,
+            "reason": "False positive: the SHA-1 is the k-anonymity lookup token for the HIBP range API (fixed protocol requirement), never used to store or verify a password. Inline codeql[] suppression comments are present on the flagged line but are not honored by this analysis.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-10-03T21:06:09Z"
+        },
+        {
+            "rule": "js/missing-rate-limiting",
+            "path": "server/tests/authRiskSignalProducerMiddleware.test.js",
+            "count": 2,
+            "reason": "Test-only Express harness handler in authRiskSignalProducerMiddleware.test.js. It is not mounted by the runtime.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T13:21:33Z"
+        },
+        {
+            "rule": "js/missing-rate-limiting",
+            "path": "server/tests/config.cors-csrf.security.test.js",
+            "count": 2,
+            "reason": "Test-only CSRF harness handler in config.cors-csrf.security.test.js. It is not mounted by the runtime.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T13:21:36Z"
+        },
+        {
+            "rule": "js/missing-rate-limiting",
+            "path": "server/tests/turnstileMiddleware.test.js",
+            "count": 1,
+            "reason": "Test-only Turnstile harness handler in turnstileMiddleware.test.js. It is not mounted by the runtime.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T13:21:39Z"
+        },
+        {
+            "rule": "js/user-controlled-bypass",
+            "path": "server/middleware/csrfMiddleware.js",
+            "count": 3,
+            "reason": "False positive: this branch rejects a non-string X-CSRF-Token header. Requests only continue after the header is a string and verifyCsrfToken validates the Redis-backed one-time token.",
+            "expires": "2026-12-31",
+            "dismissedAlert": "2026-05-31T15:51:11Z"
+        }
+    ]
+}

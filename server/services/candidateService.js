@@ -108,7 +108,7 @@ const findActiveProducts = async (filter = {}, { limit = 50, sort = { rating: -1
         .lean();
 
     if (products.length === 0 && base.catalogVersion) {
-        const { catalogVersion, ...fallbackBase } = base;
+        const { catalogVersion: _catalogVersion, ...fallbackBase } = base;
         products = await Product.find(fallbackBase)
             .select(PRODUCT_SELECT)
             .sort(sort)

@@ -44,7 +44,8 @@ const run = (command, args = [], { timeout = 10000 } = {}) => {
       ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', executable, ...args]
       : args;
   // Command names are fixed live-auth checks guarded by ALLOWED_COMMANDS; shell execution is disabled.
-  // codeql[js/indirect-command-line-injection]
+  // CodeQL for JavaScript does NOT honour inline `// codeql[...]` comments; an accepted
+  // finding is recorded in config/security/codeql-accepted-findings.json instead.
   const result = spawnSync(commandForSpawn, argsForSpawn, {
     cwd: repoRoot,
     encoding: 'utf8',

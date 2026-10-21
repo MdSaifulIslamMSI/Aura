@@ -79,7 +79,7 @@ const buildFixture = () => ({
 const asMongooseDoc = (plain) => ({
     ...plain,
     toObject() {
-        const { toObject, ...rest } = this;
+        const { toObject: _toObject, ...rest } = this;
         return rest;
     },
 });
