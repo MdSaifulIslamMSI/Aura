@@ -63,6 +63,10 @@ const EXCLUDED_PARTS = new Set([
 const EXCLUDED_POLICY_FILES = new Set([
   'config/security/post-quantum-policy.json',
   'config/security/pqc-allowlist.json',
+  // Records the accepted CodeQL findings with the disposition that GitHub
+  // code scanning carries as a dismissal, so the rationale names the algorithm
+  // in prose. No hashing happens in this file.
+  'config/security/codeql-accepted-findings.json',
   'docs/security/free-security-scanners.md',
   'docs/security/openssl-oqs-staging-lab.md',
   'docs/security/internal-service-encryption-readiness.md',
