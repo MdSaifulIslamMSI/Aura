@@ -70,10 +70,14 @@ config. Overwriting the live value would be a production behaviour change
 dressed up as cleanup, so the old value was archived for recovery and the live
 value was left alone.
 
-**Open follow-up:** backend Sentry reporting is therefore effectively disabled
-today. The frontend is unaffected — it reads the `VITE_SENTRY_DSN` GitHub secret,
-not SSM. Pointing the SSM value at the archived DSN is a deliberate production
-change, not part of the teardown.
+**Resolved 2026-10-22.** `/aura/prod/SENTRY_DSN` was pointed at the archived DSN
+above and the api container was recreated to load it. The live production
+frontend bundle already shipped that exact DSN, so the Sentry project was live
+and only the backend had been left on the no-op placeholder — the two halves of
+the app now report to the same project. The `SENTRY_AUTH_TOKEN` in the same
+prefix is separately stale (401 against the Sentry API); it is used by the
+student-pack CLI tooling, not by the runtime SDK, so it does not affect error
+reporting.
 
 ## Closing the account
 

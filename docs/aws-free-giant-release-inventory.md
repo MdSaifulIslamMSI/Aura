@@ -29,7 +29,7 @@ Known Aura bucket checked:
 
 | Bucket | Read-only evidence |
 | --- | --- |
-| `aura-staging-uploads-942679464475-ap-south-1-v2` | `aws s3 ls` showed `backups/` and `bootstrap/` prefixes. |
+| `aura-staging-uploads-942679464475-ap-south-1-v2` | `aws s3 ls` showed `backups/` and `bootstrap/` prefixes. Deleted with account `942679464475` on 2026-10-21; retargeted to `aura-staging-uploads-517353742644-ap-south-1` for account `517353742644`, deliberately not created while staging is paused. |
 
 Other production deploy/frontend buckets are referenced by workflows and GitHub variables, but were not locally resolved from the staging operator environment.
 

@@ -73,9 +73,12 @@ groups; capacity 935). Parameters: `AuthRateLimitPerFiveMinutes=500`,
    file://` form trips an AWS CLI argument-customization bug.
 
    The staging edge is currently decommissioned — its old distribution
-   `E1SZSF4W3BBBZQ` was deleted with the old account, and `STAGING_*` repository
-   variables still point at that dead hostname. Do not attach a staging WebACL
-   until a staging distribution exists again.
+   `E1SZSF4W3BBBZQ` was deleted with the old account. The `STAGING_*` endpoint
+   variables have since been cleared in both the repository scope and the
+   `staging` environment scope, so the staging lanes skip instead of probing a
+   dead hostname; `STAGING_INFRA_PAUSED` remains `true` and
+   `STAGING_DEPLOY_ENABLED` is `false`. Do not attach a staging WebACL until a
+   staging distribution exists again.
 
 4. Verify: `get-distribution` shows the new `WebACLId`, status returns to
    `Deployed`, and `scripts/security/waf-smoke-test.mjs` / the security
