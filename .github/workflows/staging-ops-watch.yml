@@ -60,10 +60,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate staging contract and prod fallback scan
-        run: |
-          npm run env:validate
-          npm run scan:prod-fallbacks
+      - name: Validate staging contract
+        # The staging environment contract requires live staging URLs. Staging
+        # is acknowledged off here, so this is a live staging check and is
+        # skipped with the same flag as the live smokes below. The production
+        # fallback scan is repo-wide and still runs.
+        if: vars.STAGING_INFRA_PAUSED != 'true'
+        run: npm run env:validate
+
+      - name: Scan for production fallback regressions
+        run: npm run scan:prod-fallbacks
 
       - name: Run backend and frontend staging smoke
         if: vars.STAGING_INFRA_PAUSED != 'true'

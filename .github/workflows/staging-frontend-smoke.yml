@@ -80,7 +80,10 @@ jobs:
         run: npm --prefix server ci
 
       - name: Validate environment contract
-        if: github.event_name != 'pull_request'
+        # The staging environment contract requires live staging URLs. Staging
+        # is acknowledged off here, so this is a live staging check and is
+        # skipped with the same flag as the live smokes below.
+        if: github.event_name != 'pull_request' && vars.STAGING_INFRA_PAUSED != 'true'
         run: npm run env:validate
 
       - name: Scan for production fallback regressions
