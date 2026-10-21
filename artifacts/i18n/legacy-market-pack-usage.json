@@ -1,23 +1,23 @@
 {
-  "generatedAt": "2026-10-07T13:27:00.460Z",
+  "generatedAt": "2026-10-21T20:26:01.213Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {
       "high": 0,
       "medium": 18,
-      "low": 141
+      "low": 142
     },
     "computedTranslatorLookupFiles": 39,
     "delegatedStableIcuFiles": 10,
     "dynamicRuntimeFiles": 18,
     "legacyPackImportFiles": 40,
-    "migratedStableIcuMessageIds": 3487,
+    "migratedStableIcuMessageIds": 3493,
     "productionLegacyStableFiles": 0,
     "residualLegacyMessageIds": 0,
     "runtimeEnumCompatibilityFiles": 0,
-    "stableIcuHookFiles": 98,
+    "stableIcuHookFiles": 99,
     "testHarnessLegacyMessageIds": 4,
-    "totalFiles": 159
+    "totalFiles": 160
   },
   "records": [
     {
@@ -4772,37 +4772,6 @@
       "usesStableIcuHook": true
     },
     {
-      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "migratedStableIcuIdCount": 12,
-      "migratedStableIcuIds": [
-        "login.brand.homeLabel",
-        "login.brand.initials",
-        "login.editorial.benefit.orders",
-        "login.editorial.benefit.personal",
-        "login.editorial.benefit.saved",
-        "login.editorial.benefitsLabel",
-        "login.editorial.copy",
-        "login.editorial.edition",
-        "login.editorial.eyebrow",
-        "login.editorial.label",
-        "login.editorial.title",
-        "login.editorial.trust"
-      ],
-      "residualLegacyIdCount": 0,
-      "residualLegacyIds": [],
-      "risk": "low",
-      "testHarnessLegacyIdCount": 0,
-      "testHarnessLegacyIds": [],
-      "usesComputedTranslatorLookup": true,
-      "usesDelegatedStableIcuTranslator": false,
-      "usesDynamicRuntimeTranslation": false,
-      "usesMarketContext": false,
-      "usesRuntimeEnumCompatibility": false,
-      "usesStableIcuHook": true
-    },
-    {
       "file": "app/src/pages/Profile/components/TicketInbox.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -4834,22 +4803,22 @@
       "usesStableIcuHook": false
     },
     {
-      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
       "migratedStableIcuIdCount": 11,
       "migratedStableIcuIds": [
-        "login.country.changeAriaLabel",
-        "login.country.close",
-        "login.country.controlLabel",
-        "login.country.noResults",
-        "login.country.panelEyebrow",
-        "login.country.panelLabel",
-        "login.country.panelTitle",
-        "login.country.results",
-        "login.country.resultsLabel",
-        "login.country.searchLabel",
-        "login.country.searchPlaceholder"
+        "login.brand.initials",
+        "login.editorial.benefit.orders",
+        "login.editorial.benefit.personal",
+        "login.editorial.benefit.saved",
+        "login.editorial.benefitsLabel",
+        "login.editorial.copy",
+        "login.editorial.edition",
+        "login.editorial.eyebrow",
+        "login.editorial.label",
+        "login.editorial.title",
+        "login.editorial.trust"
       ],
       "residualLegacyIdCount": 0,
       "residualLegacyIds": [],
@@ -4953,6 +4922,35 @@
       "usesStableIcuHook": true
     },
     {
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "migratedStableIcuIdCount": 10,
+      "migratedStableIcuIds": [
+        "login.country.close",
+        "login.country.controlLabel",
+        "login.country.noResults",
+        "login.country.panelEyebrow",
+        "login.country.panelLabel",
+        "login.country.panelTitle",
+        "login.country.results",
+        "login.country.resultsLabel",
+        "login.country.searchLabel",
+        "login.country.searchPlaceholder"
+      ],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": false,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": false,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
+    },
+    {
       "file": "app/src/pages/Wishlist/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -5003,6 +5001,33 @@
       "testHarnessLegacyIdCount": 0,
       "testHarnessLegacyIds": [],
       "usesComputedTranslatorLookup": false,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": true,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
+    },
+    {
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "migratedStableIcuIdCount": 8,
+      "migratedStableIcuIds": [
+        "consent.banner.allow",
+        "consent.banner.decline",
+        "consent.banner.detail",
+        "consent.banner.dismiss",
+        "consent.banner.eyebrow",
+        "consent.banner.granted.detail",
+        "consent.banner.title",
+        "consent.banner.turnOff"
+      ],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": true,
       "usesDelegatedStableIcuTranslator": false,
       "usesDynamicRuntimeTranslation": false,
       "usesMarketContext": true,

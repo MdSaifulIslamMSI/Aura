@@ -18,15 +18,20 @@ const renderPicker = (props = {}) => render(
   <CountryCodePicker options={options} selectedCountry={selected} onSelect={vi.fn()} t={(_k, _v, fallback) => fallback} {...props} />
 );
 
+// The trigger has no aria-label: its accessible name comes from its own
+// content, so it reads exactly what the button shows - "Country code India
+// +91" for the selected country.
+const TRIGGER_NAME = 'Country code India +91';
+
 const openPanel = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'Change country code: {country} {dialCode}' }));
+  fireEvent.click(screen.getByRole('button', { name: TRIGGER_NAME }));
 };
 
 describe('CountryCodePicker', () => {
   it('shows the selected country dial code on the trigger', () => {
     renderPicker();
     expect(screen.getByText('+91')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Change country code: {country} {dialCode}' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: TRIGGER_NAME })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('opens the panel and lists all options with counts', () => {
@@ -59,7 +64,7 @@ describe('CountryCodePicker', () => {
 
   it('disables the trigger when disabled', () => {
     renderPicker({ disabled: true });
-    expect(screen.getByRole('button', { name: 'Change country code: {country} {dialCode}' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: TRIGGER_NAME })).toBeDisabled();
   });
 
   it('closes the panel via the close control', () => {

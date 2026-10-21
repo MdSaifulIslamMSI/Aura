@@ -1,16 +1,16 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-10-07T13:26:59.510Z
+Generated: 2026-10-21T20:25:56.721Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 530
-- Tracked files: 153
-- Production files with stable literal UI copy: 100
-- Production stable literal references: 4134
-- Unique production stable IDs: 3731
+- Source files scanned: 538
+- Tracked files: 154
+- Production files with stable literal UI copy: 101
+- Production stable literal references: 4142
+- Unique production stable IDs: 3737
 - Dynamic lookup references requiring manual review: 16
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -57,10 +57,10 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Contact/index.jsx` | 15 | 15 | 0 | stable-ui |
 | high | `app/src/pages/Orders/Invoice.jsx` | 15 | 15 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 14 | 0 | stable-ui |
-| high | `app/src/pages/Login/BrandVisualPanel.jsx` | 12 | 12 | 0 | stable-ui |
-| high | `app/src/pages/Login/CountryCodePicker.jsx` | 11 | 11 | 0 | stable-ui |
+| high | `app/src/pages/Login/BrandVisualPanel.jsx` | 11 | 11 | 0 | stable-ui |
 | high | `app/src/pages/Status/Subscribe.jsx` | 11 | 11 | 0 | stable-ui |
 | high | `app/src/pages/Assistant/index.jsx` | 10 | 10 | 0 | stable-ui |
+| high | `app/src/pages/Login/CountryCodePicker.jsx` | 10 | 10 | 0 | stable-ui |
 | high | `app/src/pages/Status/IncidentDetail.jsx` | 7 | 7 | 0 | stable-ui |
 | high | `app/src/App.jsx` | 4 | 4 | 0 | stable-ui |
 | high | `app/src/pages/Status/History.jsx` | 4 | 4 | 0 | stable-ui |
@@ -117,6 +117,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | low | `app/src/pages/Profile/hooks/useProfileDeck.js` | 11 | 11 | 0 | stable-ui |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 10 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/AccountStatusBanner.jsx` | 10 | 9 | 0 | stable-ui |
+| low | `app/src/components/shared/ConsentBanner.jsx` | 10 | 8 | 0 | stable-ui |
 | low | `app/src/components/shared/MobileUpdateBanner.jsx` | 8 | 7 | 0 | stable-ui |
 | low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 7 | 7 | 0 | stable-ui |
 | low | `app/src/pages/Profile/hooks/useAddresses.js` | 8 | 7 | 0 | stable-ui |

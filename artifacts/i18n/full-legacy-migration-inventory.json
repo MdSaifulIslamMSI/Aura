@@ -2116,9 +2116,8 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 12,
+      "messageIdCount": 11,
       "messageIds": [
-        "login.brand.homeLabel",
         "login.brand.initials",
         "login.editorial.benefit.orders",
         "login.editorial.benefit.personal",
@@ -2130,31 +2129,6 @@
         "login.editorial.label",
         "login.editorial.title",
         "login.editorial.trust"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 12,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Login/CountryCodePicker.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 11,
-      "messageIds": [
-        "login.country.changeAriaLabel",
-        "login.country.close",
-        "login.country.controlLabel",
-        "login.country.noResults",
-        "login.country.panelEyebrow",
-        "login.country.panelLabel",
-        "login.country.panelTitle",
-        "login.country.results",
-        "login.country.resultsLabel",
-        "login.country.searchLabel",
-        "login.country.searchPlaceholder"
       ],
       "risk": "high",
       "stableLiteralCount": 11,
@@ -2204,6 +2178,30 @@
         "common.jsx.text.controlled.commerce.intelligence.ac057065",
         "common.jsx.text.surface.35807d37",
         "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 10,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 10,
+      "messageIds": [
+        "login.country.close",
+        "login.country.controlLabel",
+        "login.country.noResults",
+        "login.country.panelEyebrow",
+        "login.country.panelLabel",
+        "login.country.panelTitle",
+        "login.country.results",
+        "login.country.resultsLabel",
+        "login.country.searchLabel",
+        "login.country.searchPlaceholder"
       ],
       "risk": "high",
       "stableLiteralCount": 10,
@@ -5345,6 +5343,28 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 8,
+      "messageIds": [
+        "consent.banner.allow",
+        "consent.banner.decline",
+        "consent.banner.detail",
+        "consent.banner.dismiss",
+        "consent.banner.eyebrow",
+        "consent.banner.granted.detail",
+        "consent.banner.title",
+        "consent.banner.turnOff"
+      ],
+      "risk": "low",
+      "stableLiteralCount": 10,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/components/shared/MobileUpdateBanner.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -6151,7 +6171,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-10-07T13:26:59.510Z",
+  "generatedAt": "2026-10-21T20:25:56.721Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6207,7 +6227,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 137,
+      "line": 138,
       "reason": ""
     },
     {
@@ -6220,7 +6240,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 138,
+      "line": 139,
       "reason": ""
     },
     {
@@ -6233,7 +6253,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 140,
+      "line": 141,
       "reason": ""
     },
     {
@@ -6246,7 +6266,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 290,
+      "line": 291,
       "reason": ""
     },
     {
@@ -11318,6 +11338,136 @@
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refresh Page",
       "line": 358,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Privacy",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Privacy",
+      "id": "consent.banner.eyebrow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 47,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Optional session replay is on.",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Optional session replay is on.",
+      "id": "consent.banner.granted.detail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 50,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Turn off",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Turn off",
+      "id": "consent.banner.turnOff",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 59,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Privacy",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Privacy",
+      "id": "consent.banner.eyebrow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 70,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Privacy",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Privacy",
+      "id": "consent.banner.eyebrow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 80,
+      "reason": ""
+    },
+    {
+      "column": 27,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Dismiss",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Dismiss",
+      "id": "consent.banner.dismiss",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 96,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Allow optional session replay?",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Allow optional session replay?",
+      "id": "consent.banner.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 103,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Aura can record a masked replay of this session and report usage analytics so we can fix problems faster. Text and media stay masked, and the data is processed in the United States. Nothing is recorded until you allow it.",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Aura can record a masked replay of this session and report usage analytics so we can fix problems faster. Text and media stay masked, and the data is processed in the United States. Nothing is recorded until you allow it.",
+      "id": "consent.banner.detail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 106,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Allow",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "Allow",
+      "id": "consent.banner.allow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 119,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "No thanks",
+      "file": "app/src/components/shared/ConsentBanner.jsx",
+      "icuDefaultMessage": "No thanks",
+      "id": "consent.banner.decline",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 126,
       "reason": ""
     },
     {
@@ -35683,19 +35833,6 @@
       "reason": ""
     },
     {
-      "column": 17,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Aura home",
-      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
-      "icuDefaultMessage": "Aura home",
-      "id": "login.brand.homeLabel",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Aura home",
-      "line": 9,
-      "reason": ""
-    },
-    {
       "column": 14,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "AR",
@@ -35705,7 +35842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "AR",
-      "line": 12,
+      "line": 18,
       "reason": ""
     },
     {
@@ -35718,7 +35855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your edit",
-      "line": 22,
+      "line": 28,
       "reason": ""
     },
     {
@@ -35731,7 +35868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Order archive",
-      "line": 27,
+      "line": 33,
       "reason": ""
     },
     {
@@ -35744,7 +35881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Private by design",
-      "line": 32,
+      "line": 38,
       "reason": ""
     },
     {
@@ -35757,7 +35894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura member benefits",
-      "line": 42,
+      "line": 48,
       "reason": ""
     },
     {
@@ -35770,7 +35907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Private access / 01",
-      "line": 50,
+      "line": 56,
       "reason": ""
     },
     {
@@ -35783,7 +35920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your Aura, held in one place",
-      "line": 56,
+      "line": 62,
       "reason": ""
     },
     {
@@ -35796,7 +35933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Everything you chose. Still here.",
-      "line": 58,
+      "line": 64,
       "reason": ""
     },
     {
@@ -35809,7 +35946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved pieces, orders, preferences, and the next thing worth finding—remembered privately.",
-      "line": 60,
+      "line": 66,
       "reason": ""
     },
     {
@@ -35822,7 +35959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Member benefits",
-      "line": 67,
+      "line": 73,
       "reason": ""
     },
     {
@@ -35835,20 +35972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Protected by multi-step verification",
-      "line": 78,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Change country code: {country} {dialCode}",
-      "file": "app/src/pages/Login/CountryCodePicker.jsx",
-      "icuDefaultMessage": "Change country code: {country} {dialCode}",
-      "id": "login.country.changeAriaLabel",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Change country code: {country} {dialCode}",
-      "line": 123,
+      "line": 84,
       "reason": ""
     },
     {
@@ -35874,7 +35998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose country code",
-      "line": 146,
+      "line": 148,
       "reason": ""
     },
     {
@@ -35887,7 +36011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone verification",
-      "line": 149,
+      "line": 151,
       "reason": ""
     },
     {
@@ -35900,7 +36024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose country code",
-      "line": 150,
+      "line": 152,
       "reason": ""
     },
     {
@@ -35913,7 +36037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close country code picker",
-      "line": 152,
+      "line": 154,
       "reason": ""
     },
     {
@@ -35926,7 +36050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search countries or dial codes",
-      "line": 158,
+      "line": 160,
       "reason": ""
     },
     {
@@ -35939,7 +36063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search country, code, or +91",
-      "line": 171,
+      "line": 173,
       "reason": ""
     },
     {
@@ -35952,7 +36076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "countries available",
-      "line": 177,
+      "line": 179,
       "reason": ""
     },
     {
@@ -35965,7 +36089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country code results",
-      "line": 181,
+      "line": 183,
       "reason": ""
     },
     {
@@ -35978,7 +36102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No country codes match that search.",
-      "line": 207,
+      "line": 209,
       "reason": ""
     },
     {
@@ -44523,7 +44647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add to Bag",
-      "line": 999,
+      "line": 1000,
       "reason": ""
     },
     {
@@ -44536,7 +44660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checkout Paused",
-      "line": 1011,
+      "line": 1012,
       "reason": ""
     },
     {
@@ -44549,7 +44673,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buy Now",
-      "line": 1011,
+      "line": 1012,
       "reason": ""
     },
     {
@@ -44564,7 +44688,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} Reviews",
-      "line": 1046,
+      "line": 1047,
       "reason": ""
     },
     {
@@ -44580,7 +44704,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal DNA {{score}} - {{label}}",
-      "line": 1051,
+      "line": 1052,
       "reason": ""
     },
     {
@@ -44593,7 +44717,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Price",
-      "line": 1061,
+      "line": 1062,
       "reason": ""
     },
     {
@@ -44606,7 +44730,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "% off",
-      "line": 1075,
+      "line": 1076,
       "reason": ""
     },
     {
@@ -44621,7 +44745,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In Stock ({{count}} Available)",
-      "line": 1089,
+      "line": 1090,
       "reason": ""
     },
     {
@@ -44634,7 +44758,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Out of Stock",
-      "line": 1090,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -44649,7 +44773,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Decrease quantity for {{product}}",
-      "line": 1106,
+      "line": 1107,
       "reason": ""
     },
     {
@@ -44664,7 +44788,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Increase quantity for {{product}}",
-      "line": 1116,
+      "line": 1117,
       "reason": ""
     },
     {
@@ -44677,7 +44801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add to Bag",
-      "line": 1130,
+      "line": 1132,
       "reason": ""
     },
     {
@@ -44690,7 +44814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buy Now",
-      "line": 1140,
+      "line": 1142,
       "reason": ""
     },
     {
@@ -44703,7 +44827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "AI Compare",
-      "line": 1152,
+      "line": 1154,
       "reason": ""
     },
     {
@@ -44716,7 +44840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Visual Search",
-      "line": 1159,
+      "line": 1161,
       "reason": ""
     },
     {
@@ -44729,7 +44853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Set price alert",
-      "line": 1167,
+      "line": 1169,
       "reason": ""
     },
     {
@@ -44742,7 +44866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust Graph",
-      "line": 1175,
+      "line": 1177,
       "reason": ""
     },
     {
@@ -44757,7 +44881,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust {{score}}",
-      "line": 1181,
+      "line": 1183,
       "reason": ""
     },
     {
@@ -44770,7 +44894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal verdict",
-      "line": 1187,
+      "line": 1189,
       "reason": ""
     },
     {
@@ -44783,7 +44907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery time",
-      "line": 1193,
+      "line": 1195,
       "reason": ""
     },
     {
@@ -44796,7 +44920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty",
-      "line": 1199,
+      "line": 1201,
       "reason": ""
     },
     {
@@ -44809,7 +44933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Compatibility",
-      "line": 1220,
+      "line": 1222,
       "reason": ""
     },
     {
@@ -44822,7 +44946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trade-in path",
-      "line": 1226,
+      "line": 1228,
       "reason": ""
     },
     {
@@ -44835,7 +44959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Core Specs:",
-      "line": 1253,
+      "line": 1255,
       "reason": ""
     },
     {
@@ -44848,7 +44972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Manufacturer",
-      "line": 1270,
+      "line": 1272,
       "reason": ""
     },
     {
@@ -44861,7 +44985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty",
-      "line": 1274,
+      "line": 1276,
       "reason": ""
     },
     {
@@ -44874,7 +44998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery time",
-      "line": 1278,
+      "line": 1280,
       "reason": ""
     },
     {
@@ -44887,7 +45011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal DNA is not available for this product yet.",
-      "line": 1287,
+      "line": 1289,
       "reason": ""
     },
     {
@@ -44900,7 +45024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust Verdict",
-      "line": 1291,
+      "line": 1293,
       "reason": ""
     },
     {
@@ -44913,7 +45037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1292,
+      "line": 1294,
       "reason": ""
     },
     {
@@ -44926,7 +45050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Return Risk Drivers",
-      "line": 1305,
+      "line": 1307,
       "reason": ""
     },
     {
@@ -44939,7 +45063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Building compatibility graph...",
-      "line": 1321,
+      "line": 1323,
       "reason": ""
     },
     {
@@ -44952,7 +45076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No compatibility data available for this category yet.",
-      "line": 1327,
+      "line": 1329,
       "reason": ""
     },
     {
@@ -44967,7 +45091,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Compatibility {{score}}/100",
-      "line": 1349,
+      "line": 1351,
       "reason": ""
     },
     {
@@ -44980,7 +45104,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Community Score",
-      "line": 1367,
+      "line": 1369,
       "reason": ""
     },
     {
@@ -44995,7 +45119,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} verified reviews",
-      "line": 1370,
+      "line": 1372,
       "reason": ""
     },
     {
@@ -45010,7 +45134,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} with photo/video proof",
-      "line": 1373,
+      "line": 1375,
       "reason": ""
     },
     {
@@ -45023,7 +45147,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Customer Feedback",
-      "line": 1399,
+      "line": 1401,
       "reason": ""
     },
     {
@@ -45036,7 +45160,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Newest",
-      "line": 1405,
+      "line": 1407,
       "reason": ""
     },
     {
@@ -45049,7 +45173,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Top Rated",
-      "line": 1406,
+      "line": 1408,
       "reason": ""
     },
     {
@@ -45062,7 +45186,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Oldest",
-      "line": 1407,
+      "line": 1409,
       "reason": ""
     },
     {
@@ -45075,7 +45199,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Most Helpful",
-      "line": 1408,
+      "line": 1410,
       "reason": ""
     },
     {
@@ -45088,7 +45212,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No verified reviews yet for this product.",
-      "line": 1423,
+      "line": 1425,
       "reason": ""
     },
     {
@@ -45101,7 +45225,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Buyer",
-      "line": 1431,
+      "line": 1433,
       "reason": ""
     },
     {
@@ -45114,7 +45238,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Purchase",
-      "line": 1444,
+      "line": 1446,
       "reason": ""
     },
     {
@@ -45127,7 +45251,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review media",
-      "line": 1457,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -45140,7 +45264,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Post Your Verified Review",
-      "line": 1471,
+      "line": 1473,
       "reason": ""
     },
     {
@@ -45153,7 +45277,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login is required to post a review. Only real customers with a valid purchase can submit feedback.",
-      "line": 1474,
+      "line": 1476,
       "reason": ""
     },
     {
@@ -45166,7 +45290,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rating",
-      "line": 1491,
+      "line": 1493,
       "reason": ""
     },
     {
@@ -45179,7 +45303,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "5 - Excellent",
-      "line": 1497,
+      "line": 1499,
       "reason": ""
     },
     {
@@ -45192,7 +45316,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "4 - Good",
-      "line": 1498,
+      "line": 1500,
       "reason": ""
     },
     {
@@ -45205,7 +45329,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "3 - Average",
-      "line": 1499,
+      "line": 1501,
       "reason": ""
     },
     {
@@ -45218,7 +45342,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "2 - Poor",
-      "line": 1500,
+      "line": 1502,
       "reason": ""
     },
     {
@@ -45231,7 +45355,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "1 - Bad",
-      "line": 1501,
+      "line": 1503,
       "reason": ""
     },
     {
@@ -45244,7 +45368,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Comment",
-      "line": 1505,
+      "line": 1507,
       "reason": ""
     },
     {
@@ -45257,7 +45381,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Share real usage experience, quality, delivery, and value details...",
-      "line": 1509,
+      "line": 1511,
       "reason": ""
     },
     {
@@ -45270,7 +45394,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add Proof Media (Direct Upload + URL)",
-      "line": 1519,
+      "line": 1521,
       "reason": ""
     },
     {
@@ -45283,7 +45407,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Uploading...",
-      "line": 1528,
+      "line": 1530,
       "reason": ""
     },
     {
@@ -45296,7 +45420,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Upload From Device",
-      "line": 1528,
+      "line": 1530,
       "reason": ""
     },
     {
@@ -45309,7 +45433,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Image",
-      "line": 1548,
+      "line": 1550,
       "reason": ""
     },
     {
@@ -45322,7 +45446,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video",
-      "line": 1549,
+      "line": 1551,
       "reason": ""
     },
     {
@@ -45335,7 +45459,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add Media",
-      "line": 1563,
+      "line": 1565,
       "reason": ""
     },
     {
@@ -45348,7 +45472,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Optional caption",
-      "line": 1570,
+      "line": 1572,
       "reason": ""
     },
     {
@@ -45361,7 +45485,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submitting...",
-      "line": 1594,
+      "line": 1596,
       "reason": ""
     },
     {
@@ -45374,7 +45498,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submit Verified Review",
-      "line": 1594,
+      "line": 1596,
       "reason": ""
     },
     {
@@ -45387,7 +45511,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Similar Items",
-      "line": 1608,
+      "line": 1610,
       "reason": ""
     },
     {
@@ -45400,7 +45524,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Similar Items",
-      "line": 1611,
+      "line": 1613,
       "reason": ""
     },
     {
@@ -46360,7 +46484,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account Warning",
-      "line": 17,
+      "line": 16,
       "reason": ""
     },
     {
@@ -46375,7 +46499,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your account has received a warning ({{count}} total). Please adhere to our community guidelines to avoid suspension.",
-      "line": 19,
+      "line": 18,
       "reason": ""
     },
     {
@@ -46388,7 +46512,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reason:",
-      "line": 23,
+      "line": 22,
       "reason": ""
     },
     {
@@ -46401,7 +46525,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account suspended",
-      "line": 44,
+      "line": 43,
       "reason": ""
     },
     {
@@ -46416,7 +46540,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your account has been suspended until {{date}}",
-      "line": 49,
+      "line": 48,
       "reason": ""
     },
     {
@@ -46429,7 +46553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your account is suspended until further review.",
-      "line": 52,
+      "line": 51,
       "reason": ""
     },
     {
@@ -46442,7 +46566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Some features like purchasing or selling may be restricted.",
-      "line": 54,
+      "line": 53,
       "reason": ""
     },
     {
@@ -46455,7 +46579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reason:",
-      "line": 58,
+      "line": 57,
       "reason": ""
     },
     {
@@ -46468,7 +46592,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account Deleted",
-      "line": 72,
+      "line": 71,
       "reason": ""
     },
     {
@@ -46481,7 +46605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This account is scheduled for permanent deletion.",
-      "line": 74,
+      "line": 73,
       "reason": ""
     },
     {
@@ -60746,15 +60870,15 @@
     "dynamicLookupReferences": 16,
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
-    "productionFiles": 100,
-    "productionStableReferences": 4134,
+    "productionFiles": 101,
+    "productionStableReferences": 4142,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 530,
+    "sourceFilesScanned": 538,
     "testHarnessReferences": 16,
-    "totalTrackedFiles": 153,
-    "uniqueProductionStableIds": 3731,
+    "totalTrackedFiles": 154,
+    "uniqueProductionStableIds": 3737,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -62479,6 +62603,14 @@
     "compare.verdict.priceEfficiency",
     "compare.verdict.ratingProfile",
     "compare.verdict.warrantyConfidence",
+    "consent.banner.allow",
+    "consent.banner.decline",
+    "consent.banner.detail",
+    "consent.banner.dismiss",
+    "consent.banner.eyebrow",
+    "consent.banner.granted.detail",
+    "consent.banner.title",
+    "consent.banner.turnOff",
     "deliveryWindow.1to2Days",
     "deliveryWindow.2to3Days",
     "deliveryWindow.3to5Days",
@@ -62836,13 +62968,11 @@
     "login.action.backToSignInDetails",
     "login.action.forgotPassword",
     "login.actionTemporarilyUnavailable",
-    "login.brand.homeLabel",
     "login.brand.initials",
     "login.checkpoint.body",
     "login.checkpoint.deviceTitle",
     "login.checkpoint.mfaTitle",
     "login.checkpoint.stayHere",
-    "login.country.changeAriaLabel",
     "login.country.close",
     "login.country.controlLabel",
     "login.country.noResults",

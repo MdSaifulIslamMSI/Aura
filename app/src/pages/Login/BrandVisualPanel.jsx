@@ -6,7 +6,13 @@ export const AuraBrand = ({ compact = false, t }) => (
   <Link
     to="/"
     className={compact ? 'login-brand login-brand--compact' : 'login-brand'}
-    aria-label={t('login.brand.homeLabel', {}, 'Aura home')}
+    // No aria-label on purpose. axe-core 4.14 enables `label-content-name-mismatch`
+    // by default, and that rule compares the visible text of an explicitly
+    // labelled element against its accessible name word by word. The visible
+    // text here includes the decorative monogram, which is aria-hidden and so
+    // must stay out of the accessible name - no aria-label string can satisfy
+    // the rule. Letting the name come from the content gives it "Aura", which
+    // is exactly the visible wordmark.
   >
     <span className="login-brand__mark" aria-hidden="true">
       <span>{t('login.brand.initials', {}, 'AR')}</span>

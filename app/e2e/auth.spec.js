@@ -63,7 +63,7 @@ test.describe('Login Page UI', () => {
     });
 
     test('country code dialog is searchable and keyboard complete', async ({ page }) => {
-        const trigger = page.getByRole('button', { name: /change country code/i });
+        const trigger = page.getByRole('button', { name: /country code/i });
         await expect(trigger).toBeVisible();
         await trigger.click();
 

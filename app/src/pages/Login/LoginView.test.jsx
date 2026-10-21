@@ -142,7 +142,7 @@ describe('LoginView ordinary-user sign-in', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email address')).toBeInTheDocument();
     expect(screen.getByLabelText(/phone number \+91/i)).toBeInTheDocument();
-    const countryPicker = screen.getByRole('button', { name: /change country code: india \+91/i });
+    const countryPicker = screen.getByRole('button', { name: /country code india \+91/i });
     expect(countryPicker).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
 
@@ -176,7 +176,7 @@ describe('LoginView ordinary-user sign-in', () => {
     });
     renderView(props);
 
-    fireEvent.click(screen.getByRole('button', { name: /change country code: india \+91/i }));
+    fireEvent.click(screen.getByRole('button', { name: /country code india \+91/i }));
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search countries or dial codes' }), {
       target: { value: 'united' },
     });
