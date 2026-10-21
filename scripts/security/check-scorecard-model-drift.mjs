@@ -23,13 +23,20 @@
  *
  * Usage:
  *   node scripts/security/check-scorecard-model-drift.mjs
- *   node scripts/security/check-scorecard-model-drift.mjs --offline   # use a cached copy
+ *   node scripts/security/check-scorecard-model-drift.mjs --offline-dir <dir>
+ *
+ * `--offline-dir` reads the upstream sources from a directory instead of the
+ * network. It never WRITES the fetched sources anywhere: a cache under the
+ * shared temporary directory would be a predictable path that another local
+ * process could pre-create as a symlink, and the content would come from the
+ * network. The directory must contain the three upstream files, flattened:
+ * `checks_raw_permissions.go`, `checks_evaluation_permissions.go` and
+ * `probes_entries.go`.
  *
  * Exit code 0 = the port matches upstream, 1 = it has drifted.
  */
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,7 +47,11 @@ import {
     TOP_LEVEL_WRITE_PENALTY,
 } from './scorecard-token-permissions-model.mjs';
 
-const CACHE_DIR = path.join(os.tmpdir(), 'aura-scorecard-model');
+const FLATTENED_NAMES = {
+    'checks/raw/permissions.go': 'checks_raw_permissions.go',
+    'checks/evaluation/permissions.go': 'checks_evaluation_permissions.go',
+    'probes/entries.go': 'probes_entries.go',
+};
 
 const fetchText = async (url) => {
     // An explicit controller (rather than AbortSignal.timeout) so the timer
@@ -60,19 +71,16 @@ const fetchText = async (url) => {
     }
 };
 
-const readUpstream = async (relativePath, { offline }) => {
-    const url = `https://raw.githubusercontent.com/ossf/scorecard/${MODEL_PROVENANCE.commit}/${relativePath}`;
-    const cacheFile = path.join(CACHE_DIR, relativePath.replace(/[\\/]/g, '_'));
-    if (offline) {
-        if (!fs.existsSync(cacheFile)) {
-            throw new Error(`offline mode: no cached copy of ${relativePath} at ${cacheFile}`);
+const readUpstream = async (relativePath, { offlineDir }) => {
+    if (offlineDir) {
+        const file = path.join(offlineDir, FLATTENED_NAMES[relativePath]);
+        if (!fs.existsSync(file)) {
+            throw new Error(`offline mode: ${file} is missing`);
         }
-        return fs.readFileSync(cacheFile, 'utf8');
+        return fs.readFileSync(file, 'utf8');
     }
-    const text = await fetchText(url);
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-    fs.writeFileSync(cacheFile, text);
-    return text;
+    const url = `https://raw.githubusercontent.com/ossf/scorecard/${MODEL_PROVENANCE.commit}/${relativePath}`;
+    return fetchText(url);
 };
 
 /** The `permissionStatuses = permission("statuses")` style constant block. */
@@ -130,11 +138,11 @@ const compareSets = (label, upstream, port) => {
     return `${label} differs\n    upstream: ${upstreamSorted.join(', ')}\n    port:     ${portSorted.join(', ')}`;
 };
 
-export const checkModelDrift = async ({ offline = false } = {}) => {
+export const checkModelDrift = async ({ offlineDir = null } = {}) => {
     const [rawSource, evaluationSource, entriesSource] = await Promise.all([
-        readUpstream('checks/raw/permissions.go', { offline }),
-        readUpstream('checks/evaluation/permissions.go', { offline }),
-        readUpstream('probes/entries.go', { offline }),
+        readUpstream('checks/raw/permissions.go', { offlineDir }),
+        readUpstream('checks/evaluation/permissions.go', { offlineDir }),
+        readUpstream('probes/entries.go', { offlineDir }),
     ]);
 
     const constants = parseScopeConstants(rawSource);
@@ -169,10 +177,16 @@ const invokedDirectly = process.argv[1]
     && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (invokedDirectly) {
-    const offline = process.argv.includes('--offline');
+    const offlineIndex = process.argv.indexOf('--offline-dir');
+    const offlineDir = offlineIndex >= 0 ? process.argv[offlineIndex + 1] : null;
+    if (offlineIndex >= 0 && !offlineDir) {
+        console.error('[security:scorecard-model-drift] --offline-dir needs a directory path.');
+        process.exit(1);
+    }
+
     let result;
     try {
-        result = await checkModelDrift({ offline });
+        result = await checkModelDrift({ offlineDir });
     } catch (error) {
         console.error(`[security:scorecard-model-drift] Could not compare against upstream: ${error.message}`);
         process.exit(1);
