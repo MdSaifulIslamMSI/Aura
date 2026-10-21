@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { React } from 'react';
 import { ColorModeProvider, useColorMode, COLOR_MODE_OPTIONS } from './ColorModeContext';
 import { FIGMA_DEFAULT_COLOR_MODE } from '../config/figmaTokens';
 
