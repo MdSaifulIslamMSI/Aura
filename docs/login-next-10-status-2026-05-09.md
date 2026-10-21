@@ -3,7 +3,7 @@
 | # | Area | Status |
 |---|---|---|
 | 1 | Production observability activation | EC2 Prometheus/Grafana overlay is live, localhost-bound, and Prometheus is scraping `aura-api`. |
-| 2 | Edge/perimeter security | CloudFront WAFv2 stack is deployed and attached to distribution `E34Z9POGIQYOCS`. |
+| 2 | Edge/perimeter security | CloudFront WAFv2 stack was deployed and attached to distribution `E34Z9POGIQYOCS`. **Superseded:** the `aura-login-security-*` WebACLs were deleted on 2026-08-29 as a cost cut, and distribution `E34Z9POGIQYOCS` was deleted with the retired account `942679464475` on 2026-10-21. The live distribution `EZZ7ARQ9QFQ71` has no `WebACLId` — restore procedure in `docs/runbook-waf-restore.md`. |
 | 3 | Login risk engine lite | `authRiskEngineService` added with focused tests; runtime enforcement now strips spoofed risk headers, preserves signed edge/server risk signals, and can produce signed server-side IP reputation before step-up. |
 | 4 | Microsoft/Apple providers | Microsoft Firebase provider is configured, exposed in the CloudFront frontend, and browser-smoke-tested. Apple still requires Apple Developer credentials. |
 | 5 | Enterprise SSO/OIDC/SAML | Provider policy and decision rules added; implementation deferred until tenant requirements exist. |
