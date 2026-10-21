@@ -9373,11 +9373,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Temporarily Unavailable",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.brand.homeLabel": {
-        id: "login.brand.homeLabel",
-        defaultMessage: "Aura home",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "login.brand.initials": {
         id: "login.brand.initials",
         defaultMessage: "AR",
@@ -9401,11 +9396,6 @@ export const stableUiMessages = defineMessages({
     "login.checkpoint.stayHere": {
         id: "login.checkpoint.stayHere",
         defaultMessage: "Keep this page open. Do not submit your sign-in details again.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.country.changeAriaLabel": {
-        id: "login.country.changeAriaLabel",
-        defaultMessage: "Change country code: {country} {dialCode}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.country.close": {
