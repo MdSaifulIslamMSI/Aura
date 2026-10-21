@@ -42,7 +42,6 @@ import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const WORKFLOW_DIR = path.join(repoRoot, '.github', 'workflows');
 
 const MAX_SCORE = 10;
 const MIN_SCORE = 0;
