@@ -51,8 +51,10 @@ const run = (args, { allowFailure = false } = {}) => {
   // it via env alone made the CLI fail with "required arguments were not
   // provided" on CI.)
   const childEnv = { ...process.env, SENTRY_RELEASE: release };
+  // CodeQL for JavaScript does NOT honour inline `// codeql[...]` comments; an accepted
+  // finding is recorded in config/security/codeql-accepted-findings.json instead.
   const result = isWindows
-    ? spawnSync('cmd.exe', ['/d', '/c', sentryCommand, ...args], { // codeql[js/indirect-command-line-injection]
+    ? spawnSync('cmd.exe', ['/d', '/c', sentryCommand, ...args], {
       cwd: repoRoot,
       env: childEnv,
       stdio: 'inherit',

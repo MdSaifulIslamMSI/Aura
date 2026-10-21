@@ -7,7 +7,11 @@ const { checkPwnedPassword } = require('../utils/pwnedPasswordCheck');
 const BREACHED_PASSWORD = 'password';
 // The runtime-derived hash is a k-anonymity lookup token for the mocked HIBP
 // response, never password storage.
-const FULL_HASH = crypto.createHash('sha1').update(BREACHED_PASSWORD, 'utf8').digest('hex').toUpperCase(); // nosemgrep: security.semgrep.nodejs-sha1 - test fixture derivation, not a security primitive // codeql[js/insufficient-password-hash]
+// CodeQL's `js/insufficient-password-hash` finding on this line is accepted in
+// config/security/codeql-accepted-findings.json. CodeQL for JavaScript does NOT
+// honour inline `// codeql[...]` comments, so that list - not an annotation
+// here - is the operative mechanism.
+const FULL_HASH = crypto.createHash('sha1').update(BREACHED_PASSWORD, 'utf8').digest('hex').toUpperCase(); // nosemgrep: security.semgrep.nodejs-sha1 - test fixture derivation, not a security primitive
 const BREACHED_PREFIX = FULL_HASH.slice(0, 5);
 const BREACHED_SUFFIX = FULL_HASH.slice(5);
 

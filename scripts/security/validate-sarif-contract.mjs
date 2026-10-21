@@ -31,6 +31,16 @@ expectIncludes('CodeQL advanced setup', codeqlWorkflow, [
   '- actions',
   'queries: security-and-quality',
   'category: "/language:${{ matrix.language }}"',
+  // The finding gate: the analyze step keeps the report on disk and a
+  // following step fails the build on findings that are not accepted.
+  'output: ${{ runner.temp }}/codeql-results',
+  'node scripts/security/check-codeql-sarif.mjs',
+]);
+
+expectIncludes('CodeQL finding gate acceptance list', read('config/security/codeql-accepted-findings.json'), [
+  '"acceptedFindings"',
+  '"expires"',
+  '"reason"',
 ]);
 
 expectIncludes('Gitleaks SARIF output', dockerRunner, [

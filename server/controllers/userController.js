@@ -461,7 +461,7 @@ const bootstrapUserRecord = async ({ email, authUser = {}, projection = PROFILE_
         if (getDuplicateField(error) !== 'phone') {
             throw error;
         }
-        const { phone, ...withoutPhone } = setOnInsert;
+        const { phone: _phone, ...withoutPhone } = setOnInsert;
         return User.findOneAndUpdate(
             { email: safeEmail },
             { $setOnInsert: withoutPhone },

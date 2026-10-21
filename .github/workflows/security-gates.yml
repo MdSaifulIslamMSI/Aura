@@ -84,6 +84,10 @@ jobs:
       # instead of surfacing as a code-scanning alert a week later.
       - name: Run workflow token-permission unit tests
         run: npm run test:workflow-token-permissions
+      # The CodeQL finding gate reads the report the CodeQL action produces, so
+      # its policy is unit-testable too.
+      - name: Run CodeQL SARIF gate unit tests
+        run: npm run test:codeql-sarif
 
   dependency-scan:
     name: Dependency Scan

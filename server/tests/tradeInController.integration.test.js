@@ -14,11 +14,13 @@ const mockReqRes = (overrides = {}) => {
 
 describe('tradeInController integration', () => {
   let user;
-  let product;
 
   beforeEach(async () => {
     user = await User.create({ name: 'Trader', email: `trader-${Date.now()}@example.com` });
-    product = await Product.create({
+    // The product is a fixture the trade-in request points at by id
+    // (`targetProductId: 424242`). The record itself is never read back, so
+    // the result is deliberately not bound.
+    await Product.create({
       id: 424242, title: 'Aura Phone', brand: 'Aura', category: 'Phones',
       price: 50000, image: 'p.png', isPublished: true, stock: 3,
     });

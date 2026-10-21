@@ -47,3 +47,14 @@ jobs:
         uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
         with:
           category: "/language:${{ matrix.language }}"
+          # Keep the report the action uploads to GitHub on disk as well, so
+          # the gate below can fail the build on findings that would
+          # otherwise only appear in the Security tab days later.
+          output: ${{ runner.temp }}/codeql-results
+
+      # GitHub's code-scanning alerts do not fail a pull request: the
+      # `javascript-typescript` check is a required status check, but it
+      # succeeds as long as the analysis completes. This step is what turns
+      # a new CodeQL finding into a red build.
+      - name: Fail on CodeQL findings that are not accepted
+        run: node scripts/security/check-codeql-sarif.mjs --sarif "${{ runner.temp }}/codeql-results"

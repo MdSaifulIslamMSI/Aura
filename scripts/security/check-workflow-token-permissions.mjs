@@ -43,31 +43,21 @@ import yaml from 'js-yaml';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-const MAX_SCORE = 10;
-const MIN_SCORE = 0;
+export {
+    MAX_SCORE,
+    MIN_SCORE,
+    MODEL_PROVENANCE,
+    PERMISSIONS_OF_INTEREST,
+    PROBE_ORDER,
+    TOP_LEVEL_WRITE_PENALTY,
+} from './scorecard-token-permissions-model.mjs';
 
-// The scopes Scorecard tracks as "of interest". A write to any of these at the
-// TOP level reduces the score; at the JOB level it is allowed but reported.
-const PERMISSIONS_OF_INTEREST = new Set([
-    'statuses',
-    'checks',
-    'security-events',
-    'deployments',
-    'contents',
-    'packages',
-    'actions',
-]);
-
-// Scorecard's `reduceBy`: how much a top-level write of a given scope costs.
-const TOP_LEVEL_WRITE_PENALTY = {
-    checks: 0.5,
-    statuses: 0.5,
-    contents: MAX_SCORE,
-    packages: MAX_SCORE,
-    actions: MAX_SCORE,
-    deployments: 1.0,
-    'security-events': 1.0,
-};
+import {
+    MAX_SCORE,
+    MIN_SCORE,
+    PERMISSIONS_OF_INTEREST as TRACKED_SCOPES,
+    TOP_LEVEL_WRITE_PENALTY as WRITE_PENALTY,
+} from './scorecard-token-permissions-model.mjs';
 
 // Actions whose SARIF upload makes `security-events: write` expected, so
 // Scorecard ignores that scope for the whole workflow.
@@ -211,7 +201,7 @@ const collectPermissionFindings = (permissions, location, path, ignored) => {
     for (const [scope, value] of Object.entries(permissions)) {
         if (typeof value !== 'string') continue;
         if (value.toLowerCase() === 'write') {
-            const tracked = PERMISSIONS_OF_INTEREST.has(scope.toLowerCase())
+            const tracked = TRACKED_SCOPES.has(scope.toLowerCase())
                 && !ignored.has(scope.toLowerCase());
             findings.push({
                 path,
@@ -319,7 +309,7 @@ const evaluate = (findings) => {
             score -= 0.5;
             continue;
         }
-        score -= TOP_LEVEL_WRITE_PENALTY[finding.name.toLowerCase()] ?? 0;
+        score -= WRITE_PENALTY[finding.name.toLowerCase()] ?? 0;
         warnings.push({ ...finding, text: `topLevel '${finding.name}' permission set to '${finding.value}'` });
     }
 
