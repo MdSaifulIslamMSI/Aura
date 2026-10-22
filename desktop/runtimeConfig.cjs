@@ -42,7 +42,10 @@ const DEFAULT_RUNTIME_PORT = 47831;
 const STABLE_RUNTIME_FALLBACK_PORTS = 10;
 const MAX_STABLE_RUNTIME_PORT = DEFAULT_RUNTIME_PORT + STABLE_RUNTIME_FALLBACK_PORTS;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
-const RUNTIME_PUBLIC_HOST = 'localhost';
+// Must match RUNTIME_LISTEN_HOST exactly. Loading `localhost` lets a local
+// process bind [::1] on the same port and serve a page that Electron treats as
+// the trusted runtime origin (the preload IPC bridge is attached to it).
+const RUNTIME_PUBLIC_HOST = RUNTIME_LISTEN_HOST;
 const RUNTIME_CALLBACK_HOST = RUNTIME_LISTEN_HOST;
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');

@@ -31,7 +31,7 @@ const {
     SELLER_PRIVATE_THREAD,
 } = require('../services/listingService');
 const { getPaymentProvider } = require('../services/payments/providerFactory');
-const { captureIntentNow, createEscrowRefundForIntent } = require('../services/payments/paymentService');
+const { captureIntentNow, createEscrowRefundForIntent, releaseEscrowAuthorizationForIntent } = require('../services/payments/paymentService');
 const {
     DIGITAL_METHODS,
     INTENT_EXPIRY_MINUTES,
@@ -97,6 +97,30 @@ const isListingDataImage = (value = '') => /^data:image\/[a-zA-Z0-9.+-]+;base64,
 
 const diff = (a, b) => Math.abs(Number(a) - Number(b));
 const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
+
+// Expire only the status we actually observed. A provider webhook or a
+// concurrent confirm can move the intent to captured/refunded between the read
+// and the write; an unconditional save() would clobber that newer state.
+const expireEscrowIntentIfUnchanged = async (intent) => {
+    const observedStatus = String(intent?.status || '').trim();
+    if (!observedStatus) {
+        return { expired: false, intent: null };
+    }
+
+    const expiredIntent = await PaymentIntent.findOneAndUpdate(
+        { _id: intent._id, status: observedStatus },
+        { $set: { status: PAYMENT_STATUSES.EXPIRED } },
+        { returnDocument: 'after' }
+    );
+    if (expiredIntent) {
+        return { expired: true, intent: expiredIntent };
+    }
+
+    return {
+        expired: false,
+        intent: await PaymentIntent.findById(intent._id),
+    };
+};
 
 // Escrow eligibility checks moved to listingService
 
@@ -411,10 +435,21 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
             PAYMENT_STATUSES.CAPTURED,
         ],
     });
-    if (isIntentExpired(intent)) {
-        intent.status = PAYMENT_STATUSES.EXPIRED;
-        await intent.save();
-        return next(new AppError('Escrow payment intent expired. Start payment again.', 409));
+    if (isIntentExpired(intent) && intent.status !== PAYMENT_STATUSES.CAPTURED) {
+        const expiry = await expireEscrowIntentIfUnchanged(intent);
+        if (expiry.expired) {
+            return next(new AppError('Escrow payment intent expired. Start payment again.', 409));
+        }
+        if (expiry.intent?.status === PAYMENT_STATUSES.CAPTURED) {
+            return res.json({
+                intentId: expiry.intent.intentId,
+                status: expiry.intent.status,
+                authorizedAt: expiry.intent.authorizedAt,
+                providerOrderId: expiry.intent.providerOrderId,
+                riskDecision: expiry.intent.riskSnapshot?.decision || 'allow',
+            });
+        }
+        return next(new AppError('Escrow payment intent changed concurrently. Retry confirmation.', 409));
     }
     if (intent.challenge?.required && intent.challenge?.status !== 'verified') {
         return next(new AppError('Payment challenge must be completed before confirmation', 403));
@@ -474,15 +509,45 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('Provider payment method does not match the selected escrow method', 409));
     }
 
-    intent.providerPaymentId = providerPaymentId;
-    intent.providerMethodId = methodInfo.providerMethodId || '';
-    intent.status = nextStatus;
-    intent.authorizedAt = new Date();
-    intent.attemptCount = Number(intent.attemptCount || 0) + 1;
+    const authorizedAt = new Date();
+    const mutation = {
+        $set: {
+            providerPaymentId,
+            providerMethodId: methodInfo.providerMethodId || '',
+            status: nextStatus,
+            authorizedAt,
+        },
+        $inc: { attemptCount: 1 },
+    };
     if (nextStatus === PAYMENT_STATUSES.CAPTURED) {
-        intent.capturedAt = new Date();
+        mutation.$set.capturedAt = authorizedAt;
     }
-    await intent.save();
+
+    // Guard the write on the status this request observed. A concurrent
+    // confirmation or webhook may already have moved the intent; blindly
+    // saving this stale document would overwrite that newer state.
+    const confirmedIntent = await PaymentIntent.findOneAndUpdate(
+        { _id: intent._id, status: intent.status },
+        mutation,
+        { returnDocument: 'after' }
+    );
+    if (!confirmedIntent) {
+        const current = await PaymentIntent.findById(intent._id);
+        if (
+            current
+            && [PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED].includes(current.status)
+            && String(current.providerPaymentId || '') === providerPaymentId
+        ) {
+            return res.json({
+                intentId: current.intentId,
+                status: current.status,
+                authorizedAt: current.authorizedAt,
+                providerOrderId: current.providerOrderId,
+                riskDecision: current.riskSnapshot?.decision || 'allow',
+            });
+        }
+        return next(new AppError('Escrow payment intent changed concurrently. Retry confirmation.', 409));
+    }
 
     await appendEscrowPaymentEvent({
         intentId: intent.intentId,
@@ -497,11 +562,11 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
     });
 
     return res.json({
-        intentId: intent.intentId,
-        status: intent.status,
-        authorizedAt: intent.authorizedAt,
-        providerOrderId: intent.providerOrderId,
-        riskDecision: intent.riskSnapshot?.decision || 'allow',
+        intentId: confirmedIntent.intentId,
+        status: confirmedIntent.status,
+        authorizedAt: confirmedIntent.authorizedAt,
+        providerOrderId: confirmedIntent.providerOrderId,
+        riskDecision: confirmedIntent.riskSnapshot?.decision || 'allow',
     });
 });
 
@@ -1571,7 +1636,7 @@ const startEscrow = asyncHandler(async (req, res, next) => {
         return next(new AppError('paymentIntentId is required to start escrow', 400));
     }
 
-    const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: req.user._id });
+    let intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: req.user._id });
     if (!intent) {
         return next(new AppError('Escrow payment intent not found for this user', 404));
     }
@@ -1588,10 +1653,15 @@ const startEscrow = asyncHandler(async (req, res, next) => {
         intent,
         allowedStatuses: [PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED],
     });
-    if (isIntentExpired(intent)) {
-        intent.status = PAYMENT_STATUSES.EXPIRED;
-        await intent.save();
-        return next(new AppError('Escrow payment intent expired. Restart payment flow.', 409));
+    if (isIntentExpired(intent) && intent.status !== PAYMENT_STATUSES.CAPTURED) {
+        const expiry = await expireEscrowIntentIfUnchanged(intent);
+        if (expiry.expired) {
+            return next(new AppError('Escrow payment intent expired. Restart payment flow.', 409));
+        }
+        if (expiry.intent?.status !== PAYMENT_STATUSES.CAPTURED) {
+            return next(new AppError('Escrow payment intent changed concurrently. Restart payment flow.', 409));
+        }
+        intent = expiry.intent;
     }
     if (![PAYMENT_STATUSES.AUTHORIZED, PAYMENT_STATUSES.CAPTURED].includes(intent.status)) {
         return next(new AppError('Payment intent is not authorized for escrow hold', 409));
@@ -1602,31 +1672,69 @@ const startEscrow = asyncHandler(async (req, res, next) => {
         return next(new AppError('Payment amount mismatch with listing price', 409));
     }
 
-    listing.escrow = {
-        enabled: true,
-        state: 'held',
-        buyer: req.user._id,
-        amount: listingPrice,
-        holdReference: `ESC-${intent.intentId}`,
-        paymentIntentId: intent.intentId,
-        paymentProvider: intent.provider || '',
-        paymentState: intent.status,
-        paymentAuthorizedAt: intent.authorizedAt || null,
-        paymentCapturedAt: intent.capturedAt || null,
-        refundReference: '',
-        refundedAt: null,
-        startedAt: new Date(),
-        confirmedAt: null,
-        releasedAt: null,
-    };
+    // Claim the hold atomically. Two buyers can pass the in-memory eligibility
+    // check at the same time; only the first conditional update wins, so the
+    // loser cannot overwrite a hold that already owns the buyer's money. The
+    // paymentIntentId exclusion also stops an intent that already backed a
+    // released/cancelled hold from being replayed onto the same listing.
+    const claimedListing = await Listing.findOneAndUpdate(
+        {
+            _id: listing._id,
+            status: 'active',
+            escrowOptIn: true,
+            'escrow.state': { $ne: 'held' },
+            'escrow.paymentIntentId': { $ne: intent.intentId },
+        },
+        {
+            $set: {
+                escrow: {
+                    enabled: true,
+                    state: 'held',
+                    buyer: req.user._id,
+                    amount: listingPrice,
+                    holdReference: `ESC-${intent.intentId}`,
+                    paymentIntentId: intent.intentId,
+                    paymentProvider: intent.provider || '',
+                    paymentState: intent.status,
+                    paymentAuthorizedAt: intent.authorizedAt || null,
+                    paymentCapturedAt: intent.capturedAt || null,
+                    refundReference: '',
+                    refundedAt: null,
+                    startedAt: new Date(),
+                    confirmedAt: null,
+                    releasedAt: null,
+                },
+            },
+        },
+        { returnDocument: 'after', runValidators: true }
+    ).populate('seller', SELLER_PRIVATE_THREAD);
 
-    await listing.save();
+    if (!claimedListing) {
+        const fresh = await Listing.findById(listing._id).populate('seller', SELLER_PRIVATE_THREAD);
+        if (!fresh) {
+            return next(new AppError('Listing not found', 404));
+        }
+        if (fresh.escrow?.state === 'held') {
+            return next(new AppError('Escrow is already active for this listing', 409));
+        }
+        if (String(fresh.escrow?.paymentIntentId || '') === intent.intentId) {
+            return next(new AppError('This payment intent has already been used for this listing', 409));
+        }
+        if (fresh.status !== 'active') {
+            return next(new AppError('Escrow can only be started for active listings', 409));
+        }
+        if (!fresh.escrowOptIn) {
+            return next(new AppError('Seller has not enabled escrow mode for this listing', 409));
+        }
+        return next(new AppError('Escrow hold could not be created because the listing changed. Retry.', 409));
+    }
+
     await appendEscrowPaymentEvent({
         intentId: intent.intentId,
         source: 'api',
         type: 'marketplace.escrow.hold_started',
         payload: {
-            listingId: String(listing._id),
+            listingId: String(claimedListing._id),
             buyerId: String(req.user._id),
             amount: listingPrice,
         },
@@ -1635,7 +1743,7 @@ const startEscrow = asyncHandler(async (req, res, next) => {
     return res.json({
         success: true,
         message: 'Escrow hold created. Payment is now locked until buyer confirms delivery.',
-        listing,
+        listing: claimedListing,
     });
 });
 
@@ -1655,15 +1763,20 @@ const confirmEscrowDelivery = asyncHandler(async (req, res, next) => {
         return next(new AppError('Escrow hold is missing payment intent reference', 409));
     }
 
-    const intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow.buyer });
+    let intent = await PaymentIntent.findOne({ intentId: paymentIntentId, user: listing.escrow.buyer });
     if (!intent) {
         return next(new AppError('Escrow payment intent no longer exists', 409));
     }
 
     if (isIntentExpired(intent) && intent.status !== PAYMENT_STATUSES.CAPTURED) {
-        intent.status = PAYMENT_STATUSES.EXPIRED;
-        await intent.save();
-        return next(new AppError('Escrow payment authorization expired. Please restart transaction.', 409));
+        const expiry = await expireEscrowIntentIfUnchanged(intent);
+        if (expiry.expired) {
+            return next(new AppError('Escrow payment authorization expired. Please restart transaction.', 409));
+        }
+        if (expiry.intent?.status !== PAYMENT_STATUSES.CAPTURED) {
+            return next(new AppError('Escrow payment intent changed concurrently. Retry confirmation.', 409));
+        }
+        intent = expiry.intent;
     }
 
     let finalIntent = intent;
@@ -1778,8 +1891,11 @@ const cancelEscrow = asyncHandler(async (req, res, next) => {
             || intent.status === PAYMENT_STATUSES.CREATED
             || intent.status === PAYMENT_STATUSES.CHALLENGE_PENDING
         ) {
-            intent.status = PAYMENT_STATUSES.EXPIRED;
-            await intent.save();
+            const release = await releaseEscrowAuthorizationForIntent({
+                intentId: paymentIntentId,
+                actorUserId: String(req.user._id),
+                reason: 'marketplace_escrow_cancelled',
+            });
             await appendEscrowPaymentEvent({
                 intentId: paymentIntentId,
                 source: 'api',
@@ -1787,6 +1903,7 @@ const cancelEscrow = asyncHandler(async (req, res, next) => {
                 payload: {
                     listingId: String(listing._id),
                     cancelledBy: String(req.user._id),
+                    providerRelease: release.providerRelease,
                 },
             });
             listing.escrow.paymentState = PAYMENT_STATUSES.EXPIRED;

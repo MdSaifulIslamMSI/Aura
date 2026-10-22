@@ -16,6 +16,7 @@ describe('StripeProvider', () => {
                 create: jest.fn(),
                 retrieve: jest.fn(),
                 capture: jest.fn(),
+                cancel: jest.fn(),
                 ...(stripeClient.paymentIntents || {}),
             },
             setupIntents: {
@@ -321,5 +322,26 @@ describe('StripeProvider', () => {
             amount: 500,
             metadata: { reason: 'customer_request' },
         }, { idempotencyKey: 'refund:pi_test_1:500:USD' });
+    });
+
+    test('cancels an uncaptured PaymentIntent authorization idempotently', async () => {
+        const cancel = jest.fn().mockResolvedValue({
+            id: 'pi_test_1',
+            status: 'canceled',
+            amount_capturable: 0,
+        });
+        const provider = buildProvider({ paymentIntents: { cancel } });
+
+        const result = await provider.cancelAuthorization({
+            paymentId: 'pi_test_1',
+            reason: 'requested_by_customer',
+        });
+
+        expect(result).toMatchObject({ id: 'pi_test_1', status: 'canceled' });
+        expect(cancel).toHaveBeenCalledWith(
+            'pi_test_1',
+            { cancellation_reason: 'requested_by_customer' },
+            { idempotencyKey: 'cancel:pi_test_1' }
+        );
     });
 });

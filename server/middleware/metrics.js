@@ -264,11 +264,27 @@ const safeEqual = (left, right) => {
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 };
 
+// Deliberately ignores req.ip: trust-proxy makes that header-derived, and a
+// forwarded-for value must not be able to turn a remote scrape into a local one.
+const isLoopbackRequest = (req = {}) => {
+    const raw = String(
+        req.socket?.remoteAddress
+        || req.connection?.remoteAddress
+        || ''
+    ).trim();
+    if (!raw) return false;
+    const normalized = raw.startsWith('::ffff:') ? raw.slice(7) : raw;
+    return normalized === '127.0.0.1' || normalized === '::1';
+};
+
 const metricsAuth = (req, res, next) => {
     const isProduction = (process.env.NODE_ENV || 'production') === 'production';
     const metricsSecret = String(process.env.METRICS_SECRET || process.env.CRON_SECRET || '').trim();
 
-    if (!isProduction) {
+    // A local development scrape needs no secret. Anything reachable from
+    // another host is authenticated even outside production, so running the
+    // dev server on a LAN interface does not publish process internals.
+    if (!isProduction && isLoopbackRequest(req)) {
         return next();
     }
 

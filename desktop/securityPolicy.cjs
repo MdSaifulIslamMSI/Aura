@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+// The runtime origin is exact-match. Accepting any loopback alias (for example
+// `localhost` while the server listens only on 127.0.0.1) lets a local process
+// claim the other address family and receive the preload IPC bridge.
+const isInternalUrl = (candidate, runtimeUrl) => {
+    try {
+        return new URL(candidate).origin === new URL(runtimeUrl).origin;
+    } catch {
+        return false;
+    }
+};
 
 // Committed allowlist of HTTPS hosts permitted to open an Electron auth window.
 // Single-sourced into config/desktop-auth-window-hosts.json.
@@ -67,24 +76,6 @@ const DESKTOP_RUNTIME_PERMISSIONS = new Set([
     'media',
     'notifications',
 ]);
-
-const isInternalUrl = (candidate, runtimeUrl) => {
-    try {
-        const target = new URL(candidate);
-        const runtimeTarget = new URL(runtimeUrl);
-
-        if (target.origin === runtimeTarget.origin) {
-            return true;
-        }
-
-        return target.protocol === runtimeTarget.protocol
-            && target.port === runtimeTarget.port
-            && LOOPBACK_HOSTS.has(target.hostname)
-            && LOOPBACK_HOSTS.has(runtimeTarget.hostname);
-    } catch {
-        return false;
-    }
-};
 
 const isAuthWindowUrl = (candidate) => {
     try {

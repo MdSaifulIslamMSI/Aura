@@ -49,6 +49,45 @@ describe('Observability ingestion routes', () => {
         expect(loggedDiagnostic).not.toContain('session-test-1');
         expect(loggedDiagnostic).not.toContain('127.0.0.1:5173');
         expect(loggedDiagnostic).not.toContain('page=1');
+        expect(loggedDiagnostic).not.toContain('ECONNREFUSED');
+    });
+
+    test('POST /api/observability/client-diagnostics rejects oversized batches before ingestion', async () => {
+        const response = await request(app)
+            .post('/api/observability/client-diagnostics')
+            .send({
+                events: [{
+                    type: 'api.network_error',
+                    detail: 'x'.repeat(70 * 1024),
+                }],
+            });
+
+        expect(response.statusCode).toBe(413);
+        expect(response.body).toMatchObject({ status: 'error' });
+    });
+
+    test('diagnostic logs omit free-form detail and context', async () => {
+        const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+        try {
+            const response = await request(app)
+                .post('/api/observability/client-diagnostics')
+                .send({
+                    events: [{
+                        type: 'client.test_event',
+                        severity: 'warn',
+                        detail: 'detail-must-not-be-logged',
+                        context: { marker: 'context-must-not-be-logged' },
+                    }],
+                });
+
+            expect(response.statusCode).toBe(202);
+            const logged = consoleWarnSpy.mock.calls.flat().join('\n');
+            expect(logged).toContain('client.diagnostic');
+            expect(logged).not.toContain('detail-must-not-be-logged');
+            expect(logged).not.toContain('context-must-not-be-logged');
+        } finally {
+            consoleInfoSpy.mockRestore();
+        }
     });
 
     test('POST /api/observability/client-diagnostics accepts diagnostics with stale auth cookies', async () => {

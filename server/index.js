@@ -231,6 +231,10 @@ const {
 initOtel();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '256kb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
+// Diagnostics ingestion is unauthenticated and append-only. Keep its body far
+// below the generic JSON limit: even a fully populated 20-event batch is small,
+// so a larger request is either a bug or log-amplification traffic.
+const DIAGNOSTICS_BODY_LIMIT = process.env.DIAGNOSTICS_BODY_LIMIT || '64kb';
 // Large-payload routes (base64 data-URI uploads in JSON bodies) keep their
 // scoped parsers; everything else no longer accepts 12 MB JSON bodies.
 const LARGE_JSON_BODY_LIMIT = process.env.LARGE_JSON_BODY_LIMIT || '10mb';
@@ -578,6 +582,11 @@ app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
     extended: false,
     limit: LARGE_JSON_BODY_LIMIT,
     parameterLimit: 100,
+}));
+// Must run before the generic JSON parser below: body-parser marks the request
+// as parsed, so the later 256kb parser will not re-parse it at the looser limit.
+app.use('/api/observability/client-diagnostics', express.json({
+    limit: DIAGNOSTICS_BODY_LIMIT,
 }));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,

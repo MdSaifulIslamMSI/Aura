@@ -1,5 +1,6 @@
 const firebaseAdmin = require('../config/firebase');
 const asyncHandler = require('express-async-handler');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -1800,13 +1801,50 @@ const resolveFreshAdminUser = async (req) => {
     return freshUser;
 };
 
+// Re-reads the privilege and account-state fields that decide admin access.
+// The Redis auth cache is deliberately not authoritative here: a demotion or
+// suspension must take effect on the next admin request, not when the cache
+// entry expires. The cached user is kept for auth-context fields (trusted
+// devices, token claims) and only the authorization fields are refreshed.
+//
+// Synthetic non-ObjectId identities are skipped so middleware unit tests can
+// exercise policy with fabricated users; every real request carries an
+// ObjectId. A real id with no row means the account was deleted, which is a
+// denial rather than a fallback to the stale cached copy.
+const refreshAdminPrivilegeState = async (req, user) => {
+    const userId = user?._id;
+    if (!userId || !mongoose.isValidObjectId(userId)) {
+        return user;
+    }
+
+    const fresh = await User.findById(userId)
+        .select('isAdmin adminRoles accountState softDeleted moderation.suspendedUntil moderation.suspendedAt')
+        .lean();
+    if (!fresh) return null;
+
+    req.user = { ...user, ...fresh };
+    return req.user;
+};
+
+const isAdminAccountBlocked = (user) => (
+    !user
+    || user.softDeleted === true
+    || user.accountState === 'deleted'
+    || user.accountState === 'suspended'
+);
+
 const admin = asyncHandler(async (req, res, next) => {
-    let effectiveUser = req.user;
+    let effectiveUser = await refreshAdminPrivilegeState(req, req.user);
 
     // Admin privilege can change while a session is still active. Re-check Mongo
     // before denying so a stale in-memory auth cache does not block promoted admins.
     if (!hasRole(effectiveUser, 'admin')) {
         effectiveUser = await resolveFreshAdminUser(req);
+    }
+
+    if (isAdminAccountBlocked(effectiveUser)) {
+        recordAdminBlock(req, 'account_inactive');
+        throw new AppError('Admin account is not active', 403);
     }
 
     if (!hasRole(effectiveUser, 'admin')) {

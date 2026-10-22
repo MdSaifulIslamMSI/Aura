@@ -95,6 +95,14 @@ const renderMarkdown = (text = '', isWhiteMode = false) => {
                         }
                         return <a {...props} href={target} target="_blank" rel="noopener noreferrer" />;
                     },
+                    // Assistant output is untrusted. Remote images turn into
+                    // tracking beacons (IP, user agent, read time) and can probe
+                    // intranet hosts; render a text marker instead of fetching.
+                    img: ({ node: _node, alt }) => (
+                        <span className="text-xs opacity-70">
+                            {alt ? `[Image blocked: ${alt}]` : '[Image blocked]'}
+                        </span>
+                    ),
                 }}
             >
                 {String(text || '')}

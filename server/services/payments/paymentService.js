@@ -78,6 +78,8 @@ const {
 const logger = require('../../utils/logger');
 const { withCronMonitor } = require('../../utils/sentry');
 
+const ESCROW_PAYMENT_PURPOSE = 'marketplace_escrow';
+
 const appendPaymentEvent = async ({
     eventId = makeEventId('evt'),
     intentId,
@@ -2208,6 +2210,15 @@ const createEscrowRefundForIntent = async ({
                 intentId,
             };
         }
+        if (lockedIntent.status !== PAYMENT_STATUSES.CAPTURED) {
+            // A stale caller may have observed CAPTURED, but a concurrent
+            // expiry/void/webhook can move the intent before we reach the
+            // irreversible provider refund. Only captured money is refundable.
+            throw new AppError(
+                `Escrow refund requires a captured payment (current: ${lockedIntent.status})`,
+                409
+            );
+        }
 
         const provider = await getPaymentProvider({
             gatewayId: lockedIntent.provider,
@@ -2251,21 +2262,45 @@ const createEscrowRefundForIntent = async ({
             });
         }
 
-        lockedIntent.status = PAYMENT_STATUSES.REFUNDED;
-        lockedIntent.metadata = {
+        const refundedMetadata = {
             ...(lockedIntent.metadata || {}),
             escrowRefundId: String(providerRefund?.id || ''),
             escrowRefundRequestId: requestId ? String(requestId) : '',
             escrowRefundedAt: new Date().toISOString(),
         };
-        lockedIntent.markModified('metadata');
-        await lockedIntent.save();
+        const refundedIntent = await PaymentIntent.findOneAndUpdate(
+            { _id: lockedIntent._id, status: PAYMENT_STATUSES.CAPTURED },
+            {
+                $set: {
+                    status: PAYMENT_STATUSES.REFUNDED,
+                    metadata: refundedMetadata,
+                },
+            },
+            { returnDocument: 'after' }
+        );
+
+        if (!refundedIntent) {
+            const current = await PaymentIntent.findById(lockedIntent._id);
+            if (current?.status === PAYMENT_STATUSES.REFUNDED) {
+                // A webhook or parallel reconciliation recorded the refund
+                // while the provider call was in flight; adopt its ledger
+                // instead of overwriting it with our stale snapshot.
+                return {
+                    refundId: String(current.metadata?.escrowRefundId || providerRefund?.id || ''),
+                    status: 'refunded',
+                    amount: Number(amount || current.amount || 0),
+                    currency: current.currency,
+                    intentId,
+                };
+            }
+            throw new AppError('Escrow refund state changed concurrently; reconcile before retrying', 409);
+        }
 
         return {
             refundId: String(providerRefund?.id || ''),
             status: 'refunded',
-            amount: Number(amount || lockedIntent.amount || 0),
-            currency: lockedIntent.currency,
+            amount: Number(amount || refundedIntent.amount || 0),
+            currency: refundedIntent.currency,
             intentId,
         };
     } finally {
@@ -2276,6 +2311,93 @@ const createEscrowRefundForIntent = async ({
             });
         });
     }
+};
+
+const releaseEscrowAuthorizationForIntent = async ({
+    intentId,
+    actorUserId = '',
+    reason = 'marketplace_escrow_cancelled',
+}) => {
+    const intent = await PaymentIntent.findOne({ intentId });
+    if (!intent) throw new AppError('Payment intent not found', 404);
+    if (String(intent.metadata?.purpose || '') !== ESCROW_PAYMENT_PURPOSE) {
+        throw new AppError('Payment intent is not valid for marketplace escrow', 409);
+    }
+    if ([PAYMENT_STATUSES.EXPIRED, PAYMENT_STATUSES.FAILED, PAYMENT_STATUSES.REFUNDED].includes(intent.status)) {
+        return { status: intent.status, providerRelease: 'not_required' };
+    }
+    if (intent.status === PAYMENT_STATUSES.CAPTURED) {
+        // Captured money can only be returned by a refund, never by a void.
+        throw new AppError('Captured escrow must be refunded, not released', 409);
+    }
+    if (![
+        PAYMENT_STATUSES.AUTHORIZED,
+        PAYMENT_STATUSES.CREATED,
+        PAYMENT_STATUSES.CHALLENGE_PENDING,
+    ].includes(intent.status)) {
+        throw new AppError(`Escrow payment cannot be released from state: ${intent.status}`, 409);
+    }
+
+    let providerRelease = 'not_required';
+    let providerReference = '';
+    if (intent.status === PAYMENT_STATUSES.AUTHORIZED && intent.providerPaymentId) {
+        const provider = await getPaymentProvider({
+            gatewayId: intent.provider,
+            amount: intent.amount,
+            currency: intent.currency,
+            paymentMethod: intent.method,
+            userId: intent.user,
+        });
+
+        if (typeof provider.cancelAuthorization === 'function') {
+            const canceled = await provider.cancelAuthorization({
+                paymentId: intent.providerPaymentId,
+                reason: 'requested_by_customer',
+                idempotencyKey: `escrow-void-${intent.intentId}`,
+            });
+            providerRelease = 'canceled';
+            providerReference = String(canceled?.id || '');
+        } else {
+            // Razorpay has no void endpoint; uncaptured authorizations are
+            // auto-refunded by the provider after its capture timeout. Record
+            // that explicitly so the hold is not mistaken for a local-only
+            // release, and so support can explain the refund delay.
+            providerRelease = 'provider_auto_refund';
+            logger.warn('payment.escrow_authorization_void_unsupported', {
+                intentId: intent.intentId,
+                provider: intent.provider,
+                providerPaymentId: intent.providerPaymentId,
+                reason,
+            });
+        }
+    }
+
+    const releasedAt = new Date();
+    const released = await PaymentIntent.findOneAndUpdate(
+        { _id: intent._id, status: intent.status },
+        {
+            $set: {
+                status: PAYMENT_STATUSES.EXPIRED,
+                'metadata.escrowAuthorizationRelease': {
+                    mode: providerRelease,
+                    providerReference,
+                    actorUserId: String(actorUserId || ''),
+                    releasedAt,
+                },
+            },
+        },
+        { returnDocument: 'after' }
+    );
+
+    if (!released) {
+        const fresh = await PaymentIntent.findById(intent._id).select('status').lean();
+        if (fresh && [PAYMENT_STATUSES.EXPIRED, PAYMENT_STATUSES.FAILED, PAYMENT_STATUSES.REFUNDED].includes(fresh.status)) {
+            return { status: fresh.status, providerRelease: 'not_required' };
+        }
+        throw new AppError('Escrow authorization changed while it was being released', 409);
+    }
+
+    return { status: PAYMENT_STATUSES.EXPIRED, providerRelease };
 };
 
 const extractWebhookIdentifiers = (event = {}) => {
@@ -2356,6 +2478,25 @@ const assertWebhookRefundMatchesKnownRefund = async ({
     if (!refundId) {
         throw new AppError('Webhook refund payload is missing refund id', 422);
     }
+
+    // Escrow intents are deliberately not order-linked (they fund a listing
+    // hold, not a cart order). The signature and the payment-id lookup already
+    // bind the event to this intent, so the order-refund allowlist below does
+    // not apply. A signed refund we did not initiate is still recorded; the
+    // provider is the source of truth and rejecting it would only make the
+    // webhook retry forever.
+    if (String(intent?.metadata?.purpose || '') === ESCROW_PAYMENT_PURPOSE) {
+        const recordedRefundId = String(intent?.metadata?.escrowRefundId || '').trim();
+        if (recordedRefundId && recordedRefundId !== refundId) {
+            logger.warn('payment.webhook_escrow_refund_id_mismatch', {
+                intentId: intent.intentId,
+                recordedRefundId,
+                webhookRefundId: refundId,
+            });
+        }
+        return;
+    }
+
     if (!intent?.order) {
         throw new AppError('Webhook refund is not linked to an order', 409);
     }
@@ -2418,12 +2559,15 @@ const canTransitionPaymentStatus = ({ currentStatus, targetStatus }) => {
     return allowedTargets.has(targetStatus);
 };
 
-const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus }) => {
+const mapWebhookEventToPaymentStatus = ({ eventType, currentStatus, purpose }) => {
     if (eventType === 'payment.authorized') return PAYMENT_STATUSES.AUTHORIZED;
     if (eventType === 'payment.captured') return PAYMENT_STATUSES.CAPTURED;
     if (eventType === 'payment.failed') return PAYMENT_STATUSES.FAILED;
     if (eventType === 'refund.processed') {
-        if (currentStatus === PAYMENT_STATUSES.REFUNDED) {
+        // Escrow cancel refunds the whole hold. Leaving the intent at
+        // PARTIALLY_REFUNDED would make createEscrowRefundForIntent treat a
+        // later retry as unrefunded and call the provider a second time.
+        if (purpose === ESCROW_PAYMENT_PURPOSE || currentStatus === PAYMENT_STATUSES.REFUNDED) {
             return PAYMENT_STATUSES.REFUNDED;
         }
         return PAYMENT_STATUSES.PARTIALLY_REFUNDED;
@@ -2515,6 +2659,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     const mapped = mapWebhookEventToPaymentStatus({
         eventType: parsedEvent.eventType,
         currentStatus,
+        purpose: String(intent.metadata?.purpose || ''),
     });
     const validTransition = canTransitionPaymentStatus({
         currentStatus,
@@ -2644,6 +2789,18 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     }
     if (parsedEvent.eventType === 'payment.captured') {
         webhookMutation.$set.capturedAt = new Date();
+    }
+    if (
+        parsedEvent.eventType === 'refund.processed'
+        && String(intent.metadata?.purpose || '') === ESCROW_PAYMENT_PURPOSE
+        && parsedEvent.refundId
+    ) {
+        // Record the provider refund before the local createEscrowRefund save
+        // can run. If the webhook wins the race, the next cancel retry sees
+        // REFUNDED and adopts this id instead of issuing a second refund.
+        webhookMutation.$set['metadata.escrowRefundId'] = String(parsedEvent.refundId);
+        webhookMutation.$set['metadata.escrowRefundedAt'] = new Date().toISOString();
+        webhookMutation.$set['metadata.escrowRefundSource'] = 'webhook';
     }
 
     let mutatedIntent = null;
@@ -3429,6 +3586,7 @@ module.exports = {
     captureIntentNow,
     createRefundForIntent,
     createEscrowRefundForIntent,
+    releaseEscrowAuthorizationForIntent,
     // Exported for the settlement-variance regression suite: the order-side
     // write is otherwise only reachable through capture, and the assertion is
     // about the recorded financial record, not about capture itself.

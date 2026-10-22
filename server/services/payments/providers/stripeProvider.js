@@ -342,6 +342,24 @@ class StripeProvider {
         );
     }
 
+    // Voids an uncaptured authorization. Stripe refunds amount_capturable
+    // automatically when a requires_capture PaymentIntent is canceled.
+    async cancelAuthorization({ paymentId, reason = 'requested_by_customer', idempotencyKey }) {
+        if (!paymentId) {
+            throw new AppError('Payment reference is required to cancel an authorization', 400);
+        }
+        const key = firstNonEmpty(idempotencyKey, `cancel:${paymentId}`);
+        const requestOptions = buildStripeRequestOptions(key);
+        const payload = { cancellation_reason: reason };
+        return this.runProviderOperation(
+            'payment_intents.cancel',
+            () => (requestOptions
+                ? this.client.paymentIntents.cancel(paymentId, payload, requestOptions)
+                : this.client.paymentIntents.cancel(paymentId, payload)),
+            { idempotencyKey: key }
+        );
+    }
+
     parsePaymentMethod(payment = {}) {
         const paymentMethod = getExpandedObject(payment.payment_method);
         const latestCharge = getExpandedObject(payment.latest_charge);

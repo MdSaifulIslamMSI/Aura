@@ -4,7 +4,26 @@ const logger = require('../utils/logger');
 const Order = require('../models/Order');
 const ShippingEvent = require('../models/ShippingEvent');
 const { recordShipmentCheckpoint, canTransitionShipmentStatus } = require('./orderService');
+const { isEnabled: isEmergencyFlagEnabled } = require('./emergencyControlService');
 const { recordOrderEvent } = require('../middleware/metrics');
+
+const shouldSuppressShippingMutation = async () => {
+    try {
+        const [maintenance, readOnly, paymentDisabled] = await Promise.all([
+            isEmergencyFlagEnabled('GLOBAL_MAINTENANCE', { failClosed: true }),
+            isEmergencyFlagEnabled('READ_ONLY_MODE', { failClosed: true }),
+            isEmergencyFlagEnabled('DISABLE_PAYMENT', { failClosed: true }),
+        ]);
+        return maintenance || readOnly || paymentDisabled;
+    } catch (error) {
+        // Matching the payment webhook contract: an unreadable emergency state
+        // is not permission to write order state.
+        logger.error('shipping.webhook_emergency_eval_failed_closed', {
+            error: error?.message || 'unknown',
+        });
+        return true;
+    }
+};
 
 // Inbound courier checkpoint webhooks. Trust model mirrors the payment
 // webhooks: per-provider HMAC over the exact raw request bytes, eventId
@@ -63,18 +82,72 @@ const parseCheckpointEvent = (rawBody) => {
     };
 };
 
-const recordShippingEvent = async ({ eventId, provider, eventType, trackingId, payloadHash, payload, discarded, reason }) => ShippingEvent.create({
+const recordShippingEvent = async ({
     eventId,
     provider,
     eventType,
     trackingId,
     payloadHash,
-    payload: {
-        ...payload,
-        processingMeta: discarded ? { discarded: true, reason } : undefined,
-    },
-    receivedAt: new Date(),
-});
+    payload,
+    discarded,
+    suppressed,
+    reason,
+}) => {
+    let processingMeta;
+    if (discarded) {
+        processingMeta = { discarded: true, reason };
+    } else if (suppressed) {
+        processingMeta = { suppressed: true, reason };
+    }
+    try {
+        return await ShippingEvent.create({
+            eventId,
+            provider,
+            eventType,
+            trackingId,
+            payloadHash,
+            payload: {
+                ...payload,
+                processingMeta,
+            },
+            receivedAt: new Date(),
+        });
+    } catch (error) {
+        // Concurrent provider retries race the ledger lookup; the unique
+        // eventId is the authoritative dedupe, so the loser is a no-op.
+        if (error?.code === 11000) return null;
+        throw error;
+    }
+};
+
+const isSuppressedEvent = (event) => (
+    event?.payload?.processingMeta?.suppressed === true
+    && !event?.payload?.processingMeta?.replayedAt
+);
+
+const markShippingEventReplayOutcome = async ({ eventId, outcome, reason = '' }) => {
+    try {
+        await ShippingEvent.updateOne(
+            { eventId },
+            {
+                $set: {
+                    'payload.processingMeta': {
+                        suppressed: true,
+                        replayedAt: new Date(),
+                        outcome,
+                        ...(reason ? { reason } : {}),
+                    },
+                },
+            }
+        );
+    } catch (error) {
+        logger.warn('shipping.webhook_replay_marker_failed', {
+            eventId,
+            outcome,
+            error: error?.message || 'unknown',
+        });
+    }
+};
 
 const processShippingWebhook = async ({ provider, signature, rawBody }) => {
     const { valid, unconfigured } = verifyWebhookSignature({ provider, rawBody, signature });
@@ -88,39 +161,84 @@ const processShippingWebhook = async ({ provider, signature, rawBody }) => {
     const event = parseCheckpointEvent(rawBody);
 
     const existing = await ShippingEvent.findOne({ eventId: event.eventId }).lean();
-    if (existing) {
+    const replayingSuppressed = isSuppressedEvent(existing);
+    if (existing && !replayingSuppressed) {
         return { received: true, deduped: true, provider };
+    }
+
+    if (await shouldSuppressShippingMutation()) {
+        if (replayingSuppressed) {
+            return { received: true, deduped: true, provider, suppressed: true };
+        }
+        await recordShippingEvent({
+            eventId: event.eventId,
+            provider,
+            eventType: event.status,
+            trackingId: event.trackingId,
+            payloadHash: hashPayload(event.payload),
+            payload: event.payload,
+            suppressed: true,
+            reason: 'emergency_shipping_mutations_disabled',
+        });
+        logger.warn('shipping.webhook_mutation_suppressed_by_emergency', {
+            provider,
+            eventId: event.eventId,
+            trackingId: event.trackingId,
+            status: event.status,
+        });
+        return {
+            received: true,
+            deduped: false,
+            suppressed: true,
+            reason: 'emergency_shipping_mutations_disabled',
+        };
     }
 
     const order = await Order.findOne({ 'shipments.trackingId': event.trackingId })
         .select('_id shipments');
 
     if (!order) {
-        await recordShippingEvent({
-            eventId: event.eventId,
-            provider,
-            eventType: event.status,
-            trackingId: event.trackingId,
-            payloadHash: hashPayload(event.payload),
-            payload: event.payload,
-            discarded: true,
-            reason: 'tracking_id_not_found',
-        });
+        if (replayingSuppressed) {
+            await markShippingEventReplayOutcome({
+                eventId: event.eventId,
+                outcome: 'discarded',
+                reason: 'tracking_id_not_found',
+            });
+        } else {
+            await recordShippingEvent({
+                eventId: event.eventId,
+                provider,
+                eventType: event.status,
+                trackingId: event.trackingId,
+                payloadHash: hashPayload(event.payload),
+                payload: event.payload,
+                discarded: true,
+                reason: 'tracking_id_not_found',
+            });
+        }
         return { received: true, deduped: false, discarded: true, reason: 'tracking_id_not_found' };
     }
 
     const shipment = (order.shipments || []).find((entry) => String(entry.trackingId || '') === event.trackingId);
     if (!shipment) {
-        await recordShippingEvent({
-            eventId: event.eventId,
-            provider,
-            eventType: event.status,
-            trackingId: event.trackingId,
-            payloadHash: hashPayload(event.payload),
-            payload: event.payload,
-            discarded: true,
-            reason: 'shipment_not_found',
-        });
+        if (replayingSuppressed) {
+            await markShippingEventReplayOutcome({
+                eventId: event.eventId,
+                outcome: 'discarded',
+                reason: 'shipment_not_found',
+            });
+        } else {
+            await recordShippingEvent({
+                eventId: event.eventId,
+                provider,
+                eventType: event.status,
+                trackingId: event.trackingId,
+                payloadHash: hashPayload(event.payload),
+                payload: event.payload,
+                discarded: true,
+                reason: 'shipment_not_found',
+            });
+        }
         return { received: true, deduped: false, discarded: true, reason: 'shipment_not_found' };
     }
 
@@ -137,29 +255,44 @@ const processShippingWebhook = async ({ provider, signature, rawBody }) => {
         // Illegal transitions (e.g. a replayed delivered event) are recorded
         // as discarded instead of failing the webhook with a 5xx.
         if (Number(error?.statusCode) === 409) {
-            await recordShippingEvent({
-                eventId: event.eventId,
-                provider,
-                eventType: event.status,
-                trackingId: event.trackingId,
-                payloadHash: hashPayload(event.payload),
-                payload: event.payload,
-                discarded: true,
-                reason: 'invalid_transition',
-            });
+            if (replayingSuppressed) {
+                await markShippingEventReplayOutcome({
+                    eventId: event.eventId,
+                    outcome: 'discarded',
+                    reason: 'invalid_transition',
+                });
+            } else {
+                await recordShippingEvent({
+                    eventId: event.eventId,
+                    provider,
+                    eventType: event.status,
+                    trackingId: event.trackingId,
+                    payloadHash: hashPayload(event.payload),
+                    payload: event.payload,
+                    discarded: true,
+                    reason: 'invalid_transition',
+                });
+            }
             return { received: true, deduped: false, discarded: true, reason: 'invalid_transition' };
         }
         throw error;
     }
 
-    await recordShippingEvent({
-        eventId: event.eventId,
-        provider,
-        eventType: event.status,
-        trackingId: event.trackingId,
-        payloadHash: hashPayload(event.payload),
-        payload: event.payload,
-    });
+    if (replayingSuppressed) {
+        await markShippingEventReplayOutcome({
+            eventId: event.eventId,
+            outcome: 'applied',
+        });
+    } else {
+        await recordShippingEvent({
+            eventId: event.eventId,
+            provider,
+            eventType: event.status,
+            trackingId: event.trackingId,
+            payloadHash: hashPayload(event.payload),
+            payload: event.payload,
+        });
+    }
     recordOrderEvent(`courier_${event.status}`);
     logger.info('shipping.webhook_applied', {
         provider,
