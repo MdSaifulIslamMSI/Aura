@@ -72,8 +72,11 @@ const registerAuraServiceWorker = () => {
 }
 
 const isElectronRuntime = () => (
-  typeof navigator !== 'undefined'
-  && /electron/i.test(String(navigator.userAgent || ''))
+  (typeof window !== 'undefined' && window.auraDesktop?.isDesktop === true)
+  || (
+    typeof navigator !== 'undefined'
+    && /electron/i.test(String(navigator.userAgent || ''))
+  )
 )
 
 const isLoopbackRuntime = () => {
