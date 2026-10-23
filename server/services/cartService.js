@@ -2,6 +2,7 @@ const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const AppError = require('../utils/AppError');
 const { buildProductImageDeliveryUrl } = require('./productImageResolver');
+const { getActiveCatalogProductFilter } = require('./catalogVisibilityService');
 const { buildDisplayPair } = require('./markets/marketPricing');
 
 const MAX_RECENT_MUTATIONS = 25;
@@ -147,7 +148,8 @@ const loadProductMap = async (productIds = [], { session = null } = {}) => {
         return new Map();
     }
 
-    const query = Product.find({ id: { $in: normalizedIds } }).select(PRODUCT_FIELDS);
+    const catalogFilter = await getActiveCatalogProductFilter();
+    const query = Product.find({ id: { $in: normalizedIds }, ...catalogFilter }).select(PRODUCT_FIELDS);
     const products = await applySession(query, session).lean();
 
     return new Map(

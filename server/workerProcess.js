@@ -44,6 +44,7 @@ const { assertAuthVaultConfig } = require('./config/authVaultFlags');
 const {
     assertFieldEncryptionConfig,
     assertFieldEncryptionProductionReadiness,
+    primeFieldEncryption,
 } = require('./services/fieldEncryptionService');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
@@ -184,6 +185,11 @@ const startup = async () => {
 
     await connectDB();
     logger.info('worker_process.db_connected');
+
+    // Workers consume encrypted PII and persist wrapped DEKs. Prime before any
+    // worker starts so the first job cannot observe unprimed key material.
+    await primeFieldEncryption();
+    logger.info('worker_process.field_encryption_ready');
 
     await initRedis();
     logger.info('worker_process.redis_ready');

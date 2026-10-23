@@ -208,10 +208,15 @@ const normalizePolicy = (policy = {}) => (
         : null
 );
 
+const isProduction = () => String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+
 const getConfirmationSecrets = () => {
     const primary = String(process.env.ASSISTANT_CONFIRMATION_SECRET || '').trim();
     const prev = String(process.env.ASSISTANT_CONFIRMATION_SECRET_PREV || '').trim();
-    const legacy = String(process.env.AI_INTERNAL_TOOL_SECRET || '').trim();
+    // The internal-tool secret is a migration fallback for local/test only.
+    // In production, a missing confirmation secret must disable confirmation
+    // tokens rather than silently signing them with a different domain's key.
+    const legacy = isProduction() ? '' : String(process.env.AI_INTERNAL_TOOL_SECRET || '').trim();
     return { primary, prev, legacy };
 };
 
@@ -220,8 +225,6 @@ const getConfirmationSecret = () => {
     return String(primary || legacy || '').trim();
 };
 
-const isProduction = () => String(process.env.NODE_ENV || '').toLowerCase() === 'production';
-
 let missingSecretWarned = false;
 const warnMissingConfirmationSecret = () => {
     if (missingSecretWarned || isProduction()) return;
@@ -229,6 +232,17 @@ const warnMissingConfirmationSecret = () => {
     try {
         require('../../utils/logger').warn('assistant.confirmation_secret_missing', {
             hint: 'Set ASSISTANT_CONFIRMATION_SECRET; falling back to legacy unsalted token (dev only).',
+        });
+    } catch { /* logger optional */ }
+};
+
+let missingProductionSecretLogged = false;
+const logMissingProductionSecret = () => {
+    if (missingProductionSecretLogged) return;
+    missingProductionSecretLogged = true;
+    try {
+        require('../../utils/logger').error('assistant.confirmation_secret_missing_production', {
+            hint: 'Confirmation tokens are disabled until ASSISTANT_CONFIRMATION_SECRET is configured.',
         });
     } catch { /* logger optional */ }
 };
@@ -264,6 +278,12 @@ const buildConfirmationToken = (action = {}) => {
     const payload = JSON.stringify(canonicalizeConfirmationPayload(action));
     if (secret) {
         return hmacToken(secret, payload);
+    }
+    if (isProduction()) {
+        // Emit no token: the pending action can still be shown, but it cannot
+        // be confirmed until an operator configures the signing secret.
+        logMissingProductionSecret();
+        return '';
     }
     warnMissingConfirmationSecret();
     return legacyToken(payload);

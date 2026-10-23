@@ -291,6 +291,50 @@ describe('payment webhook security', () => {
         await expect(PaymentEvent.countDocuments({ eventId: 'evt_unknown_refund_id' })).resolves.toBe(0);
     });
 
+    test('refund processed for an escrow intent is settled without an order link', async () => {
+        const buyer = await createTestUser({ name: 'Escrow Webhook Buyer' });
+        const intent = await createFakePaymentIntent({
+            userId: buyer._id,
+            order: null,
+            intentId: 'pi_escrow_webhook_refund',
+            providerOrderId: 'order_escrow_webhook_refund',
+            providerPaymentId: 'pay_escrow_webhook_refund',
+            amount: 1999,
+            status: PAYMENT_STATUSES.CAPTURED,
+            overrides: {
+                metadata: { purpose: 'marketplace_escrow' },
+            },
+        });
+        const event = {
+            id: 'evt_escrow_refund_processed',
+            event: 'refund.processed',
+            payload: {
+                refund: {
+                    entity: {
+                        id: 'rfnd_escrow_1',
+                        payment_id: intent.providerPaymentId,
+                        amount: Math.round(intent.amount * 100),
+                    },
+                },
+            },
+        };
+
+        const response = await postRazorpayWebhook(app, event);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toMatchObject({ received: true, deduped: false });
+        await expect(PaymentIntent.findOne({ intentId: intent.intentId }).lean()).resolves.toMatchObject({
+            status: PAYMENT_STATUSES.REFUNDED,
+            metadata: {
+                purpose: 'marketplace_escrow',
+                escrowRefundId: 'rfnd_escrow_1',
+            },
+        });
+        await expect(PaymentEvent.findOne({ eventId: event.id }).lean()).resolves.toMatchObject({
+            processingState: 'processed',
+        });
+    });
+
     test('payment success after local cancellation compensates without reviving the order', async () => {
         const { order, intent } = await seedAuthorizedIntentWithOrder({
             providerOrderId: 'order_late_success_after_cancel',

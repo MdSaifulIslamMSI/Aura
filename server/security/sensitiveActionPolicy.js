@@ -4,6 +4,9 @@ const {
     resolveSensitiveActionPolicyConfig,
     RISK_LEVELS,
 } = require('../config/sensitiveActionPolicy');
+const {
+    hasObservedWebAuthnUserVerification,
+} = require('../services/trustedDeviceAssuranceService');
 
 const normalizeText = (value = '') => String(value || '').trim().toLowerCase();
 const toId = (value = '') => String(value || '').trim();
@@ -56,21 +59,41 @@ const hasRole = (actor = {}, role = '') => {
     return roles.includes(requiredRole);
 };
 
-const hasRegisteredWebAuthnCredential = (actor = {}) => (
-    Array.isArray(actor.trustedDevices)
-    && actor.trustedDevices.some((entry) => (
-        normalizeText(entry?.method) === 'webauthn'
-        || Boolean(toId(entry?.webauthnCredentialIdBase64Url))
-        || Boolean(toId(entry?.credentialId))
-    ))
-);
+const isActiveWebAuthnCredential = (entry = {}) => {
+    const method = normalizeText(entry?.method);
+    const credentialId = toId(entry?.webauthnCredentialIdBase64Url) || toId(entry?.credentialId);
+    if (method !== 'webauthn' && !credentialId) return false;
+    if (entry?.revokedAt) return false;
+
+    const expiresAt = entry?.expiresAt ? new Date(entry.expiresAt).getTime() : 0;
+    if (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now()) return false;
+    return true;
+};
+
+const hasRegisteredWebAuthnCredential = (actor = {}) => {
+    if (!Array.isArray(actor.trustedDevices)) return false;
+
+    return actor.trustedDevices.some((entry) => {
+        if (!isActiveWebAuthnCredential(entry)) return false;
+        if (!actor.isAdmin) return true;
+
+        // Admin assurance needs a credential enrolled for the admin scope with
+        // observed user verification and verified eligibility. A recognition
+        // passkey is a login convenience, not admin authority.
+        return normalizeText(entry?.credentialScope) === 'admin'
+            && normalizeText(entry?.adminEligibility) === 'verified'
+            && hasObservedWebAuthnUserVerification(entry);
+    });
+};
 
 const hasFreshWebAuthnStepUp = ({ actor = {}, context = {} } = {}) => {
     if (context.webAuthnStepUpFresh === true || context.freshWebAuthnStepUp === true) {
         return true;
     }
 
-    const activeUntil = new Date(context.stepUpUntil || actor.stepUpUntil || 0);
+    // A generic step-up (OTP/TOTP/recovery code) has a different expiry. Only
+    // the WebAuthn-specific window can satisfy a WebAuthn assurance rule.
+    const activeUntil = new Date(context.webAuthnStepUpUntil || actor.webAuthnStepUpUntil || 0);
     const hasActiveStepUp = Number.isFinite(activeUntil.getTime()) && activeUntil.getTime() > Date.now();
     const methods = [
         context.authMethod,
@@ -102,6 +125,7 @@ const resolveActorFromRequest = (req = {}) => ({
     adminRoles: req.user?.adminRoles || [],
     trustedDevices: req.user?.trustedDevices || [],
     amr: req.authSession?.amr || req.authToken?.amr || [],
+    webAuthnStepUpUntil: req.authSession?.webAuthnStepUpUntil,
 });
 
 const resolveContextFromRequest = (req = {}) => {
@@ -113,11 +137,11 @@ const resolveContextFromRequest = (req = {}) => {
         webAuthnStepUpFresh: posture.webAuthnStepUpFresh,
         freshWebAuthnStepUp: posture.freshWebAuthnStepUp,
         stepUpUntil: req.authSession?.stepUpUntil,
+        webAuthnStepUpUntil: req.authSession?.webAuthnStepUpUntil,
         amr: req.authSession?.amr || req.authToken?.amr || [],
         deviceMethod: req.authSession?.deviceMethod,
         authMethod: req.authToken?.firebase?.sign_in_second_factor,
         riskLevel: posture.riskHigh ? RISK_LEVELS.HIGH : RISK_LEVELS.LOW,
-        breakGlass: req.headers?.['x-aura-break-glass'] === 'true',
     };
 };
 

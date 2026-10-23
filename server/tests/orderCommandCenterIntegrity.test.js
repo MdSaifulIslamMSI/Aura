@@ -711,6 +711,22 @@ describe('order command center integrity', () => {
             expect(await CouponRedemption.findOne({ code: 'FREESHIP' }).lean()).toBeTruthy();
         });
 
+        test('releaseCouponRedemptionForOrder keeps the redemption for a paid order', async () => {
+            const owner = await createTestUser({ name: 'Paid Helper Owner' });
+            const order = await createFakeOrder({
+                userId: owner._id,
+                paymentState: 'captured',
+                isPaid: true,
+                overrides: { couponCode: 'AURA10' },
+            });
+            await CouponRedemption.create({ code: 'AURA10', user: owner._id, order: order._id, discount: 50 });
+
+            const released = await releaseCouponRedemptionForOrder({ order });
+
+            expect(released).toBe(false);
+            expect(await CouponRedemption.findOne({ code: 'AURA10', user: owner._id, order: order._id }).lean()).toBeTruthy();
+        });
+
         test('reverseLoyaltyPointsForOrder reverses exactly the points awarded at placement', async () => {
             const owner = await createTestUser({ name: 'Helper Loyalty Owner' });
             await User.updateOne({ _id: owner._id }, { $set: { 'loyalty.pointsBalance': 80 } });
@@ -736,7 +752,7 @@ describe('order command center integrity', () => {
     });
 
     describeWithTransactions('cancellation clawback and write-ahead refund', () => {
-        test('cancelling a paid order frees the coupon, reverses loyalty, schedules and retires the refund task', async () => {
+        test('cancelling a paid order retains the lifetime coupon use, reverses loyalty, schedules and retires the refund task', async () => {
             const owner = await createTestUser({ name: 'Clawback Owner' });
             register('token-cancel-1', owner);
             await User.updateOne(
@@ -771,7 +787,7 @@ describe('order command center integrity', () => {
             expect([200, 201]).toContain(response.status);
 
             const redemption = await CouponRedemption.findOne({ code: 'AURA10', user: owner._id }).lean();
-            expect(redemption).toBeNull();
+            expect(redemption).toBeTruthy();
 
             const ownerAfter = await User.findById(owner._id).select('loyalty').lean();
             expect(ownerAfter.loyalty.pointsBalance).toBe(60);

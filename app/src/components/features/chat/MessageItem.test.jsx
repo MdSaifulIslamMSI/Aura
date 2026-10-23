@@ -263,6 +263,23 @@ describe('MessageItem', () => {
         expect(screen.getByText('console.log("hi");')).toBeInTheDocument();
     });
 
+    it('does not fetch remote markdown images from assistant output', () => {
+        const { container } = renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-tracking-image',
+                    role: 'assistant',
+                    text: '![tracking pixel](https://attacker.example/x.png)',
+                    uiSurface: 'plain_answer',
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('[Image blocked: tracking pixel]')).toBeInTheDocument();
+        expect(container.querySelector('img')).toBeNull();
+    });
+
     it('renders user media previews and capability metadata for multimodal turns', () => {
         renderWithMarket(
             <MessageItem

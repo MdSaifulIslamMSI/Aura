@@ -1,9 +1,8 @@
 const Decimal = require('decimal.js');
 const Product = require('../models/Product');
-const SystemState = require('../models/SystemState');
 const AppError = require('../utils/AppError');
 const COUPON_RULES = require('../config/coupons');
-const { flags: catalogFlags } = require('../config/catalogFlags');
+const { getActiveCatalogProductFilter } = require('./catalogVisibilityService');
 const { calculateOptimalLogisticsCost } = require('./logisticsOptimizer');
 const { solveAuraCover } = require('./marketplaceOptimizers');
 const { PAYMENT_METHODS } = require('./payments/constants');
@@ -190,18 +189,6 @@ const normalizeOrderItems = (orderItems = [], { allowEmpty = false } = {}) => {
     }
 
     return Array.from(mergedByProduct.values());
-};
-
-const getActiveCatalogProductFilter = async () => {
-    const activeProductFilter = { isActive: { $ne: false } };
-    if (!catalogFlags.catalogActiveVersionRequired) return activeProductFilter;
-    const state = await SystemState.findOne({ key: 'singleton' }).lean();
-    if (!state?.activeCatalogVersion) return { isPublished: true, ...activeProductFilter };
-    return {
-        isPublished: true,
-        ...activeProductFilter,
-        catalogVersion: state.activeCatalogVersion,
-    };
 };
 
 const normalizeCheckoutPayload = (payload = {}) => {

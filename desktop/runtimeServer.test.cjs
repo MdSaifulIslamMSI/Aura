@@ -49,6 +49,7 @@ const {
     DESKTOP_AUTH_CANCEL_PATH,
     DESKTOP_AUTH_COMPLETE_PATH,
     buildRuntimePortCandidates,
+    buildRuntimeUrl,
     isLoopbackBackendOrigin,
     isOpaqueDesktopAuthNavigation,
     resolveBackendOrigin,
@@ -76,6 +77,10 @@ test('desktop runtime uses only the requested stable callback origin', () => {
         () => buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT + 11),
         /requires a fixed loopback port/
     );
+});
+
+test('desktop runtime URL targets the exact loopback host the server binds', () => {
+    assert.equal(buildRuntimeUrl(DEFAULT_RUNTIME_PORT), `http://127.0.0.1:${DEFAULT_RUNTIME_PORT}`);
 });
 
 test('desktop browser handoff allows enough time for password and two OTP stages', () => {

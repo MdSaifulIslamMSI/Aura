@@ -1,5 +1,6 @@
 const firebaseAdmin = require('../config/firebase');
 const asyncHandler = require('express-async-handler');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -66,6 +67,7 @@ const {
     evaluateLogin,
     isAdminSubject,
     isDesktopHandoffAdminMfaSatisfied,
+    isVerifiedAdminPasskeyDevice,
 } = require('../services/mfaPolicyService');
 
 // Redis-backed token cache.
@@ -665,7 +667,22 @@ const isAdminQualifiedWebAuthnRegistration = (user = {}, registration = null) =>
     if (method !== 'webauthn') return false;
     if (!hasObservedWebAuthnUserVerification(registration)) return false;
     if (!isAdminSubject(user)) return true;
-    return String(registration.adminEligibility || '').trim().toLowerCase() === 'verified';
+    // Admin state changes must be backed by an active credential explicitly
+    // enrolled for the admin scope. A recognition-grade or revoked device can
+    // still be a login convenience, but it is not admin assurance.
+    return isVerifiedAdminPasskeyDevice(registration);
+};
+
+const hasVerifiedAdminPasskeyCredential = (user = {}) => (
+    Array.isArray(user?.trustedDevices)
+    && user.trustedDevices.some((device) => isVerifiedAdminPasskeyDevice(device))
+);
+
+const hasActiveWebAuthnSessionStepUp = (req = {}) => {
+    const stepUpUntilMs = req.authSession?.webAuthnStepUpUntil
+        ? new Date(req.authSession.webAuthnStepUpUntil).getTime()
+        : 0;
+    return Number.isFinite(stepUpUntilMs) && stepUpUntilMs > Date.now();
 };
 
 const hasTrustedDeviceSecondFactor = (req = {}) => {
@@ -983,7 +1000,7 @@ const hasCryptographicTrustedDeviceBinding = (req = {}) => {
 };
 
 const hasActivePasskeySessionStepUp = (req = {}) => {
-    if (!hasActiveSessionStepUp(req)) {
+    if (!hasActiveSessionStepUp(req) || !hasActiveWebAuthnSessionStepUp(req)) {
         return false;
     }
 
@@ -996,7 +1013,10 @@ const hasActivePasskeySessionStepUp = (req = {}) => {
             );
     }
 
-    return hasSessionPasskeyAmr(req);
+    if (!hasSessionPasskeyAmr(req)) return false;
+    return isAdminSubject(req.user)
+        ? hasVerifiedAdminPasskeyCredential(req.user)
+        : true;
 };
 
 const hasPasskeySecondFactor = (req = {}) => {
@@ -1028,19 +1048,31 @@ const hasPasskeySecondFactor = (req = {}) => {
 };
 
 const hasFreshWebAuthnSessionStepUp = (req = {}) => {
-    if (!hasActiveSessionStepUp(req)) {
+    // A generic step-up (OTP, TOTP, recovery code) must never satisfy an
+    // admin WebAuthn requirement. The WebAuthn-specific expiry is set only by
+    // a passkey ceremony and is the authoritative signal here.
+    if (!hasActiveSessionStepUp(req) || !hasActiveWebAuthnSessionStepUp(req)) {
         return false;
     }
 
     const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
     if (sessionDeviceMethod === 'webauthn') {
-        return hasSessionTrustedDeviceBinding(req);
+        return hasSessionTrustedDeviceBinding(req)
+            && isAdminQualifiedWebAuthnRegistration(
+                req.user,
+                getRequestTrustedDeviceRegistration(req)
+            );
     }
 
     const sessionAmr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
-    return sessionAmr.some((entry) => entry === 'webauthn');
+    if (!sessionAmr.some((entry) => entry === 'webauthn' || entry === 'passkey')) {
+        return false;
+    }
+    return isAdminSubject(req.user)
+        ? hasVerifiedAdminPasskeyCredential(req.user)
+        : true;
 };
 
 const buildAdminStepUpError = ({ message, code }) => {
@@ -1800,13 +1832,50 @@ const resolveFreshAdminUser = async (req) => {
     return freshUser;
 };
 
+// Re-reads the privilege and account-state fields that decide admin access.
+// The Redis auth cache is deliberately not authoritative here: a demotion or
+// suspension must take effect on the next admin request, not when the cache
+// entry expires. The cached user is kept for auth-context fields (trusted
+// devices, token claims) and only the authorization fields are refreshed.
+//
+// Synthetic non-ObjectId identities are skipped so middleware unit tests can
+// exercise policy with fabricated users; every real request carries an
+// ObjectId. A real id with no row means the account was deleted, which is a
+// denial rather than a fallback to the stale cached copy.
+const refreshAdminPrivilegeState = async (req, user) => {
+    const userId = user?._id;
+    if (!userId || !mongoose.isValidObjectId(userId)) {
+        return user;
+    }
+
+    const fresh = await User.findById(userId)
+        .select('isAdmin adminRoles accountState softDeleted moderation.suspendedUntil moderation.suspendedAt')
+        .lean();
+    if (!fresh) return null;
+
+    req.user = { ...user, ...fresh };
+    return req.user;
+};
+
+const isAdminAccountBlocked = (user) => (
+    !user
+    || user.softDeleted === true
+    || user.accountState === 'deleted'
+    || user.accountState === 'suspended'
+);
+
 const admin = asyncHandler(async (req, res, next) => {
-    let effectiveUser = req.user;
+    let effectiveUser = await refreshAdminPrivilegeState(req, req.user);
 
     // Admin privilege can change while a session is still active. Re-check Mongo
     // before denying so a stale in-memory auth cache does not block promoted admins.
     if (!hasRole(effectiveUser, 'admin')) {
         effectiveUser = await resolveFreshAdminUser(req);
+    }
+
+    if (isAdminAccountBlocked(effectiveUser)) {
+        recordAdminBlock(req, 'account_inactive');
+        throw new AppError('Admin account is not active', 403);
     }
 
     if (!hasRole(effectiveUser, 'admin')) {

@@ -155,4 +155,77 @@ describe('trafficBudgetPolicy middleware', () => {
         expect(perIpLimiter.keyGenerator(sharedRequest)).not.toContain('flow-token-a');
         expect(perSessionLimiter.keyGenerator(sharedRequest)).not.toContain('flow-token-a');
     });
+
+    test('perSession keys use the authenticated session, not the client session header', async () => {
+        const created = [];
+        jest.doMock('../middleware/distributedRateLimit', () => ({
+            createDistributedRateLimit: jest.fn((options) => {
+                created.push(options);
+                return (_req, _res, next) => next();
+            }),
+        }));
+        jest.doMock('../metrics/trafficResilienceMetrics', () => ({
+            recordTrafficBudgetDenied: jest.fn(),
+        }));
+
+        const { trafficBudgetPolicy } = require('../middleware/trafficBudgetPolicy');
+        const req = {
+            method: 'GET',
+            headers: { 'x-client-session-id': 'attacker-controlled-session' },
+            ip: '198.51.100.24',
+            authSession: { sessionId: 'authenticated-session-1' },
+            trafficBudget: {
+                routeClass: 'PUBLIC_SEARCH',
+                perIp: 0,
+                perAccount: 0,
+                perSession: 5,
+                windowSeconds: 60,
+                productionFailMode: 'fail-open-safe',
+                costRisk: 'medium',
+                userMessageCode: 'QUERY_BUDGET_EXCEEDED',
+            },
+        };
+
+        await trafficBudgetPolicy()(req, buildResponse(), jest.fn());
+
+        const perSessionLimiter = created.find((entry) => entry.name === 'traffic_perSession_public_search');
+        expect(perSessionLimiter.keyGenerator(req)).toBe('session:authenticated-session-1');
+        expect(perSessionLimiter.keyGenerator(req)).not.toContain('attacker-controlled-session');
+    });
+
+    test('perSession keys fall back to the trusted IP for anonymous requests', async () => {
+        const created = [];
+        jest.doMock('../middleware/distributedRateLimit', () => ({
+            createDistributedRateLimit: jest.fn((options) => {
+                created.push(options);
+                return (_req, _res, next) => next();
+            }),
+        }));
+        jest.doMock('../metrics/trafficResilienceMetrics', () => ({
+            recordTrafficBudgetDenied: jest.fn(),
+        }));
+
+        const { trafficBudgetPolicy } = require('../middleware/trafficBudgetPolicy');
+        const req = {
+            method: 'GET',
+            headers: { 'x-client-session-id': 'attacker-controlled-session' },
+            ip: '198.51.100.24',
+            trafficBudget: {
+                routeClass: 'PUBLIC_SEARCH',
+                perIp: 0,
+                perAccount: 0,
+                perSession: 5,
+                windowSeconds: 60,
+                productionFailMode: 'fail-open-safe',
+                costRisk: 'medium',
+                userMessageCode: 'QUERY_BUDGET_EXCEEDED',
+            },
+        };
+
+        await trafficBudgetPolicy()(req, buildResponse(), jest.fn());
+
+        const perSessionLimiter = created.find((entry) => entry.name === 'traffic_perSession_public_search');
+        expect(perSessionLimiter.keyGenerator(req)).toBe('ip:198.51.100.24');
+        expect(perSessionLimiter.keyGenerator(req)).not.toContain('attacker-controlled-session');
+    });
 });

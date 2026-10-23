@@ -123,13 +123,26 @@ const hasActiveCommandRequest = (order, listKey) => (
 
 /**
  * Reverses the commerce side effects of a cancelled order: frees the
- * one-per-user coupon redemption consumed by THIS order and claws back the
- * loyalty points captured at placement.
+ * one-per-user coupon redemption only when the order was never paid, and
+ * claws back the loyalty points captured at placement.
+ *
+ * A paid-then-cancelled order keeps its redemption. `maxUsesPerUser` is a
+ * lifetime cap, not a per-live-order cap; deleting the row here let a buyer
+ * place, cancel (or refund), and re-apply the same one-use coupon without
+ * bound. An unpaid order (failed capture, abandoned authorization) never
+ * realised the discount, so its row is released for a clean retry.
  */
 const releaseCouponRedemptionForOrder = async ({ order, session }) => {
     const couponCode = String(order?.couponCode || '').trim().toUpperCase();
     const ownerId = order?.user?._id || order?.user;
     if (!couponCode || !ownerId) return false;
+
+    const paymentState = String(order?.paymentState || '').toLowerCase();
+    const wasPaid = order?.isPaid === true
+        || Boolean(order?.paidAt)
+        || ['captured', 'partially_refunded', 'refunded'].includes(paymentState);
+    if (wasPaid) return false;
+
     const result = await CouponRedemption.deleteOne(
         { code: couponCode, user: ownerId, order: order._id },
         session ? { session } : {}
@@ -186,8 +199,8 @@ const runWriteWithRetry = async (fn, { maxAttempts = 3 } = {}) => {
  *     receives goods they were refunded for;
  *   - `isPaid` stays true, so the refunded order still qualifies as a
  *     "verified purchase" for product reviews;
- *   - the one-per-user coupon redemption stays consumed, so the discount is
- *     retained on an order that was paid for with a refund;
+ *   - the lifetime coupon redemption would be handed back for reuse, letting
+ *     a buyer cycle placement and refund indefinitely on a one-use coupon;
  *   - the loyalty points awarded at placement stay on the buyer's balance.
  *
  * The cancellation is written FIRST and as a single guarded document update.

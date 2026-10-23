@@ -5,10 +5,18 @@ const { getActiveCatalogVersion } = require('./catalogService');
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 const safeText = (value) => String(value || '').toLowerCase();
-// Keywords come from product/device-profile text: escape regex metacharacters
-// before joining tokens with .* so user-typed input cannot throw or force
-// pathological scans.
+// Keywords come from product/device-profile text. Match the escaped literal
+// phrase instead of expanding whitespace to `.*`: wildcard regexes over product
+// text turn a short theme into a broad, unindexed collection scan.
 const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const buildKeywordRegex = (keyword) => {
+    const normalized = String(keyword || '').trim().slice(0, 80);
+    return normalized ? new RegExp(escapeRegExp(normalized), 'i') : null;
+};
+
+const BUNDLE_DP_UNIT = 100;
+const BUNDLE_MAX_BUDGET = 500000;
+const BUNDLE_QUERY_MAX_TIME_MS = 1500;
 
 const buildActiveCatalogFilter = async () => {
     if (!catalogFlags.catalogActiveVersionRequired) return {};
@@ -204,7 +212,8 @@ const getCompatibilityGraph = async (product, options = {}) => {
     const usedIds = new Set();
 
     for (const keyword of profile.keywords.slice(0, 6)) {
-        const regex = new RegExp(escapeRegExp(keyword).replace(/\s+/g, '.*'), 'i');
+        const regex = buildKeywordRegex(keyword);
+        if (!regex) continue;
         const docs = await Product.find({
             ...activeFilter,
             id: { $ne: product.id },
@@ -216,6 +225,7 @@ const getCompatibilityGraph = async (product, options = {}) => {
         })
             .sort({ rating: -1, ratingCount: -1, stock: -1 })
             .limit(20)
+            .maxTimeMS(BUNDLE_QUERY_MAX_TIME_MS)
             .lean();
 
         const scored = docs
@@ -294,8 +304,92 @@ const resolveBundleProfile = (theme = '') => {
     };
 };
 
+const toBundleSelectionItem = (item) => ({
+    id: item.id,
+    _id: item._id,
+    title: item.title,
+    brand: item.brand,
+    category: item.category,
+    image: item.image,
+    price: item.price,
+    originalPrice: Number(item.originalPrice || item.price) || item.price,
+    quantity: 1,
+    rating: Number(item.rating) || 0,
+    ratingCount: Number(item.ratingCount) || 0,
+    deliveryTime: item.deliveryTime || '3-5 days',
+});
+
+// Quantize the DP weights so a caller-controlled budget cannot allocate a
+// table proportional to rupees. `ceil` keeps the selected actual prices inside
+// the budget even though the table uses 100-rupee buckets.
+const solveBundleKnapsack = ({ candidates = [], budget, maxItems = 6 }) => {
+    const budgetValue = Math.max(0, Number(budget) || 0);
+    const capacity = Math.max(1, Math.floor(budgetValue / BUNDLE_DP_UNIT));
+    const limit = Math.max(1, Math.min(Number(maxItems) || 1, 12));
+    const items = candidates.map((candidate) => {
+        const parsedPrice = Number(candidate.price);
+        const price = Number.isFinite(parsedPrice) && parsedPrice > 0
+            ? Math.round(parsedPrice)
+            : 1;
+        return {
+            ...candidate,
+            price,
+            weight: Math.max(1, Math.ceil(price / BUNDLE_DP_UNIT)),
+            value: Math.round(
+                (Number(candidate.rating || 0) * Math.log10(Number(candidate.ratingCount || 0) + 1) * 10)
+                + Number(candidate.discountPercentage || 0)
+            ),
+        };
+    });
+
+    const selected = [];
+    try {
+        const n = items.length;
+        const dp = new Array(capacity + 1).fill(0);
+        const keep = Array.from({ length: n + 1 }, () => new Uint8Array(capacity + 1));
+
+        for (let i = 1; i <= n; i++) {
+            const { weight, value } = items[i - 1];
+            if (weight > capacity) continue;
+            for (let w = capacity; w >= weight; w--) {
+                if (dp[w - weight] + value > dp[w]) {
+                    dp[w] = dp[w - weight] + value;
+                    keep[i][w] = 1;
+                }
+            }
+        }
+
+        let currentW = capacity;
+        for (let i = n; i > 0 && currentW > 0; i--) {
+            if (keep[i][currentW]) {
+                const item = items[i - 1];
+                selected.push(toBundleSelectionItem(item));
+                currentW -= item.weight;
+            }
+            if (selected.length >= limit) break;
+        }
+    } catch (error) {
+        // Fallback: pick top-rated items within the actual budget if DP fails.
+        const sorted = [...items].sort((a, b) => b.rating - a.rating);
+        let currentBudget = budgetValue;
+        for (const item of sorted) {
+            if (selected.length >= limit) break;
+            if (item.price <= currentBudget) {
+                selected.push(toBundleSelectionItem(item));
+                currentBudget -= item.price;
+            }
+        }
+    }
+
+    return {
+        selected,
+        capacity,
+        unit: BUNDLE_DP_UNIT,
+    };
+};
+
 const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
-    const W = Math.max(1000, Math.min(Number(budget) || 25000, 500000));
+    const W = Math.max(1000, Math.min(Number(budget) || 25000, BUNDLE_MAX_BUDGET));
     const N_LIMIT = Math.max(2, Math.min(Number(maxItems) || 6, 12));
     const profile = resolveBundleProfile(theme);
     const activeFilter = await buildActiveCatalogFilter();
@@ -303,7 +397,8 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
     const keywordRegex = profile.keywords
         .filter(Boolean)
         .slice(0, 8)
-        .map((keyword) => new RegExp(escapeRegExp(keyword).replace(/\s+/g, '.*'), 'i'));
+        .map(buildKeywordRegex)
+        .filter(Boolean);
 
     // 1. Candidate Selection (Heuristic pruning before expensive DP)
     const candidates = await Product.find({
@@ -317,86 +412,19 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
     })
         .sort({ rating: -1, discountPercentage: -1, ratingCount: -1 })
         .limit(60) // Limit n for DP performance
+        .maxTimeMS(BUNDLE_QUERY_MAX_TIME_MS)
         .lean();
 
     if (candidates.length === 0) {
         return { bundleName: profile.name, items: [], totalPrice: 0, budget: W };
     }
 
-    // 2. 0/1 Knapsack DP Implementation
-    // We want to maximize "Value" defined by: (Rating * ReviewConfidence + Discount)
-    // Scale prices to integers for DP table indexing
-    
-    let selected = [];
-    try {
-        const n = candidates.length;
-        const items = candidates.map(c => ({
-            ...c,
-            weight: Math.round(Number(c.price)),
-            value: Math.round((Number(c.rating || 0) * Math.log10(Number(c.ratingCount || 0) + 1) * 10) + Number(c.discountPercentage || 0))
-        }));
-
-        const dp = new Array(W + 1).fill(0);
-        const keep = Array.from({ length: n + 1 }, () => new Uint8Array(W + 1));
-
-        for (let i = 1; i <= n; i++) {
-            const { weight, value } = items[i - 1];
-            for (let w = W; w >= weight; w--) {
-                if (dp[w - weight] + value > dp[w]) {
-                    dp[w] = dp[w - weight] + value;
-                    keep[i][w] = 1; 
-                }
-            }
-        }
-
-        let currentW = W;
-        for (let i = n; i > 0 && currentW > 0; i--) {
-            if (keep[i][currentW]) {
-                const item = items[i - 1];
-                selected.push({
-                    id: item.id,
-                    _id: item._id,
-                    title: item.title,
-                    brand: item.brand,
-                    category: item.category,
-                    image: item.image,
-                    price: item.weight,
-                    originalPrice: Number(item.originalPrice || item.price) || item.weight,
-                    quantity: 1,
-                    rating: Number(item.rating) || 0,
-                    ratingCount: Number(item.ratingCount) || 0,
-                    deliveryTime: item.deliveryTime || '3-5 days',
-                });
-                currentW -= item.weight;
-            }
-            if (selected.length >= N_LIMIT) break;
-        }
-    } catch (error) {
-        // Fallback: Just pick top rated items within budget if DP fails or exceeds memory
-        const sorted = [...candidates].sort((a, b) => b.rating - a.rating);
-        let currentBudget = W;
-        for (const item of sorted) {
-            if (selected.length >= N_LIMIT) break;
-            const price = Math.round(Number(item.price));
-            if (price <= currentBudget) {
-                selected.push({
-                    id: item.id,
-                    _id: item._id,
-                    title: item.title,
-                    brand: item.brand,
-                    category: item.category,
-                    image: item.image,
-                    price,
-                    originalPrice: Number(item.originalPrice || item.price) || price,
-                    quantity: 1,
-                    rating: Number(item.rating) || 0,
-                    ratingCount: Number(item.ratingCount) || 0,
-                    deliveryTime: item.deliveryTime || '3-5 days',
-                });
-                currentBudget -= price;
-            }
-        }
-    }
+    // 2. 0/1 Knapsack DP over quantized price buckets.
+    const { selected } = solveBundleKnapsack({
+        candidates,
+        budget: W,
+        maxItems: N_LIMIT,
+    });
 
     const totalPriceVal = selected.reduce((sum, item) => sum + item.price, 0);
     const originalTotalVal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
@@ -413,7 +441,7 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
         savings: Math.round(savings),
         budgetUtilization: Number(budgetUtilization.toFixed(1)),
         items: selected,
-        solver: 'dp_01_knapsack_v1',
+        solver: 'dp_01_knapsack_v2_quantized',
         checkoutPayload: {
             items: selected.map((item) => ({ id: item.id, quantity: 1 })),
             estimatedTotal: Math.round(totalPriceVal),
@@ -426,4 +454,9 @@ module.exports = {
     computeDealDna,
     getCompatibilityGraph,
     buildSmartBundle,
+    __testables: {
+        solveBundleKnapsack,
+        BUNDLE_DP_UNIT,
+        BUNDLE_QUERY_MAX_TIME_MS,
+    },
 };

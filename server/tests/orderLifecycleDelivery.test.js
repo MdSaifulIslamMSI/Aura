@@ -58,10 +58,12 @@ const Product = require('../models/Product');
 const AccountPreference = require('../models/AccountPreference');
 const AdminNotification = require('../models/AdminNotification');
 const ShippingEvent = require('../models/ShippingEvent');
+const EmergencyControl = require('../models/EmergencyControl');
 const orderRoutes = require('../routes/orderRoutes');
 const shippingRoutes = require('../routes/shippingRoutes');
 const { runOrderLifecycleCycle, getAutoCancelCutoff } = require('../services/orderLifecycleWorkerService');
 const { emitOrderEventNotification } = require('../services/orderNotificationService');
+const { clearEmergencyCache } = require('../services/emergencyControlService');
 const { sendMessageToUser } = require('../services/socketService');
 const { sendPersistentNotification } = require('../services/notificationService');
 const {
@@ -424,6 +426,59 @@ describe('order lifecycle and delivery engine', () => {
 
             const replay = await postWebhook(shippingApp, JSON.parse(rawBody), signature);
             expect(replay.body.deduped).toBe(true);
+        });
+
+        test('suppresses a checkpoint during an emergency and applies it on replay', async () => {
+            const { order } = await seedShipment();
+            await EmergencyControl.findOneAndUpdate(
+                { key: 'READ_ONLY_MODE' },
+                {
+                    $set: {
+                        key: 'READ_ONLY_MODE',
+                        enabled: true,
+                        severity: 'high',
+                        scope: 'global',
+                        userMessage: 'Read only.',
+                        expiresAt: new Date(Date.now() + 60_000),
+                    },
+                },
+                { upsert: true, setDefaultsOnInsert: true }
+            );
+            clearEmergencyCache();
+
+            const rawBody = JSON.stringify({
+                eventId: 'evt_emergency_1',
+                trackingId: 'AWB-777',
+                status: 'delivered',
+                message: 'Delivered during maintenance',
+            });
+            const signature = signShippingPayload(rawBody);
+
+            const suppressed = await postWebhook(shippingApp, JSON.parse(rawBody), signature);
+            expect(suppressed.status).toBe(200);
+            expect(suppressed.body).toMatchObject({ received: true, suppressed: true });
+
+            const duringEmergency = await Order.findById(order._id).lean();
+            expect(duringEmergency.orderStatus).toBe('shipped');
+            const ledgerDuring = await ShippingEvent.findOne({ eventId: 'evt_emergency_1' }).lean();
+            expect(ledgerDuring.payload.processingMeta).toMatchObject({
+                suppressed: true,
+                reason: 'emergency_shipping_mutations_disabled',
+            });
+
+            await EmergencyControl.updateOne({ key: 'READ_ONLY_MODE' }, { $set: { enabled: false } });
+            clearEmergencyCache();
+
+            const replayed = await postWebhook(shippingApp, JSON.parse(rawBody), signature);
+            expect(replayed.body).toMatchObject({ received: true, applied: true });
+
+            const afterReplay = await Order.findById(order._id).lean();
+            expect(afterReplay.orderStatus).toBe('delivered');
+            const ledgerAfter = await ShippingEvent.findOne({ eventId: 'evt_emergency_1' }).lean();
+            expect(ledgerAfter.payload.processingMeta).toMatchObject({
+                suppressed: true,
+                outcome: 'applied',
+            });
         });
 
         test('records discarded events for unknown tracking ids instead of failing', async () => {

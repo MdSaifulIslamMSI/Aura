@@ -17,6 +17,7 @@ const DEFAULT_BYPASS_PATHS = [
 ];
 
 const normalizeText = (value = '') => String(value || '').trim();
+const isProductionRuntime = () => normalizeText(process.env.NODE_ENV).toLowerCase() === 'production';
 
 const getOriginVerifySecret = () => normalizeText(
     process.env.AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET
@@ -36,17 +37,46 @@ const shouldBypassOriginProtection = (req = {}) => {
 };
 
 const originProtectionMiddleware = (req, res, next) => {
-    const expectedSecret = getOriginVerifySecret();
-    if (!expectedSecret || shouldBypassOriginProtection(req)) {
+    req.auraOriginVerified = false;
+
+    if (shouldBypassOriginProtection(req)) {
         return next();
+    }
+
+    const expectedSecret = getOriginVerifySecret();
+    const requestId = req.requestId || req.headers?.['x-request-id'] || '';
+
+    // A production deploy without the edge secret is misconfigured, not an
+    // invitation to bypass the origin guard. Fail closed so direct-origin
+    // access cannot become the fallback posture. Health, metrics, and signed
+    // provider webhooks stay on the explicit bypass list above.
+    if (!expectedSecret) {
+        if (!isProductionRuntime()) {
+            return next();
+        }
+
+        logger.error('origin_protection.misconfigured', {
+            requestId,
+            method: req.method,
+            path: req.originalUrl || req.path,
+            ip: getTrustedRequestIp(req),
+        });
+
+        res.set('Cache-Control', 'no-store');
+        return res.status(503).json({
+            success: false,
+            code: 'ORIGIN_PROTECTION_MISCONFIGURED',
+            message: 'Service unavailable',
+            requestId,
+        });
     }
 
     const providedSecret = normalizeText(req.get?.(ORIGIN_VERIFY_HEADER) || req.headers?.[ORIGIN_VERIFY_HEADER]);
     if (providedSecret && timingSafeEqualText(providedSecret, expectedSecret)) {
+        req.auraOriginVerified = true;
         return next();
     }
 
-    const requestId = req.requestId || req.headers?.['x-request-id'] || '';
     logger.warn('origin_protection.rejected', {
         requestId,
         method: req.method,

@@ -29,10 +29,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ref-guard:
+    name: Verify requested ref is on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.guard.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify requested ref is an ancestor of main
+        id: guard
+        env:
+          REQUESTED_REF: ${{ inputs.git_ref }}
+        run: |
+          set -euo pipefail
+          requested="${REQUESTED_REF:-main}"
+          case "${requested}" in
+            -*) echo "git_ref must not start with '-'." >&2; exit 1 ;;
+          esac
+          if ! [[ "${requested}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "git_ref contains unsupported characters." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          sha="$(git rev-parse --verify --quiet "${requested}^{commit}" || true)"
+          if [ -z "${sha}" ]; then
+            git fetch --no-tags origin "${requested}"
+            sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+          fi
+          if ! git merge-base --is-ancestor "${sha}" refs/remotes/origin/main; then
+            echo "Refusing to deploy ${requested} to staging: it is not an ancestor of main." >&2
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
   deploy-staging:
     # This job declares `environment: staging`, so its OIDC subject is
     # environment-scoped. Excluding the pull_request event by name keeps that
     # subject from ever being minted for a pull request.
+    needs: ref-guard
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: staging
@@ -102,7 +144,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ needs.ref-guard.outputs.release_sha }}
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

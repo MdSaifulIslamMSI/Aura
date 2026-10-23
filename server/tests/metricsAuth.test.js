@@ -137,7 +137,7 @@ describe('metrics auth middleware', () => {
         });
     });
 
-    test('allows non-production requests without a metrics secret', () => {
+    test('allows non-production requests from loopback without a metrics secret', () => {
         process.env.NODE_ENV = 'development';
         delete process.env.METRICS_SECRET;
         delete process.env.CRON_SECRET;
@@ -146,6 +146,52 @@ describe('metrics auth middleware', () => {
         const req = {
             headers: {},
             query: {},
+            socket: { remoteAddress: '::ffff:127.0.0.1' },
+        };
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn().mockReturnThis(),
+        };
+        const next = jest.fn();
+
+        metricsAuth(req, res, next);
+
+        expect(next).toHaveBeenCalledWith();
+        expect(res.status).not.toHaveBeenCalled();
+    });
+
+    test('rejects non-loopback non-production requests without a metrics secret', () => {
+        process.env.NODE_ENV = 'development';
+        delete process.env.METRICS_SECRET;
+        delete process.env.CRON_SECRET;
+
+        const { metricsAuth } = require('../middleware/metrics');
+        const req = {
+            headers: {},
+            query: {},
+            socket: { remoteAddress: '203.0.113.10' },
+        };
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn().mockReturnThis(),
+        };
+        const next = jest.fn();
+
+        metricsAuth(req, res, next);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    test('accepts non-loopback non-production requests with the metrics secret', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.METRICS_SECRET = 'metrics-secret';
+
+        const { metricsAuth } = require('../middleware/metrics');
+        const req = {
+            headers: { 'x-metrics-key': 'metrics-secret' },
+            query: {},
+            socket: { remoteAddress: '203.0.113.10' },
         };
         const res = {
             status: jest.fn().mockReturnThis(),

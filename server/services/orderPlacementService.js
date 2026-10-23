@@ -12,6 +12,7 @@ const {
     PRICING_VERSION,
     buildOrderQuote,
 } = require('./orderPricingService');
+const { getActiveCatalogProductFilter } = require('./catalogVisibilityService');
 const {
     validatePaymentIntentForOrder,
     linkIntentToOrder,
@@ -131,9 +132,13 @@ const mapToDbOrderItems = (resolvedItems, pricing = {}) => {
 };
 
 const decrementStockAtomically = async (resolvedItems, session) => {
+    // Re-assert catalog eligibility at the reservation write. The quote read
+    // can race a deactivation or catalog-version flip; reserving stock for an
+    // item that is no longer purchasable would create an unfulfillable order.
+    const catalogFilter = await getActiveCatalogProductFilter();
     for (const item of resolvedItems) {
         const query = Product.updateOne(
-            { id: item.productId, stock: { $gte: item.quantity } },
+            { id: item.productId, ...catalogFilter, stock: { $gte: item.quantity } },
             { $inc: { stock: -item.quantity } }
         );
         const update = session ? await query.session(session) : await query;

@@ -151,19 +151,23 @@ cat > "$operator_policy" <<JSON
       "Resource": "*"
     },
     {
-      "Sid": "RunStagingInstanceCommands",
+      "Sid": "RunStagingInstanceCommandsDocument",
       "Effect": "Allow",
       "Action": [
         "ssm:SendCommand"
       ],
-      "Resource": [
-        "arn:aws:ssm:$AWS_REGION::document/AWS-RunShellScript",
-        "arn:aws:ec2:$AWS_REGION:$AWS_ACCOUNT_ID:instance/*"
+      "Resource": "arn:aws:ssm:$AWS_REGION::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "RunStagingInstanceCommandsTaggedInstances",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:SendCommand"
       ],
+      "Resource": "arn:aws:ec2:$AWS_REGION:$AWS_ACCOUNT_ID:instance/*",
       "Condition": {
-        "StringEqualsIfExists": {
-          "aws:ResourceTag/Environment": "staging",
-          "ssm:resourceTag/Environment": "staging"
+        "StringEquals": {
+          "aws:ResourceTag/Environment": "staging"
         }
       }
     },
@@ -178,26 +182,54 @@ cat > "$operator_policy" <<JSON
       "Resource": "*"
     },
     {
-      "Sid": "ManageStagingEc2",
+      "Sid": "CreateStagingEc2Resources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateKeyPair",
+        "ec2:CreateSecurityGroup",
+        "ec2:RunInstances"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Environment": "staging"
+        }
+      }
+    },
+    {
+      "Sid": "TagStagingEc2ResourcesAtCreate",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateTags"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Environment": "staging",
+          "ec2:CreateAction": [
+            "CreateKeyPair",
+            "CreateSecurityGroup",
+            "RunInstances"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ManageExistingStagingEc2Resources",
       "Effect": "Allow",
       "Action": [
         "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:CreateKeyPair",
-        "ec2:CreateSecurityGroup",
-        "ec2:CreateTags",
         "ec2:DeleteKeyPair",
         "ec2:DeleteSecurityGroup",
         "ec2:RebootInstances",
         "ec2:RevokeSecurityGroupIngress",
-        "ec2:RunInstances",
         "ec2:StartInstances",
         "ec2:StopInstances",
         "ec2:TerminateInstances"
       ],
       "Resource": "*",
       "Condition": {
-        "StringEqualsIfExists": {
-          "aws:RequestTag/Environment": "staging",
+        "StringEquals": {
           "aws:ResourceTag/Environment": "staging"
         }
       }
@@ -312,10 +344,19 @@ cat > "$instance_policy" <<JSON
       ]
     },
     {
+      "Sid": "UseStagingFieldEncryptionKms",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:$AWS_REGION:$AWS_ACCOUNT_ID:key/*"
+    },
+    {
       "Sid": "DecryptSsmSecureStringsViaSsm",
       "Effect": "Allow",
       "Action": "kms:Decrypt",
-      "Resource": "*",
+      "Resource": "arn:aws:kms:$AWS_REGION:$AWS_ACCOUNT_ID:key/*",
       "Condition": {
         "StringEquals": {
           "kms:ViaService": "ssm.$AWS_REGION.amazonaws.com"

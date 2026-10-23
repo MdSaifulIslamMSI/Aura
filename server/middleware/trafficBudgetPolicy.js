@@ -2,7 +2,11 @@ const crypto = require('crypto');
 const { createDistributedRateLimit } = require('./distributedRateLimit');
 const { ROUTE_CLASSES, getTrafficBudget } = require('../config/trafficBudgets');
 const { recordTrafficBudgetDenied } = require('../metrics/trafficResilienceMetrics');
-const { getAuthenticatedRateLimitIdentity, getTrustedRequestIp } = require('../utils/requestIdentity');
+const {
+    getAuthenticatedRateLimitIdentity,
+    getAuthenticatedSessionRateLimitIdentity,
+    getTrustedRequestIp,
+} = require('../utils/requestIdentity');
 const logger = require('../utils/logger');
 
 const limiterCache = new Map();
@@ -65,7 +69,14 @@ const getLimiter = (budget, dimension) => {
             }
 
             if (dimension === 'perAccount') return getAuthenticatedRateLimitIdentity(req);
-            if (dimension === 'perSession') return `session:${String(req.headers?.['x-client-session-id'] || req.authSession?.sessionId || getTrustedRequestIp(req)).slice(0, 120)}`;
+            if (dimension === 'perSession') {
+                // The client-session header is user-controlled and can be rotated
+                // on every request, so it must never define its own rate-limit
+                // bucket. Prefer the authenticated session; anonymous callers
+                // fall back to the trusted proxy-derived IP.
+                return getAuthenticatedSessionRateLimitIdentity(req)
+                    || `ip:${getTrustedRequestIp(req)}`;
+            }
             return `ip:${getTrustedRequestIp(req)}`;
         },
     });

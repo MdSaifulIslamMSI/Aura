@@ -24,8 +24,11 @@ test('the committed auth-window allowlist matches its generated artifact', () =>
 
 const runtimeUrl = 'http://127.0.0.1:47831';
 
-test('internal URLs require the active loopback origin and port', () => {
-    assert.equal(isInternalUrl('http://localhost:47831/login', runtimeUrl), true);
+test('internal URLs require the exact active runtime origin and port', () => {
+    assert.equal(isInternalUrl('http://127.0.0.1:47831/login', runtimeUrl), true);
+    // A different loopback alias is a different origin: a local process can bind
+    // [::1] while the runtime owns 127.0.0.1.
+    assert.equal(isInternalUrl('http://localhost:47831/login', runtimeUrl), false);
     assert.equal(isInternalUrl('http://127.0.0.1:47832/login', runtimeUrl), false);
     assert.equal(isInternalUrl('https://aurapilot.vercel.app/login', runtimeUrl), false);
 });
@@ -55,7 +58,7 @@ test('external launching rejects local files and arbitrary OS schemes', () => {
 
 test('runtime permissions require the exact active runtime origin', () => {
     assert.equal(canGrantDesktopRuntimePermission('media', `${runtimeUrl}/call`, runtimeUrl), true);
-    assert.equal(canGrantDesktopRuntimePermission('videoCapture', 'http://localhost:47831/call', runtimeUrl), true);
+    assert.equal(canGrantDesktopRuntimePermission('videoCapture', 'http://localhost:47831/call', runtimeUrl), false);
     assert.equal(canGrantDesktopRuntimePermission('media', 'http://127.0.0.1:47832/call', runtimeUrl), false);
     assert.equal(canGrantDesktopRuntimePermission('media', 'https://aurapilot.vercel.app/call', runtimeUrl), false);
     assert.equal(canGrantDesktopRuntimePermission('geolocation', `${runtimeUrl}/`, runtimeUrl), false);

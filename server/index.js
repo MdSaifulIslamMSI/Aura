@@ -231,6 +231,10 @@ const {
 initOtel();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '256kb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
+// Diagnostics ingestion is unauthenticated and append-only. Keep its body far
+// below the generic JSON limit: even a fully populated 20-event batch is small,
+// so a larger request is either a bug or log-amplification traffic.
+const DIAGNOSTICS_BODY_LIMIT = process.env.DIAGNOSTICS_BODY_LIMIT || '64kb';
 // Large-payload routes (base64 data-URI uploads in JSON bodies) keep their
 // scoped parsers; everything else no longer accepts 12 MB JSON bodies.
 const LARGE_JSON_BODY_LIMIT = process.env.LARGE_JSON_BODY_LIMIT || '10mb';
@@ -579,6 +583,11 @@ app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
     limit: LARGE_JSON_BODY_LIMIT,
     parameterLimit: 100,
 }));
+// Must run before the generic JSON parser below: body-parser marks the request
+// as parsed, so the later 256kb parser will not re-parse it at the looser limit.
+app.use('/api/observability/client-diagnostics', express.json({
+    limit: DIAGNOSTICS_BODY_LIMIT,
+}));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
 }));
@@ -600,7 +609,10 @@ app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
 app.get(/^\/uploads\/avatars\/(.+)$/, uploadAssetLimiter, serveAvatarMediaAsset);
-app.use('/uploads', uploadAssetLimiter, express.static(path.join(__dirname, 'uploads')));
+// Do not mount the uploads directory as static files: it would expose every
+// object on disk, including quarantined media. Only the two controllers above
+// may serve assets. Unknown upload paths must not fall through to the SPA.
+app.use('/uploads', uploadAssetLimiter, (req, res, next) => next(new AppError('Upload not found', 404)));
 
 // Rate Limiting â€” strict for production, disabled in test
 if (process.env.NODE_ENV !== 'test') {
@@ -1058,9 +1070,18 @@ assertProductionRedisConfig();
     assertOtpHashSecretIsolation();
     assertMfaCryptoConfig();
 
-    connectDB().then(() => {
-        // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.
-        // Async startup tasks (Redis, Catalog, Workers) will run in the background.
+    connectDB().then(async () => {
+        // These are request-path prerequisites, not background warmups:
+        // encrypted reads/writes throw while the DEK is unprimed, and
+        // security-critical limiters fail closed when required Redis is
+        // unavailable. Bind only after both are ready so a request never
+        // observes a half-initialized process.
+        if (isFieldEncryptionEnabled()) {
+            await primeFieldEncryption();
+        }
+        await initRedis();
+
+        // Async startup tasks (Catalog, Workers) will run in the background.
         applyHttpServerTimeouts(server);
         const httpServer = server.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
@@ -1076,8 +1097,6 @@ assertProductionRedisConfig();
 
             // Run intensive startup tasks asynchronously
             Promise.resolve()
-                .then(() => (isFieldEncryptionEnabled() ? primeFieldEncryption() : null))
-                .then(() => initRedis())
                 .then(() => attachSocketBackplane())
                 .then(() => ensureSystemState({ syncIndexes: true }))
                 .then(() => syncCriticalIndexes())
@@ -1207,7 +1226,7 @@ assertProductionRedisConfig();
         });
 
     }).catch((error) => {
-        logger.error('server.db_connect_failed', { error: error.message });
+        logger.error('server.startup_failed', { phase: 'prelisten', error: error.message });
         process.exit(1);
     });
 }

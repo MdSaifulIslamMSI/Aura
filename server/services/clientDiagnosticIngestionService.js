@@ -128,15 +128,25 @@ const persistClientDiagnostics = async ({
 
         if (String(diagnostic.type || '').startsWith('account.')) {
             recordAccountProductEvent(diagnostic);
+            // Structured fields only. The full record stays in the bounded
+            // in-memory/list store; logging it verbatim let one request append
+            // arbitrary context and detail to the shared log sink.
             logger.info('account.product_event', {
                 type: diagnostic.type,
                 route: diagnostic.route,
-                context: diagnostic.context,
                 timestamp: diagnostic.timestamp,
             });
         } else {
             recordClientDiagnostic(diagnostic);
-            logger.warn('client.diagnostic', diagnostic);
+            logger.warn('client.diagnostic', {
+                type: diagnostic.type,
+                severity: diagnostic.severity,
+                route: diagnostic.route,
+                requestId: diagnostic.requestId || diagnostic.serverRequestId || '',
+                status: diagnostic.status,
+                durationMs: diagnostic.durationMs,
+                ingestionRequestId: diagnostic.ingestionRequestId,
+            });
         }
     });
 

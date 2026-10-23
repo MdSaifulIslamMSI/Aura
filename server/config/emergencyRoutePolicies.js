@@ -12,7 +12,17 @@ const hasStaticAssetExtension = (path = '') => /\.(?:js|mjs|css|map|png|jpg|jpeg
 
 const isPaymentWebhookPath = (path = '') => path.startsWith('/api/payments/webhooks');
 const isEmailWebhookPath = (path = '') => path.startsWith('/api/email-webhooks');
-const isExternalWebhookPath = (path = '') => isPaymentWebhookPath(path) || isEmailWebhookPath(path);
+const isStatusWebhookPath = (path = '') => path.startsWith('/api/status/webhooks');
+const isShippingWebhookPath = (path = '') => path.startsWith('/api/shipping/webhooks');
+// Every provider webhook is exempt from the blanket maintenance/read-only
+// gate so the raw event can be persisted for replay. Handlers that mutate
+// orders or payments check the emergency flags themselves before applying.
+const isExternalWebhookPath = (path = '') => (
+    isPaymentWebhookPath(path)
+    || isEmailWebhookPath(path)
+    || isStatusWebhookPath(path)
+    || isShippingWebhookPath(path)
+);
 
 const isEmergencyAdminPath = (path = '') => path.startsWith('/api/admin/emergency-controls');
 

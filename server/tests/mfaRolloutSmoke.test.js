@@ -60,6 +60,8 @@ const buildMfaControllerApp = ({ user }) => {
             email: user.email,
             name: user.name,
             isVerified: true,
+            isAdmin: Boolean(user.isAdmin),
+            isSeller: Boolean(user.isSeller),
         };
         req.authUid = `uid-${user._id}`;
         req.authToken = {
@@ -272,6 +274,24 @@ describe('Aura MFA staging rollout smoke', () => {
             enabled: false,
             pending: true,
         });
+    });
+
+    test('seller TOTP enrollment is blocked without a fresh independent factor', async () => {
+        applyMfaEnv();
+        const user = await User.create({
+            name: 'Rollout Seller TOTP User',
+            email: `${buildRuntimeSecret('rollout-seller-totp')}@example.test`,
+            isVerified: true,
+            isSeller: true,
+        });
+        const app = buildMfaControllerApp({ user });
+
+        const setup = await request(app).post('/api/auth/mfa/totp/setup').send({});
+
+        expect(setup.statusCode).toBe(403);
+        expect(setup.body.code).toBe('ADMIN_PASSKEY_ENROLLMENT_ASSURANCE_REQUIRED');
+        const refreshed = await User.findById(user._id).select('mfa').lean();
+        expect(refreshed.mfa?.totp?.pendingSecretEncrypted || '').toBe('');
     });
 
     test('primary login returns an MFA challenge without a final aura_sid session', async () => {
