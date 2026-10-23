@@ -64,24 +64,67 @@ env:
   AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
 
 jobs:
+  ref-guard:
+    name: Verify requested ref is on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.guard.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify requested ref is an ancestor of main
+        id: guard
+        env:
+          REQUESTED_REF: ${{ inputs.git_ref }}
+        run: |
+          set -euo pipefail
+          requested="${REQUESTED_REF:-main}"
+          case "${requested}" in
+            -*) echo "git_ref must not start with '-'." >&2; exit 1 ;;
+          esac
+          if ! [[ "${requested}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "git_ref contains unsupported characters." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          sha="$(git rev-parse --verify --quiet "${requested}^{commit}" || true)"
+          if [ -z "${sha}" ]; then
+            git fetch --no-tags origin "${requested}"
+            sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+          fi
+          if ! git merge-base --is-ancestor "${sha}" refs/remotes/origin/main; then
+            echo "Refusing to deploy ${requested}: it is not an ancestor of main." >&2
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
   preflight:
+    needs: ref-guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
     outputs:
-      release_sha: ${{ steps.release.outputs.sha }}
+      release_sha: ${{ needs.ref-guard.outputs.release_sha }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.git_ref || github.sha }}
+          ref: ${{ needs.ref-guard.outputs.release_sha }}
 
-      - name: Resolve immutable release commit
-        id: release
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Verify guarded release commit
+        env:
+          GUARDED_RELEASE_SHA: ${{ needs.ref-guard.outputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "${GUARDED_RELEASE_SHA}"
 
       - name: Use Node.js 24.x
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

@@ -1954,7 +1954,9 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('sha256sum --check --status');
         expect(workflow).toContain('AURA_INFRA_BUNDLE_SHA256');
         expect(workflow).toContain('AURA_IMAGE_BUNDLE_SHA256');
-        expect(workflow).toContain('Resolve immutable release commit');
+        expect(workflow).toContain('Verify requested ref is an ancestor of main');
+        expect(workflow).toContain('git merge-base --is-ancestor');
+        expect(workflow).toContain('Verify guarded release commit');
         expect(workflow).toContain('AURA_RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}');
         expect(workflow).toContain('ref: ${{ needs.preflight.outputs.release_sha }}');
         expect(workflow).toContain('releases/${AURA_RELEASE_SHA}/infra.tar.gz');

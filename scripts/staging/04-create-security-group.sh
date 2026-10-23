@@ -21,15 +21,17 @@ if [ -z "$sg_id" ] || [ "$sg_id" = "None" ]; then
     --group-name "$sg_name" \
     --description "Free-tier staging SG for isolated staging backend" \
     --vpc-id "$vpc_id" \
+    --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value=$sg_name},{Key=Project,Value=$PROJECT_NAME},{Key=Environment,Value=staging},{Key=ManagedBy,Value=codex-staging-bootstrap}]" \
     --query GroupId \
     --output text)"
-  aws_cli ec2 create-tags --region "$AWS_REGION" --resources "$sg_id" --tags \
-    "Key=Name,Value=$sg_name" \
-    "Key=Project,Value=$PROJECT_NAME" \
-    "Key=Environment,Value=staging" \
-    "Key=ManagedBy,Value=codex-staging-bootstrap" >/dev/null
   log "Created security group $sg_id"
 else
+  sg_environment="$(aws_cli ec2 describe-security-groups \
+    --region "$AWS_REGION" \
+    --group-ids "$sg_id" \
+    --query 'SecurityGroups[0].Tags[?Key==`Environment`].Value | [0]' \
+    --output text 2>/dev/null || true)"
+  [ "$sg_environment" = "staging" ] || die "Existing security group $sg_id is not tagged Environment=staging; tag it with the staging bootstrap admin before rerunning."
   log "Reusing security group $sg_id"
 fi
 

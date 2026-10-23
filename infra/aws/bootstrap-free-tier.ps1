@@ -12,7 +12,8 @@ param(
     [string]$AllowedIpv4Cidr = "0.0.0.0/0",
     [string]$SubnetId = "",
     [string]$VpcId = "",
-    [int]$RootVolumeSizeGiB = 32
+    [int]$RootVolumeSizeGiB = 32,
+    [string]$FieldEncryptionKmsKeyArn = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -157,7 +158,8 @@ function Ensure-InstanceRole {
         [string]$AccountId,
         [string]$ParameterPrefix,
         [string]$DeployBucket,
-        [string]$MediaBucket
+        [string]$MediaBucket,
+        [string]$FieldEncryptionKmsKeyArn
     )
 
     $trustPolicy = @{
@@ -193,6 +195,13 @@ function Ensure-InstanceRole {
         "arn:aws:ssm:${Region}:${AccountId}:parameter$normalizedParameterPrefix",
         "arn:aws:ssm:${Region}:${AccountId}:parameter$normalizedParameterPrefix/*"
     )
+    # Prefer the exact field-encryption CMK. The key/* fallback keeps existing
+    # bootstraps working when the key is not passed but is still account-local.
+    $fieldEncryptionKmsResource = if ([string]::IsNullOrWhiteSpace($FieldEncryptionKmsKeyArn)) {
+        "arn:aws:kms:${Region}:${AccountId}:key/*"
+    } else {
+        $FieldEncryptionKmsKeyArn
+    }
 
     $policyDocument = @{
         Version = "2012-10-17"
@@ -206,6 +215,42 @@ function Ensure-InstanceRole {
                     "ssm:GetParametersByPath"
                 )
                 Resource = $parameterStoreResourceArns
+            },
+            @{
+                # The first boot persists the KMS-wrapped DEK so later boots
+                # recover the same key. Only this one parameter is writable.
+                Sid = "PersistWrappedFieldEncryptionDek"
+                Effect = "Allow"
+                Action = @(
+                    "ssm:PutParameter"
+                )
+                Resource = "arn:aws:ssm:${Region}:${AccountId}:parameter$normalizedParameterPrefix/FIELD_ENCRYPTION_WRAPPED_DEK"
+            },
+            @{
+                Sid = "FieldEncryptionKms"
+                Effect = "Allow"
+                Action = @(
+                    "kms:Decrypt",
+                    "kms:GenerateDataKey"
+                )
+                Resource = $fieldEncryptionKmsResource
+            },
+            @{
+                # SecureString reads/writes go through SSM, so restrict KMS use
+                # to that service rather than granting direct key access.
+                Sid = "SsmSecureStringKms"
+                Effect = "Allow"
+                Action = @(
+                    "kms:Decrypt",
+                    "kms:Encrypt",
+                    "kms:GenerateDataKey"
+                )
+                Resource = "arn:aws:kms:${Region}:${AccountId}:key/*"
+                Condition = @{
+                    StringEquals = @{
+                        "kms:ViaService" = "ssm.${Region}.amazonaws.com"
+                    }
+                }
             },
             @{
                 Sid = "DeployArtifacts"
@@ -323,6 +368,13 @@ $securityGroupId = if ([string]::IsNullOrWhiteSpace($existingSecurityGroupId) -o
     $existingSecurityGroupId
 }
 
+# Tag the group itself, not only the instances behind it. Environment scoping
+# in IAM and operational guardrails depends on this key being present.
+aws ec2 create-tags `
+    --region $AwsRegion `
+    --resources $securityGroupId `
+    --tags "Key=Name,Value=$securityGroupName" "Key=App,Value=Aura" "Key=Role,Value=backend" "Key=Environment,Value=production" "Key=ManagedBy,Value=codex-aws-bootstrap" | Out-Null
+
 try {
     $ingressPermissions = "[{""IpProtocol"":""tcp"",""FromPort"":80,""ToPort"":80,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]},{""IpProtocol"":""tcp"",""FromPort"":443,""ToPort"":443,""IpRanges"":[{""CidrIp"":""$AllowedIpv4Cidr""}]}]"
     $ingressFile = Join-Path $env:TEMP "$securityGroupName-ingress.json"
@@ -397,7 +449,8 @@ Ensure-InstanceRole `
     -AccountId $awsAccountId `
     -ParameterPrefix $ParameterStorePathPrefix `
     -DeployBucket $DeployBucketName `
-    -MediaBucket $MediaBucketName
+    -MediaBucket $MediaBucketName `
+    -FieldEncryptionKmsKeyArn $FieldEncryptionKmsKeyArn
 
 $userDataTemplatePath = Join-Path $PSScriptRoot "bootstrap-instance-user-data.sh"
 $userData = Get-Content -LiteralPath $userDataTemplatePath -Raw
