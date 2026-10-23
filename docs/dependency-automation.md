@@ -35,9 +35,14 @@ performance, etc.) keeps the PR human-visible until it clears.
 - `automerge.majorBlocklist` — deps whose **major** jumps always need a human.
   Minors/patches of the same deps still auto-merge (security fixes ship without delay).
   Wildcards like `@sentry/*` are supported.
-- `overridesGuard` — any diff inside an `overrides` block goes to the manual lane.
-  The root/app/server override pins are hand-synced seams (e.g. `undici`, `brace-expansion`
-  appear in all three manifests); automation must not rewrite them unilaterally.
+- `overridesGuard` — overrides changes are judged by seam alignment: a bump is
+  safe when every manifest that pins the package converges on one value (and
+  the seam was aligned before the change) — Dependabot's coordinated weekly pin
+  bumps (e.g. `undici` across all three manifests) flow automatically. A partial
+  rewrite (one manifest moved, another left behind) or a pre-divergent seam goes
+  to the manual lane. Pins in `automerge.overridesBlocklist` (currently
+  `mongodb`, which pairs with the mongoose driver constraint) always need a
+  human regardless of sync.
 - Labels and the comment marker are configurable.
 
 Edit the JSON freely — the controller reads it at run time, no workflow change needed.
