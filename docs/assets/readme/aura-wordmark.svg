@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="260" viewBox="0 0 960 260" role="img" aria-labelledby="title desc">
   <title id="title">Aura Marketplace wordmark</title>
-  <desc id="desc">A polished Aura Marketplace wordmark for the repository README.</desc>
+  <desc id="desc">A polished Aura Marketplace wordmark for the repository README. All styling is inlined per element because GitHub's SVG sanitizer strips style blocks.</desc>
   <defs>
     <linearGradient id="aura" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#30f2e8"/>
@@ -19,12 +19,6 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <style>
-      .title { fill: #f8fbff; font: 800 78px Arial, sans-serif; letter-spacing: 4px; }
-      .sub { fill: #9fb7c7; font: 700 20px Arial, sans-serif; letter-spacing: 5px; }
-      .micro { fill: #34ded0; font: 700 16px Arial, sans-serif; letter-spacing: 4px; }
-      .rule { stroke: #1e6073; stroke-width: 2; }
-    </style>
   </defs>
 
   <rect x="18" y="18" width="924" height="224" rx="36" fill="url(#plate)" stroke="#155167" stroke-width="2"/>
@@ -35,8 +29,8 @@
     <path d="M28 31 C6 52 5 83 25 104" fill="none" stroke="#7c8cff" stroke-width="7" stroke-linecap="round"/>
   </g>
 
-  <text x="214" y="120" class="title">AURA</text>
-  <text x="218" y="158" class="sub">MARKETPLACE</text>
-  <line x1="218" y1="184" x2="782" y2="184" class="rule"/>
-  <text x="220" y="213" class="micro">AI COMMERCE  |  SECURE CHECKOUT  |  GATED RELEASES</text>
+  <text x="214" y="120" fill="#f8fbff" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800" letter-spacing="4">AURA</text>
+  <text x="218" y="158" fill="#9fb7c7" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="5">MARKETPLACE</text>
+  <line x1="218" y1="184" x2="782" y2="184" stroke="#1e6073" stroke-width="2"/>
+  <text x="220" y="213" fill="#34ded0" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="4">AI COMMERCE  |  SECURE CHECKOUT  |  GATED RELEASES</text>
 </svg>
