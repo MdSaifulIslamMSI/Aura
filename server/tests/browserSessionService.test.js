@@ -199,6 +199,107 @@ describe('browserSessionService', () => {
         expect(rotated.deviceMethod).toBe('webauthn');
     });
 
+    test('keeps a live admin passkey assurance across an implicit refresh but drops it on rotation', async () => {
+        let service;
+        let evaluateLogin;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'admin-device-refresh',
+                    deviceLabel: 'Admin Browser',
+                }),
+            }));
+            service = require('../services/browserSessionService');
+            ({ evaluateLogin } = require('../services/mfaPolicyService'));
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const stepUpUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        const req = {
+            headers: { host: 'admin.aura.local', 'x-forwarded-proto': 'https' },
+            secure: true,
+        };
+        const user = {
+            _id: '507f1f77bcf86cd799439097',
+            email: 'admin-refresh@example.com',
+            isAdmin: true,
+            trustedDevices: [{
+                deviceId: 'admin-device-refresh',
+                method: 'webauthn',
+                webauthnCredentialIdBase64Url: 'admin-credential-refresh',
+                webauthnUserVerified: true,
+                credentialScope: 'admin',
+                adminEligibility: 'verified',
+            }],
+        };
+        const authToken = {
+            auth_time: nowSeconds - 30,
+            iat: nowSeconds - 30,
+            exp: nowSeconds + 3600,
+            firebase: { sign_in_provider: 'password' },
+        };
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+        };
+
+        const session = await service.createBrowserSession({
+            req,
+            user,
+            authUid: 'firebase-admin-refresh',
+            authToken,
+            deviceMethod: 'webauthn',
+            stepUpUntil,
+            webAuthnStepUpUntil: stepUpUntil,
+            additionalAmr: ['webauthn', 'passkey', 'mfa'],
+        });
+
+        // `/api/auth/session` re-persists the cookie session through
+        // establishSessionCookie. That is an implicit refresh of the same
+        // session, not a new ceremony, and must not erase the factor the live
+        // step-up window still backs.
+        const refreshed = await service.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user,
+            authUid: 'firebase-admin-refresh',
+            authToken,
+        });
+
+        expect(refreshed.sessionId).toBe(session.sessionId);
+        expect(refreshed.amr).toEqual(expect.arrayContaining(['webauthn', 'passkey', 'mfa']));
+        expect(evaluateLogin({ env, user, context: { session: refreshed } })).toMatchObject({
+            mfaRequired: false,
+            satisfied: true,
+        });
+
+        // A rotation mints a new session id and must re-earn its factors even
+        // while the old window is still live.
+        const rotated = await service.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user,
+            authUid: 'firebase-admin-refresh',
+            authToken,
+            rotate: true,
+        });
+
+        expect(rotated.sessionId).not.toBe(session.sessionId);
+        expect(rotated.amr).not.toContain('webauthn');
+        expect(rotated.amr).not.toContain('passkey');
+        expect(rotated.amr).not.toContain('mfa');
+        expect(evaluateLogin({ env, user, context: { session: rotated } })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+    });
+
     test.each([
         ['near its absolute deadline', 10 * 1000],
         ['after its absolute deadline', -1000],

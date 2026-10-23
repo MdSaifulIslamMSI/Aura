@@ -216,6 +216,41 @@ const CEREMONY_BOUND_AMR = new Set([
     'duo_oidc',
 ]);
 
+const hasActiveAssuranceWindow = (value = null, now = Date.now()) => {
+    const expiresAt = value ? new Date(value).getTime() : 0;
+    return Number.isFinite(expiresAt) && expiresAt > now;
+};
+
+// Recognition-grade evidence (device_binding, the provider amr) is lineage
+// state and is inherited; a second factor is not. See CEREMONY_BOUND_AMR.
+//
+// A refresh of the SAME session carries no new ceremony, so dropping every
+// ceremony-bound entry would erase a factor that the session's still-live
+// step-up window continues to honor everywhere else (session checks, admin
+// policy, sensitive actions). Preserve only the entries that window still
+// backs. A rotation mints a new session ID and must re-earn its factors, so
+// it keeps the original fail-closed behavior.
+const resolveInheritedAmr = ({
+    previousSession = null,
+    sameSessionRefresh = false,
+    additionalAmr = [],
+} = {}) => {
+    const priorAmr = normalizeAmr(previousSession?.amr);
+    if (!sameSessionRefresh || normalizeAmr(additionalAmr).length > 0) {
+        return priorAmr.filter((entry) => !CEREMONY_BOUND_AMR.has(entry));
+    }
+
+    const now = Date.now();
+    const stepUpActive = hasActiveAssuranceWindow(previousSession?.stepUpUntil, now);
+    const webAuthnStepUpActive = hasActiveAssuranceWindow(previousSession?.webAuthnStepUpUntil, now);
+    return priorAmr.filter((entry) => {
+        if (!CEREMONY_BOUND_AMR.has(entry)) return true;
+        if (entry === 'firebase_mfa') return false;
+        if (entry === 'webauthn' || entry === 'passkey') return webAuthnStepUpActive;
+        return stepUpActive;
+    });
+};
+
 const resolveSyntheticAssurance = ({
     user = null,
     authToken = null,
@@ -224,12 +259,14 @@ const resolveSyntheticAssurance = ({
     stepUpUntil = null,
     webAuthnStepUpUntil = null,
     additionalAmr = [],
+    sameSessionRefresh = false,
 } = {}) => {
     const providerIds = resolveProviderIds({ previousSession, authToken });
-    // Recognition-grade evidence (device_binding, the provider amr) is lineage
-    // state and is inherited; a second factor is not. See CEREMONY_BOUND_AMR.
-    const inheritedAmr = normalizeAmr(previousSession?.amr)
-        .filter((entry) => !CEREMONY_BOUND_AMR.has(entry));
+    const inheritedAmr = resolveInheritedAmr({
+        previousSession,
+        sameSessionRefresh,
+        additionalAmr,
+    });
     const nextAmr = [
         buildProviderAmr(providerIds),
         ...inheritedAmr,
@@ -888,6 +925,11 @@ const buildBrowserSessionRecord = ({
         previousSession,
     });
     const { deviceId } = extractTrustedDeviceContext(req);
+    const sameSessionRefresh = Boolean(
+        previousSession?.sessionId
+        && String(sessionId || '').trim()
+        && String(sessionId).trim() === String(previousSession.sessionId).trim()
+    );
     const assurance = resolveSyntheticAssurance({
         user,
         authToken,
@@ -896,6 +938,7 @@ const buildBrowserSessionRecord = ({
         stepUpUntil,
         webAuthnStepUpUntil,
         additionalAmr,
+        sameSessionRefresh,
     });
     const clientMetadata = resolveClientMetadata(req, previousSession);
     const absoluteExpiresAt = new Date(createdAt.getTime() + SESSION_ABSOLUTE_TTL_MS).toISOString();
