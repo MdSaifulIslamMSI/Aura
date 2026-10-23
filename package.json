@@ -415,7 +415,7 @@
     },
     "mac": {
       "category": "public.app-category.shopping",
-      "icon": "app/public/assets/icon-512.png",
+      "icon": "app/public/assets/logo-1024.png",
       "extendInfo": {
         "NSCameraUsageDescription": "Aura Marketplace uses the camera for live marketplace and support video calls.",
         "NSMicrophoneUsageDescription": "Aura Marketplace uses the microphone for live marketplace and support voice or video calls."
@@ -428,7 +428,7 @@
     },
     "linux": {
       "category": "Office",
-      "icon": "app/public/assets/icon-512.png",
+      "icon": "app/public/assets/logo-1024.png",
       "maintainer": "MdSaifulIslamMSI <MdSaifulIslamMSI@users.noreply.github.com>",
       "target": [
         "AppImage",
