@@ -35,8 +35,14 @@ const { captureIntentNow, createEscrowRefundForIntent, releaseEscrowAuthorizatio
 const {
     DIGITAL_METHODS,
     INTENT_EXPIRY_MINUTES,
+    PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES,
+    PAYMENT_SECURITY_MAX_CONFIRM_FAILURES,
     PAYMENT_STATUSES,
 } = require('../services/payments/constants');
+const {
+    assertConfirmNotLocked,
+    buildSecurityState,
+} = require('../services/payments/securityGuards');
 const {
     makeIntentId,
     normalizeMethod,
@@ -404,6 +410,37 @@ const createEscrowIntent = asyncHandler(async (req, res, next) => {
     });
 });
 
+const recordEscrowConfirmFailure = async ({ intent, reason }) => {
+    const current = buildSecurityState(intent);
+    const failedConfirmAttempts = current.failedConfirmAttempts + 1;
+    const lockedUntil = failedConfirmAttempts >= PAYMENT_SECURITY_MAX_CONFIRM_FAILURES
+        ? new Date(Date.now() + PAYMENT_SECURITY_CONFIRM_LOCK_MINUTES * 60 * 1000).toISOString()
+        : null;
+
+    await PaymentIntent.updateOne(
+        { _id: intent._id },
+        {
+            $set: {
+                'metadata.securityLayer': {
+                    ...current,
+                    failedConfirmAttempts,
+                    totalConfirmFailures: current.totalConfirmFailures + 1,
+                    lastConfirmFailedAt: new Date().toISOString(),
+                    lastConfirmFailureReason: String(reason || 'unknown').slice(0, 120),
+                    lockedUntil,
+                },
+            },
+            $inc: { attemptCount: 1 },
+        }
+    );
+    logger.warn('escrow.confirm_failure', {
+        intentId: intent.intentId,
+        reason,
+        failedConfirmAttempts,
+        locked: Boolean(lockedUntil),
+    });
+};
+
 const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
     if (!paymentFlags.paymentsEnabled) {
         return next(new AppError('Marketplace payments are currently disabled', 503));
@@ -464,6 +501,12 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         });
     }
 
+    try {
+        assertConfirmNotLocked(intent);
+    } catch (error) {
+        return next(error);
+    }
+
     const providerOrderId = String(req.body?.providerOrderId || '').trim();
     const providerPaymentId = String(req.body?.providerPaymentId || '').trim();
     const providerSignature = String(req.body?.providerSignature || '').trim();
@@ -471,10 +514,12 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         return next(new AppError('providerOrderId, providerPaymentId and providerSignature are required', 400));
     }
     if (providerOrderId !== intent.providerOrderId) {
+        await recordEscrowConfirmFailure({ intent, reason: 'provider_order_body_mismatch' });
         return next(new AppError('Provider order mismatch for escrow confirmation', 409));
     }
 
     const provider = await getPaymentProvider({
+        gatewayId: intent.provider,
         amount: intent.amount,
         currency: intent.currency,
         paymentMethod: intent.method,
@@ -486,11 +531,39 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
         signature: providerSignature,
     });
     if (!verified) {
+        await recordEscrowConfirmFailure({ intent, reason: 'signature_invalid' });
         return next(new AppError('Invalid escrow payment signature', 400));
     }
 
     const payment = await provider.fetchPayment(providerPaymentId);
     const providerStatus = String(payment?.status || '').toLowerCase();
+    if (!['authorized', 'captured'].includes(providerStatus)) {
+        await recordEscrowConfirmFailure({ intent, reason: `provider_status_${providerStatus || 'unknown'}` });
+        return next(new AppError(`Provider returned non-authorized status: ${providerStatus || 'unknown'}`, 409));
+    }
+
+    // Bind the fetched payment to the order this intent created. Razorpay
+    // returns order_id; Stripe's payment intent id is the order reference.
+    const providerOrderReference = String(
+        payment?.order_id
+        || payment?.orderId
+        || (intent.provider === 'stripe' ? payment?.id : '')
+        || ''
+    ).trim();
+    if (!providerOrderReference || providerOrderReference !== providerOrderId) {
+        await recordEscrowConfirmFailure({ intent, reason: 'provider_order_reference_mismatch' });
+        return next(new AppError('Provider payment does not belong to this escrow order', 409));
+    }
+
+    const duplicatePayment = await PaymentIntent.findOne({
+        _id: { $ne: intent._id },
+        providerPaymentId,
+    }).select('_id intentId').lean();
+    if (duplicatePayment) {
+        await recordEscrowConfirmFailure({ intent, reason: 'provider_payment_reused' });
+        return next(new AppError('Provider payment reference is already bound to another payment intent', 409));
+    }
+
     const amountInfo = typeof provider.parsePaymentAmounts === 'function'
         ? provider.parsePaymentAmounts(payment)
         : null;
@@ -516,6 +589,10 @@ const confirmEscrowIntent = asyncHandler(async (req, res, next) => {
             providerMethodId: methodInfo.providerMethodId || '',
             status: nextStatus,
             authorizedAt,
+            'metadata.securityLayer.failedConfirmAttempts': 0,
+            'metadata.securityLayer.lastConfirmFailedAt': null,
+            'metadata.securityLayer.lastConfirmFailureReason': '',
+            'metadata.securityLayer.lockedUntil': null,
         },
         $inc: { attemptCount: 1 },
     };

@@ -18,6 +18,15 @@ const configureAdminWebAuthnStepUpEnv = () => {
     process.env.DUO_ENABLED = 'false';
 };
 
+const buildAdminPasskey = (overrides = {}) => ({
+    deviceId: 'device-admin-webauthn',
+    method: 'webauthn',
+    credentialScope: 'admin',
+    adminEligibility: 'verified',
+    webauthnUserVerified: true,
+    ...overrides,
+});
+
 const buildAdminRequest = ({
     authAgeSeconds = 60,
     authSession = {},
@@ -123,15 +132,11 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
         const next = jest.fn();
 
         await admin(buildAdminRequest({
-            trustedDevices: [
-                {
-                    deviceId: 'device-admin-webauthn',
-                    method: 'webauthn',
-                },
-            ],
+            trustedDevices: [buildAdminPasskey()],
             authSession: {
                 amr: ['webauthn'],
                 stepUpUntil: new Date(Date.now() - 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() - 60_000).toISOString(),
             },
         }), {}, next);
 
@@ -142,6 +147,50 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
         }));
     });
 
+    test('rejects fresh generic step-up when the WebAuthn-specific window is expired', async () => {
+        configureAdminWebAuthnStepUpEnv();
+
+        const { admin } = loadAuthMiddleware();
+        const next = jest.fn();
+
+        await admin(buildAdminRequest({
+            trustedDevices: [buildAdminPasskey()],
+            authSession: {
+                amr: ['webauthn'],
+                stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() - 60_000).toISOString(),
+            },
+        }), {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'ADMIN_WEBAUTHN_STEP_UP_REQUIRED',
+        }));
+    });
+
+    test('rejects a recognition-scoped passkey for admin state changes', async () => {
+        configureAdminWebAuthnStepUpEnv();
+
+        const { admin } = loadAuthMiddleware();
+        const next = jest.fn();
+
+        await admin(buildAdminRequest({
+            trustedDevices: [buildAdminPasskey({ credentialScope: 'recognition' })],
+            authSession: {
+                amr: ['webauthn'],
+                stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+            },
+        }), {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'ADMIN_WEBAUTHN_REGISTRATION_REQUIRED',
+        }));
+    });
+
     test('accepts fresh WebAuthn step-up for admin state changes when policy is enabled', async () => {
         configureAdminWebAuthnStepUpEnv();
 
@@ -149,15 +198,11 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
         const next = jest.fn();
 
         await admin(buildAdminRequest({
-            trustedDevices: [
-                {
-                    deviceId: 'device-admin-webauthn',
-                    method: 'webauthn',
-                },
-            ],
+            trustedDevices: [buildAdminPasskey()],
             authSession: {
                 amr: ['webauthn'],
                 stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() + 60_000).toISOString(),
             },
         }), {}, next);
 
@@ -173,13 +218,11 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
 
         await admin(buildAdminRequest({
             authAgeSeconds: 2 * 60 * 60,
-            trustedDevices: [{
-                deviceId: 'device-admin-webauthn',
-                method: 'webauthn',
-            }],
+            trustedDevices: [buildAdminPasskey()],
             authSession: {
                 amr: ['webauthn'],
                 stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() + 60_000).toISOString(),
             },
             originalUrl: '/api/admin/ops/aws-control/actions',
         }), {}, next);
@@ -196,13 +239,11 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
 
         await admin(buildAdminRequest({
             authAgeSeconds: 2 * 60 * 60,
-            trustedDevices: [{
-                deviceId: 'device-admin-webauthn',
-                method: 'webauthn',
-            }],
+            trustedDevices: [buildAdminPasskey()],
             authSession: {
                 amr: ['webauthn'],
                 stepUpUntil: new Date(Date.now() - 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() - 60_000).toISOString(),
             },
             originalUrl: '/api/admin/ops/aws-control/actions',
         }), {}, next);

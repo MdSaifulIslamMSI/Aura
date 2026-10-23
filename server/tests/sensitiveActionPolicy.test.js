@@ -4,15 +4,23 @@ const {
 } = require('../config/sensitiveActionPolicy');
 const {
     evaluateSensitiveActionPolicy,
+    resolveContextFromRequest,
 } = require('../security/sensitiveActionPolicy');
+
+const adminPasskey = (overrides = {}) => ({
+    deviceId: 'passkey-1',
+    method: 'webauthn',
+    credentialScope: 'admin',
+    adminEligibility: 'verified',
+    webauthnUserVerified: true,
+    ...overrides,
+});
 
 const adminActor = (overrides = {}) => ({
     _id: 'admin-1',
     isAdmin: true,
     email: 'admin@example.com',
-    trustedDevices: [
-        { deviceId: 'passkey-1', method: 'webauthn' },
-    ],
+    trustedDevices: [adminPasskey()],
     ...overrides,
 });
 
@@ -64,6 +72,56 @@ describe('sensitive action policy', () => {
 
         expect(decision.allowed).toBe(false);
         expect(decision.reason).toBe('webauthn_step_up_required');
+    });
+
+    test('rejects a fresh generic step-up when the WebAuthn-specific window is stale', () => {
+        const decision = evaluateAdminMutation({
+            context: {
+                recentAuth: true,
+                webAuthnStepUpFresh: false,
+                freshWebAuthnStepUp: false,
+                stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() - 60_000).toISOString(),
+                amr: ['webauthn', 'otp'],
+            },
+        });
+
+        expect(decision.allowed).toBe(false);
+        expect(decision.reason).toBe('webauthn_step_up_required');
+    });
+
+    test('rejects an admin credential without admin scope or confirmed eligibility', () => {
+        const decision = evaluateAdminMutation({
+            input: {
+                actor: adminActor({
+                    trustedDevices: [adminPasskey({ credentialScope: 'recognition' })],
+                }),
+            },
+        });
+
+        expect(decision.allowed).toBe(false);
+        expect(decision.reason).toBe('webauthn_registration_required');
+    });
+
+    test('rejects a revoked admin credential', () => {
+        const decision = evaluateAdminMutation({
+            input: {
+                actor: adminActor({
+                    trustedDevices: [adminPasskey({ revokedAt: new Date().toISOString() })],
+                }),
+            },
+        });
+
+        expect(decision.allowed).toBe(false);
+        expect(decision.reason).toBe('webauthn_registration_required');
+    });
+
+    test('does not honor the unsigned break-glass request header', () => {
+        const context = resolveContextFromRequest({
+            headers: { 'x-aura-break-glass': 'true' },
+            authSession: {},
+        });
+        expect(context.breakGlass).toBeUndefined();
     });
 
     test('production allows critical admin mutation with fresh WebAuthn evidence', () => {

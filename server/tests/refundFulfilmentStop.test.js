@@ -175,7 +175,7 @@ describe('refund fulfilment stop and commerce side-effect unwind', () => {
             expect(orderAfter.paidAt).toBeNull();
         });
 
-        test('a full refund releases the coupon, claws back loyalty and restores stock', async () => {
+        test('a full refund retains the lifetime coupon redemption, claws back loyalty and restores stock', async () => {
             const owner = await createTestUser({ name: 'Refund Unwind Owner' });
             register('token-refund-stop-2', owner);
             await User.updateOne(
@@ -209,8 +209,12 @@ describe('refund fulfilment stop and commerce side-effect unwind', () => {
 
             expect(response.status).toBe(201);
 
+            // Paid-and-refunded orders keep the lifetime coupon redemption. Releasing
+            // it would let the same account redeem a one-time coupon again after a
+            // completed purchase, while the refund already returns the money.
             const redemption = await CouponRedemption.findOne({ code: 'AURA10', user: owner._id }).lean();
-            expect(redemption).toBeNull();
+            expect(redemption).not.toBeNull();
+            expect(String(redemption.order)).toBe(String(order._id));
 
             const ownerAfter = await User.findById(owner._id).select('loyalty').lean();
             expect(ownerAfter.loyalty.pointsBalance).toBe(60);

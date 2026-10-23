@@ -67,6 +67,7 @@ const {
     evaluateLogin,
     isAdminSubject,
     isDesktopHandoffAdminMfaSatisfied,
+    isVerifiedAdminPasskeyDevice,
 } = require('../services/mfaPolicyService');
 
 // Redis-backed token cache.
@@ -666,7 +667,22 @@ const isAdminQualifiedWebAuthnRegistration = (user = {}, registration = null) =>
     if (method !== 'webauthn') return false;
     if (!hasObservedWebAuthnUserVerification(registration)) return false;
     if (!isAdminSubject(user)) return true;
-    return String(registration.adminEligibility || '').trim().toLowerCase() === 'verified';
+    // Admin state changes must be backed by an active credential explicitly
+    // enrolled for the admin scope. A recognition-grade or revoked device can
+    // still be a login convenience, but it is not admin assurance.
+    return isVerifiedAdminPasskeyDevice(registration);
+};
+
+const hasVerifiedAdminPasskeyCredential = (user = {}) => (
+    Array.isArray(user?.trustedDevices)
+    && user.trustedDevices.some((device) => isVerifiedAdminPasskeyDevice(device))
+);
+
+const hasActiveWebAuthnSessionStepUp = (req = {}) => {
+    const stepUpUntilMs = req.authSession?.webAuthnStepUpUntil
+        ? new Date(req.authSession.webAuthnStepUpUntil).getTime()
+        : 0;
+    return Number.isFinite(stepUpUntilMs) && stepUpUntilMs > Date.now();
 };
 
 const hasTrustedDeviceSecondFactor = (req = {}) => {
@@ -984,7 +1000,7 @@ const hasCryptographicTrustedDeviceBinding = (req = {}) => {
 };
 
 const hasActivePasskeySessionStepUp = (req = {}) => {
-    if (!hasActiveSessionStepUp(req)) {
+    if (!hasActiveSessionStepUp(req) || !hasActiveWebAuthnSessionStepUp(req)) {
         return false;
     }
 
@@ -997,7 +1013,10 @@ const hasActivePasskeySessionStepUp = (req = {}) => {
             );
     }
 
-    return hasSessionPasskeyAmr(req);
+    if (!hasSessionPasskeyAmr(req)) return false;
+    return isAdminSubject(req.user)
+        ? hasVerifiedAdminPasskeyCredential(req.user)
+        : true;
 };
 
 const hasPasskeySecondFactor = (req = {}) => {
@@ -1029,19 +1048,31 @@ const hasPasskeySecondFactor = (req = {}) => {
 };
 
 const hasFreshWebAuthnSessionStepUp = (req = {}) => {
-    if (!hasActiveSessionStepUp(req)) {
+    // A generic step-up (OTP, TOTP, recovery code) must never satisfy an
+    // admin WebAuthn requirement. The WebAuthn-specific expiry is set only by
+    // a passkey ceremony and is the authoritative signal here.
+    if (!hasActiveSessionStepUp(req) || !hasActiveWebAuthnSessionStepUp(req)) {
         return false;
     }
 
     const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
     if (sessionDeviceMethod === 'webauthn') {
-        return hasSessionTrustedDeviceBinding(req);
+        return hasSessionTrustedDeviceBinding(req)
+            && isAdminQualifiedWebAuthnRegistration(
+                req.user,
+                getRequestTrustedDeviceRegistration(req)
+            );
     }
 
     const sessionAmr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
-    return sessionAmr.some((entry) => entry === 'webauthn');
+    if (!sessionAmr.some((entry) => entry === 'webauthn' || entry === 'passkey')) {
+        return false;
+    }
+    return isAdminSubject(req.user)
+        ? hasVerifiedAdminPasskeyCredential(req.user)
+        : true;
 };
 
 const buildAdminStepUpError = ({ message, code }) => {

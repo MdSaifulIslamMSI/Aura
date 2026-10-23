@@ -126,7 +126,7 @@ const assertAdminPasskeyEnrollmentAssurance = (req = {}) => {
     if (hasFreshIndependentAdminEnrollmentFactor(req)) return;
 
     const error = new AppError(
-        'Admin passkey enrollment requires a fresh independent MFA or supervised bootstrap.',
+        'Privileged MFA enrollment requires a fresh independent MFA or supervised bootstrap.',
         403
     );
     error.code = 'ADMIN_PASSKEY_ENROLLMENT_ASSURANCE_REQUIRED';
@@ -386,6 +386,11 @@ const getMfaSecurityCenter = asyncHandler(async (req, res) => {
 
 const setupTotp = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    // TOTP is an independent factor and can promote the session to aal2, so it
+    // must be gated by the same assurance bar as passkey enrollment. Without
+    // this, a password-only privileged session could self-enroll TOTP and mint
+    // the step-up it was denied.
+    assertAdminPasskeyEnrollmentAssurance(req);
     if (!startTrafficBudgetCommit(req, res)) return undefined;
     const setup = await beginTotpSetup({ userId: req.user?._id });
     recordAuthSecurityEvent({
@@ -400,12 +405,14 @@ const setupTotp = asyncHandler(async (req, res) => {
 
 const getTotpQr = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    assertAdminPasskeyEnrollmentAssurance(req);
     const setup = await getPendingTotpSetup({ userId: req.user?._id });
     res.json({ success: true, ...setup });
 });
 
 const verifyTotpSetup = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    assertAdminPasskeyEnrollmentAssurance(req);
     if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await enableTotpAfterVerification({
         userId: req.user?._id,
