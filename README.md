@@ -54,6 +54,8 @@ npm --prefix app install
 npm --prefix server install
 ```
 
+The root install provides the repo scripts and the Electron host; `app/` and `server/` own their dependency trees.
+
 Create the local env files. The examples describe the shape; fill in the services you enable. Never commit real credentials.
 
 ```sh
