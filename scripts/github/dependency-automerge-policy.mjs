@@ -126,6 +126,44 @@ function matchesBlocklist(name, blocklist) {
   });
 }
 
+// Overrides changes are the hand-synced pin seams across root/app/server. A
+// change is safe only when the seam stays (or becomes) aligned: every manifest
+// that pins the package converges on ONE value in the head revision, and was
+// aligned in the base revision too. Dependabot's weekly coordinated pin bumps
+// (e.g. undici in all three overrides) satisfy this; a partial rewrite — one
+// manifest moved, another left behind — does not. Packages in
+// policy.automerge.overridesBlocklist (pins whose value is coupled to something
+// outside the manifests, like the mongodb driver pin that pairs with mongoose)
+// always need a human regardless of sync.
+function overridesSafety(policy, manifestPairs) {
+  const perName = new Map();
+  for (const { base, head } of manifestPairs) {
+    const names = new Set([...Object.keys(base?.overrides ?? {}), ...Object.keys(head?.overrides ?? {})]);
+    for (const name of names) {
+      const entry = perName.get(name) ?? { base: new Set(), head: new Set() };
+      if (base?.overrides && name in base.overrides) entry.base.add(JSON.stringify(canonical(base.overrides[name])));
+      if (head?.overrides && name in head.overrides) entry.head.add(JSON.stringify(canonical(head.overrides[name])));
+      perName.set(name, entry);
+    }
+  }
+  const unsafe = [];
+  for (const [name, entry] of perName) {
+    const changed =
+      JSON.stringify([...entry.base].sort()) !== JSON.stringify([...entry.head].sort());
+    if (!changed) continue;
+    if (matchesBlocklist(name, policy.automerge.overridesBlocklist ?? [])) {
+      unsafe.push(`${name} override changed (overrides blocklist: pin is hand-paired outside the manifests)`);
+      continue;
+    }
+    if (entry.head.size > 1) {
+      unsafe.push(`${name} override diverges across manifests after the change: ${[...entry.head].join(' vs ')}`);
+    } else if (entry.base.size > 1) {
+      unsafe.push(`${name} override was already divergent across manifests: ${[...entry.base].join(' vs ')}`);
+    }
+  }
+  return unsafe;
+}
+
 function fetchManifest(owner, repo, manifestPath, ref) {
   const raw = ghRetry(
     'api',
@@ -139,7 +177,7 @@ function fetchManifest(owner, repo, manifestPath, ref) {
 function decide(policy, delta) {
   const blocked = [];
   if (delta.overridesChanged) {
-    blocked.push('manifest `overrides` changed — cross-workspace pin seams are hand-synced');
+    blocked.push(...overridesSafety(policy, delta.manifestPairs ?? []));
   }
   for (const dep of delta.changed) {
     if (dep.kind === 'major' && matchesBlocklist(dep.name, policy.automerge.majorBlocklist)) {
@@ -290,13 +328,14 @@ async function processPr(prNumber, policy, dryRun) {
 
   let delta;
   if (manifests.length === 0) {
-    delta = { changed: [], overridesChanged: false, toolingOnly: true };
+    delta = { changed: [], overridesChanged: false, manifestPairs: [], toolingOnly: true };
   } else {
-    delta = { changed: [], overridesChanged: false, toolingOnly: false };
+    delta = { changed: [], overridesChanged: false, manifestPairs: [], toolingOnly: false };
     const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? 'MdSaifulIslamMSI/Aura').split('/');
     for (const manifestPath of manifests) {
       const base = fetchManifest(owner, repo, manifestPath, pr.baseRefOid);
       const head = fetchManifest(owner, repo, manifestPath, pr.headRefOid);
+      delta.manifestPairs.push({ path: manifestPath, base, head });
       const part = manifestDelta(base, head);
       delta.changed.push(...part.changed);
       delta.overridesChanged = delta.overridesChanged || part.overridesChanged;
@@ -307,7 +346,7 @@ async function processPr(prNumber, policy, dryRun) {
   log(
     `PR #${pr.number} (${pr.title}): lane=${decision.lane.toUpperCase()} ` +
       `deps=${delta.changed.length}${delta.toolingOnly ? ' (tooling-only: actions/docker bump)' : ''}` +
-      `${delta.overridesChanged ? ' [OVERRIDES CHANGED]' : ''}`
+      `${delta.overridesChanged ? (decision.lane === 'safe' ? ' [OVERRIDES SYNCED]' : ' [OVERRIDES CHANGED]') : ''}`
   );
 
   if (decision.lane === 'safe') {
@@ -437,6 +476,34 @@ function runSelfTest() {
   const headOverride = { dependencies: { a: '^1.0.0', b: '^1.0.0' }, overrides: { x: '1.0.1' } };
   assert('delta patch', manifestDelta(base, headPatch).changed, [{ name: 'a', section: 'dependencies', from: '^1.0.0', to: '^1.0.1', kind: 'patch' }]);
   assert('delta override detect', manifestDelta(base, headOverride).overridesChanged, true);
+
+  const syncPolicy = { automerge: { overridesBlocklist: ['mongodb'] } };
+  const seam = (v) => ({ overrides: { undici: v } });
+  assert(
+    'overrides synced bump is safe',
+    overridesSafety(syncPolicy, [ { base: seam('8.11.2'), head: seam('8.12.2') }, { base: seam('8.11.2'), head: seam('8.12.2') }, { base: seam('8.11.2'), head: seam('8.12.2') } ]),
+    []
+  );
+  assert(
+    'overrides unsynced bump is unsafe',
+    overridesSafety(syncPolicy, [ { base: seam('8.11.2'), head: seam('8.12.2') }, { base: seam('8.11.2'), head: seam('8.11.2') } ]).length,
+    1
+  );
+  assert(
+    'pre-divergent seam stays unsafe',
+    overridesSafety(syncPolicy, [ { base: seam('8.11.2'), head: seam('8.12.2') }, { base: seam('8.10.0'), head: seam('8.12.2') } ]).length,
+    1
+  );
+  assert(
+    'blocklisted override pin needs a human even when synced',
+    overridesSafety(syncPolicy, [ { base: { overrides: { mongodb: '7.5.0' } }, head: { overrides: { mongodb: '7.6.0' } } } ]).length,
+    1
+  );
+  assert(
+    'nested override object equality is structural',
+    overridesSafety(syncPolicy, [ { base: { overrides: { '@electron/get': { '.': '^5.0.0', undici: '7.29.0' } } }, head: { overrides: { '@electron/get': { undici: '7.29.0', '.': '^5.0.0' } } } } ]),
+    []
+  );
 }
 
 main().catch((error) => {
