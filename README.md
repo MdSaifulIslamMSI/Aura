@@ -36,7 +36,7 @@ It is built and operated by one developer working with AI agents. That is why th
 | Test surface | 759 unit/integration test files (239 app, 509 server, 11 desktop) plus 17 Playwright specs |
 | Server suites | 509 suites tiered across regression, nightly, targeted lanes, and quarantine; 233 run on every PR, 258 nightly, 0 quarantined |
 | CI | 56 GitHub Actions workflows, including 8 rollback lanes |
-| Delivery | One storefront artifact to 6 hosts; SHA-pinned backend releases with a health probe and automatic restore |
+| Delivery | One storefront release on 6 hosts; SHA-pinned backend releases with a health probe and automatic restore |
 | Reach | 20 languages including RTL, 13 markets, 11 currencies |
 | Packages | `@aurasec/supply-chain-gates` and `@aurasec/route-security-matrix`, published to npm |
 
@@ -110,17 +110,22 @@ Stop the Windows services with `npm run dev:off` (`dev:off:force` only if someth
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/readme/system-overview.svg" alt="Aura Marketplace runtime map" width="920">
+  <img src="docs/assets/readme/system-overview.svg" alt="Aura production runtime map: one storefront release on six hosts, a shared CloudFront backend edge, a split API and worker runtime on EC2, Redis, MongoDB, S3 uploads, external providers, and the release pipeline" width="900">
+</p>
+<p align="center">
+  <sub>One release, six hosts. Vercel, Netlify, and Render proxy same-origin runtime paths to the shared CloudFront edge; the AWS CloudFront host is that edge. Cloudflare Pages and GitHub Pages call it directly. The gateway is a separate static directory.</sub>
 </p>
 
-The storefront is a static build. Runtime calls use same-origin paths (`/api`, `/health`, `/socket.io`, `/uploads`), so the same artifact can be hosted anywhere while the API stays shared.
+The storefront is one Vite app. Vercel, Netlify, and Render rewrite `/api`, `/health`, `/socket.io`, and `/uploads` to the shared CloudFront edge, so runtime calls stay same-origin on those lanes. The AWS CloudFront lane is that edge: its S3 default behavior serves the same release, and its runtime behaviors forward to the backend. Cloudflare Pages and GitHub Pages are deployed without a rewrite layer; the same bundle calls the edge directly and depends on the backend CORS allowlist. Render rebuilds from the same commit and build inputs, and a post-deploy coherence gate hashes what every host serves, so a rebuild lane cannot drift. Routing is a hosting contract, not a runtime service.
 
-The backend runs as two processes:
+The backend runs on one EC2 host as two processes from one immutable image:
 
 - **API** — Express routes, middleware, Firebase-authenticated Socket.IO entrypoints with a Redis backplane, session enforcement, and health checks.
 - **Worker** — payment outbox, order email, catalog imports, reconciliation, lifecycle jobs, analytics, status, and OTP maintenance, with its own readiness probe.
 
-MongoDB is the transactional store. Redis coordinates rate limits, queues, realtime, and distributed security controls. AWS Parameter Store and checked environment contracts keep deployment state explicit.
+MongoDB is the transactional store. Redis coordinates rate limits, queues, realtime, and distributed security controls. Uploads use S3, and AWS Parameter Store is the source of truth for runtime secrets.
+
+Production runs the assistant without an LLM: `AI_MODEL_PROVIDER=disabled`, no fallbacks, and no model summary. Hosted model keys are optional and non-production. The gateway at `aura-gateway.vercel.app` is a separate static directory for storefront links and verified downloads; it carries no API traffic.
 
 Identity is Firebase, but authorization is server-side. A verified Firebase token is exchanged for an opaque browser session with rotation, CSRF token pairs, and revocable lineage. Sensitive actions can require a fresh factor: passkey or TOTP for MFA, trusted-device verification, admin step-up, or Duo OIDC. Session assurance is time-bounded and re-checked on every request that depends on it.
 
@@ -190,7 +195,7 @@ flowchart LR
 
 **Backend.** `deploy-backend-aws.yml` is dispatched manually with a `git_ref`. A ref guard refuses anything that is not an ancestor of `main`, the release is built once, and the exact SHA becomes the image tag. The default strategy is `swap` (recreate, brief downtime). Blue-green is implemented but refuses to run unless `AURA_BLUE_GREEN_ENABLED` is set after an explicit staging drill, so production never improvises a slot switch. A failed post-activation check restores the previous release.
 
-**Frontend.** One build is published to six hosts: Vercel, Netlify, CloudFront, Render, Cloudflare Pages, and GitHub Pages. The workflow re-fetches each host's shell and every referenced asset, hashes them with SHA-256, and fails closed on any mismatch. Each build exposes `aura-release-id` and `aura-release-commit` meta tags; those tags, the workflow run, and a direct probe are the source of truth for what is live.
+**Frontend.** One release serves six hosts: the same `app/dist` artifact is published to five, and Render rebuilds from the same commit and inputs. The workflow re-fetches each host's shell and every referenced asset, hashes them with SHA-256, and fails closed on any mismatch. Each build exposes `aura-release-id` and `aura-release-commit` meta tags; those tags, the workflow run, and a direct probe are the source of truth for what is live.
 
 **After any deploy, probe the running system.** A green workflow proves the workflow was green, not that the change is serving. Check the live endpoint, diff the response shape against the pre-deploy state, and establish liveness before reading logs if a later step failed.
 
