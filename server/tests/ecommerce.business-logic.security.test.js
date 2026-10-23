@@ -38,6 +38,7 @@ jest.mock('../services/cartRealtimeService', () => ({
     emitCartRealtimeUpdate: jest.fn(),
 }));
 
+const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const orderRoutes = require('../routes/orderRoutes');
@@ -150,6 +151,34 @@ describe('e-commerce business logic security', () => {
             .set('Authorization', buildBearer('token-user'))
             .set('Idempotency-Key', 'disabled-product-security')
             .send(directBuyBody(product));
+
+        assertSafeStatus(response, [404]);
+        await expectDocumentUnchanged(Product, product._id, beforeProduct);
+        await expect(Order.countDocuments({ user: user._id })).resolves.toBe(beforeOrders);
+    });
+
+    test('cart checkout rejects a product deactivated after it was added to the cart', async () => {
+        const product = await createFakeProduct({ stock: 5, price: 999 });
+        await Cart.create({
+            user: user._id,
+            version: 0,
+            items: [{ productId: product.id, quantity: 1 }],
+        });
+        await Product.updateOne({ _id: product._id }, { $set: { isActive: false } });
+        const beforeProduct = await Product.findById(product._id).lean();
+        const beforeOrders = await Order.countDocuments({ user: user._id });
+
+        const response = await request(app)
+            .post('/api/orders')
+            .set('Authorization', buildBearer('token-user'))
+            .set('Idempotency-Key', 'cart-disabled-product-security')
+            .send({
+                orderItems: [],
+                shippingAddress,
+                paymentMethod: 'COD',
+                checkoutSource: 'cart',
+                cartVersion: 0,
+            });
 
         assertSafeStatus(response, [404]);
         await expectDocumentUnchanged(Product, product._id, beforeProduct);

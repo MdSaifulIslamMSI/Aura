@@ -58,6 +58,25 @@ const listingMutationLimiter = createDistributedRateLimit({
     message: 'Too many listing changes. Please try again shortly.',
 });
 
+const listingMessageRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : 30,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many messages. Please wait before sending another.' },
+});
+
+const listingMessageLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    name: 'listing_message',
+    securityCritical: true,
+    windowMs: 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 30,
+    keyGenerator: actorRateLimitKey,
+    message: 'Too many messages. Please wait before sending another.',
+});
+
 const listingEscrowRateLimit = rateLimit({
     windowMs: 5 * 60 * 1000,
     limit: process.env.NODE_ENV === 'development' ? 1000 : 200,
@@ -97,7 +116,7 @@ router.get('/my', protect, seller, getMyListings);
 router.get('/messages/inbox', protect, getMyMessageInbox);
 router.post('/', protect, requireActiveAccount, seller, listingMutationRateLimit, listingMutationLimiter, sensitiveActions.listingWrite, createListing);
 router.get('/:id/messages', protect, getListingMessages);
-router.post('/:id/messages', protect, requireActiveAccount, sendListingMessage);
+router.post('/:id/messages', protect, requireActiveAccount, listingMessageRateLimit, listingMessageLimiter, sendListingMessage);
 router.post('/:id/video/start', protect, requireActiveAccount, listingLiveCallTokenLimiter, startListingVideoSession);
 router.post('/:id/video/join', protect, requireActiveAccount, listingLiveCallTokenLimiter, joinListingVideoSession);
 router.post('/:id/video/connected', protect, requireActiveAccount, connectListingVideoSession);

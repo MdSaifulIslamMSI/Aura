@@ -151,6 +151,12 @@ const loadPlaceOrderService = ({
         PRICING_VERSION: 'v2',
         buildOrderQuote,
     }));
+    jest.doMock('../services/catalogVisibilityService', () => ({
+        getActiveCatalogProductFilter: jest.fn(async () => ({
+            isActive: { $ne: false },
+            isPublished: true,
+        })),
+    }));
     jest.doMock('../services/payments/paymentService', () => ({
         validatePaymentIntentForOrder,
         linkIntentToOrder,
@@ -270,6 +276,41 @@ describe('orderPlacementService hardening', () => {
                 userId: 'user_1',
                 paymentMethod: 'CARD',
             })
+        );
+    });
+
+    test('re-asserts catalog eligibility when reserving stock', async () => {
+        const {
+            placeOrderWithIdempotency,
+            productUpdateOne,
+        } = loadPlaceOrderService();
+
+        await placeOrderWithIdempotency({
+            body: {
+                paymentMethod: 'CARD',
+                paymentIntentId: 'pi_live_catalog_guard',
+            },
+            user: {
+                _id: 'user_catalog_guard',
+                email: 'checkout@example.com',
+                name: 'Checkout User',
+            },
+            userId: 'user_catalog_guard',
+            authUid: 'auth_uid_catalog_guard',
+            requestId: 'req_catalog_guard',
+            idempotencyKey: 'order-key-catalog-guard',
+            userKey: 'user-key-catalog-guard',
+            market: null,
+        });
+
+        expect(productUpdateOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 'sku_1',
+                isActive: { $ne: false },
+                isPublished: true,
+                stock: { $gte: 1 },
+            }),
+            { $inc: { stock: -1 } }
         );
     });
 

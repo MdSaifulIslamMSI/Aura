@@ -94,6 +94,14 @@ const toSignalLabel = (score) => {
     return 'low';
 };
 const normalizeMessageText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+// Chat responses expose a counterparty's public profile only. Email is used
+// server-side for notifications but is not part of the marketplace thread.
+const toChatUser = (user) => (user ? {
+    _id: user._id,
+    name: user.name,
+    avatar: user.avatar,
+    isVerified: user.isVerified,
+} : null);
 const isValidObjectId = (value) => isValidObjectIdMongoose(String(value || ''));
 const ESCROW_PAYMENT_PURPOSE = 'marketplace_escrow';
 const CITY_MAX_LENGTH = 80;
@@ -1229,8 +1237,8 @@ const getMyMessageInbox = asyncHandler(async (req, res) => {
     })
     .sort({ lastMessageAt: -1 })
     .populate('listing', 'title price images status')
-    .populate('seller', 'name email avatar isVerified')
-    .populate('buyer', 'name email avatar isVerified')
+    .populate('seller', 'name avatar isVerified')
+    .populate('buyer', 'name avatar isVerified')
     .lean();
 
     const formattedConversations = conversations.map(conv => {
@@ -1240,18 +1248,8 @@ const getMyMessageInbox = asyncHandler(async (req, res) => {
             listing: conv.listing,
             buyerId: String(conv.buyer._id),
             sellerId: String(conv.seller._id),
-            sellerUser: viewerIsSeller ? null : {
-                _id: conv.seller._id,
-                name: conv.seller.name,
-                avatar: conv.seller.avatar,
-                isVerified: conv.seller.isVerified
-            },
-            buyerUser: viewerIsSeller ? {
-                _id: conv.buyer._id,
-                name: conv.buyer.name,
-                avatar: conv.buyer.avatar,
-                isVerified: conv.buyer.isVerified
-            } : null,
+            sellerUser: viewerIsSeller ? null : toChatUser(conv.seller),
+            buyerUser: viewerIsSeller ? toChatUser(conv.buyer) : null,
             unreadBySeller: conv.unreadBySeller,
             unreadByBuyer: conv.unreadByBuyer,
             unreadCount: viewerIsSeller ? conv.unreadBySeller : conv.unreadByBuyer,
@@ -1292,12 +1290,12 @@ const getListingMessages = asyncHandler(async (req, res, next) => {
             // Seller opening the message hub for this listing without specifying a buyer
             const conversations = await Conversation.find({ listing: listing._id })
                 .sort({ lastMessageAt: -1 })
-                .populate('buyer', 'name email avatar isVerified')
+                .populate('buyer', 'name avatar isVerified')
                 .lean();
                 
             const summaries = conversations.map(conv => ({
                 buyerId: String(conv.buyer._id),
-                buyerUser: conv.buyer,
+                buyerUser: toChatUser(conv.buyer),
                 unreadBySeller: conv.unreadBySeller,
                 unreadByBuyer: conv.unreadByBuyer,
                 lastMessageAt: conv.lastMessageAt,
@@ -1311,8 +1309,8 @@ const getListingMessages = asyncHandler(async (req, res, next) => {
     }
 
     const conversation = await Conversation.findOne(query)
-        .populate('seller', 'name email avatar isVerified')
-        .populate('buyer', 'name email avatar isVerified');
+        .populate('seller', 'name avatar isVerified')
+        .populate('buyer', 'name avatar isVerified');
 
     if (!conversation) {
         return res.json({ success: true, conversation: null });
@@ -1350,8 +1348,8 @@ const getListingMessages = asyncHandler(async (req, res, next) => {
         listing,
         buyerId: String(conversation.buyer._id),
         sellerId: String(conversation.seller._id),
-        sellerUser: viewerIsSeller ? null : conversation.seller,
-        buyerUser: viewerIsSeller ? conversation.buyer : null,
+        sellerUser: viewerIsSeller ? null : toChatUser(conversation.seller),
+        buyerUser: viewerIsSeller ? toChatUser(conversation.buyer) : null,
         unreadCount: 0,
         lastMessageAt: conversation.lastMessageAt,
         lastMessagePreview: conversation.lastMessagePreview,
@@ -1401,10 +1399,15 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
         }
     }
 
-    // Upsert conversation
+    // A buyer may open a thread; a seller may only reply to one that already
+    // exists. Seller-side upserts would let a seller fabricate a conversation
+    // with any buyer id and inject a first message into that buyer's inbox.
     const sentAt = new Date();
+    const conversationFilter = viewerIsSeller
+        ? { listing: listing._id, seller: sellerId, buyer: buyerId }
+        : { listing: listing._id, buyer: buyerId };
     const conversation = await Conversation.findOneAndUpdate(
-        { listing: listing._id, buyer: buyerId },
+        conversationFilter,
         {
             $setOnInsert: {
                 seller: sellerId,
@@ -1418,8 +1421,16 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
                 unreadByBuyer: viewerIsSeller ? 1 : 0,
             }
         },
-        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+        {
+            upsert: !viewerIsSeller,
+            returnDocument: 'after',
+            setDefaultsOnInsert: true,
+        }
     );
+
+    if (!conversation) {
+        return next(new AppError('No buyer conversation exists for this listing', 404));
+    }
 
     // Insert Message
     const messageDoc = await Message.create({
@@ -1451,8 +1462,8 @@ const sendListingMessage = asyncHandler(async (req, res, next) => {
         listing,
         buyerId: String(conversation.buyer),
         sellerId: String(conversation.seller),
-        sellerUser: viewerIsSeller ? null : userMap.get(sellerLookupId),
-        buyerUser: viewerIsSeller ? userMap.get(buyerLookupId) : null,
+        sellerUser: viewerIsSeller ? null : toChatUser(userMap.get(sellerLookupId)),
+        buyerUser: viewerIsSeller ? toChatUser(userMap.get(buyerLookupId)) : null,
         unreadCount: 0,
         lastMessageAt: conversation.lastMessageAt,
         lastMessagePreview: conversation.lastMessagePreview,

@@ -609,7 +609,10 @@ app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
 app.get(/^\/uploads\/avatars\/(.+)$/, uploadAssetLimiter, serveAvatarMediaAsset);
-app.use('/uploads', uploadAssetLimiter, express.static(path.join(__dirname, 'uploads')));
+// Do not mount the uploads directory as static files: it would expose every
+// object on disk, including quarantined media. Only the two controllers above
+// may serve assets. Unknown upload paths must not fall through to the SPA.
+app.use('/uploads', uploadAssetLimiter, (req, res, next) => next(new AppError('Upload not found', 404)));
 
 // Rate Limiting â€” strict for production, disabled in test
 if (process.env.NODE_ENV !== 'test') {
