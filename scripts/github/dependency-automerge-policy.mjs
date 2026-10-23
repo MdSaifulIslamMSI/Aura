@@ -38,6 +38,26 @@ function gh(...params) {
   });
 }
 
+// Token-scoped variant: rerunning check jobs needs actions:write, which the
+// fine-grained DEPENDABOT_MERGE_TOKEN does not carry — but GITHUB_TOKEN does in
+// the schedule/dispatch context (the only context that reaches reruns; the
+// Dependabot-PR event path never gets here, and GITHUB_TOKEN is barred from
+// Dependabot PRs anyway). Arm/label/comment stay on the PAT.
+function ghWithToken(token, ...params) {
+  return execFileSync('gh', params, {
+    encoding: 'utf8',
+    env: { ...process.env, GH_TOKEN: token },
+    maxBuffer: 32 * 1024 * 1024,
+  });
+}
+
+// First meaningful line of a gh failure — stderr's leading line names the
+// GraphQL/HTTP reason; trailing lines are often blank scaffolding.
+function ghErrorDetail(error) {
+  const lines = String(error.stderr || error.message).split('\n').filter((line) => line.trim().length > 0);
+  return lines[0] ?? 'unknown error';
+}
+
 const TRANSIENT_ERROR = /network|timed out|timeout|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ENOTFOUND|rate limit|502|503|504/i;
 
 // Same call as gh(), but retries transient api.github.com blips with a short
@@ -235,7 +255,7 @@ function armAutoMerge(pr, dryRun) {
   } catch (error) {
     // Final backstop for anything the pre-checks missed — surface gh's own
     // stderr (the real reason) instead of the bare "Command failed" line.
-    const detail = String(error.stderr || error.message).split('\n').filter(Boolean).pop();
+    const detail = ghErrorDetail(error);
     log(`PR #${pr.number}: could not arm auto-merge (${detail}) — leaving for the next sweep`);
     if (/not accessible by integration/i.test(detail)) {
       // GitHub's platform policy: GITHUB_TOKEN can never modify Dependabot PR
@@ -259,6 +279,9 @@ function rerunFailedChecks(pr, dryRun) {
     return 'dry-run';
   }
   try {
+    // Reruns run under GITHUB_TOKEN (GH_RERUN_TOKEN), not the PAT — see
+    // ghWithToken. Reads stay on the PAT/default token; both can list runs.
+    const rerunToken = process.env.GH_RERUN_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
     const runs = ghJsonRetry('api', `repos/${owner}/${repo}/actions/runs?head_sha=${pr.headRefOid}&per_page=30`);
     const failed = (runs.workflow_runs ?? []).filter((run) => run.conclusion === 'failure');
     if (failed.length === 0) {
@@ -269,17 +292,17 @@ function rerunFailedChecks(pr, dryRun) {
     let refused = 0;
     for (const run of failed) {
       try {
-        ghRetry('api', '-X', 'POST', `repos/${owner}/${repo}/actions/runs/${run.id}/rerun-failed-jobs`);
+        ghWithToken(rerunToken, 'api', '-X', 'POST', `repos/${owner}/${repo}/actions/runs/${run.id}/rerun-failed-jobs`);
         rerun += 1;
       } catch (error) {
         refused += 1;
-        log(`PR #${pr.number}: rerun refused for run ${run.id}: ${String(error.stderr || error.message).split('\n').pop()}`);
+        log(`PR #${pr.number}: rerun refused for run ${run.id}: ${ghErrorDetail(error)}`);
       }
     }
     log(`PR #${pr.number}: re-ran failed jobs on ${rerun}/${failed.length} failed run(s) — cooldown ages in real time, next sweep re-judges`);
     return refused === 0 ? 'rerunning' : 'rerun-partial';
   } catch (error) {
-    log(`PR #${pr.number}: could not re-run checks (${String(error.stderr || error.message).split('\n').pop()})`);
+    log(`PR #${pr.number}: could not re-run checks (${ghErrorDetail(error)})`);
     return 'rerun-failed';
   }
 }
