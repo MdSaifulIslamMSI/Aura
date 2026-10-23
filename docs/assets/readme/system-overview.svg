@@ -1,92 +1,308 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
-  <title id="title">Aura Marketplace system overview</title>
-  <desc id="desc">A high-level diagram showing users entering the Aura gateway and storefront hosts, then flowing through same-origin runtime paths to the shared API, worker runtime, data stores, and external providers.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1420" viewBox="0 0 1040 1420" role="img" aria-labelledby="title desc">
+  <title id="title">Aura Marketplace production runtime map</title>
+  <desc id="desc">Layered production map. Clients load one static storefront release from six public hosts. Vercel, Netlify, and Render proxy same-origin API paths to the CloudFront edge; the AWS CloudFront host is that edge. Cloudflare Pages and GitHub Pages call it directly with CORS. The edge verifies its origin secret and forwards to Caddy on one EC2 host, which runs the API and worker from one immutable image with Redis on a private Compose network. The API and worker use MongoDB, S3 uploads, Parameter Store secrets, and external providers. The production assistant is deterministic and runs without an LLM. A separate static gateway only links to storefronts and verified downloads. The release path runs pull-request gates, main gates, a manual production confirmation, an immutable image build, an OIDC and SSM deploy, and a health probe with automatic restore.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#07131f"/>
-      <stop offset="0.52" stop-color="#0b1726"/>
-      <stop offset="1" stop-color="#0a1f21"/>
+      <stop offset="0" stop-color="#060e19"/>
+      <stop offset="0.55" stop-color="#081421"/>
+      <stop offset="1" stop-color="#071a20"/>
     </linearGradient>
-    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#10263a"/>
-      <stop offset="1" stop-color="#0b2028"/>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1a2a"/>
+      <stop offset="1" stop-color="#0a1521"/>
     </linearGradient>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#39d8cf"/>
+    <linearGradient id="gateway" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102033"/>
+      <stop offset="1" stop-color="#0c1928"/>
+    </linearGradient>
+    <radialGradient id="glow-cyan">
+      <stop offset="0" stop-color="#06b6d4" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-violet">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#7dd3fc" opacity="0.10"/>
+    </pattern>
+    <marker id="arrow-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arrow-violet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arrow-emerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7f93a8"/>
     </marker>
     <style>
-      .title { fill: #f8fbff; font: 700 34px Arial, sans-serif; }
-      .label { fill: #f8fbff; font: 700 22px Arial, sans-serif; }
-      .sub { fill: #a8bfce; font: 500 15px Arial, sans-serif; }
-      .tiny { fill: #8da7b8; font: 600 13px Arial, sans-serif; letter-spacing: 1px; }
-      .box { fill: url(#panel); stroke: #14536a; stroke-width: 2; rx: 18; }
-      .boxHot { fill: #062f34; stroke: #20d5c6; stroke-width: 2; rx: 18; }
-      .boxWarm { fill: #1d1f2d; stroke: #6c78ff; stroke-width: 2; rx: 18; }
-      .line { stroke: #39d8cf; stroke-width: 3; fill: none; marker-end: url(#arrow); }
-      .mutedLine { stroke: #466b82; stroke-width: 2; fill: none; marker-end: url(#arrow); }
-      .pill { fill: #081925; stroke: #27536a; stroke-width: 1.5; rx: 18; }
+      text { font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .title { font-size: 30px; font-weight: 700; fill: #f6fbff; letter-spacing: -0.4px; }
+      .subtitle { font-size: 15px; fill: #a9bccd; }
+      .band-label { font-size: 14px; font-weight: 700; fill: #7f93a8; letter-spacing: 2.2px; }
+      .band-number { fill: #22d3ee; }
+      .group-title { font-size: 19px; font-weight: 700; fill: #f1f8ff; }
+      .group-sub { font-size: 13.5px; fill: #8ea6bd; }
+      .lane-label { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; }
+      .lane-cyan { fill: #67e8f9; }
+      .lane-amber { fill: #fcd34d; }
+      .lane-muted { fill: #7f93a8; }
+      .card-title { font-size: 16px; font-weight: 700; fill: #eef7ff; }
+      .card-title-small { font-size: 14px; font-weight: 700; fill: #eef7ff; }
+      .card-body { font-size: 13.5px; fill: #9fb3c8; }
+      .card-body-small { font-size: 12px; fill: #8ea6bd; }
+      .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #7de3da; }
+      .mono-small { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; fill: #7de3da; }
+      .accent-cyan { fill: #22d3ee; }
+      .accent-violet { fill: #a78bfa; }
+      .accent-emerald { fill: #34d399; }
+      .accent-amber { fill: #fbbf24; }
+      .muted { fill: #8ea6bd; }
+      .faint { fill: #6b8299; }
+      .badge-text { font-size: 9.5px; font-weight: 700; letter-spacing: 1.1px; }
+      .legend { font-size: 12.5px; fill: #8ea6bd; }
+      .top-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 2px; fill: #67e8f9; }
+      .footer { font-size: 10.5px; fill: #607890; letter-spacing: 0.2px; }
+      .card { fill: #102337; stroke: #1e3d57; stroke-width: 1; }
+      .panel { fill: #0c1c2d; stroke: #24455f; stroke-width: 1; }
+      .band { fill: url(#band); stroke: #18324a; stroke-width: 1; }
+      .wire { fill: none; stroke: #22d3ee; stroke-width: 1.6; }
+      .wire-amber { fill: none; stroke: #fbbf24; stroke-width: 1.4; stroke-dasharray: 2 5; stroke-linecap: round; }
     </style>
   </defs>
 
-  <rect width="1280" height="720" fill="url(#bg)"/>
-  <rect x="34" y="32" width="1212" height="656" rx="30" fill="none" stroke="#123a4b" stroke-width="2"/>
+  <rect width="1040" height="1420" fill="url(#bg)"/>
+  <rect width="1040" height="1420" fill="url(#dots)"/>
+  <ellipse cx="130" cy="60" rx="380" ry="260" fill="url(#glow-cyan)"/>
+  <ellipse cx="960" cy="1320" rx="380" ry="300" fill="url(#glow-violet)"/>
 
-  <text x="70" y="86" class="title">Aura Marketplace runtime map</text>
-  <text x="72" y="116" class="sub">One storefront artifact, gated release lanes, split runtime — and dependencies that merge themselves under policy.</text>
+  <!-- Header -->
+  <text x="32" y="30" class="top-tag">PRODUCTION TOPOLOGY</text>
+  <text x="32" y="58" class="title">Aura Marketplace · production runtime map</text>
+  <text x="32" y="82" class="subtitle">One storefront release · six public hosts · one shared API + worker runtime</text>
+  <g>
+    <line x1="800" y1="46" x2="822" y2="46" stroke="#22d3ee" stroke-width="1.8" marker-end="url(#arrow-cyan)"/>
+    <text x="830" y="50" class="legend">request / data</text>
+    <line x1="800" y1="68" x2="822" y2="68" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round" marker-end="url(#arrow-amber)"/>
+    <text x="830" y="72" class="legend">link / control</text>
+  </g>
 
-  <rect x="72" y="158" width="185" height="90" class="boxHot"/>
-  <text x="104" y="194" class="label">Users</text>
-  <text x="104" y="222" class="sub">Web, mobile, desktop</text>
+  <!-- 01 Clients -->
+  <rect x="32" y="100" width="976" height="92" rx="16" class="band"/>
+  <text x="52" y="124" class="band-label"><tspan class="band-number">01</tspan> · CLIENTS</text>
+  <rect x="52" y="136" width="300" height="44" rx="10" class="card"/>
+  <circle cx="69" cy="151" r="3.2" fill="#22d3ee"/>
+  <text x="80" y="155" class="card-title">Browser · PWA</text>
+  <text x="80" y="172" class="card-body">React + Vite · installable PWA</text>
+  <rect x="368" y="136" width="300" height="44" rx="10" class="card"/>
+  <circle cx="385" cy="151" r="3.2" fill="#a78bfa"/>
+  <text x="396" y="155" class="card-title">Electron desktop</text>
+  <text x="396" y="172" class="card-body">OS keychain · loopback auth</text>
+  <rect x="684" y="136" width="300" height="44" rx="10" class="card"/>
+  <circle cx="701" cy="151" r="3.2" fill="#34d399"/>
+  <text x="712" y="155" class="card-title">Capacitor mobile</text>
+  <text x="712" y="172" class="card-body">Android + iOS · allowlisted navigation</text>
 
-  <rect x="330" y="132" width="230" height="78" class="box"/>
-  <text x="360" y="166" class="label">Gateway</text>
-  <text x="360" y="193" class="sub">aura-gateway.vercel.app</text>
+  <!-- 02 Static delivery -->
+  <rect x="32" y="208" width="976" height="360" rx="16" class="band" stroke="#155e75"/>
+  <text x="52" y="232" class="band-label"><tspan class="band-number">02</tspan> · STATIC DELIVERY</text>
 
-  <rect x="330" y="238" width="230" height="108" class="boxHot"/>
-  <text x="360" y="276" class="label">React storefront</text>
-  <text x="360" y="304" class="sub">Vercel · Netlify · CloudFront</text>
-  <text x="360" y="329" class="sub">Render · CF Pages · GH Pages</text>
+  <text x="52" y="259" class="group-title">Storefront artifact · <tspan class="mono" font-size="17">app/dist</tspan></text>
+  <text x="52" y="280" class="group-sub">one release → six public hosts · Netlify, Vercel, and AWS release IDs compared</text>
+  <text x="52" y="306" class="lane-label lane-cyan">SAME-ORIGIN LANES · PROXIED RUNTIME</text>
 
-  <rect x="650" y="152" width="270" height="126" class="boxWarm"/>
-  <text x="682" y="190" class="label">Same-origin paths</text>
-  <text x="682" y="218" class="sub">/api, /health</text>
-  <text x="682" y="244" class="sub">/socket.io, /uploads</text>
+  <rect x="52" y="316" width="300" height="54" rx="10" class="card"/>
+  <text x="70" y="337" class="card-title">Vercel</text>
+  <text x="70" y="356" class="card-body mono">aurapilot.vercel.app</text>
+  <rect x="368" y="316" width="300" height="54" rx="10" class="card"/>
+  <text x="386" y="337" class="card-title">Netlify</text>
+  <text x="386" y="356" class="card-body mono">aurapilot.netlify.app</text>
+  <rect x="52" y="378" width="300" height="54" rx="10" class="card"/>
+  <text x="70" y="399" class="card-title">AWS CloudFront</text>
+  <text x="70" y="418" class="card-body">S3 app + /api on this edge</text>
+  <rect x="368" y="378" width="300" height="54" rx="10" class="card"/>
+  <text x="386" y="399" class="card-title">Render</text>
+  <text x="386" y="418" class="card-body mono">aura-storefront.onrender.com</text>
 
-  <rect x="1000" y="130" width="210" height="100" class="boxHot"/>
-  <text x="1030" y="168" class="label">API runtime</text>
-  <text x="1030" y="196" class="sub">Express, auth, commerce</text>
+  <text x="52" y="458" class="lane-label lane-amber">STATIC-ONLY LANES · DIRECT EDGE CALLS</text>
+  <rect x="52" y="468" width="300" height="54" rx="10" class="card"/>
+  <text x="70" y="489" class="card-title">Cloudflare Pages</text>
+  <text x="70" y="508" class="card-body mono">aura-storefront.pages.dev</text>
+  <rect x="368" y="468" width="300" height="54" rx="10" class="card"/>
+  <text x="386" y="489" class="card-title">GitHub Pages</text>
+  <text x="386" y="508" class="card-body mono">mdsaifulislammsi.github.io</text>
+  <text x="52" y="548" class="card-body-small faint">Static-only hosts ship the same bundle; only API base resolution and CORS differ.</text>
 
-  <rect x="1000" y="272" width="210" height="100" class="box"/>
-  <text x="1030" y="310" class="label">Worker runtime</text>
-  <text x="1030" y="338" class="sub">jobs, queues, replay</text>
+  <rect x="684" y="248" width="300" height="286" rx="14" fill="url(#gateway)" stroke="#2a4a63"/>
+  <text x="704" y="276" class="group-title">Gateway</text>
+  <text x="704" y="296" class="group-sub">separate static Vercel project</text>
+  <text x="704" y="322" class="mono" font-size="12">aura-gateway.vercel.app</text>
+  <text x="704" y="350" class="card-body">Storefront links, verified release</text>
+  <text x="704" y="368" class="card-body">packages, and downloads.</text>
+  <rect x="704" y="384" width="176" height="24" rx="12" fill="#2a2312" stroke="#6b5320"/>
+  <text x="716" y="400" class="badge-text accent-amber">NOT IN THE REQUEST PATH</text>
+  <text x="704" y="432" class="card-body">A directory, not a proxy. It never</text>
+  <text x="704" y="450" class="card-body">carries API, health, or socket</text>
+  <text x="704" y="468" class="card-body">traffic.</text>
+  <line x1="684" y1="340" x2="672" y2="340" class="wire-amber" marker-end="url(#arrow-amber)"/>
 
-  <rect x="172" y="456" width="232" height="112" class="box"/>
-  <text x="204" y="494" class="label">Identity</text>
-  <text x="204" y="522" class="sub">Firebase, Duo, CSRF</text>
-  <text x="204" y="548" class="sub">trusted device, OTP</text>
+  <!-- 03 Request contract -->
+  <rect x="32" y="584" width="976" height="240" rx="16" class="band" stroke="#6b5320"/>
+  <text x="52" y="608" class="band-label"><tspan class="band-number">03</tspan> · REQUEST CONTRACT</text>
 
-  <rect x="476" y="456" width="232" height="112" class="box"/>
-  <text x="508" y="494" class="label">Data plane</text>
-  <text x="508" y="522" class="sub">MongoDB, Redis</text>
-  <text x="508" y="548" class="sub">catalog, sessions, queues</text>
+  <rect x="52" y="620" width="460" height="190" rx="12" class="panel" stroke="#155e75"/>
+  <text x="72" y="646" class="card-title" font-size="17">Two lanes, one backend</text>
+  <text x="72" y="670" class="lane-label lane-cyan">SAME-ORIGIN LANES</text>
+  <text x="72" y="690" class="card-body">Vercel · Netlify · AWS CloudFront · Render</text>
+  <text x="72" y="712" class="mono" font-size="12">/api · /health · /socket.io · /uploads</text>
+  <text x="72" y="732" class="card-body-small">rewritten same-origin; AWS lane is the edge</text>
+  <line x1="72" y1="745" x2="492" y2="745" stroke="#24455f" stroke-width="1"/>
+  <text x="72" y="768" class="lane-label lane-amber">STATIC-ONLY LANES</text>
+  <text x="72" y="788" class="card-body">Cloudflare Pages · GitHub Pages</text>
+  <text x="72" y="806" class="card-body-small">absolute edge URL + CORS allowlist</text>
 
-  <rect x="780" y="456" width="232" height="112" class="box"/>
-  <text x="812" y="494" class="label">Providers</text>
-  <text x="812" y="522" class="sub">Payments, email, S3</text>
-  <text x="812" y="548" class="sub">AI: Gemini · Groq · Ollama</text>
+  <rect x="532" y="620" width="240" height="190" rx="14" fill="#0b2130" stroke="#22d3ee"/>
+  <text x="552" y="648" class="group-title">CloudFront edge</text>
+  <text x="552" y="672" class="mono" font-size="11.5">dip82eloip5zb.cloudfront.net</text>
+  <text x="552" y="694" class="card-body">TLS · WSS · origin verification</text>
+  <rect x="552" y="708" width="190" height="24" rx="12" fill="#0c2a33" stroke="#155e75"/>
+  <text x="564" y="724" class="badge-text accent-cyan">BACKEND ENTRYPOINT</text>
+  <text x="552" y="754" class="card-body">durable hostname · AWS host</text>
+  <text x="552" y="772" class="card-body">origin secret enforced</text>
+  <text x="552" y="790" class="card-body">forwards to Caddy on EC2</text>
 
-  <rect x="90" y="606" width="480" height="42" class="pill"/>
-  <text x="112" y="633" class="tiny">GATED PRS  -&gt;  MAIN GATES  -&gt;  PRODUCTION COMMAND CENTER</text>
-  <rect x="640" y="606" width="470" height="42" class="pill"/>
-  <text x="662" y="633" class="tiny">POLICY AUTOMERGE  -&gt;  7D COOLDOWN  -&gt;  PAT-ARMED MERGE</text>
+  <rect x="792" y="620" width="216" height="190" rx="12" class="panel"/>
+  <text x="810" y="646" class="card-title-small">Edge enforces</text>
+  <text x="810" y="674" class="card-body-small"><tspan class="accent-cyan">•</tspan> TLS + WebSocket upgrade</text>
+  <text x="810" y="696" class="card-body-small"><tspan class="accent-cyan">•</tspan> origin-secret check</text>
+  <text x="810" y="718" class="card-body-small"><tspan class="accent-cyan">•</tspan> CORS for direct lanes</text>
+  <text x="810" y="740" class="card-body-small"><tspan class="accent-cyan">•</tspan> health + webhooks exempt</text>
+  <text x="810" y="772" class="card-body-small faint">Health and signed provider</text>
+  <text x="810" y="788" class="card-body-small faint">webhooks bypass origin check.</text>
 
-  <path class="line" d="M257 202 C286 202 296 171 330 171"/>
-  <path class="line" d="M257 202 C286 202 296 292 330 292"/>
-  <path class="line" d="M560 292 C604 292 606 215 650 215"/>
-  <path class="line" d="M920 215 C958 215 960 180 1000 180"/>
-  <path class="line" d="M920 215 C960 215 960 322 1000 322"/>
-  <path class="mutedLine" d="M1105 230 C1105 408 896 420 896 456"/>
-  <path class="mutedLine" d="M1105 372 C1105 418 592 420 592 456"/>
-  <path class="mutedLine" d="M1000 180 C820 180 287 360 287 456"/>
-  <path class="mutedLine" d="M640 610 C640 590 640 582 640 568"/>
+  <line x1="512" y1="668" x2="530" y2="668" class="wire" marker-end="url(#arrow-cyan)"/>
+  <line x1="512" y1="788" x2="530" y2="788" class="wire" stroke="#fbbf24" marker-end="url(#arrow-amber)"/>
+  <line x1="652" y1="810" x2="652" y2="880" class="wire" marker-end="url(#arrow-cyan)"/>
+  <text x="664" y="832" class="card-body-small faint">HTTPS / WSS</text>
+
+  <!-- 04 Backend runtime -->
+  <rect x="32" y="840" width="976" height="440" rx="16" class="band" stroke="#4c3a7a"/>
+  <text x="52" y="864" class="band-label"><tspan class="band-number">04</tspan> · BACKEND RUNTIME · AWS</text>
+
+  <rect x="52" y="876" width="600" height="300" rx="14" fill="#0b1929" stroke="#284a68"/>
+  <text x="72" y="902" class="group-title">AWS EC2 · Docker Compose</text>
+  <text x="72" y="920" class="group-sub">API + worker from one immutable image</text>
+
+  <rect x="360" y="882" width="272" height="40" rx="10" class="panel" stroke="#a78bfa"/>
+  <text x="376" y="900" class="card-title-small">Caddy · TLS termination</text>
+  <text x="376" y="915" class="mono-small">443 → api-traffic:5000</text>
+  <path d="M 496 922 V 930 H 207 V 942" fill="none" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#arrow-violet)"/>
+
+  <rect x="72" y="944" width="270" height="150" rx="12" class="card"/>
+  <text x="90" y="968" class="card-title">API process</text>
+  <text x="90" y="988" class="mono-small">start_api_runtime.js</text>
+  <text x="90" y="1010" class="card-body">Express · Socket.IO · sessions</text>
+  <text x="90" y="1028" class="card-body">catalog · cart · orders · payments</text>
+  <text x="90" y="1046" class="card-body">auth · uploads · observability</text>
+  <text x="90" y="1070" class="mono-small">/health · /health/ready</text>
+
+  <rect x="362" y="944" width="270" height="150" rx="12" class="card"/>
+  <text x="380" y="968" class="card-title">Worker process</text>
+  <text x="380" y="988" class="mono-small">start_worker_runtime.js</text>
+  <text x="380" y="1010" class="card-body">payment outbox · order email</text>
+  <text x="380" y="1028" class="card-body">catalog sync · reconciliation</text>
+  <text x="380" y="1046" class="card-body">analytics · OTP maintenance</text>
+  <text x="380" y="1070" class="card-body-small mono">own readiness probe</text>
+  <line x1="342" y1="1000" x2="360" y2="1000" class="wire" stroke="#a78bfa" marker-end="url(#arrow-violet)"/>
+
+  <rect x="72" y="1102" width="270" height="64" rx="12" class="card" stroke="#34d399"/>
+  <text x="90" y="1124" class="card-title-small">Redis 7</text>
+  <text x="90" y="1142" class="card-body-small">private network · shared by both</text>
+  <text x="90" y="1158" class="card-body-small">rate limits · queues · sockets</text>
+
+  <rect x="362" y="1102" width="270" height="64" rx="12" class="card" stroke="#34d399"/>
+  <text x="380" y="1124" class="card-title-small">Assistant · no LLM</text>
+  <text x="380" y="1142" class="mono-small">AI_MODEL_PROVIDER=disabled</text>
+  <text x="380" y="1158" class="card-body-small">no fallbacks · no model summary</text>
+
+  <rect x="668" y="876" width="340" height="300" rx="14" fill="#0b1929" stroke="#1f5f4b"/>
+  <text x="688" y="902" class="group-title">Managed data &amp; secrets</text>
+  <text x="688" y="920" class="group-sub">outside the Compose network</text>
+
+  <rect x="684" y="936" width="308" height="72" rx="10" class="card" stroke="#1f5f4b"/>
+  <text x="702" y="958" class="card-title-small">MongoDB replica set</text>
+  <text x="702" y="978" class="card-body-small">transactions · catalog · orders</text>
+  <text x="702" y="996" class="card-body-small">sessions · MONGO_URI from SSM</text>
+
+  <rect x="684" y="1016" width="308" height="56" rx="10" class="card" stroke="#1f5f4b"/>
+  <text x="702" y="1038" class="card-title-small">S3 upload storage</text>
+  <text x="702" y="1058" class="mono-small">UPLOAD_STORAGE_DRIVER=s3</text>
+
+  <rect x="684" y="1080" width="308" height="64" rx="10" class="card" stroke="#1f5f4b"/>
+  <text x="702" y="1102" class="card-title-small">SSM Parameter Store</text>
+  <text x="702" y="1120" class="mono-small">/aura/prod/* →</text>
+  <text x="702" y="1136" class="mono-small">runtime-secrets.env</text>
+
+  <line x1="652" y1="980" x2="666" y2="980" stroke="#34d399" stroke-width="1.4" marker-start="url(#arrow-emerald)" marker-end="url(#arrow-emerald)"/>
+
+  <rect x="52" y="1186" width="956" height="60" rx="14" class="panel"/>
+  <text x="72" y="1212" class="lane-label lane-muted">PROVIDERS</text>
+  <text x="72" y="1228" class="card-body-small faint">provider calls + webhooks</text>
+  <rect x="230" y="1196" width="145" height="40" rx="9" class="card"/>
+  <text x="244" y="1216" class="card-title" font-size="12.5">Firebase</text>
+  <text x="244" y="1231" class="card-body-small">Auth + Admin</text>
+  <rect x="385" y="1196" width="145" height="40" rx="9" class="card"/>
+  <text x="399" y="1216" class="card-title" font-size="12.5">Payments</text>
+  <text x="399" y="1231" class="card-body-small">Razorpay · Stripe</text>
+  <rect x="540" y="1196" width="145" height="40" rx="9" class="card"/>
+  <text x="554" y="1216" class="card-title" font-size="12.5">Email</text>
+  <text x="554" y="1231" class="card-body-small">Resend · Gmail</text>
+  <rect x="695" y="1196" width="145" height="40" rx="9" class="card"/>
+  <text x="709" y="1216" class="card-title" font-size="12.5">LiveKit</text>
+  <text x="709" y="1231" class="card-body-small">video calls</text>
+  <rect x="850" y="1196" width="145" height="40" rx="9" class="card"/>
+  <text x="864" y="1216" class="card-title" font-size="12.5">Courier</text>
+  <text x="864" y="1231" class="card-body-small">HMAC webhooks</text>
+
+  <!-- 05 Release and control plane -->
+  <rect x="32" y="1296" width="976" height="92" rx="16" class="band" stroke="#6b5320"/>
+  <text x="52" y="1320" class="band-label"><tspan class="band-number">05</tspan> · RELEASE &amp; CONTROL PLANE</text>
+  <text x="988" y="1320" class="card-body-small faint" text-anchor="end">dependency lane: 7-day cooldown → optional PAT-armed merge</text>
+
+  <rect x="52" y="1332" width="146" height="44" rx="10" class="card"/>
+  <text x="66" y="1353" class="card-title" font-size="12.5">PR gates</text>
+  <text x="66" y="1369" class="card-body-small" font-size="9.5">ci · quality · security</text>
+  <line x1="198" y1="1354" x2="208" y2="1354" class="wire" stroke="#fbbf24" stroke-width="1.4" marker-end="url(#arrow-amber)"/>
+
+  <rect x="210" y="1332" width="146" height="44" rx="10" class="card"/>
+  <text x="224" y="1353" class="card-title" font-size="12.5">main gates</text>
+  <text x="224" y="1369" class="card-body-small" font-size="9.5">quality · security</text>
+  <line x1="356" y1="1354" x2="366" y2="1354" class="wire" stroke="#fbbf24" stroke-width="1.4" marker-end="url(#arrow-amber)"/>
+
+  <rect x="368" y="1332" width="146" height="44" rx="10" class="card" stroke="#6b5320"/>
+  <text x="382" y="1353" class="card-title accent-amber" font-size="12.5">PRODUCTION</text>
+  <text x="382" y="1369" class="card-body-small" font-size="9.5">manual dispatch only</text>
+  <line x1="514" y1="1354" x2="524" y2="1354" class="wire" stroke="#fbbf24" stroke-width="1.4" marker-end="url(#arrow-amber)"/>
+
+  <rect x="526" y="1332" width="146" height="44" rx="10" class="card"/>
+  <text x="540" y="1353" class="card-title" font-size="12.5">immutable image</text>
+  <text x="540" y="1369" class="card-body-small" font-size="9.5">one SHA + digests</text>
+  <line x1="672" y1="1354" x2="682" y2="1354" class="wire" stroke="#fbbf24" stroke-width="1.4" marker-end="url(#arrow-amber)"/>
+
+  <rect x="684" y="1332" width="146" height="44" rx="10" class="card"/>
+  <text x="698" y="1353" class="card-title" font-size="12.5">deploy by SHA</text>
+  <text x="698" y="1369" class="card-body-small" font-size="9.5">OIDC → SSM</text>
+  <line x1="830" y1="1354" x2="840" y2="1354" class="wire" stroke="#fbbf24" stroke-width="1.4" marker-end="url(#arrow-amber)"/>
+
+  <rect x="842" y="1332" width="146" height="44" rx="10" class="card"/>
+  <text x="856" y="1353" class="card-title" font-size="12.5">probe + restore</text>
+  <text x="856" y="1369" class="card-body-small" font-size="9.5">health → rollback</text>
+
+  <text x="520" y="1410" class="footer" text-anchor="middle">Source of truth: infra/aws · vercel.json · netlify.toml · app/config/vercelRoutingContract.mjs</text>
 </svg>

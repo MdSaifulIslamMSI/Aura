@@ -26,7 +26,7 @@
 
 `app/` is the customer-facing React application for Aura Marketplace. It owns everything a shopper or seller touches: catalog discovery, product detail, cart and checkout, orders and returns, the AI shopping assistant, the C2C marketplace, account security, and the admin console.
 
-It is a static single-page application. `vite build` emits one `dist/` artifact, and that exact artifact is published to six hosts. Runtime calls use same-origin paths — `/api`, `/health`, `/socket.io`, `/uploads` — so the storefront and backend can live on different origins without CORS drift.
+It is a static single-page application. `vite build` emits one `dist/` artifact; five hosts receive it directly and Render rebuilds it from the same commit and inputs. Runtime calls use same-origin paths — `/api`, `/health`, `/socket.io`, `/uploads` — so the storefront and backend can live on different origins without CORS drift.
 
 The client is deliberately thin on trust. Prices, totals, coupon validity, payment capture, inventory, and authorization are decided by the backend. The storefront renders what the API returns and never treats its own state as authoritative for money.
 
@@ -212,7 +212,7 @@ Every build injects five tags into `<head>` and exposes the same object as `__AU
 
 These tags are the live source of truth for what a host is serving.
 
-### One artifact, six hosts
+### One release, six hosts
 
 | Host | URL |
 |---|---|
@@ -223,7 +223,7 @@ These tags are the live source of truth for what a host is serving.
 | Cloudflare Pages | <https://aura-storefront.pages.dev> |
 | GitHub Pages | <https://mdsaifulislammsi.github.io> |
 
-The deploy workflow publishes the same artifact to all six, then re-fetches each host's shell HTML and every referenced asset, hashes them with SHA-256, and fails closed on any mismatch. A successful release records a last-known-good pointer in AWS Parameter Store.
+The deploy workflow publishes one artifact to five hosts and rebuilds on Render from the same commit and build inputs, then re-fetches each host's shell HTML and every referenced asset, hashes them with SHA-256, and fails closed on any mismatch. A successful release records a last-known-good pointer in AWS Parameter Store.
 
 ### Verify what is live
 

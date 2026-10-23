@@ -1,5 +1,12 @@
 # AWS Frontend Deployment
 
+> **Path status:** this page documents the standalone low-spend S3 website path.
+> The canonical production AWS lane is S3 behind CloudFront, managed by
+> [`deploy-netlify.yml`](../.github/workflows/deploy-netlify.yml) and
+> [`bootstrap-frontend-cloudfront.ps1`](../infra/aws/bootstrap-frontend-cloudfront.ps1).
+> CloudFront proxies `/api`, `/health`, `/socket.io`, and `/uploads`; the plain
+> S3 website path does not. That distribution is also the shared backend edge.
+
 This path hosts the Vite frontend as a static S3 website. It is intentionally low spend: no EC2, no Amplify app, no CloudFront distribution, and no Route 53 zone by default.
 
 ## What It Creates
@@ -50,7 +57,7 @@ npm run aws:frontend:deploy -- -BackendOrigin https://api.example.com
 
 ## GitHub Actions
 
-The canonical production storefront workflow is [`deploy-netlify.yml`](../.github/workflows/deploy-netlify.yml). It builds `app/dist` once and publishes that same artifact to Netlify, Vercel, and AWS S3 so the three public frontends show the same commit and release metadata.
+The canonical production storefront workflow is [`deploy-netlify.yml`](../.github/workflows/deploy-netlify.yml). It builds `app/dist` once and publishes that artifact to Netlify, Vercel, AWS CloudFront (S3 origin), Cloudflare Pages, and GitHub Pages. Render rebuilds from the same commit and build inputs. A post-deploy coherence gate compares what all six fronts serve, so they show the same commit and release metadata.
 
 [`deploy-frontend-aws.yml`](../.github/workflows/deploy-frontend-aws.yml) remains available as an AWS-only manual or reusable fallback, but it no longer runs on every push. That prevents AWS from racing the shared Netlify/Vercel/AWS production deploy.
 
