@@ -21,8 +21,14 @@ on:
 
 permissions: {}
 
+# A busy main push completes ~5 watched workflows at once; each completion
+# spawns a watch run and this group collapses the burst (cancelled runs are
+# superseded duplicates, by design). The group is scoped to the triggering
+# commit's SHA so a newer commit can never cancel a still-in-flight watch for
+# an older one — every commit's final state reaches the status webhook exactly
+# once.
 concurrency:
-  group: status-watch
+  group: status-watch-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
