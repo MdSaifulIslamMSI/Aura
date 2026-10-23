@@ -32,7 +32,7 @@
   <rect x="34" y="32" width="1212" height="656" rx="30" fill="none" stroke="#123a4b" stroke-width="2"/>
 
   <text x="70" y="86" class="title">Aura Marketplace runtime map</text>
-  <text x="72" y="116" class="sub">One storefront artifact, gated release lanes, split API and worker runtime, explicit environment contracts.</text>
+  <text x="72" y="116" class="sub">One storefront artifact, gated release lanes, split runtime — and dependencies that merge themselves under policy.</text>
 
   <rect x="72" y="158" width="185" height="90" class="boxHot"/>
   <text x="104" y="194" class="label">Users</text>
@@ -44,8 +44,8 @@
 
   <rect x="330" y="238" width="230" height="108" class="boxHot"/>
   <text x="360" y="276" class="label">React storefront</text>
-  <text x="360" y="304" class="sub">Vercel, Netlify, CloudFront</text>
-  <text x="360" y="329" class="sub">shared Vite artifact</text>
+  <text x="360" y="304" class="sub">Vercel · Netlify · CloudFront</text>
+  <text x="360" y="329" class="sub">Render · CF Pages · GH Pages</text>
 
   <rect x="650" y="152" width="270" height="126" class="boxWarm"/>
   <text x="682" y="190" class="label">Same-origin paths</text>
@@ -72,11 +72,13 @@
 
   <rect x="780" y="456" width="232" height="112" class="box"/>
   <text x="812" y="494" class="label">Providers</text>
-  <text x="812" y="522" class="sub">Stripe, email, S3</text>
-  <text x="812" y="548" class="sub">OpenAI, VoyageAI, LiveKit</text>
+  <text x="812" y="522" class="sub">Payments, email, S3</text>
+  <text x="812" y="548" class="sub">AI: Gemini · Groq · Ollama</text>
 
-  <rect x="430" y="610" width="420" height="42" class="pill"/>
-  <text x="458" y="637" class="tiny">GATED PRS -> MAIN GATES -> MANUAL PRODUCTION COMMAND CENTER</text>
+  <rect x="90" y="606" width="480" height="42" class="pill"/>
+  <text x="112" y="633" class="tiny">GATED PRS  -&gt;  MAIN GATES  -&gt;  PRODUCTION COMMAND CENTER</text>
+  <rect x="640" y="606" width="470" height="42" class="pill"/>
+  <text x="662" y="633" class="tiny">POLICY AUTOMERGE  -&gt;  7D COOLDOWN  -&gt;  PAT-ARMED MERGE</text>
 
   <path class="line" d="M257 202 C286 202 296 171 330 171"/>
   <path class="line" d="M257 202 C286 202 296 292 330 292"/>
