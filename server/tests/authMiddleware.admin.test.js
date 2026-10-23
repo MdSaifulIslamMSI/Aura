@@ -306,6 +306,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 webauthnCredentialIdBase64Url: 'credential-id',
                 webauthnUserVerification: 'required',
                 webauthnUserVerified: true,
+                credentialScope: 'admin',
                 adminEligibility: 'verified',
             }],
         };
