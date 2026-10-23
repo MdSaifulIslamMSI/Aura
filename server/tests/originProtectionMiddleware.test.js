@@ -15,6 +15,7 @@ const {
     ORIGIN_VERIFY_HEADER,
     originProtectionMiddleware,
 } = require('../middleware/originProtectionMiddleware');
+const { getTrustedRequestIp } = require('../utils/requestIdentity');
 
 const logger = require('../utils/logger');
 
@@ -24,7 +25,12 @@ const buildApp = () => {
     const app = express();
     app.use(requestId);
     app.use(originProtectionMiddleware);
-    app.get('/api/private', (req, res) => res.json({ ok: true, requestId: req.requestId }));
+    app.get('/api/private', (req, res) => res.json({
+        ok: true,
+        requestId: req.requestId,
+        originVerified: req.auraOriginVerified,
+        trustedIp: getTrustedRequestIp(req),
+    }));
     app.post('/api/payments/webhooks/stripe', (req, res) => res.json({ accepted: true }));
     app.post('/api/status/webhooks/alertmanager', (req, res) => res.json({ accepted: true }));
     app.get('/health/live', (req, res) => res.json({ alive: true }));
@@ -44,11 +50,34 @@ describe('originProtectionMiddleware', () => {
         process.env = ORIGINAL_ENV;
     });
 
-    test('is inert when no origin secret is configured', async () => {
+    test('is inert outside production when no origin secret is configured', async () => {
+        process.env.NODE_ENV = 'test';
+
         const response = await request(buildApp()).get('/api/private').expect(200);
 
         expect(response.body.ok).toBe(true);
+        expect(response.body.originVerified).toBe(false);
         expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    test('fails closed in production when no origin secret is configured', async () => {
+        process.env.NODE_ENV = 'production';
+
+        const response = await request(buildApp())
+            .get('/api/private')
+            .set('X-Request-Id', 'req-origin-misconfigured')
+            .expect(503);
+
+        expect(response.body).toEqual({
+            success: false,
+            code: 'ORIGIN_PROTECTION_MISCONFIGURED',
+            message: 'Service unavailable',
+            requestId: 'req-origin-misconfigured',
+        });
+        expect(logger.error).toHaveBeenCalledWith('origin_protection.misconfigured', expect.objectContaining({
+            requestId: 'req-origin-misconfigured',
+            path: '/api/private',
+        }));
     });
 
     test('rejects direct API requests without the CloudFront origin header', async () => {
@@ -80,6 +109,25 @@ describe('originProtectionMiddleware', () => {
             .expect(200);
 
         expect(response.body.ok).toBe(true);
+        expect(response.body.originVerified).toBe(true);
+    });
+
+    test('trusts the CloudFront viewer address only after origin verification', async () => {
+        process.env.AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET = 'test-origin-secret';
+
+        const unverified = await request(buildApp())
+            .get('/api/private')
+            .set('CloudFront-Viewer-Address', '203.0.113.50:443')
+            .expect(403);
+        expect(unverified.body.code).toBe('ORIGIN_PROTECTION_REQUIRED');
+
+        const verified = await request(buildApp())
+            .get('/api/private')
+            .set(ORIGIN_VERIFY_HEADER, 'test-origin-secret')
+            .set('CloudFront-Viewer-Address', '203.0.113.50:443')
+            .expect(200);
+
+        expect(verified.body.trustedIp).toBe('203.0.113.50');
     });
 
     test('keeps health, metrics, and signed provider webhooks reachable without the origin header', async () => {

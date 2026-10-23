@@ -134,6 +134,9 @@ The deploy workflow refreshes OIDC credentials after the image build and again b
 - When the backend origin uses a free TLS hostname such as `sslip.io`, configure CloudFront with `X-Aura-Origin-Verify` and store the matching value as `/aura/prod/AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET`.
 - Store `AUTH_RISK_SIGNAL_SECRET` separately before enabling risk-engine enforcement. Edge or server-side producers must sign login-risk headers with `X-Aura-Login-Risk-Signature` and `X-Aura-Login-Risk-Timestamp`; unsigned client copies are ignored and stripped.
 - Origin protection keeps health routes and signed provider webhooks reachable. Verify both allowed and denied paths with `npm run security:origin-protection-smoke` before promotion.
+- In `NODE_ENV=production`, a missing origin secret fails closed: protected routes return `503 ORIGIN_PROTECTION_MISCONFIGURED`. Health, metrics, and signed provider webhooks stay exempt so probes and inbound payment events still work. Do not deploy production without the Parameter Store value.
+- `CloudFront-Viewer-Address` is used for rate-limit identity only after `originProtectionMiddleware` verifies the origin secret (`req.auraOriginVerified`). Direct clients cannot choose their bucket by sending the header; otherwise `req.ip` from the single trusted proxy hop is used.
+- Keep `app.set('trust proxy', 1)`. Raising the hop count lets clients spoof `X-Forwarded-For`.
 - Rotate origin verification by updating CloudFront first, waiting until the distribution is deployed, updating Parameter Store, and then releasing the backend.
 - Never put origin, risk-signal, health, or runtime secrets in the frontend bundle or workflow logs.
 - Checked-in defaults and placeholders live in [server/.env.example](../server/.env.example) and [server/.env.aws-secrets.example](../server/.env.aws-secrets.example). The real `server/.env.aws-secrets` remains ignored and local.

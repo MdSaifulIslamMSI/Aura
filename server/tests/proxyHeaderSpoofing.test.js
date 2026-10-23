@@ -55,4 +55,32 @@ describe('proxy header spoofing boundaries', () => {
 
         expect(allowed.body.ok).toBe(true);
     });
+
+    test('a direct client cannot choose its rate-limit identity with CloudFront-Viewer-Address', () => {
+        const req = {
+            ip: '198.51.100.24',
+            headers: {
+                'cloudfront-viewer-address': '203.0.113.99:443',
+            },
+        };
+
+        expect(getTrustedRequestIp(req)).toBe('198.51.100.24');
+        expect(getTrustedRequestIp({ ...req, auraOriginVerified: true })).toBe('203.0.113.99');
+    });
+
+    test('verified origin parsing accepts bracketed IPv6 and rejects malformed viewer addresses', () => {
+        const baseReq = {
+            ip: '198.51.100.24',
+            auraOriginVerified: true,
+        };
+
+        expect(getTrustedRequestIp({
+            ...baseReq,
+            headers: { 'cloudfront-viewer-address': '[2001:db8::1]:443' },
+        })).toBe('2001:db8::1');
+        expect(getTrustedRequestIp({
+            ...baseReq,
+            headers: { 'cloudfront-viewer-address': 'not-an-ip' },
+        })).toBe('198.51.100.24');
+    });
 });
