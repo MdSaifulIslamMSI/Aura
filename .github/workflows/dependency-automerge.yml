@@ -65,6 +65,9 @@ jobs:
           # Dependabot PR event runs get no secrets (GitHub policy), so arming
           # there always fails; classification still labels/comments. Sweeps arm.
           ARMING: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+          # Reruns use GITHUB_TOKEN (actions:write in the sweep/dispatch
+          # context; the PAT carries only Contents + Pull-requests write).
+          GH_RERUN_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             node scripts/github/dependency-automerge-policy.mjs --pr "$GH_PR_NUMBER"
