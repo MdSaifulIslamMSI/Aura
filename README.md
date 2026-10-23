@@ -1,22 +1,15 @@
 <div align="center">
 
-<img src="docs/assets/readme/aura-wordmark.svg" alt="Aura Marketplace" width="720">
+<img src="docs/assets/readme/aura-wordmark.svg" alt="Aura Marketplace" width="640">
 
-**A production-grade commerce platform — AI-assisted shopping, bank-grade checkout integrity, and a byte-verified release train.**
+**A production commerce platform: React storefront, Express/MongoDB core, Electron and Capacitor clients, and a release process built around verification.**
 
-One release train. Six storefront hosts. Byte-identical and fail-closed. Dependencies that upgrade themselves — under policy, behind every gate.
+[![Quality](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=flat-square)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml)
+[![Security gates](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security-gates.yml?branch=main&label=security%20gates&style=flat-square)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security-gates.yml)
+[![Nightly tests](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/nightly-tests.yml?branch=main&label=nightly&style=flat-square)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/nightly-tests.yml)
+[![License](https://img.shields.io/github/license/MdSaifulIslamMSI/Aura?style=flat-square)](LICENSE)
 
-[![Quality Foundation](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml)
-[![Security Gates](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security-gates.yml?branch=main&label=security%20gates&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security-gates.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/codeql.yml?branch=main&label=codeql&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/codeql.yml)
-[![Dependency Automerge](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/dependency-automerge.yml?branch=main&label=deps%20automerge&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/dependency-automerge.yml)
-[![Production Gate](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/production-on-push.yml?branch=main&label=production%20gate&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/production-on-push.yml)
-[![Nightly Test Fleet](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/nightly-tests.yml?branch=main&label=nightly%20fleet&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/nightly-tests.yml)
-[![License](https://img.shields.io/github/license/MdSaifulIslamMSI/Aura?style=for-the-badge&label=license)](LICENSE)
-
-[Storefront](https://aurapilot.vercel.app) &middot; [Host fleet](#live-production-surfaces) &middot; [Gateway](https://aura-gateway.vercel.app) &middot; [Status page](https://aurapilot.vercel.app/status) &middot; [Architecture](docs/system-architecture.md) &middot; [Security](SECURITY.md) &middot; [The story](AURA-STORY.md)
-
-**1,944** commits &nbsp;·&nbsp; **≈550K** lines of first-party code &nbsp;·&nbsp; **763** test files &nbsp;·&nbsp; **56** workflows &nbsp;·&nbsp; **2** packages on npm &nbsp;·&nbsp; **20** languages &nbsp;·&nbsp; **11** currencies &nbsp;·&nbsp; **6** storefront hosts
+[Storefront](https://aurapilot.vercel.app) &middot; [Gateway](https://aura-gateway.vercel.app) &middot; [Status](https://aurapilot.vercel.app/status) &middot; [Architecture](docs/system-architecture.md) &middot; [Security](SECURITY.md) &middot; [Documentation](docs/)
 
 </div>
 
@@ -26,79 +19,93 @@ One release train. Six storefront hosts. Byte-identical and fail-closed. Depende
 
 ---
 
-## Why Aura exists
+## What Aura is
 
-Aura Marketplace is a full-stack commerce platform: a React 19 storefront with an AI shopping assistant that takes real actions, an Express/MongoDB commerce core engineered for money correctness, and a production operation with gated deploys, byte-verified multi-host delivery, and rollback discipline.
+Aura is a working marketplace, not a UI demo. It runs at [aurapilot.vercel.app](https://aurapilot.vercel.app): browse a faceted catalog, add to cart, check out with a server-validated quote, pay, track an order, request a return, sell an item, or ask the shopping assistant to do it for you.
 
-This repository is not a demo landing page. It is the operating surface for product discovery, recommendations, cart and checkout, payments, fulfillment workflows, account security, admin controls, observability, release gates, and production rollback. Every number on this page is traceable to a file, a workflow, or a command.
+The repository is the whole system: a React single-page storefront, an Express/MongoDB commerce API and worker, an Electron desktop app, Capacitor mobile shells, a public gateway, infrastructure automation, and the CI that gates all of it. Money, inventory, coupon validity, and authorization are server decisions. The client renders what the API returns.
 
-## Aura by the numbers
+It is built and operated by one developer working with AI agents. That is why the repo invests heavily in written invariants, explicit contracts, and verification commands: the process has to carry the context that a larger team would.
 
-| Indicator | Value | Receipt |
-|---|---:|---|
-| Commits | 1,944 | `git rev-list --count HEAD` |
-| Tracked files | 3,231 | `git ls-files` |
-| First-party source | ≈550,000 lines | `app/src` · `server` · `desktop` · `scripts` |
-| Frontend unit tests | 239 files, ≈1,700 cases | `app/src/**/*.test.*` (Vitest) |
-| Backend test files | 513 | `server/tests/` (Jest) |
-| Tiered suites | 233 regression · 258 nightly · 0 quarantine | `config/test-tiers.json` |
-| Playwright E2E | 21 specs | `app/e2e/` |
-| Desktop tests | 11 files, 79 cases | `desktop/*.test.cjs` |
-| GitHub Actions workflows | 56, incl. 8 rollback lanes | `.github/workflows/` |
-| npm scripts | 293 | root `package.json` |
-| Published packages | 2 — `@aurasec/supply-chain-gates`, `@aurasec/route-security-matrix` | `packages/` · npm |
-| Documentation | 480+ markdown docs | `git ls-files '*.md'` |
-| Languages · currencies | 20 (+RTL) · 11 | `app/src/config/marketConfig.js` |
-| Storefront hosts | 6, byte-identical | `deploy-netlify.yml` byte gate |
-| Catalog scale | 1,000,000-product dataset | `server/data/catalog_1m.jsonl` |
+## At a glance
 
----
+| Area | Detail |
+|---|---|
+| Runtime | React 19.3 · Vite 8.3 · Express 5.2 · Mongoose 9.10 · Redis 7 · Node 26 in production images |
+| Clients | Web SPA and PWA, Electron 44 desktop, Capacitor 8 (Android + iOS) |
+| Test surface | 759 unit/integration test files (239 app, 509 server, 11 desktop) plus 17 Playwright specs |
+| Server suites | 509 suites tiered across regression, nightly, targeted lanes, and quarantine; 233 run on every PR, 258 nightly, 0 quarantined |
+| CI | 56 GitHub Actions workflows, including 8 rollback lanes |
+| Delivery | One storefront artifact to 6 hosts; SHA-pinned backend releases with a health probe and automatic restore |
+| Reach | 20 languages including RTL, 13 markets, 11 currencies |
+| Packages | `@aurasec/supply-chain-gates` and `@aurasec/route-security-matrix`, published to npm |
 
-## The product
+Counts come from `config/test-tiers.json`, the package manifests, `app/src/config/marketConfig.js`, and `.github/workflows/`. The live hosts are probed independently of CI.
 
-### 🛍️ Commerce core
+## Quick start
 
-- 30+ routed pages: faceted catalog with URL-round-trip filters, product detail with rating breakdowns and photo reviews, wishlist, downloadable invoices, order tracking, cancellation, and returns.
-- 5-step checkout (address → delivery → payment → review) with an OTP challenge modal, COD / UPI / card / wallet / net-banking payment methods, and coupons validated against a live quote API.
-- Cart state engineering: optimistic mutations with revision-conflict replay, cross-tab sync over `BroadcastChannel`, guest cart and wishlist that merge on login — all unit-tested.
-- Aura Points loyalty command center (tiers, streaks, milestones), trade-in estimator, price alerts, bundles, and a C2C marketplace with seller profiles and listings.
+**Prerequisites:** Node.js 22.12+ (production containers run Node 26), npm 10+, and MongoDB and Redis. On Windows, the repo can start both services for you.
 
-### 🤖 AI shopping assistant
+```sh
+git clone https://github.com/MdSaifulIslamMSI/Aura.git
+cd Aura
+npm install
+npm --prefix app install
+npm --prefix server install
+```
 
-- A terminal-style assistant page plus a page-context dock — it carries the context of whatever you are looking at.
-- Real actions, not just chat: navigate, search, open products, add to cart, apply coupons, go to checkout, cancel orders, create returns, open order tracking — destructive actions are confirmation-gated through a shared capability manifest with the backend.
-- Multimodal input (images + audio), inline product cards, and support-desk handoff.
-- Provider mesh behind a fallback-chain gateway: Google Gemini, Ollama, OpenCode Zen, and Groq — with Voyage AI embeddings, ElevenLabs speech, and LiveKit realtime voice.
-- Grounded agent loop: five read-only tools, four iterations max, and final product IDs intersected with actually-observed results, so the model cannot invent products. A promptfoo red-team corpus runs in CI.
-- Degrades gracefully: E2E-proven to work with every model provider disabled, behind a feature kill-switch.
+The root install provides the repo scripts and the Electron host; `app/` and `server/` own their dependency trees.
 
-### 🔐 Identity and trust
+Create the local env files. The examples describe the shape; fill in the services you enable. Never commit real credentials.
 
-- Firebase-backed identity with server-side sessions (rotation, CSRF token pairs, supersede/revoke), phone OTP, passkeys/WebAuthn, TOTP + recovery codes, trusted-device verification, and Duo OIDC step-up.
-- Cloudflare Turnstile on OTP, recovery, and device-challenge surfaces.
-- Distributed rate limiting (Redis-backed with in-memory fallback and a circuit breaker), login lockout, geo-velocity and behavior-baseline risk engines, abuse shield, and load shedding.
-- Field-level encryption at rest: AES-256-GCM envelope encryption with AWS KMS data keys, zero-downtime rotation, and HMAC-SHA256 blind indexes that keep encrypted phone/email searchable.
-- The route-security matrix test derives every route from source and fails CI unless each state-changing route declares — and enforces — its security posture.
+```sh
+# PowerShell
+Copy-Item app\.env.example app\.env
+Copy-Item server\.env.example server\.env
 
-### 🌍 Global by design
+# bash / zsh
+cp app/.env.example app/.env
+cp server/.env.example server/.env
+```
 
-- 20 human languages including RTL Urdu and Arabic, plus an `en-XA` pseudo-locale QA pipeline — FormatJS/ICU extraction, structural verification, glossary, and per-locale axe accessibility checks in CI.
-- 11 currencies with live FX refresh and region-aware presentation.
-- A public status page with uptime bars, incident history, and subscriptions.
+Start the local data services, then the two runtimes in separate terminals:
 
-### 🖥️ Desktop and mobile
+```sh
+# Windows: repo-managed MongoDB + Redis
+npm run dev:on
 
-- Electron 44 desktop app: OS-keychain secret storage via `safeStorage` (memory-only fallback), a loopback OAuth handoff broker, an HTTPS-only hardened proxy, Windows code-signing required by default in the release lane, and a provenance attestation on every published artifact. The free tier has no code-signing certificate, so the production release lane still publishes unsigned Windows artifacts - an unsigned build cannot verify update signatures, which is tracked as R-026 in the risk register. macOS signing/notarization is not yet implemented in the release workflow either, so macOS artifacts published to the update feed are also unsigned.
-- Capacitor 8 shell for Android and iOS: native social sign-in providers, splash and status-bar theming, and a strict `allowNavigation` allowlist.
-- PWA: installable manifest with app shortcuts and a versioned service worker (app-shell fallback; API and sockets always hit the network).
+# macOS / Linux: use the compose services, or point MONGO_URI and REDIS_URL
+# at instances you already run
+docker compose up -d mongo redis
 
-### 📡 Operate in public
+# terminal 1
+npm --prefix server start
 
-- Admin emergency controls with feature kill-switches, plus a client-diagnostics bus surfaced in an admin panel.
-- Nightly test fleet (257 suites) with a quarantine ratchet; a 30-minute uptime probe; and a workflow status watcher feeding the status page.
-- Sentry and Datadog RUM wired end to end, with sourcemaps uploaded per release.
+# terminal 2
+npm --prefix app run dev
+```
 
----
+Open <http://localhost:5173>. The backend listens on `5000`; Vite proxies `/api`, `/health`, and `/uploads` there. Confirm the API directly:
+
+```sh
+curl http://127.0.0.1:5000/health
+```
+
+Stop the Windows services with `npm run dev:off` (`dev:off:force` only if something refuses to stop).
+
+## Repository map
+
+| Path | Owns |
+|---|---|
+| [`app/`](app/) | React storefront, AI assistant, admin suite, PWA, Capacitor shells, Playwright E2E. See [app/README.md](app/README.md). |
+| [`server/`](server/) | Express API, worker runtime, auth and sessions, catalog, cart, orders, payments, AI gateways, background jobs. |
+| [`desktop/`](desktop/) | Electron main process, OS-keychain storage, loopback auth handoff, hardened outbound proxy. |
+| [`gateway/`](gateway/) | Static public gateway and release-link directory. |
+| [`packages/`](packages/) | The two CI gate engines that are also published to npm. |
+| [`infra/`](infra/) | AWS and edge deployment, rollback scripts, Docker Compose stacks, OpenTofu, PQC lab. |
+| [`scripts/`](scripts/) | CI doctors, validators, generators, smoke and release tooling. |
+| [`docs/`](docs/) | Architecture, security, payments, SRE, runbooks, ADRs. Start at [system architecture](docs/system-architecture.md). |
+| [`config/`](config/) | Test tiers, dependency policy, environment examples, and runtime guard configs. |
 
 ## Architecture
 
@@ -106,267 +113,142 @@ This repository is not a demo landing page. It is the operating surface for prod
   <img src="docs/assets/readme/system-overview.svg" alt="Aura Marketplace runtime map" width="920">
 </p>
 
-The hosted storefront is a static React/Vite build published to multiple hosts from one release artifact. Runtime calls use same-origin paths — `/api`, `/health`, `/socket.io`, `/uploads` — which route to the shared backend runtime.
+The storefront is a static build. Runtime calls use same-origin paths (`/api`, `/health`, `/socket.io`, `/uploads`), so the same artifact can be hosted anywhere while the API stays shared.
 
-The backend is split into two processes:
+The backend runs as two processes:
 
-- **API process** — Express routes, middleware, realtime Socket.IO entrypoints (Firebase-authenticated sockets with a Redis backplane), auth/session enforcement, and health checks.
-- **Worker process** — payment outbox, order email, catalog, reconciliation, order lifecycle, analytics, status, and OTP maintenance jobs, with its own readiness probe. A spike that kills HTTP traffic does not kill background work.
+- **API** — Express routes, middleware, Firebase-authenticated Socket.IO entrypoints with a Redis backplane, session enforcement, and health checks.
+- **Worker** — payment outbox, order email, catalog imports, reconciliation, lifecycle jobs, analytics, status, and OTP maintenance, with its own readiness probe.
 
-MongoDB is the transactional store. Redis coordinates rate limits, queues, realtime, and distributed security controls. AWS Parameter Store and checked environment contracts keep deployment state explicit — no hidden defaults.
+MongoDB is the transactional store. Redis coordinates rate limits, queues, realtime, and distributed security controls. AWS Parameter Store and checked environment contracts keep deployment state explicit.
 
-Details: [system architecture](docs/system-architecture.md) · [split runtime](docs/split-runtime-deployment.md) · [environment contract](docs/environment-contract.md)
+Identity is Firebase, but authorization is server-side. A verified Firebase token is exchanged for an opaque browser session with rotation, CSRF token pairs, and revocable lineage. Sensitive actions can require a fresh factor: passkey or TOTP for MFA, trusted-device verification, admin step-up, or Duo OIDC. Session assurance is time-bounded and re-checked on every request that depends on it.
 
-## The release train
+Further reading: [system architecture](docs/system-architecture.md) · [split runtime](docs/split-runtime-deployment.md) · [environment contract](docs/environment-contract.md) · [trusted-device architecture](docs/trusted-device-architecture.md)
 
-```mermaid
-flowchart LR
-    A[Pull request] --> B{Quality, security, and tier gates}
-    B --> C[Merge to main]
-    C --> D[Production release gate on push]
-    D --> E[Manual command center - PRODUCTION confirmation required]
-    E --> F[Backend deploy - blue-green slot switch]
-    F --> G[One storefront artifact to 6 hosts]
-    G --> H{Byte gate - sha256 every asset on every host}
-    H -->|mismatch| I[Per-host rollback]
-    H -->|identical| J[Record last-known-good in SSM]
-```
+## What you can do
 
-- Pull requests build and test the changed surface; a push to `main` runs the non-mutating production gate.
-- Real production actions run through the manual production command center and require the explicit `PRODUCTION` confirmation input, after twelve release gates (tests, security, env contract, staging smokes, cost guard, observability guard, rollback readiness, synthetic and latency SRE checks).
-- Storefront deploys publish **the same built artifact** to all hosts, then the byte gate fetches each host's shell HTML and every referenced asset, hashes them with SHA-256, and fails if any host serves different bytes.
-- Every deploy target has a matched rollback workflow (8 lanes), and deploys record a last-known-good pointer for one-command recovery.
-
-Details: [CI/CD and command center](docs/ci-cd.md) · [rollback runbook](docs/rollback-runbook.md)
-
-## The self-maintaining dependency train
-
-Dependencies upgrade themselves here — weekly, in the open, under a policy stored as data — and the failure direction is deliberate: the controller can stall a PR, but it can never merge past a gate.
-
-```mermaid
-flowchart LR
-    A[Dependabot opens grouped PRs] --> B{Policy controller classifies}
-    B -->|patch / minor / tooling| C[Safe lane]
-    B -->|blocklisted major or unsynced override seam| D[Risk lane - labeled, reason posted]
-    C --> E{All checks green?}
-    E -->|red| F[Daily sweep re-runs the failed job - cooldowns clear as real time passes]
-    F --> E
-    E -->|green| G[Arm auto-merge]
-    G --> H[Branch protection merges]
-    D --> I[Human reviews - the only clicks in the system]
-```
-
-- **Policy as data** — [`config/dependency-policy.json`](config/dependency-policy.json): which majors always need a human (payments, auth, data, edge), and which override pins are hand-paired. Retune the appetite without touching CI.
-- **Seam-alignment guard** — the `overrides` blocks across root/app/server are hand-synced pin seams; a bump auto-merges only when every manifest that pins a package converges on one value. Partial rewrites go to the human lane.
-- **Supply-chain gates on bot traffic** — every lockfile resolution verified against the official npm registry with an integrity hash, lifecycle install-scripts allowlisted, and freshly-published versions sit out a 7-day release cooldown with a fail-closed, expiring exception list for urgent security fixes.
-- **A token chain with least privilege** — `GITHUB_TOKEN` classifies, a single-repo PAT arms merges, and nothing anywhere can bypass branch protection.
-- **Proof, not promise** — the risk lane has held a Stripe major and a Sentry major in the human queue with posted reasons; a real high-severity advisory (`source-map-js`, GHSA-68fv-2mgg-jv7q) was caught in a Dependabot group and patched ahead of the weekly cycle.
-
-Details: [dependency automation](docs/dependency-automation.md) · [security scanning](docs/security-scanning.md) · [`@aurasec/supply-chain-gates` on npm](https://www.npmjs.com/package/@aurasec/supply-chain-gates)
-
-## Live production surfaces
-
-| Surface | URL | Role |
+| Surface | Product behavior | Engineering notes |
 |---|---|---|
-| Gateway | [aura-gateway.vercel.app](https://aura-gateway.vercel.app) | Public gateway and launch surface. |
-| Storefront — Vercel | [aurapilot.vercel.app](https://aurapilot.vercel.app) | Primary hosted React storefront. |
-| Storefront — Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same artifact on Netlify. |
-| Storefront — AWS CloudFront | [dip82eloip5zb.cloudfront.net](https://dip82eloip5zb.cloudfront.net) | AWS-hosted surface and same-origin backend proxy target. |
-| Storefront — Render | [aura-storefront.onrender.com](https://aura-storefront.onrender.com) | Same artifact on Render with backend rewrites. |
-| Storefront — Cloudflare Pages | [aura-storefront.pages.dev](https://aura-storefront.pages.dev) | Same artifact uploaded directly to Cloudflare Pages. |
-| Storefront — GitHub Pages | [mdsaifulislammsi.github.io](https://mdsaifulislammsi.github.io) | Same artifact on the user-site repo. |
-| Status page | [aurapilot.vercel.app/status](https://aurapilot.vercel.app/status) | Public uptime, incidents, and subscriptions. |
+| **Catalog** | Faceted browse with URL-round-trip filters, search and visual search, recommendations, price alerts, bundles, product pages with rating breakdowns and photo reviews. | Server-side filtering and sort indexes; Atlas Search with a logged regex fallback. |
+| **Cart and checkout** | Guest cart and wishlist merge on login; four-step checkout; OTP challenge; COD, UPI, card, wallet, and net-banking. | Optimistic mutations with revision-conflict replay and `BroadcastChannel` cross-tab sync. Totals and coupons are server-validated. |
+| **Orders** | Tracking, downloadable invoices, cancellation, returns, refunds. | Lifecycle workers, courier webhooks with per-provider HMAC, dedupe ledgers, and COD aging alerts. |
+| **Assistant** | Terminal-style page and a page-context dock; navigate, search, add to cart, apply coupons, start checkout, cancel orders, create returns. | A grounded loop intersects model output with observed product IDs. Destructive actions are confirmation-gated by a capability manifest shared with the backend. |
+| **Marketplace** | C2C listings, seller profiles, sell flow, seller listing management. | Listing visibility and moderation enforced in the API, not the client. |
+| **Admin** | Dashboard, products, orders, payments, refund ledger, users, support, email operations, diagnostics, status, and emergency kill switches. | Every state-changing route declares its security posture; a matrix test derives the route list from source. |
+| **Clients** | Installable PWA; Electron desktop with OS-keychain storage and loopback auth handoff; Capacitor shells for Android and iOS. | Desktop release artifacts carry provenance attestations; mobile navigation uses a concrete allowlist, never a wildcard. |
 
-Production pages expose release traceability through `aura-release-id` and `aura-release-commit` meta tags. Treat those tags, the GitHub production workflow run, and read-only health probes as the source of truth for what is live.
+Money is deliberately boring:
 
----
+- A double-entry ledger records platform cash, fees, processor clearing, receivables, wallets, pending refunds, and disputes in minor units.
+- Razorpay is the default provider. When Stripe routing is explicitly enabled, a weighted heuristic scores fee, configured health, latency, and BIN affinity. Production credentials are validated at boot; missing values fail closed.
+- Webhooks verify HMAC over raw bytes, anchor idempotency in MongoDB, reject replayed payment references, and make capture transitions conditional so a provider-side double capture cannot strand an order.
 
-## Engineering deep dives
+## Quality and security gates
 
-<details>
-<summary><strong>🛡️ Security fortress</strong></summary>
+Every change is verified by the narrowest meaningful check; CI owns the broad matrix.
 
-- **Field-level encryption** (`server/services/fieldEncryptionService.js`): per-record AES-256-GCM with fresh IVs; DEKs exist only in process memory, wrapped by AWS KMS and persisted as an SSM SecureString to survive restarts; versioned ciphertext format enables zero-downtime key rotation; a single flag is the kill switch.
-- **Searchable ciphertext**: deterministic HMAC-SHA256 blind indexes (`blindIndexService.js`) power phone/email lookups with no plaintext fallback.
-- **CI scanners**: CodeQL, a custom Semgrep policy for Aura-specific patterns, Gitleaks, Trivy, CheckOV, OSV-Scanner, zizmor (Actions audit), OpenSSF Scorecard, and dependency review — consolidated into a 14-job security gate.
-- **Edge verification**: a self-hosted ModSecurity/CRS + CrowdSec WAF is continuously verified against SQLi, XSS, traversal, and command-injection probes in CI.
-- **AI guardrails**: a promptfoo red-team corpus runs against the assistant prompt guard and fails the build on any miss.
-- **Post-quantum readiness**: an OpenSSL 3.5 PQC lab evaluates migration paths before they are needed.
-
-Further reading: [security architecture](docs/security/security-architecture.md) · [threat model](docs/security/threat-model.md) · [zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md) · [secretless frontend](docs/security/secretless-frontend.md) · [trusted-device architecture](docs/trusted-device-architecture.md) · [security maturity scorecard](docs/security/security-maturity-scorecard.md)
-
-</details>
-
-<details>
-<summary><strong>🔒 Supply chain, self-maintained</strong></summary>
-
-- **Registry integrity**: every resolution in all three lockfiles (~2,100 entries) must resolve over HTTPS to the official npm registry with an integrity hash — enforced in CI by [`@aurasec/supply-chain-gates`](packages/supply-chain-gates/), the same code published to npm with SLSA build provenance and verified by cold install.
-- **Lifecycle scripts**: only explicitly allowlisted packages may run install scripts; the gate is fail-closed and the list is reviewed, not assumed.
-- **Release cooldown**: new dependency versions wait out a 7-day age window before riding the automerge train — day-one publishes cannot take the fast lane. Urgent security fixes take an *expiring* allowlist entry that fails the gate once it lapses.
-- **Route security as a library**: [`@aurasec/route-security-matrix`](packages/route-security-matrix/) derives every route from source and fails CI unless each state-changing route declares — and enforces — its posture; the npm package ships the same engine.
-- **Automerge controller**: `scripts/github/dependency-automerge-policy.mjs` — self-tested (15 assertions), retrying, conflict- and race-tolerant, and structurally incapable of bypassing branch protection.
-
-Further reading: [dependency automation](docs/dependency-automation.md) · [security scanning](docs/security-scanning.md) · [scanner triage playbook](docs/scanner-triage-playbook.md)
-
-</details>
-
-<details>
-<summary><strong>💰 Money correctness</strong></summary>
-
-- **Double-entry ledger** with named accounts (platform cash, fees, processor clearing, user receivables/wallet, pending refunds/disputes) — all money in minor units, enforced by a dedicated audit script.
-- **Payment router** chooses between Razorpay (default) and optional Stripe routing by success rate, fees, BIN affinity, health, and latency; production fails closed without configured credentials.
-- **Webhook integrity**: HMAC verification over raw bytes, Mongo-anchored idempotency records (24h TTL + processing locks), payment-reference replay detection returning 409, and TOCTOU-safe capture transitions — a provider-side double capture can never strand an order.
-- **Capture-failure compensation**: race-safe order cancellation, stock release, and deduped admin alerts registered as the terminal capture-failure handler.
-- **Write-ahead refunds**: refund jobs are queued in the payment outbox before execution and skipped if already resolved.
-- **Lifecycle workers**: courier webhooks with per-provider HMAC and event dedupe ledgers, 60-minute auto-cancel for unpaid orders, COD aging alerts, and loyalty clawback on cancellation.
-
-Further reading: [payment architecture](docs/payment-architecture.md) · [payment runbook](docs/payment-runbook.md) · [critical invariants](docs/critical-invariants.md)
-
-</details>
-
-<details>
-<summary><strong>⚡ Performance</strong></summary>
-
-- **Sort-covering index family** on the product catalog ends in-memory blocking sorts for every listing sort mode; connection pools are warmed and widened for Atlas TLS behavior.
-- **Search**: MongoDB Atlas Search when the cluster supports it, with a live availability probe, zero-results regex retry, and an automatic degraded-mode regex fallback marked in API responses — search never goes dark, it degrades loudly.
-- **Caching**: version-keyed in-process caches (15s filters, 30s identifiers, 60s recommendation pools) invalidated on catalog writes.
-- **Budgets in CI**: `docs/performance-budgets.json` gates gzip eager-shell JS, mobile initial payload, CSS totals, tap-target sizes, and interaction-blocking time; Lighthouse CI requires performance ≥ 0.85, LCP ≤ 2.5s, CLS ≤ 0.1, TBT ≤ 300ms; k6 runs eight safe load scenarios with a p95 < 1.5s threshold.
-- **Memory caps**: API 768MB (512MB heap), worker 640MB (384MB heap), Redis 256MB volatile-LRU — heap caps sit below container caps so OOMs restart in-process instead of killing the box.
-- **TTL indexes** bound OTP sessions, idempotency records, security-event outboxes, listings, and telemetry retention.
-
-Further reading: [performance contract](docs/performance-contract.md) · [performance runbook](docs/performance-runbook.md) · [database audit](docs/database-audit-2026-09-07.md)
-
-</details>
-
-<details>
-<summary><strong>📈 Reliability and data safety</strong></summary>
-
-- **Observability stack**: OpenTelemetry Collector → Prometheus, Grafana, Loki, and Promtail; bearer-protected `/metrics`; `/health`, `/health/live`, and `/health/ready` on both API and worker processes; Alertmanager wired to the status page via a two-phase activation workflow.
-- **Backups**: nightly Atlas dumps to S3 via SSM — versioned bucket, KMS-encrypted archives, 35-day retention, and an isolated restore-drill job that proves recoverability rather than assuming it.
-- **Probes**: a 30-minute liveness probe treats an unconfigured probe as a P0; a status watcher follows 13 workflows.
-- **Test tiers**: every backend suite is triaged into regression (225), nightly (257), or quarantine (0) — the untriaged count must stay zero or CI fails the ratchet.
-- **SRE**: SLO definitions, latency budgets, synthetic checks, and a rollback-after-bad-latency runbook.
-
-Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](docs/sre/latency-and-reliability-budgets.md) · [incident runbook](docs/incident-runbook.md) · [runbooks](docs/runbooks/)
-
-</details>
-
----
-
-## Tech stack
-
-| Layer | Stack |
-|---|---|
-| Storefront | React 19.3, Vite 8.3, React Router 7, Tailwind CSS 4, framer-motion, PWA service worker |
-| State | zustand 5 stores + React Context; optimistic commerce runtime with cross-tab sync |
-| i18n | FormatJS / react-intl 12, ICU message packs, pseudo-locale QA pipeline |
-| Backend | Node 26 runtime, Express 5.2, Helmet/CSP, zod, prom-client |
-| Data | MongoDB (Mongoose 9.10.2), Redis 6, TTL-indexed collections, Atlas Search |
-| Realtime | Socket.IO 4.8 with Redis adapter backplane, LiveKit voice/video |
-| AI | Gemini · Ollama · OpenCode Zen · Groq · Voyage embeddings · ElevenLabs TTS |
-| Payments | Razorpay + optional Stripe routing, double-entry ledger, payment outbox |
-| Desktop | Electron 44, electron-builder, electron-updater, safeStorage |
-| Mobile | Capacitor 8 (Android + iOS), native Firebase auth providers |
-| Testing | Vitest 5, Jest, Playwright 1.63, axe-core, visual regression, k6, Lighthouse CI |
-| CI/CD | 56 GitHub Actions workflows, 12-gate production command center, 8 rollback lanes, policy-driven dependency automerge |
-| Supply chain | `@aurasec/supply-chain-gates` · `@aurasec/route-security-matrix` (npm, SLSA provenance) · registry+integrity lockfile gate · 7-day release cooldown |
-| Observability | OpenTelemetry, Prometheus, Grafana, Loki, Alertmanager, Sentry, Datadog RUM |
-| Cloud | AWS EC2/S3/CloudFront/SSM/KMS via OIDC, Docker Compose, OpenTofu, self-hosted edge WAF |
-
-## Repository map
-
-| Area | Scale | Owns |
+| Trigger | Workflows | Covers |
 |---|---|---|
-| [`app/`](app/) | ~306K lines, 239 test files | React storefront, AI assistant UX, admin suite, PWA, Capacitor shell, Playwright E2E |
-| [`server/`](server/) | ~214K lines incl. 500 test files | Express API, worker runtime, auth, commerce, payments, AI gateways, jobs |
-| [`desktop/`](desktop/) | ~4K lines, 79 tests | Electron main process, secure storage, auth handoff, hardened proxy |
-| [`packages/`](packages/) | 2 packages | `@aurasec/supply-chain-gates` · `@aurasec/route-security-matrix` — CI gate engines, published to npm |
-| [`gateway/`](gateway/) | static site | Public gateway and release-link directory |
-| [`infra/`](infra/) | scripts + IaC | AWS automation, blue-green deploy scripts, edge WAF, OpenTofu, PQC lab |
-| [`scripts/`](scripts/) | ~28K lines, 262 files | CI doctors, validators, generators, rollback and smoke tooling |
-| [`docs/`](docs/) | 310+ documents | Architecture, security, payments, SRE, runbooks, ADRs |
-| [`.github/workflows/`](.github/workflows/) | 56 workflows | CI, security gates, deploy lanes, rollback lanes, nightly fleet |
+| Pull request | `ci.yml`, `quality.yml`, `security-gates.yml` | Changed-surface tests, lint, frontend build, sharded server suites, scanners, route and contract checks |
+| Push to `main` | `quality.yml`, `security-gates.yml` | Full quality matrix and security scans; merge does not re-run the PR-only `ci.yml` |
+| Nightly | `nightly-tests.yml` | Full server fleet, performance, and scheduled checks |
+| Manual | `all-suites.yml` | Fans out CI, nightly, and quality in one dispatch |
 
----
+Backend suites live in [`config/test-tiers.json`](config/test-tiers.json), split into regression, nightly, targeted lanes, and quarantine. The untriaged count must stay at zero; `node scripts/check-test-tiers.cjs` fails the ratchet when it grows.
 
-## Quick start
+Supply-chain controls are part of the same gate: every lockfile resolution must come from the official npm registry with an integrity hash, install scripts are allowlisted, and newly introduced versions wait out a 7-day release cooldown. The automerge controller can stall or label a dependency PR, but it cannot merge past a failing check or branch protection. Policy lives in [`config/dependency-policy.json`](config/dependency-policy.json).
 
-Prerequisites: Node.js 24+ and npm (production pins the runtime to Node 26), local MongoDB and Redis or the repo-managed toggle, and local-only env files copied from the examples. Never commit secrets.
+Run the check that matches your change:
 
-```powershell
-# 1. Install
-npm install
-npm --prefix app install
-npm --prefix server install
-
-# 2. Local environment files (shape only, no real credentials)
-Copy-Item app\.env.example app\.env
-Copy-Item server\.env.example server\.env
-
-# 3. Start repo-managed local Mongo + Redis (Windows toggle)
-npm run dev:on
-
-# 4. Run the backend and frontend in separate terminals
-npm --prefix server start
-npm --prefix app run dev
-
-# 5. When finished
-npm run dev:off
-```
-
-Use `npm run dev:off:force` only when a local service refuses to stop cleanly.
-
-## Verification ladder
-
-Run the narrowest check that covers the surface you changed; widen only when the change crosses boundaries.
-
-| Change surface | Focused verification |
+| Change | Command |
 |---|---|
-| Repo health and CI wiring | `npm run ci:doctor` |
 | Frontend unit behavior | `npm --prefix app test` |
-| Frontend production build + bundle budgets | `npm --prefix app run build` · `npm run perf:budget` |
-| Backend regression slice | `npm test` |
-| Backend focused test | `npm --prefix server test -- --runTestsByPath tests/<name>.test.js` |
-| New backend suite triage | `node scripts/check-test-tiers.cjs` |
-| Auth and Duo posture | `npm run security:duo` |
-| Sensitive route coverage | `npm run security:routes:coverage:strict` |
+| Frontend build and bundle budgets | `npm --prefix app run build` · `npm run perf:budget` |
+| Backend focused suite | `npm --prefix server test -- --runTestsByPath tests/<name>.test.js` |
+| Backend regression tier | `npm test` |
+| Browser flows | `npm --prefix app run test:e2e` |
+| CI wiring and repo health | `npm run ci:doctor` · `npm run quality:actions` |
 | Environment contract | `npm run smoke:env-contract` |
-| i18n keys and quality | `npm run test:i18n` |
-| Reliability suites | `npm run test:reliability` |
-| Staging readiness | `npm run staging:readiness` |
-| Main branch protection policy | `npm run github:main-protection` |
-| Production mutation guard | `npm run release:production-mutation-gate` |
+| Route security coverage | `npm run security:routes:coverage:strict` |
+| Test-tier triage | `node scripts/check-test-tiers.cjs` |
 
-The default root `npm test` runs the curated backend regression tracer (225 suites), not every test in the repository.
+The full ladder, including auth, staging, and release checks, is in [AGENTS.md](AGENTS.md).
+
+## Release and operations
+
+```mermaid
+flowchart LR
+    A[Pull request] --> B[CI, quality, security gates]
+    B --> C[Merge to main]
+    C --> D[Manual deploy with an exact SHA]
+    D --> E[SSM release on the instance]
+    E --> F[Health probe through CloudFront]
+    F -->|fail| G[Restore the previous release]
+    F -->|pass| H[Live]
+```
+
+**Backend.** `deploy-backend-aws.yml` is dispatched manually with a `git_ref`. A ref guard refuses anything that is not an ancestor of `main`, the release is built once, and the exact SHA becomes the image tag. The default strategy is `swap` (recreate, brief downtime). Blue-green is implemented but refuses to run unless `AURA_BLUE_GREEN_ENABLED` is set after an explicit staging drill, so production never improvises a slot switch. A failed post-activation check restores the previous release.
+
+**Frontend.** One build is published to six hosts: Vercel, Netlify, CloudFront, Render, Cloudflare Pages, and GitHub Pages. The workflow re-fetches each host's shell and every referenced asset, hashes them with SHA-256, and fails closed on any mismatch. Each build exposes `aura-release-id` and `aura-release-commit` meta tags; those tags, the workflow run, and a direct probe are the source of truth for what is live.
+
+**After any deploy, probe the running system.** A green workflow proves the workflow was green, not that the change is serving. Check the live endpoint, diff the response shape against the pre-deploy state, and establish liveness before reading logs if a later step failed.
+
+**Observability.** The API exposes `/health`, `/health/live`, and `/health/ready`; the worker has its own readiness probe. `/metrics` is token-protected. The repo ships an OpenTelemetry, Prometheus, Grafana, Loki, Promtail, and Alertmanager stack under [`infra/observability/`](infra/observability/); host activation is an explicit workflow. Sentry and Datadog browser monitoring are opt-in from the storefront. A status service polls dependencies every five minutes, accepts Alertmanager and GitHub Actions webhooks, and publishes the public [status page](https://aurapilot.vercel.app/status); a workflow watcher reports CI health.
+
+Runbooks: [rollback](docs/rollback-runbook.md) · [incident](docs/incident-runbook.md) · [payments](docs/payment-runbook.md) · [performance](docs/performance-runbook.md)
+
+## Security posture
+
+Enforced in the running system:
+
+- Server-side sessions with rotation, revocation, CSRF token pairs, and time-bounded step-up. Passkeys/WebAuthn, TOTP, recovery codes, trusted devices, and Duo OIDC are all first-class factors.
+- Field-level AES-256-GCM encryption with AWS KMS-wrapped data keys and HMAC blind indexes, so encrypted phone and email fields stay searchable without plaintext fallback.
+- A route-security matrix that derives every route from source and fails CI unless each state-changing route declares and enforces its posture.
+- Scanner coverage includes CodeQL, Semgrep, Gitleaks, Trivy, Checkov/tfsec/Terrascan, OSV, zizmor, OpenSSF Scorecard, and dependency review.
+- Origin protection: CloudFront injects `X-Aura-Origin-Verify`; the backend rejects protected routes without it and fails closed in production if the secret is missing. Health, metrics, and signed provider/status webhooks are the explicit bypass list. Direct origin probes time out.
+
+Deliberately not enabled, or still incomplete:
+
+- **AWS WAF is not active in the current account.** It was removed as a cost cut. The $0 self-hosted ModSecurity/CRS + CrowdSec stack in [`infra/edge/`](infra/edge/) is exercised by `edge-waf-verification.yml`, but it is not the current production front door; CloudFront plus the application-layer origin guard are.
+- **Desktop signing is partial.** The standalone release workflow requires Windows Authenticode by default, but the production pipeline passes the unsigned lane and the free tier has no certificate. Unsigned builds cannot verify update signatures; this is accepted risk [R-026](docs/security/risk-register.md). macOS signing and notarization are not implemented, so macOS artifacts are unsigned.
+- **Blue-green is opt-in only.** It stays disabled until a staging drill validates it.
+- **Live payment-provider webhooks** are exercised with signed fixtures in CI. End-to-end validation against real Razorpay or Stripe accounts needs provider credentials that CI does not hold.
+- **Post-quantum work** is a lab and readiness track, not a production claim.
+
+Further reading: [security architecture](docs/security/security-architecture.md) · [threat model](docs/security/threat-model.md) · [zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md) · [secretless frontend](docs/security/secretless-frontend.md)
+
+## Configuration
+
+- `app/.env.example` and `server/.env.example` document the supported variables and their expected shapes. Values are examples, not credentials.
+- **Everything prefixed `VITE_` is public.** Vite inlines those values into the bundle. Secrets belong on the backend, never in `app/.env`.
+- Production reads secrets from AWS Systems Manager Parameter Store. Environment contracts are validated in CI and at startup; missing required values fail closed.
+
+| Group | Examples | Notes |
+|---|---|---|
+| Identity | `VITE_FIREBASE_*`, `VITE_TURNSTILE_SITE_KEY` | Firebase web config and public challenge keys |
+| Sessions and security | `SESSION_SECRET`, `SESSION_HASH_SECRET`, `AUTH_RISK_SIGNAL_SECRET`, `HEALTH_READY_TOKEN` | Server-only; generated per environment |
+| Data and realtime | `MONGO_URI`, `REDIS_URL`, `REDIS_REQUIRED`, `SPLIT_RUNTIME_ENABLED` | Mongo is transactional; Redis is coordination |
+| Payments | Razorpay and Stripe provider credentials | Absent credentials fail closed in production |
+| AI providers | Gemini, Ollama, OpenCode Zen, Groq, Voyage, ElevenLabs, LiveKit | All optional; the assistant route is disabled when no provider is configured |
+| Observability | `METRICS_SECRET`, Sentry and Datadog keys | `/metrics` is token-protected |
 
 ## Documentation map
 
-**Architecture and operations** — [system architecture](docs/system-architecture.md) · [CI/CD and command center](docs/ci-cd.md) · [split runtime](docs/split-runtime-deployment.md) · [environment contract](docs/environment-contract.md) · [AWS backend](docs/aws-backend-deployment.md) · [AWS frontend](docs/aws-frontend-deployment.md) · [mobile delivery](docs/mobile-app-delivery.md) · [FX rate pipeline](docs/fx-rate-pipeline.md)
+**Architecture and operations** — [system architecture](docs/system-architecture.md) · [CI/CD and the production command center](docs/ci-cd.md) · [split runtime](docs/split-runtime-deployment.md) · [environment contract](docs/environment-contract.md) · [AWS backend](docs/aws-backend-deployment.md) · [AWS frontend](docs/aws-frontend-deployment.md) · [mobile delivery](docs/mobile-app-delivery.md)
 
-**Security** — [security architecture](docs/security/security-architecture.md) · [threat model](docs/security/threat-model.md) · [zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md) · [invisible app fabric](docs/security/invisible-app-fabric.md) · [secretless frontend](docs/security/secretless-frontend.md) · [route exposure registry](docs/security/route-exposure-registry.md) · [post-quantum readiness](docs/security/post-quantum-readiness.md) · [security docs index](docs/security/)
+**Security** — [security architecture](docs/security/security-architecture.md) · [threat model](docs/security/threat-model.md) · [zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md) · [secretless frontend](docs/security/secretless-frontend.md) · [route exposure registry](docs/security/route-exposure-registry.md) · [post-quantum readiness](docs/security/post-quantum-readiness.md)
 
-**Money** — [payment architecture](docs/payment-architecture.md) · [payment runbook](docs/payment-runbook.md) · [critical invariants](docs/critical-invariants.md) · [database audit](docs/database-audit-2026-09-07.md) · [system design audit](docs/system-design-audit-2026-09-08.md)
+**Money and data** — [payment architecture](docs/payment-architecture.md) · [payment runbook](docs/payment-runbook.md) · [critical invariants](docs/critical-invariants.md) · [database audit](docs/database-audit-2026-09-07.md)
 
-**Performance and SRE** — [performance contract](docs/performance-contract.md) · [performance budgets](docs/performance-budgets.json) · [SLOs](docs/sre/slo.md) · [latency and reliability budgets](docs/sre/latency-and-reliability-budgets.md) · [incident runbook](docs/incident-runbook.md) · [rollback runbook](docs/rollback-runbook.md) · [operational runbooks](docs/runbooks/)
+**Performance and reliability** — [performance contract](docs/performance-contract.md) · [budgets](docs/performance-budgets.json) · [SLOs](docs/sre/slo.md) · [latency and reliability budgets](docs/sre/latency-and-reliability-budgets.md) · [rollback runbook](docs/rollback-runbook.md) · [operational runbooks](docs/runbooks/)
 
-**Quality and i18n** — [i18n static template coverage](docs/i18n-static-template-coverage.md) · [recommendation system](docs/recommendation-system.md) · [trusted-device architecture](docs/trusted-device-architecture.md) · [architecture decision records](docs/adr/)
+**Decisions** — [architecture decision records](docs/adr/) · [dependency automation](docs/dependency-automation.md) · [security scanning](docs/security-scanning.md)
 
 ## Contributing, security, and license
 
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) — keep changes surgical, follow the verification ladder, and add tests for anything money- or auth-adjacent.
-- Security: [SECURITY.md](SECURITY.md) — do not open public issues for vulnerabilities; the security test plan and evidence live in [docs/security/](docs/security/).
-- License: [ISC](LICENSE).
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md). Keep changes surgical, run the check that covers the touched surface, and add tests for anything money- or auth-adjacent. Agent-assisted changes must also follow [AGENTS.md](AGENTS.md).
+- **Security:** [SECURITY.md](SECURITY.md). Do not open a public issue for a vulnerability; the disclosure path and evidence live there.
+- **License:** [ISC](LICENSE).
 
----
-
-## The story
-
-Aura is designed, built, and operated by a solo builder directing AI agents — from the first import to a byte-verified six-host production fleet. The receipts-first narrative lives in [AURA-STORY.md](AURA-STORY.md).
-
-## Maintainer notes
-
-- Keep this README as the current front door, not a historical changelog.
-- Put deep operational detail in `docs/` and link it from here.
-- Keep production claims evidence-backed by workflow runs, release markers, or read-only probes — every number on this page cites its source.
-- Treat private readiness probes as token-gated: production requires `x-health-token`.
-- Do not widen deploy, auth, payment, catalog, migration, or secret-handling changes while updating documentation.
+**Project status:** active and in production, maintained by one developer with AI-assisted workflows. Issues and pull requests are welcome; review time is best-effort.
