@@ -1070,9 +1070,18 @@ assertProductionRedisConfig();
     assertOtpHashSecretIsolation();
     assertMfaCryptoConfig();
 
-    connectDB().then(() => {
-        // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.
-        // Async startup tasks (Redis, Catalog, Workers) will run in the background.
+    connectDB().then(async () => {
+        // These are request-path prerequisites, not background warmups:
+        // encrypted reads/writes throw while the DEK is unprimed, and
+        // security-critical limiters fail closed when required Redis is
+        // unavailable. Bind only after both are ready so a request never
+        // observes a half-initialized process.
+        if (isFieldEncryptionEnabled()) {
+            await primeFieldEncryption();
+        }
+        await initRedis();
+
+        // Async startup tasks (Catalog, Workers) will run in the background.
         applyHttpServerTimeouts(server);
         const httpServer = server.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
@@ -1088,8 +1097,6 @@ assertProductionRedisConfig();
 
             // Run intensive startup tasks asynchronously
             Promise.resolve()
-                .then(() => (isFieldEncryptionEnabled() ? primeFieldEncryption() : null))
-                .then(() => initRedis())
                 .then(() => attachSocketBackplane())
                 .then(() => ensureSystemState({ syncIndexes: true }))
                 .then(() => syncCriticalIndexes())
@@ -1219,7 +1226,7 @@ assertProductionRedisConfig();
         });
 
     }).catch((error) => {
-        logger.error('server.db_connect_failed', { error: error.message });
+        logger.error('server.startup_failed', { phase: 'prelisten', error: error.message });
         process.exit(1);
     });
 }
