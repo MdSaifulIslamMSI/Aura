@@ -4,18 +4,19 @@
 
 **A production-grade commerce platform — AI-assisted shopping, bank-grade checkout integrity, and a byte-verified release train.**
 
-One release train. Six storefront hosts. Byte-identical and fail-closed.
+One release train. Six storefront hosts. Byte-identical and fail-closed. Dependencies that upgrade themselves — under policy, behind every gate.
 
 [![Quality Foundation](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml)
 [![Security Gates](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security-gates.yml?branch=main&label=security%20gates&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security-gates.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/codeql.yml?branch=main&label=codeql&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/codeql.yml)
+[![Dependency Automerge](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/dependency-automerge.yml?branch=main&label=deps%20automerge&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/dependency-automerge.yml)
 [![Production Gate](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/production-on-push.yml?branch=main&label=production%20gate&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/production-on-push.yml)
 [![Nightly Test Fleet](https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/nightly-tests.yml?branch=main&label=nightly%20fleet&style=for-the-badge)](https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/nightly-tests.yml)
 [![License](https://img.shields.io/github/license/MdSaifulIslamMSI/Aura?style=for-the-badge&label=license)](LICENSE)
 
 [Storefront](https://aurapilot.vercel.app) &middot; [Host fleet](#live-production-surfaces) &middot; [Gateway](https://aura-gateway.vercel.app) &middot; [Status page](https://aurapilot.vercel.app/status) &middot; [Architecture](docs/system-architecture.md) &middot; [Security](SECURITY.md) &middot; [The story](AURA-STORY.md)
 
-**1,929** commits &nbsp;·&nbsp; **≈550K** lines of first-party code &nbsp;·&nbsp; **767** test files &nbsp;·&nbsp; **56** workflows &nbsp;·&nbsp; **20** languages &nbsp;·&nbsp; **11** currencies &nbsp;·&nbsp; **6** storefront hosts
+**1,944** commits &nbsp;·&nbsp; **≈550K** lines of first-party code &nbsp;·&nbsp; **763** test files &nbsp;·&nbsp; **56** workflows &nbsp;·&nbsp; **2** packages on npm &nbsp;·&nbsp; **20** languages &nbsp;·&nbsp; **11** currencies &nbsp;·&nbsp; **6** storefront hosts
 
 </div>
 
@@ -35,17 +36,18 @@ This repository is not a demo landing page. It is the operating surface for prod
 
 | Indicator | Value | Receipt |
 |---|---:|---|
-| Commits | 1,929 | `git rev-list --count HEAD` |
-| Tracked files | 3,213 | `git ls-files` |
+| Commits | 1,944 | `git rev-list --count HEAD` |
+| Tracked files | 3,231 | `git ls-files` |
 | First-party source | ≈550,000 lines | `app/src` · `server` · `desktop` · `scripts` |
-| Frontend unit tests | 239 files, 1,670 cases | `app/src/**/*.test.*` (Vitest) |
-| Backend test files | 500 | `server/tests/` (Jest) |
-| Tiered suites | 225 regression · 257 nightly · 0 quarantine | `config/test-tiers.json` |
-| Playwright E2E | 17 specs, 93 cases | `app/e2e/` |
+| Frontend unit tests | 239 files, ≈1,700 cases | `app/src/**/*.test.*` (Vitest) |
+| Backend test files | 513 | `server/tests/` (Jest) |
+| Tiered suites | 233 regression · 258 nightly · 0 quarantine | `config/test-tiers.json` |
+| Playwright E2E | 21 specs | `app/e2e/` |
 | Desktop tests | 11 files, 79 cases | `desktop/*.test.cjs` |
 | GitHub Actions workflows | 56, incl. 8 rollback lanes | `.github/workflows/` |
-| npm scripts | 288 | root `package.json` |
-| Documentation | 310+ markdown docs | `docs/` + root |
+| npm scripts | 293 | root `package.json` |
+| Published packages | 2 — `@aurasec/supply-chain-gates`, `@aurasec/route-security-matrix` | `packages/` · npm |
+| Documentation | 480+ markdown docs | `git ls-files '*.md'` |
 | Languages · currencies | 20 (+RTL) · 11 | `app/src/config/marketConfig.js` |
 | Storefront hosts | 6, byte-identical | `deploy-netlify.yml` byte gate |
 | Catalog scale | 1,000,000-product dataset | `server/data/catalog_1m.jsonl` |
@@ -137,6 +139,31 @@ flowchart LR
 
 Details: [CI/CD and command center](docs/ci-cd.md) · [rollback runbook](docs/rollback-runbook.md)
 
+## The self-maintaining dependency train
+
+Dependencies upgrade themselves here — weekly, in the open, under a policy stored as data — and the failure direction is deliberate: the controller can stall a PR, but it can never merge past a gate.
+
+```mermaid
+flowchart LR
+    A[Dependabot opens grouped PRs] --> B{Policy controller classifies}
+    B -->|patch / minor / tooling| C[Safe lane]
+    B -->|blocklisted major or unsynced override seam| D[Risk lane - labeled, reason posted]
+    C --> E{All checks green?}
+    E -->|red| F[Daily sweep re-runs the failed job - cooldowns clear as real time passes]
+    F --> E
+    E -->|green| G[Arm auto-merge]
+    G --> H[Branch protection merges]
+    D --> I[Human reviews - the only clicks in the system]
+```
+
+- **Policy as data** — [`config/dependency-policy.json`](config/dependency-policy.json): which majors always need a human (payments, auth, data, edge), and which override pins are hand-paired. Retune the appetite without touching CI.
+- **Seam-alignment guard** — the `overrides` blocks across root/app/server are hand-synced pin seams; a bump auto-merges only when every manifest that pins a package converges on one value. Partial rewrites go to the human lane.
+- **Supply-chain gates on bot traffic** — every lockfile resolution verified against the official npm registry with an integrity hash, lifecycle install-scripts allowlisted, and freshly-published versions sit out a 7-day release cooldown with a fail-closed, expiring exception list for urgent security fixes.
+- **A token chain with least privilege** — `GITHUB_TOKEN` classifies, a single-repo PAT arms merges, and nothing anywhere can bypass branch protection.
+- **Proof, not promise** — the risk lane has held a Stripe major and a Sentry major in the human queue with posted reasons; a real high-severity advisory (`source-map-js`, GHSA-68fv-2mgg-jv7q) was caught in a Dependabot group and patched ahead of the weekly cycle.
+
+Details: [dependency automation](docs/dependency-automation.md) · [security scanning](docs/security-scanning.md) · [`@aurasec/supply-chain-gates` on npm](https://www.npmjs.com/package/@aurasec/supply-chain-gates)
+
 ## Live production surfaces
 
 | Surface | URL | Role |
@@ -167,6 +194,19 @@ Production pages expose release traceability through `aura-release-id` and `aura
 - **Post-quantum readiness**: an OpenSSL 3.5 PQC lab evaluates migration paths before they are needed.
 
 Further reading: [security architecture](docs/security/security-architecture.md) · [threat model](docs/security/threat-model.md) · [zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md) · [secretless frontend](docs/security/secretless-frontend.md) · [trusted-device architecture](docs/trusted-device-architecture.md) · [security maturity scorecard](docs/security/security-maturity-scorecard.md)
+
+</details>
+
+<details>
+<summary><strong>🔒 Supply chain, self-maintained</strong></summary>
+
+- **Registry integrity**: every resolution in all three lockfiles (~2,100 entries) must resolve over HTTPS to the official npm registry with an integrity hash — enforced in CI by [`@aurasec/supply-chain-gates`](packages/supply-chain-gates/), the same code published to npm with SLSA build provenance and verified by cold install.
+- **Lifecycle scripts**: only explicitly allowlisted packages may run install scripts; the gate is fail-closed and the list is reviewed, not assumed.
+- **Release cooldown**: new dependency versions wait out a 7-day age window before riding the automerge train — day-one publishes cannot take the fast lane. Urgent security fixes take an *expiring* allowlist entry that fails the gate once it lapses.
+- **Route security as a library**: [`@aurasec/route-security-matrix`](packages/route-security-matrix/) derives every route from source and fails CI unless each state-changing route declares — and enforces — its posture; the npm package ships the same engine.
+- **Automerge controller**: `scripts/github/dependency-automerge-policy.mjs` — self-tested (15 assertions), retrying, conflict- and race-tolerant, and structurally incapable of bypassing branch protection.
+
+Further reading: [dependency automation](docs/dependency-automation.md) · [security scanning](docs/security-scanning.md) · [scanner triage playbook](docs/scanner-triage-playbook.md)
 
 </details>
 
@@ -228,7 +268,8 @@ Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](do
 | Desktop | Electron 44, electron-builder, electron-updater, safeStorage |
 | Mobile | Capacitor 8 (Android + iOS), native Firebase auth providers |
 | Testing | Vitest 5, Jest, Playwright 1.63, axe-core, visual regression, k6, Lighthouse CI |
-| CI/CD | 56 GitHub Actions workflows, 12-gate production command center, 8 rollback lanes |
+| CI/CD | 56 GitHub Actions workflows, 12-gate production command center, 8 rollback lanes, policy-driven dependency automerge |
+| Supply chain | `@aurasec/supply-chain-gates` · `@aurasec/route-security-matrix` (npm, SLSA provenance) · registry+integrity lockfile gate · 7-day release cooldown |
 | Observability | OpenTelemetry, Prometheus, Grafana, Loki, Alertmanager, Sentry, Datadog RUM |
 | Cloud | AWS EC2/S3/CloudFront/SSM/KMS via OIDC, Docker Compose, OpenTofu, self-hosted edge WAF |
 
@@ -239,6 +280,7 @@ Further reading: [SLOs](docs/sre/slo.md) · [latency and reliability budgets](do
 | [`app/`](app/) | ~306K lines, 239 test files | React storefront, AI assistant UX, admin suite, PWA, Capacitor shell, Playwright E2E |
 | [`server/`](server/) | ~214K lines incl. 500 test files | Express API, worker runtime, auth, commerce, payments, AI gateways, jobs |
 | [`desktop/`](desktop/) | ~4K lines, 79 tests | Electron main process, secure storage, auth handoff, hardened proxy |
+| [`packages/`](packages/) | 2 packages | `@aurasec/supply-chain-gates` · `@aurasec/route-security-matrix` — CI gate engines, published to npm |
 | [`gateway/`](gateway/) | static site | Public gateway and release-link directory |
 | [`infra/`](infra/) | scripts + IaC | AWS automation, blue-green deploy scripts, edge WAF, OpenTofu, PQC lab |
 | [`scripts/`](scripts/) | ~28K lines, 262 files | CI doctors, validators, generators, rollback and smoke tooling |
