@@ -20,6 +20,7 @@ const {
 const { protect, admin, requireActiveAccount } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
     productSearchSchema,
     productRecommendationSchema,
@@ -36,6 +37,22 @@ const {
     trackSearchClickSchema,
 } = require('../validators/productValidators');
 
+// Public route with an unindexed text filter and a knapsack solve: throttle by
+// actor/IP so one caller cannot force repeated collection scans.
+const bundleBuildLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    name: 'product_bundle_build',
+    securityCritical: true,
+    windowMs: 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 30,
+    keyGenerator: (req) => req.user?._id?.toString() || req.ip || req.socket?.remoteAddress || 'unknown',
+    message: {
+        success: false,
+        code: 'BUNDLE_BUILD_RATE_LIMITED',
+        message: 'Too many bundle requests. Please wait before trying again.',
+    },
+});
+
 // Public Routes
 router.route('/')
     .get(validate(productSearchSchema), getProducts)
@@ -48,7 +65,7 @@ router.route('/visual-search')
     .post(protect, requireActiveAccount, validate(visualSearchSchema), visualSearchProducts);
 
 router.route('/bundles/build')
-    .post(validate(bundleBuildSchema), buildProductBundle);
+    .post(bundleBuildLimiter, validate(bundleBuildSchema), buildProductBundle);
 
 router.route('/telemetry/search-click')
     .post(validate(trackSearchClickSchema), trackProductSearchClick);

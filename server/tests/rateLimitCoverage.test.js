@@ -26,4 +26,15 @@ describe('rate limit coverage script', () => {
         expect(report.status).toBe('pass');
         expect(report.coveredRoutes.map((entry) => entry.name)).toContain('AI call');
     });
+
+    test('bundle builder is guarded by a distributed, fail-closed limiter', () => {
+        const routeSource = fs.readFileSync(
+            path.join(__dirname, '..', 'routes', 'productRoutes.js'),
+            'utf8'
+        );
+
+        expect(routeSource).toContain("name: 'product_bundle_build'");
+        expect(routeSource).toContain('securityCritical: true');
+        expect(routeSource).toMatch(/\.post\(bundleBuildLimiter,\s*validate\(bundleBuildSchema\),\s*buildProductBundle\)/);
+    });
 });

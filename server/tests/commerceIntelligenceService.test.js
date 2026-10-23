@@ -2,6 +2,7 @@ jest.mock('../models/Product', () => ({
   find: jest.fn(() => ({
     sort: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
+    maxTimeMS: jest.fn().mockReturnThis(),
     lean: jest.fn().mockResolvedValue([]),
   })),
 }));
@@ -13,6 +14,7 @@ const {
   computeDealDna,
   computeReturnRisk,
   getCompatibilityGraph,
+  __testables,
 } = require('../services/commerceIntelligenceService');
 
 describe('commerceIntelligenceService.computeReturnRisk', () => {
@@ -63,6 +65,35 @@ describe('commerceIntelligenceService catalog-backed builders', () => {
     expect(Product.find).toHaveBeenCalled();
     expect(result.budget).toBeLessThanOrEqual(500000);
     expect(result.items.length).toBeLessThanOrEqual(12);
+  });
+
+  test('buildSmartBundle uses literal keyword regexes and a bounded query', async () => {
+    await buildSmartBundle({ theme: 'garden decor', budget: 25000 });
+    const filter = Product.find.mock.calls.at(-1)[0];
+    const titleRegexes = filter.$or
+      .filter((entry) => entry.title)
+      .map((entry) => entry.title);
+    expect(titleRegexes.some((regex) => regex.source.includes('.*'))).toBe(false);
+    expect(titleRegexes.some((regex) => regex.source === 'garden decor')).toBe(true);
+    expect(Product.find.mock.results.at(-1).value.maxTimeMS)
+      .toHaveBeenCalledWith(__testables.BUNDLE_QUERY_MAX_TIME_MS);
+  });
+
+  test('quantizes knapsack weights so the DP table is budget-independent', () => {
+    const result = __testables.solveBundleKnapsack({
+      candidates: [
+        { id: 1, price: 49999, rating: 4.8, ratingCount: 500, discountPercentage: 12 },
+        { id: 2, price: 30001, rating: 4.6, ratingCount: 200, discountPercentage: 8 },
+        { id: 3, price: 19999, rating: 4.4, ratingCount: 100, discountPercentage: 5 },
+      ],
+      budget: 500000,
+      maxItems: 12,
+    });
+
+    expect(result.unit).toBe(__testables.BUNDLE_DP_UNIT);
+    expect(result.capacity).toBe(5000);
+    expect(result.selected.reduce((sum, item) => sum + item.price, 0))
+      .toBeLessThanOrEqual(500000);
   });
 
   test('getCompatibilityGraph bounds per-type limits', async () => {
