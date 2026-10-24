@@ -1060,7 +1060,16 @@ export const useLoginController = () => {
       || (
         desktopBrowserCookieSessionRequired
           ? desktopBrowserCookieSession?.status !== 'authenticated'
-          : (!isAuthenticated || !currentUser?.getIdToken)
+          : (
+            // The server rejects /desktop-handoff/prepare with a 403 until the
+            // login MFA is complete. Requesting it during the checkpoint turned
+            // a normal intermediate state into a "Something Went Wrong" banner
+            // on /desktop-login, so wait for the completed session instead.
+            sessionStatus === 'mfa_challenge_required'
+            || sessionStatus === 'device_challenge_required'
+            || !isAuthenticated
+            || !currentUser?.getIdToken
+          )
       )
     ) {
       return undefined;
@@ -1100,6 +1109,7 @@ export const useLoginController = () => {
     isAuthenticated,
     loading,
     runDesktopBrowserHandoffPreflight,
+    sessionStatus,
     t,
   ]);
 
