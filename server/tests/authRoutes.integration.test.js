@@ -2464,7 +2464,7 @@ describe('Trusted device verification response payload', () => {
             firebaseUid: 'uid-webauthn',
             deviceId: 'device-webauthn-1234',
             deviceMethod: 'webauthn',
-            amr: ['password', 'webauthn', 'mfa'],
+            amr: ['provider_custom', 'webauthn', 'mfa'],
             aal: 'aal2',
         });
 
@@ -2544,7 +2544,7 @@ describe('Trusted device verification response payload', () => {
                     sessionId: 'bootstrap-session-webauthn-1',
                     deviceId: 'device-webauthn-1234',
                     deviceMethod: 'webauthn',
-                    amr: ['password', 'webauthn', 'passkey', 'mfa'],
+                    amr: ['provider_custom', 'webauthn', 'passkey', 'mfa'],
                     stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
                     webAuthnStepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
                 };
