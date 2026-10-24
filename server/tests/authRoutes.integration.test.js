@@ -2458,6 +2458,7 @@ describe('Trusted device verification response payload', () => {
 
     test('POST /api/auth/verify-device mints the MFA amr for a UV-verified passkey ceremony', async () => {
         let isolatedApp;
+        const recordAuthSecurityEvent = jest.fn();
         const verifiedDeviceSessionToken = buildRuntimeSecret('session-webauthn-mfa');
         const refreshBrowserSession = jest.fn().mockResolvedValue({
             sessionId: 'verified-session-webauthn-1',
@@ -2472,6 +2473,10 @@ describe('Trusted device verification response payload', () => {
             process.env.MFA_ENABLED = 'true';
             process.env.MFA_PASSKEY_ENABLED = 'true';
 
+            jest.doMock('../services/authSecurityTelemetryService', () => {
+                const actual = jest.requireActual('../services/authSecurityTelemetryService');
+                return { ...actual, recordAuthSecurityEvent };
+            });
             jest.doMock('../services/authSessionService', () => ({
                 buildSessionPayload: jest.fn().mockReturnValue({
                     status: 'authenticated',
@@ -2570,6 +2575,50 @@ describe('Trusted device verification response payload', () => {
             rotate: true,
             deviceMethod: 'webauthn',
             additionalAmr: ['webauthn', 'mfa'],
+        }));
+        // The response and the record it created are logged together, so the
+        // next occurrence of this class is visible at write time.
+        expect(recordAuthSecurityEvent).toHaveBeenCalledWith(expect.objectContaining({
+            event: 'session_assurance_persisted',
+            outcome: 'success',
+            meta: expect.objectContaining({
+                responseStatus: 'authenticated',
+                persisted: true,
+                persistedAal: 'aal2',
+                assuranceMismatch: false,
+                amr: expect.arrayContaining(['webauthn', 'mfa']),
+            }),
+        }));
+
+        // Same request, same policy, but the persisted record lands at aal1 —
+        // the exact production shape. The detector must fail the event rather
+        // than report another quiet success.
+        refreshBrowserSession.mockResolvedValueOnce({
+            sessionId: 'verified-session-webauthn-2',
+            firebaseUid: 'uid-webauthn',
+            deviceId: 'device-webauthn-1234',
+            deviceMethod: 'webauthn',
+            amr: ['provider_custom', 'webauthn'],
+            aal: 'aal1',
+        });
+        const mismatchRes = await request(isolatedApp)
+            .post('/api/auth/verify-device')
+            .send({
+                token: buildRuntimeSecret('challenge-webauthn-mismatch'),
+                method: 'webauthn',
+                proof: buildRuntimeSecret('proof-webauthn-mismatch'),
+            });
+
+        expect(mismatchRes.statusCode).toBe(200);
+        expect(recordAuthSecurityEvent).toHaveBeenCalledWith(expect.objectContaining({
+            event: 'session_assurance_persisted',
+            outcome: 'failure',
+            level: 'warn',
+            meta: expect.objectContaining({
+                requiredMfa: true,
+                persistedAal: 'aal1',
+                assuranceMismatch: true,
+            }),
         }));
     });
 
