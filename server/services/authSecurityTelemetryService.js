@@ -193,9 +193,25 @@ const recordAuthSecurityEvent = ({
     });
 };
 
+// The desktop MFA loop was invisible because a response could report
+// `authenticated` while the record it had just persisted no longer satisfied
+// the login policy that produced that verdict. Comparing the two here turns the
+// divergence into a single logged value instead of something a human has to
+// reconstruct from Redis after a user complains.
+const resolvePersistedAssuranceVerdict = ({ requiredMfa = false, persistedSession = null } = {}) => {
+    const persisted = Boolean(persistedSession);
+    const persistedAal = String(persistedSession?.aal || '');
+    return {
+        persisted,
+        persistedAal,
+        assuranceMismatch: Boolean(persisted && requiredMfa && persistedAal !== 'aal2'),
+    };
+};
+
 module.exports = {
     METRIC_NAME,
     recordAuthSecurityEvent,
+    resolvePersistedAssuranceVerdict,
     __private: {
         normalizeAudience,
         normalizeMethod,

@@ -19,6 +19,12 @@ const METHOD_STRENGTH = Object.freeze({
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
 const DESKTOP_HANDOFF_MFA_PREFIX = 'desktop_handoff_mfa:';
 const DESKTOP_HANDOFF_ADMIN_MFA_PREFIX = 'desktop_handoff_admin_mfa:';
+// A desktop handoff session deliberately carries no step-up window: its
+// assurance is the device-bound marker below, not elapsed time. Epoch 0 is the
+// value every `stepUpUntil > now` check already reads as "no window". Naming it
+// here means the write site states the intent instead of re-deriving it from
+// `new Date(0)`, and a future change to the sentinel has one place to land.
+const DESKTOP_HANDOFF_STEP_UP_SENTINEL = new Date(0).toISOString();
 
 const buildDesktopHandoffMfaMarker = (deviceId = '', { admin = false } = {}) => {
     const normalizedDeviceId = String(deviceId || '').trim();
@@ -385,6 +391,7 @@ const buildPublicMfaPolicy = (policy = {}) => ({
 module.exports = {
     MFA_METHODS,
     METHOD_STRENGTH,
+    DESKTOP_HANDOFF_STEP_UP_SENTINEL,
     buildDesktopHandoffMfaMarker,
     buildAllowedMethods,
     buildPublicMfaPolicy,

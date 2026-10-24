@@ -76,7 +76,7 @@ const {
     recordAuthObservation,
 } = require('../services/authBehaviorBaselineService');
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
-const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { recordAuthSecurityEvent, resolvePersistedAssuranceVerdict } = require('../services/authSecurityTelemetryService');
 const { evaluateGeoVelocity } = require('../services/authGeoVelocityService');
 const { notifyNewDeviceSignIn } = require('../services/authNewDeviceAlertService');
 const {
@@ -95,6 +95,7 @@ const {
 const {
     buildPublicMfaPolicy,
     buildDesktopHandoffMfaMarker,
+    DESKTOP_HANDOFF_STEP_UP_SENTINEL,
     evaluateLogin: evaluateMfaLoginPolicy,
     isEligiblePasskeyMfaDevice,
     isAdminSubject,
@@ -787,6 +788,23 @@ const isEstablishedDesktopHandoffSession = (req = {}) => {
     );
 };
 
+// The handoff marker is a hash of the target device id and is treated as a
+// credential by mfaPolicyService.resolveDesktopHandoffMfaBinding, so it must not
+// reach the log pipeline verbatim. The family name is enough to distinguish
+// "marker present" from "marker missing" when triaging assurance divergence.
+const summarizeAmrForLog = (amr = []) => (Array.isArray(amr) ? amr : [])
+    .map((entry) => {
+        const normalized = String(entry || '').trim().toLowerCase();
+        if (
+            normalized.startsWith('desktop_handoff_mfa:')
+            || normalized.startsWith('desktop_handoff_admin_mfa:')
+        ) {
+            return 'desktop_handoff_mfa_marker';
+        }
+        return normalized;
+    })
+    .filter(Boolean);
+
 const resolveLoginMfaState = async ({
     req,
     user,
@@ -810,6 +828,12 @@ const resolveLoginMfaState = async ({
             status: 'authenticated',
             mfaChallenge: null,
             mfaPolicy: null,
+            // `mfaPolicy` is null once the policy is satisfied, which is the
+            // normal case on a successful MFA login. Callers that audit the
+            // response against the persisted record still need to know whether
+            // the policy applied at all, or the exact regression this field
+            // exists for reads as "MFA was never required".
+            policyRequired: Boolean(mfaPolicy.policyRequired),
             mfaBlocked: false,
             mfaError: null,
         };
@@ -833,6 +857,7 @@ const resolveLoginMfaState = async ({
             status: 'mfa_challenge_required',
             mfaChallenge: null,
             mfaPolicy: publicMfaPolicy,
+            policyRequired: true,
             mfaBlocked: true,
             mfaError: {
                 code: MFA_METHOD_REQUIRED_CODE,
@@ -866,6 +891,7 @@ const resolveLoginMfaState = async ({
         status: 'mfa_challenge_required',
         mfaChallenge,
         mfaPolicy: publicMfaPolicy,
+        policyRequired: true,
         mfaBlocked: false,
         mfaError: null,
     };
@@ -986,7 +1012,10 @@ const getSession = asyncHandler(async (req, res) => {
         reason: status === 'authenticated' ? 'none' : status,
         surface: 'auth',
         req,
-        meta: { status },
+        // `status` is the policy verdict. `persistedAal` is what the stored
+        // record actually carries, so a session that reports authenticated
+        // while sitting at aal1 is visible without opening Redis.
+        meta: { status, persistedAal: req.authSession?.aal || '' },
     });
 
     res.json({
@@ -2315,7 +2344,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         const webAuthnStepUpUntil = webAuthnVerified
             ? new Date(Date.now() + SESSION_STEP_UP_TTL_MS)
             : new Date(0);
-        await persistBrowserSessionForUser({
+        const persistedSession = await persistBrowserSessionForUser({
             req,
             res,
             user: policyUser,
@@ -2324,8 +2353,12 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
             deviceMethod: desktopHandoffTargetProof
                 ? 'browser_key'
                 : (webAuthnProof ? 'webauthn' : 'browser_key'),
-            stepUpUntil: desktopHandoffTargetProof ? new Date(0) : webAuthnStepUpUntil,
-            webAuthnStepUpUntil: desktopHandoffTargetProof ? new Date(0) : webAuthnStepUpUntil,
+            stepUpUntil: desktopHandoffTargetProof
+                ? DESKTOP_HANDOFF_STEP_UP_SENTINEL
+                : webAuthnStepUpUntil,
+            webAuthnStepUpUntil: desktopHandoffTargetProof
+                ? DESKTOP_HANDOFF_STEP_UP_SENTINEL
+                : webAuthnStepUpUntil,
             additionalAmr: desktopHandoffTargetProof
                 ? desktopHandoffAmr
                 // `webauthn` names the transport; `mfa` is the completed-factor
@@ -2349,6 +2382,33 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
                 && Number(policyUser?.authAssuranceAuthTime || 0) > 0
                 && Number(policyUser?.authAssuranceAuthTime || 0) === Number(req.authToken?.auth_time || 0)
                 && new Date(policyUser?.loginOtpAssuranceExpiresAt || 0).getTime() > Date.now(),
+        });
+        // This branch is the point where a response and its record can disagree:
+        // the verdict above is computed from a projection, while the store is
+        // written here. Logging both together makes the desktop MFA loop
+        // (`authenticated` over a persisted `aal1`) a queryable event instead of
+        // something only a user report can reveal. `policyRequired` is read from
+        // the policy itself because a satisfied login returns `mfaPolicy: null`.
+        const requiredMfa = Boolean(mfaState.policyRequired);
+        const assuranceVerdict = resolvePersistedAssuranceVerdict({
+            requiredMfa,
+            persistedSession,
+        });
+        recordAuthSecurityEvent({
+            event: 'session_assurance_persisted',
+            outcome: assuranceVerdict.assuranceMismatch ? 'failure' : 'success',
+            reason: 'none',
+            surface: 'trusted_device',
+            req,
+            level: assuranceVerdict.assuranceMismatch ? 'warn' : 'info',
+            meta: {
+                responseStatus: 'authenticated',
+                requiredMfa,
+                persisted: assuranceVerdict.persisted,
+                persistedAal: assuranceVerdict.persistedAal,
+                amr: summarizeAmrForLog(persistedSession?.amr),
+                assuranceMismatch: assuranceVerdict.assuranceMismatch,
+            },
         });
     }
 

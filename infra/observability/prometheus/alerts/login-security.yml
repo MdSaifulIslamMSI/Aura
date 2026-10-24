@@ -134,6 +134,17 @@ groups:
           summary: Aura step-up requirements are elevated
           description: More than 25 step-up requirements were recorded in the last 10 minutes.
 
+      - alert: AuraAuthAssurancePersistDivergence
+        expr: sum(increase(aura_auth_security_events_total{event="session_assurance_persisted",outcome="failure"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: login-security-observability
+        annotations:
+          summary: Login response and persisted session assurance disagree
+          description: A login returned `authenticated` while the session it wrote did not carry aal2 for an MFA-required policy. This is the shape that produced the desktop sign-in loop; inspect the same log line's `amr` before assuming a client bug.
+
       - alert: AuraUploadMalwareBlocked
         expr: sum(increase(aura_upload_security_events_total{event="malware_blocked"}[15m])) > 0
         for: 0m

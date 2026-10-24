@@ -82,4 +82,63 @@ describe('authSecurityTelemetryService', () => {
         expect(telemetry.__private.normalizeMethod('duo_oidc')).toBe('duo');
         expect(telemetry.__private.normalizeMethod('arbitrary-factor')).toBe('unknown');
     });
+
+    // The production incident: /api/auth/verify-device answered
+    // `status: authenticated` while the session it had just written carried
+    // aal1 and no `mfa`, so the next request was rejected. These pin the
+    // comparison that would have surfaced it at persist time.
+    describe('resolvePersistedAssuranceVerdict', () => {
+        test('flags the exact production shape: MFA required, persisted aal1', () => {
+            const { telemetry } = loadSubject();
+
+            expect(telemetry.resolvePersistedAssuranceVerdict({
+                requiredMfa: true,
+                persistedSession: {
+                    aal: 'aal1',
+                    amr: ['provider_custom', 'desktop_handoff', 'device_binding'],
+                },
+            })).toEqual({
+                persisted: true,
+                persistedAal: 'aal1',
+                assuranceMismatch: true,
+            });
+        });
+
+        test('accepts a persisted MFA session', () => {
+            const { telemetry } = loadSubject();
+
+            expect(telemetry.resolvePersistedAssuranceVerdict({
+                requiredMfa: true,
+                persistedSession: { aal: 'aal2', amr: ['provider_custom', 'webauthn', 'mfa'] },
+            })).toEqual({
+                persisted: true,
+                persistedAal: 'aal2',
+                assuranceMismatch: false,
+            });
+        });
+
+        // aal1 is legitimate for a login the policy never asked to be MFA'd.
+        // Only a policy/record disagreement is a defect.
+        test('does not flag aal1 when the policy did not require MFA', () => {
+            const { telemetry } = loadSubject();
+
+            expect(telemetry.resolvePersistedAssuranceVerdict({
+                requiredMfa: false,
+                persistedSession: { aal: 'aal1' },
+            }).assuranceMismatch).toBe(false);
+        });
+
+        test('reports the session as absent instead of inventing a mismatch', () => {
+            const { telemetry } = loadSubject();
+
+            expect(telemetry.resolvePersistedAssuranceVerdict({
+                requiredMfa: true,
+                persistedSession: null,
+            })).toEqual({
+                persisted: false,
+                persistedAal: '',
+                assuranceMismatch: false,
+            });
+        });
+    });
 });

@@ -76,6 +76,7 @@ Use short windows for page-worthy spikes and longer windows for trend dashboards
 | CSRF rejection burst | `sum(increase(aura_auth_security_events_total{event="csrf_rejected"}[5m])) > 25` | warning |
 | Trusted-device verification failures | `sum(increase(aura_auth_security_events_total{event="trusted_device_verify",outcome="failure"}[10m])) > 10` | warning |
 | Step-up pressure | `sum(increase(aura_auth_security_events_total{event="step_up_required"}[10m])) > 25` | info |
+| Response/record assurance divergence | `sum(increase(aura_auth_security_events_total{event="session_assurance_persisted",outcome="failure"}[10m])) > 0` | page |
 | Malware upload blocked | `sum(increase(aura_upload_security_events_total{event="malware_blocked"}[15m])) > 0` | page |
 | Upload scan unavailable | `sum(increase(aura_upload_security_events_total{event="malware_scan_unavailable"}[10m])) > 0` | page |
 | Upload MIME/magic mismatch burst | `sum(increase(aura_upload_security_events_total{event=~"magic_mismatch|mime_mismatch|unsupported_mime|unsupported_extension"}[10m])) > 10` | warning |
@@ -86,7 +87,8 @@ Use short windows for page-worthy spikes and longer windows for trend dashboards
 2. Treat recovery-code failures and admin access blocks as higher signal than ordinary login failures.
 3. For CSRF bursts, compare `path`, `sec-fetch-site`, and client route diagnostics before assuming active attack.
 4. For trusted-device failures, separate enrollment failures from assertion failures using the `mode` and `method` metadata when present.
-5. Keep labels bounded. Add new reason buckets only for durable operational decisions, not raw error text.
+5. `session_assurance_persisted` is written where a login response and its stored session are created together. `requiredMfa: true` with `persistedAal: "aal1"` (`outcome="failure"`) means the response claimed an MFA-complete login the record does not support. Read `amr` on the same line: a missing `mfa` beside `desktop_handoff_mfa_marker` is the handoff refresh path; a missing `mfa` with no marker is the ceremony-minting path.
+6. Keep labels bounded. Add new reason buckets only for durable operational decisions, not raw error text.
 
 ## Verification
 
