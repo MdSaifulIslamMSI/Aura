@@ -1,5 +1,6 @@
 const { resolveAdminSecurityConfig, validateAdminSecurityConfig } = require('../config/adminSecurityConfig');
 const { getDuoFlags } = require('../config/duoFlags');
+const { isDesktopHandoffAdminMfaSatisfied } = require('./mfaPolicyService');
 const { hasObservedWebAuthnUserVerification } = require('./trustedDeviceAssuranceService');
 
 const ADMIN_SECURITY_STATES = Object.freeze({
@@ -79,6 +80,25 @@ const hasFreshPasskeyAssurance = ({ req = {}, passkeys = [], now = Date.now() } 
     );
 };
 
+// Aura Desktop proves admin entry on a loopback runtime, where the
+// RP-bound browser passkey does not exist. The desktop handoff mints a
+// device-bound `desktop_handoff_admin_mfa:` marker only after the browser
+// completed the admin passkey ceremony (authController passes the grant's
+// adminPasskeySatisfied into the target-device bootstrap), so that marker is
+// the desktop's admin proof. It is accepted only while the underlying browser
+// sign-in is still inside the admin assurance window and the account still has
+// an approved admin passkey; revoking the factor revokes the desktop too.
+const hasFreshDesktopHandoffAdminAssurance = ({
+    req = {},
+    passkeys = [],
+    assuranceTtlSeconds = 0,
+    now = Date.now(),
+} = {}) => Boolean(
+    passkeys.length > 0
+    && isDesktopHandoffAdminMfaSatisfied(req.authSession)
+    && getAuthAgeSeconds(req, now) <= assuranceTtlSeconds
+);
+
 const hasFreshDuoAssurance = ({ req = {}, duo = getDuoFlags(), now = Date.now() } = {}) => {
     if (!duo.enabled || !duo.configured) return false;
     const stepUpUntil = new Date(req.authSession?.stepUpUntil || 0).getTime();
@@ -117,6 +137,16 @@ const resolveAdminSecurityState = ({
     const passkeys = getVerifiedAdminPasskeys(user, { legacyFactorRead: config.legacyFactorRead });
     const passkeyAssurance = hasFreshPasskeyAssurance({ req, passkeys, now });
     const duoAssurance = hasFreshDuoAssurance({ req, duo: config.duo, now });
+    const desktopHandoffAssurance = hasFreshDesktopHandoffAdminAssurance({
+        req,
+        passkeys,
+        assuranceTtlSeconds: config.assuranceTtlSeconds,
+        now,
+    });
+    const desktopHandoffAuthTimeSeconds = Number(req.authSession?.authTimeSeconds || 0);
+    const desktopHandoffAssuranceExpiresAt = desktopHandoffAuthTimeSeconds > 0
+        ? new Date((desktopHandoffAuthTimeSeconds + config.assuranceTtlSeconds) * 1000).toISOString()
+        : null;
     const duoCanSatisfyAdminEntry = Boolean(!config.requirePasskey && duoAssurance);
     const providerAvailable = Boolean(
         (config.passkeyChallenge && config.mfa.enabled && config.mfa.passkeyEnabled && config.rpId && config.origin)
@@ -155,9 +185,11 @@ const resolveAdminSecurityState = ({
     } else if (authAgeSeconds > config.freshPrimaryAuthSeconds) {
         state = ADMIN_SECURITY_STATES.PRIMARY_REAUTH_REQUIRED;
         reason = 'fresh_primary_auth_required';
-    } else if (passkeyAssurance || duoCanSatisfyAdminEntry) {
+    } else if (passkeyAssurance || duoCanSatisfyAdminEntry || desktopHandoffAssurance) {
         state = ADMIN_SECURITY_STATES.ADMIN_VERIFIED;
-        reason = passkeyAssurance ? 'passkey_assurance_active' : 'duo_assurance_active';
+        reason = passkeyAssurance
+            ? 'passkey_assurance_active'
+            : (desktopHandoffAssurance ? 'desktop_handoff_assurance_active' : 'duo_assurance_active');
     } else if (recoveryAuthorityActive && config.passkeyEnrollment) {
         state = ADMIN_SECURITY_STATES.ADMIN_ENROLLMENT_REQUIRED;
         reason = 'recovery_authority_active';
@@ -191,11 +223,14 @@ const resolveAdminSecurityState = ({
         adminSecurity: {
             approvedPasskeyCount: passkeys.length,
             passkeyAssuranceActive: passkeyAssurance,
+            desktopHandoffAssuranceActive: desktopHandoffAssurance,
             duoAssuranceActive: duoCanSatisfyAdminEntry,
             recoveryAuthorityActive: Boolean(recoveryAuthorityActive),
             assuranceExpiresAt: passkeyAssurance
                 ? req.authSession?.webAuthnStepUpUntil || null
-                : (duoCanSatisfyAdminEntry ? req.authSession?.stepUpUntil || null : null),
+                : (duoCanSatisfyAdminEntry
+                    ? req.authSession?.stepUpUntil || null
+                    : (desktopHandoffAssurance ? desktopHandoffAssuranceExpiresAt : null)),
         },
         policy: {
             assuranceTtlSeconds: config.assuranceTtlSeconds,

@@ -2,6 +2,7 @@ const {
     ADMIN_SECURITY_STATES,
     resolveAdminSecurityState,
 } = require('../services/adminSecurityStateService');
+const { buildDesktopHandoffMfaMarker } = require('../services/mfaPolicyService');
 
 const now = Date.now();
 const env = {
@@ -182,5 +183,111 @@ describe('admin security state engine', () => {
         });
         const result = resolveAdminSecurityState({ req, user, env, now });
         expect(result.state).toBe(ADMIN_SECURITY_STATES.PRIMARY_REAUTH_REQUIRED);
+    });
+
+    const desktopSession = ({
+        deviceId = 'device-desktop-1234',
+        authAgeMs = 60_000,
+        marker = buildDesktopHandoffMfaMarker(deviceId, { admin: true }),
+    } = {}) => ({
+        sessionId: 'session-desktop',
+        authTimeSeconds: Math.floor((now - authAgeMs) / 1000),
+        deviceId,
+        deviceMethod: 'browser_key',
+        amr: ['desktop_handoff', 'device_binding', 'mfa', marker],
+    });
+
+    test('accepts a target-proved admin desktop handoff as admin assurance', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const req = request({
+            user: factorUser,
+            authToken: { auth_time: Math.floor((now - 60_000) / 1000) },
+            authSession: desktopSession(),
+        });
+
+        const result = resolveAdminSecurityState({ req, user: factorUser, env, now });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_VERIFIED);
+        expect(result.reason).toBe('desktop_handoff_assurance_active');
+        expect(result.adminSecurity.desktopHandoffAssuranceActive).toBe(true);
+        expect(result.actions.allowAdminAccess).toBe(true);
+    });
+
+    test('rejects the desktop handoff proof once the assurance window has elapsed', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const shortAssuranceEnv = {
+            ...env,
+            ADMIN_ASSURANCE_TTL_SECONDS: '120',
+            ADMIN_RECOVERY_FRESH_AUTH_SECONDS: '600',
+        };
+        const req = request({
+            user: factorUser,
+            authToken: { auth_time: Math.floor((now - (5 * 60_000)) / 1000) },
+            authSession: desktopSession({ authAgeMs: 5 * 60_000 }),
+        });
+
+        const result = resolveAdminSecurityState({ req, user: factorUser, env: shortAssuranceEnv, now });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_CHALLENGE_REQUIRED);
+        expect(result.adminSecurity.desktopHandoffAssuranceActive).toBe(false);
+    });
+
+    test('does not accept a generic desktop handoff marker as admin assurance', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const req = request({
+            user: factorUser,
+            authToken: { auth_time: Math.floor((now - 60_000) / 1000) },
+            authSession: desktopSession({
+                marker: buildDesktopHandoffMfaMarker('device-desktop-1234'),
+            }),
+        });
+
+        const result = resolveAdminSecurityState({ req, user: factorUser, env, now });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_CHALLENGE_REQUIRED);
+        expect(result.adminSecurity.desktopHandoffAssuranceActive).toBe(false);
+    });
+
+    test('does not accept a desktop marker bound to another device', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const req = request({
+            user: factorUser,
+            authToken: { auth_time: Math.floor((now - 60_000) / 1000) },
+            authSession: desktopSession({
+                deviceId: 'device-desktop-1234',
+                marker: buildDesktopHandoffMfaMarker('device-other-5678', { admin: true }),
+            }),
+        });
+
+        const result = resolveAdminSecurityState({ req, user: factorUser, env, now });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_CHALLENGE_REQUIRED);
+        expect(result.adminSecurity.desktopHandoffAssuranceActive).toBe(false);
+    });
+
+    test('desktop handoff proof dies with the approved admin passkey', () => {
+        const revokedPasskey = { ...passkey, revokedAt: new Date(now - 1000) };
+        const revokedUser = {
+            ...user,
+            trustedDevices: [
+                revokedPasskey,
+                {
+                    deviceId: 'device-desktop-1234',
+                    method: 'browser_key',
+                    revokedAt: null,
+                    expiresAt: null,
+                },
+            ],
+        };
+        const req = request({
+            user: revokedUser,
+            authToken: { auth_time: Math.floor((now - 60_000) / 1000) },
+            authSession: desktopSession(),
+        });
+
+        const result = resolveAdminSecurityState({ req, user: revokedUser, env, now });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_RECOVERY_REQUIRED);
+        expect(result.adminSecurity.desktopHandoffAssuranceActive).toBe(false);
     });
 });

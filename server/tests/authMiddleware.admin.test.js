@@ -33,6 +33,14 @@ const ORIGINAL_ENV = {
     DUO_OIDC_ISSUER: process.env.DUO_OIDC_ISSUER,
     DUO_DISCOVERY_URL: process.env.DUO_DISCOVERY_URL,
     DUO_REDIRECT_URI: process.env.DUO_REDIRECT_URI,
+    ADMIN_SECURITY_STATE_ENGINE_V2: process.env.ADMIN_SECURITY_STATE_ENGINE_V2,
+    ADMIN_ASSURANCE_ENFORCEMENT: process.env.ADMIN_ASSURANCE_ENFORCEMENT,
+    ADMIN_SECURITY_HASH_SECRET: process.env.ADMIN_SECURITY_HASH_SECRET,
+    MFA_ENABLED: process.env.MFA_ENABLED,
+    MFA_PASSKEY_ENABLED: process.env.MFA_PASSKEY_ENABLED,
+    AUTH_WEBAUTHN_RP_ID: process.env.AUTH_WEBAUTHN_RP_ID,
+    AUTH_WEBAUTHN_ORIGIN: process.env.AUTH_WEBAUTHN_ORIGIN,
+    AUTH_WEBAUTHN_USER_VERIFICATION: process.env.AUTH_WEBAUTHN_USER_VERIFICATION,
 };
 
 const buildVaultSecret = () => Array.from(
@@ -255,6 +263,105 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 firebaseUid: 'firebase-admin-uid',
                 deviceId,
                 deviceMethod: 'browser_key',
+                amr: [
+                    'desktop_handoff',
+                    'device_binding',
+                    'mfa',
+                    buildDesktopHandoffMfaMarker(deviceId, { admin: true }),
+                ],
+            },
+            headers,
+            originalUrl: '/api/admin/users',
+            get: (header) => headers[header],
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('accepts a target-proved admin desktop handoff through the V2 assurance gate', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'true';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'true';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
+        process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
+        process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
+        process.env.ADMIN_SECURITY_STATE_ENGINE_V2 = 'true';
+        process.env.ADMIN_ASSURANCE_ENFORCEMENT = 'true';
+        process.env.ADMIN_SECURITY_HASH_SECRET = 'a8F4q2L9v7X3m6K1p5R0t8W2z4N7c9B6Y1D3';
+        process.env.MFA_ENABLED = 'true';
+        process.env.MFA_PASSKEY_ENABLED = 'true';
+        process.env.AUTH_WEBAUTHN_RP_ID = 'localhost';
+        process.env.AUTH_WEBAUTHN_ORIGIN = 'http://localhost:5173';
+        process.env.AUTH_WEBAUTHN_USER_VERIFICATION = 'required';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const {
+            TRUSTED_DEVICE_ID_HEADER,
+            TRUSTED_DEVICE_SESSION_HEADER,
+            issueTrustedDeviceSession,
+        } = loadTrustedDeviceService();
+        const { buildDesktopHandoffMfaMarker } = require('../services/mfaPolicyService');
+        const admin = loadAdminMiddleware();
+        const deviceId = 'device-desktop-admin-abcdefghijkl';
+        const browserPasskey = {
+            deviceId: 'device-browser-admin-abcdefghijkl',
+            method: 'webauthn',
+            credentialScope: 'admin',
+            adminEligibility: 'verified',
+            webauthnCredentialIdBase64Url: 'credential-id',
+            webauthnUserVerification: 'required',
+            webauthnUserVerified: true,
+            webauthnUserVerifiedAt: new Date(Date.now() - 60_000),
+            revokedAt: null,
+            expiresAt: null,
+        };
+        const user = {
+            _id: 'user-1',
+            isAdmin: true,
+            email: 'admin@example.com',
+            isVerified: true,
+            accountState: 'active',
+            softDeleted: false,
+            trustedDevices: [browserPasskey, { deviceId, method: 'browser_key' }],
+        };
+        const authToken = {
+            email: 'admin@example.com',
+            email_verified: true,
+            auth_time: nowSeconds - 60,
+            iat: nowSeconds - 60,
+        };
+        const { deviceSessionToken } = issueTrustedDeviceSession({
+            user,
+            authUid: 'firebase-admin-uid',
+            authToken,
+            deviceId,
+        });
+        const headers = {
+            [TRUSTED_DEVICE_ID_HEADER]: deviceId,
+            [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
+        };
+        const req = {
+            method: 'GET',
+            user,
+            authUid: 'firebase-admin-uid',
+            authToken,
+            authSession: {
+                sessionId: 'desktop-admin-session-1',
+                userId: 'user-1',
+                firebaseUid: 'firebase-admin-uid',
+                deviceId,
+                deviceMethod: 'browser_key',
+                authTimeSeconds: nowSeconds - 60,
                 amr: [
                     'desktop_handoff',
                     'device_binding',

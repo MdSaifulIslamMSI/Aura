@@ -47,7 +47,7 @@ const renderCheckpoint = (auth = {}) => render(
 );
 
 describe('AdminSecurityCheckpoint', () => {
-    it('owns only an authenticated admin MFA checkpoint on an admin route', () => {
+    it('owns every signed-in admin visit, not only the login MFA checkpoint', () => {
         const subject = {
             pathname: '/admin/dashboard',
             status: 'mfa_challenge_required',
@@ -56,6 +56,11 @@ describe('AdminSecurityCheckpoint', () => {
         };
 
         expect(shouldUseAdminSecurityCheckpoint(subject)).toBe(true);
+        // Desktop handoff: login MFA is satisfied, admin assurance is not.
+        expect(shouldUseAdminSecurityCheckpoint({
+            ...subject,
+            status: 'authenticated',
+        })).toBe(true);
         expect(shouldUseAdminSecurityCheckpoint({
             ...subject,
             status: 'device_challenge_required',
