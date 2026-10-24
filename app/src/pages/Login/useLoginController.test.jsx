@@ -1811,6 +1811,55 @@ describe('useLoginController', () => {
     }
   });
 
+  it('waits for the completed login MFA before running the desktop preflight', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174021';
+    const currentUser = {
+      email: 'pending-mfa@example.com',
+      getIdToken: vi.fn(),
+    };
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValue({
+      status: 'handoff_ready',
+      handoffReady: true,
+    });
+
+    const renderTree = (status) => (
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          currentUser,
+          isAuthenticated: true,
+          loading: false,
+          status,
+        })}>
+          <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-pending-mfa&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+            <Routes>
+              <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    try {
+      const view = render(renderTree('mfa_challenge_required'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-session-hydrating')).toHaveTextContent('false');
+      });
+      expect(prepareDesktopHandoff).not.toHaveBeenCalled();
+      expect(screen.getByTestId('desktop-consent-error')).toHaveTextContent('none');
+      expect(screen.getByTestId('desktop-preflight-failed')).toHaveTextContent('false');
+
+      view.rerender(renderTree('authenticated'));
+
+      await waitFor(() => {
+        expect(prepareDesktopHandoff).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+    } finally {
+      prepareDesktopHandoff.mockRestore();
+    }
+  });
+
   it('clears the selected browser account before starting a different desktop login', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174020';
     const logout = vi.fn().mockResolvedValue(undefined);
