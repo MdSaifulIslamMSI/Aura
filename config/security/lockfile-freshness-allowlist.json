@@ -42,6 +42,12 @@
       "version": "10.1.4",
       "reason": "GHSA-8c8m-p3m8-cjg8 + companion (moderate, addressparser recipient leak) — production email dependency; urgent security fix",
       "expires": "2026-11-07"
+    },
+    {
+      "name": "fast-uri",
+      "version": "4.2.3",
+      "reason": "4 GHSAs (333x-w4r6-6crp, w74x-v6f9-j3xg, wjr9-j795-jxcr, xhq7-xmqj-769h) against the 4.2.1 override seam pin — security bump across all three manifests",
+      "expires": "2026-11-07"
     }
   ]
 }
