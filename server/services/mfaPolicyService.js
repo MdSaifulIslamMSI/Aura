@@ -401,5 +401,6 @@ module.exports = {
     isPrivilegedSubject,
     isLoginMfaSatisfied,
     isVerifiedAdminPasskeyDevice,
+    resolveDesktopHandoffMfaBinding,
     resolveRole,
 };
