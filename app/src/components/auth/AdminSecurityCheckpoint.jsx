@@ -8,6 +8,12 @@ export const ADMIN_SECURITY_UI_ENABLED = String(
     import.meta.env.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false'
 ).trim().toLowerCase() === 'true';
 
+// Admin assurance is separate from login MFA: a desktop-handoff session can be
+// fully `authenticated` for login while the server still reports
+// ADMIN_CHALLENGE_REQUIRED for admin routes. The checkpoint must therefore own
+// every signed-in admin visit, not only the login-level `mfa_challenge_required`
+// state — otherwise the dashboard mounts and its admin calls come back as the
+// fabric's cloaked 404s. Device/bootstrap states still render their own gates.
 export const shouldUseAdminSecurityCheckpoint = ({
     pathname = '',
     status = '',
@@ -18,7 +24,7 @@ export const shouldUseAdminSecurityCheckpoint = ({
 } = {}) => Boolean(
     ADMIN_SECURITY_UI_ENABLED
     && String(pathname || '').startsWith('/admin')
-    && status === 'mfa_challenge_required'
+    && (status === 'authenticated' || status === 'mfa_challenge_required')
     && currentUser
     && (
         roles?.isAdmin
