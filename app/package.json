@@ -107,7 +107,7 @@
     "@grpc/grpc-js": "^1.13.6",
     "@unicode/unicode-17.0.0": "2.0.5",
     "brace-expansion": "5.0.12",
-    "fast-uri": "4.2.1",
+    "fast-uri": "4.2.3",
     "ip-address": "10.7.4",
     "js-yaml": "4.3.2",
     "minimatch": "10.2.5",
@@ -115,7 +115,7 @@
     "react-router": "7.18.3",
     "rollup": "4.59.1",
     "socket.io-parser": "4.2.7",
-    "undici": "8.11.2",
+    "undici": "8.12.3",
     "uuid": "^11.1.1",
     "ws": "^8.20.1",
     "source-map-js": "1.2.2"
