@@ -2456,6 +2456,123 @@ describe('Trusted device verification response payload', () => {
         expect(revokeBrowserSession).toHaveBeenCalledWith('hosted-source-session-1');
     });
 
+    test('POST /api/auth/verify-device mints the MFA amr for a UV-verified passkey ceremony', async () => {
+        let isolatedApp;
+        const verifiedDeviceSessionToken = buildRuntimeSecret('session-webauthn-mfa');
+        const refreshBrowserSession = jest.fn().mockResolvedValue({
+            sessionId: 'verified-session-webauthn-1',
+            firebaseUid: 'uid-webauthn',
+            deviceId: 'device-webauthn-1234',
+            deviceMethod: 'webauthn',
+            amr: ['password', 'webauthn', 'mfa'],
+            aal: 'aal2',
+        });
+
+        jest.isolateModules(() => {
+            process.env.MFA_ENABLED = 'true';
+            process.env.MFA_PASSKEY_ENABLED = 'true';
+
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn().mockReturnValue({
+                    status: 'authenticated',
+                    deviceChallenge: null,
+                    session: { sessionId: 'verified-session-webauthn-1' },
+                    profile: { _id: 'user-webauthn-1', email: 'webauthn@example.com' },
+                    roles: { isAdmin: false, isSeller: false, isVerified: true },
+                    intelligence: null,
+                }),
+                persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                resolveAuthenticatedSession: jest.fn(),
+                syncAuthenticatedUser: jest.fn(),
+                applyLoginAssuranceToSession: jest.fn(),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-webauthn-1234',
+                    deviceLabel: 'Verified Passkey',
+                }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
+                issueTrustedDeviceChallenge: jest.fn(),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceChallenge: jest.fn().mockResolvedValue({
+                    success: true,
+                    mode: 'assert',
+                    method: 'webauthn',
+                    deviceSessionToken: verifiedDeviceSessionToken,
+                    expiresAt: new Date('2026-04-12T14:00:00.000Z').toISOString(),
+                    trustedDevice: {
+                        deviceId: 'device-webauthn-1234',
+                        method: 'webauthn',
+                        credentialScope: 'mfa',
+                        webauthnUserVerified: true,
+                    },
+                }),
+            }));
+
+            const express = require('express');
+            const { verifyDeviceChallenge } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/verify-device', (req, _res, next) => {
+                req.user = {
+                    _id: 'user-webauthn-1',
+                    email: 'webauthn@example.com',
+                    isVerified: true,
+                    mfa: { enabled: true, passkeys: [{ credentialId: 'credential-webauthn-1' }] },
+                    trustedDevices: [],
+                };
+                req.authUid = 'uid-webauthn';
+                req.authToken = { email: 'webauthn@example.com', email_verified: true };
+                req.authSession = {
+                    sessionId: 'bootstrap-session-webauthn-1',
+                    deviceId: 'device-webauthn-1234',
+                    deviceMethod: 'webauthn',
+                    amr: ['password', 'webauthn', 'passkey', 'mfa'],
+                    stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
+                    webAuthnStepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
+                };
+                next();
+            }, verifyDeviceChallenge);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/verify-device')
+            .send({
+                token: buildRuntimeSecret('challenge-webauthn'),
+                method: 'webauthn',
+                proof: buildRuntimeSecret('proof-webauthn'),
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('authenticated');
+        // `webauthn` alone names the transport; the rotated session must also
+        // carry the completed-factor claim or the next request is rejected by
+        // enforceCompletedLoginMfa even though this response said authenticated.
+        expect(refreshBrowserSession).toHaveBeenCalledWith(expect.objectContaining({
+            rotate: true,
+            deviceMethod: 'webauthn',
+            additionalAmr: ['webauthn', 'mfa'],
+        }));
+    });
+
     test('POST /api/auth/verify-device rejects a body-only desktop target marker without a handoff claim', async () => {
         const {
             isolatedApp,

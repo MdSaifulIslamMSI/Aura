@@ -2328,7 +2328,13 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
             webAuthnStepUpUntil: desktopHandoffTargetProof ? new Date(0) : webAuthnStepUpUntil,
             additionalAmr: desktopHandoffTargetProof
                 ? desktopHandoffAmr
-                : [webAuthnVerified ? 'webauthn' : 'device_binding'],
+                // `webauthn` names the transport; `mfa` is the completed-factor
+                // claim the login policy actually checks
+                // (mfaPolicyService.isLoginMfaSatisfied). Minting only the
+                // transport rotated the session without the factor and made the
+                // response report `authenticated` while the stored session was
+                // still mfa_challenge_required.
+                : (webAuthnVerified ? ['webauthn', 'mfa'] : ['device_binding']),
             riskState: loginRisk.riskState,
             // SECURITY (BUG-R2-C2-A5-H4): syncSession arms the money-movement OTP
             // window before the device gate, but only mints a session once the

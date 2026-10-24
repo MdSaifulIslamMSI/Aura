@@ -300,6 +300,161 @@ describe('browserSessionService', () => {
         });
     });
 
+    test('keeps a device-bound desktop handoff MFA across refresh and rotation', async () => {
+        let service;
+        let evaluateLogin;
+        let buildDesktopHandoffMfaMarker;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'desktop-handoff-device',
+                    deviceLabel: 'Aura Desktop',
+                }),
+            }));
+            service = require('../services/browserSessionService');
+            ({ evaluateLogin, buildDesktopHandoffMfaMarker } = require('../services/mfaPolicyService'));
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: { host: 'admin.aura.local', 'x-forwarded-proto': 'https' },
+            secure: true,
+        };
+        const user = {
+            _id: '507f1f77bcf86cd799439099',
+            email: 'desktop-handoff@example.com',
+            isAdmin: true,
+        };
+        const authToken = {
+            auth_time: nowSeconds - 30,
+            iat: nowSeconds - 30,
+            exp: nowSeconds + 3600,
+            firebase: { sign_in_provider: 'custom' },
+        };
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+        };
+        const marker = buildDesktopHandoffMfaMarker('desktop-handoff-device', { admin: true });
+        const session = await service.createBrowserSession({
+            req,
+            user,
+            authUid: 'firebase-desktop-handoff',
+            authToken,
+            deviceMethod: 'browser_key',
+            additionalAmr: ['desktop_handoff', 'device_binding', 'mfa', marker],
+        });
+
+        // The handoff session has no step-up window to carry the factor; the
+        // device-bound marker is the evidence. Every `/api/auth/session`
+        // re-persist must not downgrade it back to an MFA challenge.
+        const refreshed = await service.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user,
+            authUid: 'firebase-desktop-handoff',
+            authToken,
+        });
+
+        expect(refreshed.sessionId).toBe(session.sessionId);
+        expect(refreshed.amr).toEqual(expect.arrayContaining(['desktop_handoff', 'device_binding', 'mfa', marker]));
+        expect(refreshed.aal).toBe('aal2');
+        expect(evaluateLogin({ env, user, context: { session: refreshed } })).toMatchObject({
+            mfaRequired: false,
+            satisfied: true,
+        });
+
+        const rotated = await service.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user,
+            authUid: 'firebase-desktop-handoff',
+            authToken,
+            rotate: true,
+        });
+
+        expect(rotated.sessionId).not.toBe(session.sessionId);
+        expect(rotated.amr).toEqual(expect.arrayContaining(['mfa', marker]));
+        expect(evaluateLogin({ env, user, context: { session: rotated } })).toMatchObject({
+            mfaRequired: false,
+            satisfied: true,
+        });
+    });
+
+    test('drops a desktop handoff MFA marker that is not bound to the session device', async () => {
+        let service;
+        let evaluateLogin;
+        let buildDesktopHandoffMfaMarker;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'desktop-handoff-device',
+                    deviceLabel: 'Aura Desktop',
+                }),
+            }));
+            service = require('../services/browserSessionService');
+            ({ evaluateLogin, buildDesktopHandoffMfaMarker } = require('../services/mfaPolicyService'));
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: { host: 'admin.aura.local', 'x-forwarded-proto': 'https' },
+            secure: true,
+        };
+        const user = {
+            _id: '507f1f77bcf86cd79943909a',
+            email: 'desktop-handoff-unbound@example.com',
+            isAdmin: true,
+        };
+        const authToken = {
+            auth_time: nowSeconds - 30,
+            iat: nowSeconds - 30,
+            exp: nowSeconds + 3600,
+            firebase: { sign_in_provider: 'custom' },
+        };
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+        };
+        const foreignMarker = buildDesktopHandoffMfaMarker('some-other-device', { admin: true });
+        const session = await service.createBrowserSession({
+            req,
+            user,
+            authUid: 'firebase-desktop-handoff-unbound',
+            authToken,
+            deviceMethod: 'browser_key',
+            additionalAmr: ['desktop_handoff', 'device_binding', 'mfa', foreignMarker],
+        });
+
+        const refreshed = await service.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user,
+            authUid: 'firebase-desktop-handoff-unbound',
+            authToken,
+        });
+
+        expect(refreshed.amr).toContain(foreignMarker);
+        expect(refreshed.amr).not.toContain('mfa');
+        expect(refreshed.aal).toBe('aal1');
+        expect(evaluateLogin({ env, user, context: { session: refreshed } })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+    });
+
     test.each([
         ['near its absolute deadline', 10 * 1000],
         ['after its absolute deadline', -1000],

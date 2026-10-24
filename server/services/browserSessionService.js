@@ -9,7 +9,7 @@ const {
 } = require('../utils/authIdentity');
 const { extractTrustedDeviceContext } = require('./trustedDeviceChallengeService');
 const { verifyDpopProof } = require('../utils/dpop');
-const { isAdminSubject } = require('./mfaPolicyService');
+const { isAdminSubject, resolveDesktopHandoffMfaBinding } = require('./mfaPolicyService');
 
 const SESSION_COOKIE_NAME = String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid';
 const SESSION_PREFIX = `{${redisFlags.redisPrefix}:auth}:session:`;
@@ -229,15 +229,30 @@ const hasActiveAssuranceWindow = (value = null, now = Date.now()) => {
 // step-up window continues to honor everywhere else (session checks, admin
 // policy, sensitive actions). Preserve only the entries that window still
 // backs. A rotation mints a new session ID and must re-earn its factors, so
-// it keeps the original fail-closed behavior.
+// it keeps the fail-closed behavior.
+//
+// The desktop handoff is the one exception: its evidence is not the step-up
+// window. Its session deliberately carries stepUpUntil = epoch 0, and the
+// `mfa` entry is paired with a marker hashed from the target device id that
+// survives every refresh. Dropping `mfa` while keeping the marker left
+// isLoginMfaSatisfied / isDesktopHandoffAdminMfaSatisfied unable to recognize
+// the ceremony that already happened, so each `/api/auth/session` re-persist
+// turned a completed handoff back into an MFA challenge. A marker only counts
+// when it is bound to this session's own device (the same check the policy
+// layer applies), so a replayed or transplanted marker still fails closed.
 const resolveInheritedAmr = ({
     previousSession = null,
     sameSessionRefresh = false,
     additionalAmr = [],
 } = {}) => {
     const priorAmr = normalizeAmr(previousSession?.amr);
+    const handoffBinding = resolveDesktopHandoffMfaBinding(previousSession, priorAmr);
+    const desktopHandoffMfaBound = Boolean(handoffBinding.genericBound || handoffBinding.adminBound);
     if (!sameSessionRefresh || normalizeAmr(additionalAmr).length > 0) {
-        return priorAmr.filter((entry) => !CEREMONY_BOUND_AMR.has(entry));
+        return priorAmr.filter((entry) => (
+            !CEREMONY_BOUND_AMR.has(entry)
+            || (entry === 'mfa' && desktopHandoffMfaBound)
+        ));
     }
 
     const now = Date.now();
@@ -245,6 +260,7 @@ const resolveInheritedAmr = ({
     const webAuthnStepUpActive = hasActiveAssuranceWindow(previousSession?.webAuthnStepUpUntil, now);
     return priorAmr.filter((entry) => {
         if (!CEREMONY_BOUND_AMR.has(entry)) return true;
+        if (entry === 'mfa' && desktopHandoffMfaBound) return true;
         if (entry === 'firebase_mfa') return false;
         if (entry === 'webauthn' || entry === 'passkey') return webAuthnStepUpActive;
         return stepUpActive;
