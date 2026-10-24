@@ -36,6 +36,12 @@
       "version": "3.2.6",
       "reason": "required by the puppeteer-core security fix (<=25.12 advisory) — rides the cooldown exception",
       "expires": "2026-11-07"
+    },
+    {
+      "name": "nodemailer",
+      "version": "10.1.4",
+      "reason": "GHSA-8c8m-p3m8-cjg8 + companion (moderate, addressparser recipient leak) — production email dependency; urgent security fix",
+      "expires": "2026-11-07"
     }
   ]
 }

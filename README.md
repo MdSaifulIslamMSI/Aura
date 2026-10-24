@@ -206,6 +206,7 @@ Enforced in the running system:
 - Field-level AES-256-GCM encryption with AWS KMS-wrapped data keys and HMAC blind indexes, so encrypted phone and email fields stay searchable without plaintext fallback.
 - A route-security matrix that derives every route from source and fails CI unless each state-changing route declares and enforces its posture.
 - Scanner coverage includes CodeQL, Semgrep, Gitleaks, Trivy, Checkov/tfsec/Terrascan, OSV, zizmor, OpenSSF Scorecard, and dependency review.
+- Token-protected readiness: production readiness probes require authentication — production requires `x-health-token`, and the probe fails closed when `HEALTH_READY_TOKEN` is not configured.
 - Origin protection: CloudFront injects `X-Aura-Origin-Verify`; the backend rejects protected routes without it and fails closed in production if the secret is missing. Health, metrics, and signed provider/status webhooks are the explicit bypass list. Direct origin probes time out.
 
 Deliberately not enabled, or still incomplete:
