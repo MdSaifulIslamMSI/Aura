@@ -6,6 +6,36 @@
       "version": "8.12.3",
       "reason": "undici vulnerable to Denial of Service via unbounded memory in the EventSource parser — urgent security fix across the shared pin seam (4 sites), per the freshness gate exception contract",
       "expires": "2026-11-07"
+    },
+    {
+      "name": "body-parser",
+      "version": "2.4.0",
+      "reason": "GHSA body-parser trailing-bytes DoS — express transitive; urgent security fix (release-cooldown exception)",
+      "expires": "2026-11-07"
+    },
+    {
+      "name": "electron",
+      "version": "44.9.3",
+      "reason": "Electron eMudhra intermediate-cert mitigation advisory — devDep toolchain; urgent security fix (release-cooldown exception)",
+      "expires": "2026-11-07"
+    },
+    {
+      "name": "puppeteer-core",
+      "version": "25.16.0",
+      "reason": "puppeteer-core advisory (≤25.12) via lighthouse — app devDep; urgent security fix (release-cooldown exception)",
+      "expires": "2026-11-07"
+    },
+    {
+      "name": "chromium-bidi",
+      "version": "158.0.8121-0",
+      "reason": "chromium-bidi advisory via puppeteer-core — app devDep; urgent security fix (release-cooldown exception)",
+      "expires": "2026-11-07"
+    },
+    {
+      "name": "@puppeteer/browsers",
+      "version": "3.2.6",
+      "reason": "required by the puppeteer-core security fix (<=25.12 advisory) — rides the cooldown exception",
+      "expires": "2026-11-07"
     }
   ]
 }
