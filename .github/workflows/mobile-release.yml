@@ -418,7 +418,7 @@ jobs:
           echo "APK signature verified against the pinned release keystore."
 
       - name: Validate Fastfile lanes
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1
+        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
         with:
           ruby-version: '3.2'
       - name: Parse fastlane lanes
@@ -691,7 +691,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1
+        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
         with:
           bundler-cache: true
 
@@ -734,7 +734,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1
+        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
         with:
           bundler-cache: true
 
