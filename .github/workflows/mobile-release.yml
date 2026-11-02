@@ -289,7 +289,7 @@ jobs:
           java-version: '21'
 
       - name: Use Gradle cache
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Install frontend and mobile dependencies
         run: npm --prefix app ci
@@ -418,7 +418,7 @@ jobs:
           echo "APK signature verified against the pinned release keystore."
 
       - name: Validate Fastfile lanes
-        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
         with:
           ruby-version: '3.2'
       - name: Parse fastlane lanes
@@ -691,7 +691,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
         with:
           bundler-cache: true
 
@@ -734,7 +734,7 @@ jobs:
           persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
         with:
           bundler-cache: true
 
