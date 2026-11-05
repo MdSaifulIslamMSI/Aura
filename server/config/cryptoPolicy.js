@@ -22,6 +22,20 @@ const fallbackPolicy = {
         providerControlledSurfacesTracked: true,
     },
     controlledSurfaces: {},
+    runtimePqc: {
+        status: 'unavailable',
+        hybridKem: 'X25519+ML-KEM-768',
+        hybridSignature: 'Ed25519+ML-DSA-65',
+        hashBasedSignature: 'SLH-DSA-SHA2-128s',
+        keyExchangeStandard: 'FIPS 203',
+        signatureStandard: 'FIPS 204',
+        hashSignatureStandard: 'FIPS 205',
+        symmetric: 'AES-256-GCM',
+        kdf: 'HKDF-SHA256',
+        defaultMode: 'off',
+        modes: ['off', 'auto', 'key-wrap', 'per-record', 'require'],
+        keySources: ['file', 'ssm', 'inline-json', 'inline-base64-json', 'env'],
+    },
 };
 
 const assertStringArray = (policy, key) => {
@@ -52,6 +66,34 @@ const assertStringObjectValues = (policy, key, requiredKeys) => {
             throw new Error(`PQC crypto policy field ${key}.${field} must be a non-empty string`);
         }
     });
+};
+
+const assertRuntimePqc = (policy) => {
+    assertObject(policy, 'runtimePqc');
+    [
+        'status',
+        'hybridKem',
+        'hybridSignature',
+        'hashBasedSignature',
+        'keyExchangeStandard',
+        'signatureStandard',
+        'hashSignatureStandard',
+        'symmetric',
+        'kdf',
+        'defaultMode',
+    ].forEach((field) => {
+        if (!trim(policy.runtimePqc[field])) {
+            throw new Error(`PQC crypto policy field runtimePqc.${field} must be a non-empty string`);
+        }
+    });
+    assertStringArray(policy.runtimePqc, 'modes');
+    assertStringArray(policy.runtimePqc, 'keySources');
+    if (policy.runtimePqc.defaultMode !== 'off') {
+        throw new Error('PQC crypto policy runtimePqc.defaultMode must remain off so unconfigured deployments stay backward compatible');
+    }
+    if (!policy.runtimePqc.modes.includes('require')) {
+        throw new Error('PQC crypto policy runtimePqc.modes must include require');
+    }
 };
 
 const validateCryptoPolicy = (policy) => {
@@ -89,6 +131,8 @@ const validateCryptoPolicy = (policy) => {
         'releaseSigning',
     ]);
 
+    assertRuntimePqc(policy);
+
     return policy;
 };
 
@@ -102,6 +146,7 @@ const projectPolicyView = (policy) => ({
     warningCrypto: policy.warningCrypto,
     deploymentProof: policy.deploymentProof,
     controlledSurfaces: policy.controlledSurfaces,
+    runtimePqc: policy.runtimePqc,
 });
 
 const loadCryptoPolicy = (options = {}) => {

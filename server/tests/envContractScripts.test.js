@@ -1050,6 +1050,14 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
         expect(composeScript).toMatch(/append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "\$cloudfront_origin_verify_secret"/);
+        expect(composeScript).toMatch(/append_env_if_set FIELD_ENCRYPTION_PQC_MODE "\$field_encryption_pqc_mode"/);
+        expect(composeScript).toMatch(/append_env_if_set FIELD_ENCRYPTION_PQC_KEM_KEY_REF "\$field_encryption_pqc_kem_key_ref"/);
+        expect(composeScript).toMatch(/append_env_if_set FIELD_ENCRYPTION_ENABLED "\$field_encryption_enabled"/);
+        expect(composeScript).toMatch(/append_env_if_set FIELD_ENCRYPTION_KMS_KEY_ID "\$field_encryption_kms_key_id"/);
+        expect(composeScript).toMatch(/append_env_if_set SECURITY_EVENT_LEDGER_PQC_MODE "\$security_event_ledger_pqc_mode"/);
+        expect(composeScript).toMatch(/append_env_if_set SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF "\$security_event_ledger_pqc_signing_key_ref"/);
+        expect(composeScript).toMatch(/append_env_if_set SECURITY_EVENT_LEDGER_ENABLED "\$security_event_ledger_enabled"/);
+        expect(composeScript).toMatch(/append_env_if_set SECURITY_EVENT_LEDGER_SECRET "\$security_event_ledger_secret"/);
         expect(composeScript).toContain('UPLOAD_MALWARE_SCAN_ENABLED=false');
         expect(composeScript).toContain('UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true');
         expect(composeScript).toContain('CLAMAV_ENABLED=false');
@@ -1090,6 +1098,22 @@ describe('repo environment contract scripts', () => {
         expect(ssmScript).toMatch(/^put_string YARA_ENABLED false$/m);
         expect(ssmScript).toMatch(/^put_string UPLOAD_MALWARE_SCAN_ENABLED false$/m);
         expect(ssmScript).toMatch(/^put_string UPLOAD_MALWARE_SCAN_FAIL_CLOSED true$/m);
+
+        const pqcSsmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03d-put-pqc-ssm-params.sh'), 'utf8');
+        expect(pqcSsmScript).toMatch(/assert_staging_prefix/);
+        expect(pqcSsmScript).toContain('--compact');
+        expect(pqcSsmScript).toMatch(/PQC_SSM_PREFIX="\$\{PQC_SSM_PREFIX:-\$\{STAGING_SSM_PREFIX\}-pqc\}"/);
+        expect(pqcSsmScript).toContain('ssm:$kem_parameter');
+        expect(pqcSsmScript).toContain('ssm:$signing_parameter');
+        expect(pqcSsmScript).toContain('FIELD_ENCRYPTION_PQC_MODE');
+        expect(pqcSsmScript).toContain('SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF');
+        expect(pqcSsmScript).toContain('FIELD_ENCRYPTION_KMS_KEY_ID');
+        expect(pqcSsmScript).toContain('FIELD_ENCRYPTION_ENABLED');
+        expect(pqcSsmScript).toContain('ensure_wrapped_dek');
+        expect(pqcSsmScript).toContain('SECURITY_EVENT_LEDGER_SECRET');
+        expect(pqcSsmScript).toContain('SECURITY_EVENT_LEDGER_ENABLED');
+        expect(pqcSsmScript).toContain('generate-data-key');
+        expect(pqcSsmScript).not.toMatch(/put_secure_parameter "\$STAGING_SSM_PREFIX/);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);

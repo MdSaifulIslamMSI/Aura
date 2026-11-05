@@ -41,6 +41,13 @@
       "match": "sha1",
       "reason": "Hash function is mandated by the Have I Been Pwned k-anonymity range API protocol (prefix lookup against the breach corpus); not used for signatures, integrity, encryption, or secrets.",
       "expires": "2026-12-31"
+    },
+    {
+      "file": "server/security/pqc/hybridKem.js",
+      "category": "CUSTOM_DH_KEY_EXCHANGE",
+      "match": "diffieHellman(",
+      "reason": "Reviewed application-layer hybrid KEM. crypto.diffieHellman performs only the native X25519 leg of X25519+ML-KEM-768; the X25519 and ML-KEM shared secrets are both required and combined with HKDF-SHA256. This is not custom DH, and round-trip/tamper coverage lives in server/tests/pqcPrimitives.test.js.",
+      "expires": "2027-12-31"
     }
   ]
 }

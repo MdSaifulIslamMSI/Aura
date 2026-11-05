@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const SecurityEventLedger = require('../models/SecurityEventLedger');
 const logger = require('../utils/logger');
+const { getPqcCapabilities } = require('../security/pqc/algorithms');
+const hybridSignature = require('../security/pqc/hybridSignature');
+const { PqcKeyRegistry, parseReferenceList } = require('../security/pqc/keyRegistry');
 
 // Phase 5B: durable, tamper-evident sink for security events. Every record is
 // signed with SECURITY_EVENT_LEDGER_SECRET and chained to its predecessor via
@@ -21,6 +24,163 @@ const isSecurityEventLedgerEnabled = () => (
 );
 
 const getLedgerSecret = () => String(process.env.SECURITY_EVENT_LEDGER_SECRET || '').trim();
+
+const PQC_MODES = new Set(['off', 'auto', 'require']);
+const PQC_SIGNATURE_CONTEXT = 'aura:security-event-ledger:v1';
+const PQC_REQUIRED_FROM_SEQ_ENV = 'SECURITY_EVENT_LEDGER_PQC_REQUIRED_FROM_SEQ';
+
+let ledgerPqcState = null;
+let ledgerPqcPrimingPromise = null;
+
+const resolveLedgerPqcMode = () => String(
+    process.env.SECURITY_EVENT_LEDGER_PQC_MODE || 'off'
+).trim().toLowerCase() || 'off';
+
+const resolveLedgerPqcSigningKeyRef = () => String(
+    process.env.SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF
+    || process.env.PQC_SIGNING_KEY_REF
+    || ''
+).trim();
+
+const resolveLedgerPqcPreviousKeyRefs = () => parseReferenceList(
+    process.env.SECURITY_EVENT_LEDGER_PQC_PREVIOUS_KEY_REFS
+    || process.env.PQC_SIGNING_PREVIOUS_KEY_REFS
+    || ''
+);
+
+const assertValidLedgerPqcMode = () => {
+    const mode = resolveLedgerPqcMode();
+    if (!PQC_MODES.has(mode)) {
+        throw new Error(
+            `SECURITY_EVENT_LEDGER_PQC_MODE=${mode} is invalid; use off, auto, or require`
+        );
+    }
+    return mode;
+};
+
+const computePqcSignedMessage = ({ seq, prevHash, hash, payload }) => canonicalize({
+    seq,
+    prevHash,
+    hash,
+    payload,
+});
+
+/**
+ * Load ledger signing keys once. `auto` signs when key material is present and
+ * degrades to the HMAC chain otherwise; `require` refuses to append unsigned.
+ * In `off` mode a configured key is still loaded for verification only.
+ */
+const primeSecurityEventLedgerPqc = async () => {
+    if (ledgerPqcState) return ledgerPqcState;
+    if (ledgerPqcPrimingPromise) return ledgerPqcPrimingPromise;
+
+    ledgerPqcPrimingPromise = (async () => {
+        const configuredMode = assertValidLedgerPqcMode();
+        const reference = resolveLedgerPqcSigningKeyRef();
+        const capabilities = getPqcCapabilities();
+
+        if (!reference) {
+            if (configuredMode === 'require') {
+                throw new Error(
+                    'SECURITY_EVENT_LEDGER_PQC_MODE=require requires SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF'
+                );
+            }
+            ledgerPqcState = {
+                configuredMode,
+                effectiveMode: 'off',
+                current: null,
+                previous: [],
+                unavailableReason: configuredMode === 'auto' ? 'no-key-reference' : null,
+                capabilities,
+            };
+            return ledgerPqcState;
+        }
+
+        if (!capabilities.algorithms.mlDsa.available) {
+            const reason = capabilities.reasons.join('; ') || 'ML-DSA is unavailable';
+            if (configuredMode === 'require') {
+                throw new Error(`Security ledger PQC mode require cannot start: ${reason}`);
+            }
+            ledgerPqcState = {
+                configuredMode,
+                effectiveMode: 'off',
+                current: null,
+                previous: [],
+                unavailableReason: reason,
+                capabilities,
+            };
+            logger.warn('security_ledger.pqc_unavailable', { mode: configuredMode, reason });
+            return ledgerPqcState;
+        }
+
+        try {
+            const registry = new PqcKeyRegistry({ logger });
+            const { current, previous } = await registry.loadRotated(
+                'hybrid-signature',
+                reference,
+                resolveLedgerPqcPreviousKeyRefs()
+            );
+            const effectiveMode = configuredMode === 'off' ? 'verify-only' : 'sign';
+            ledgerPqcState = {
+                configuredMode,
+                effectiveMode,
+                current,
+                previous,
+                registry,
+                unavailableReason: null,
+                capabilities,
+            };
+            logger.info('security_ledger.pqc_primed', {
+                configuredMode,
+                effectiveMode,
+                keyId: current.keyId,
+                keySource: current.source,
+                previousKeys: previous.length,
+            });
+            return ledgerPqcState;
+        } catch (error) {
+            if (configuredMode === 'require') {
+                throw new Error(`Security ledger PQC key material could not load: ${error.message}`);
+            }
+            ledgerPqcState = {
+                configuredMode,
+                effectiveMode: 'off',
+                current: null,
+                previous: [],
+                unavailableReason: error.message,
+                capabilities,
+            };
+            logger.warn('security_ledger.pqc_unavailable', { mode: configuredMode, reason: error.message });
+            return ledgerPqcState;
+        }
+    })();
+
+    try {
+        return await ledgerPqcPrimingPromise;
+    } finally {
+        ledgerPqcPrimingPromise = null;
+    }
+};
+
+const getSecurityLedgerPqcStatus = () => {
+    const capabilities = getPqcCapabilities();
+    return {
+        configuredMode: resolveLedgerPqcMode(),
+        effectiveMode: ledgerPqcState?.effectiveMode || 'off',
+        active: Boolean(ledgerPqcState?.current),
+        keyId: ledgerPqcState?.current?.keyId || null,
+        keySource: ledgerPqcState?.current?.source || null,
+        previousKeys: ledgerPqcState?.previous?.length || 0,
+        algorithm: 'Ed25519+ML-DSA-65',
+        unavailableReason: ledgerPqcState?.unavailableReason || null,
+        capabilities: {
+            available: capabilities.algorithms.mlDsa.available,
+            fullyAvailable: capabilities.fullyAvailable,
+            nodeVersion: capabilities.nodeVersion,
+            opensslVersion: capabilities.opensslVersion,
+        },
+    };
+};
 
 const canonicalize = (payload) => JSON.stringify(payload, Object.keys(payload || {}).sort());
 
@@ -45,6 +205,33 @@ const appendSecurityEventToLedger = async (event) => {
     }
 
     try {
+        // `require` must prove signing works before the atomic counter reserves
+        // a sequence number. Otherwise a blocked append advances `seq` without
+        // a record, which verifySecurityEventLedger reports as a chain gap.
+        const configuredMode = resolveLedgerPqcMode();
+        const shouldConsiderPqc = configuredMode !== 'off' || resolveLedgerPqcSigningKeyRef();
+        let prePrimedState = null;
+        if (configuredMode === 'require' || !PQC_MODES.has(configuredMode)) {
+            try {
+                prePrimedState = await primeSecurityEventLedgerPqc();
+                if (prePrimedState.effectiveMode !== 'sign' || !prePrimedState.current) {
+                    throw new Error(prePrimedState.unavailableReason || 'PQC signing key is not active');
+                }
+            } catch (error) {
+                logger.error('security_ledger.pqc_signing_blocked', {
+                    event: String(event?.event || ''),
+                    mode: configuredMode,
+                    error: error?.message || 'unknown',
+                });
+                return {
+                    enabled: true,
+                    appended: false,
+                    error: 'pqc_signing_unavailable',
+                    pqc: { mode: configuredMode, signed: false },
+                };
+            }
+        }
+
         const counter = await SecurityEventLedger.findOneAndUpdate(
             { _id: COUNTER_DOC_ID },
             { $inc: { seq: 1 } },
@@ -54,6 +241,49 @@ const appendSecurityEventToLedger = async (event) => {
         const prevHash = String(counter?.lastHash || '') || GENESIS_HASH;
         const { hash, signature } = computeRecordIntegrity({ seq, prevHash, payload: event });
 
+        // PQ signatures are an additive layer over the HMAC chain. `require`
+        // blocks the append instead of silently writing an unsigned record;
+        // `auto` falls back to the chain when key material is unavailable.
+        const pqcDoc = {};
+        let pqcOutcome = { mode: configuredMode, signed: false, keyId: null };
+        if (shouldConsiderPqc) {
+            try {
+                const state = prePrimedState || await primeSecurityEventLedgerPqc();
+                if (state.effectiveMode === 'sign' && state.current) {
+                    const signed = hybridSignature.sign(
+                        computePqcSignedMessage({ seq, prevHash, hash, payload: event }),
+                        state.current,
+                        { context: PQC_SIGNATURE_CONTEXT }
+                    );
+                    pqcDoc.pqcSignature = hybridSignature.serializeSignature(signed);
+                    pqcDoc.pqcKeyId = signed.keyId;
+                    pqcDoc.pqcAlgorithm = signed.alg;
+                    pqcOutcome = { mode: configuredMode, signed: true, keyId: signed.keyId };
+                } else if (configuredMode === 'require') {
+                    throw new Error(state.unavailableReason || 'PQC signing key is not active');
+                }
+            } catch (error) {
+                if (configuredMode === 'require' || !PQC_MODES.has(configuredMode)) {
+                    logger.error('security_ledger.pqc_signing_blocked', {
+                        event: String(event?.event || ''),
+                        mode: configuredMode,
+                        error: error?.message || 'unknown',
+                    });
+                    return {
+                        enabled: true,
+                        appended: false,
+                        error: 'pqc_signing_unavailable',
+                        pqc: { mode: configuredMode, signed: false },
+                    };
+                }
+                logger.warn('security_ledger.pqc_signing_fallback', {
+                    event: String(event?.event || ''),
+                    mode: configuredMode,
+                    error: error?.message || 'unknown',
+                });
+            }
+        }
+
         await SecurityEventLedger.create({
             seq,
             eventId: String(event?.requestId || '') + ':' + seq,
@@ -61,6 +291,7 @@ const appendSecurityEventToLedger = async (event) => {
             hash,
             signature,
             payload: event,
+            ...pqcDoc,
         });
 
         await SecurityEventLedger.findOneAndUpdate(
@@ -68,7 +299,7 @@ const appendSecurityEventToLedger = async (event) => {
             { $set: { lastHash: hash, seq } }
         );
 
-        return { enabled: true, appended: true, seq, hash };
+        return { enabled: true, appended: true, seq, hash, pqc: pqcOutcome };
     } catch (error) {
         logger.warn('security_ledger.append_failed', {
             event: String(event?.event || ''),
@@ -79,7 +310,8 @@ const appendSecurityEventToLedger = async (event) => {
 };
 
 // Replays the chain in sequence order and validates every link + signature.
-const verifySecurityEventLedger = async ({ limit = 10000 } = {}) => {
+const verifySecurityEventLedger = async (options = {}) => {
+    const limit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : 10000;
     const secret = getLedgerSecret();
     if (!secret) {
         return { verified: false, reason: 'secret_missing', checked: 0 };
@@ -92,6 +324,46 @@ const verifySecurityEventLedger = async ({ limit = 10000 } = {}) => {
 
     let prevHash = GENESIS_HASH;
     let previousSeq = 0;
+    let pqcChecked = 0;
+    let pqcUnsigned = 0;
+    const configuredMode = resolveLedgerPqcMode();
+    const hasPqcSignatures = records.some((record) => Boolean(record.pqcSignature));
+
+    // A record that carries a PQ signature must be checked: skipping it would
+    // turn the strongest layer into decoration. Load keys on demand so the
+    // verifier CLI works without a server boot.
+    if (hasPqcSignatures || configuredMode === 'require' || resolveLedgerPqcSigningKeyRef()) {
+        if (!PQC_MODES.has(configuredMode)) {
+            return {
+                verified: false,
+                reason: 'pqc_config_invalid',
+                checked: 0,
+                pqc: { mode: configuredMode, checked: 0, unsigned: records.length },
+            };
+        }
+        try {
+            await primeSecurityEventLedgerPqc();
+        } catch (error) {
+            if (hasPqcSignatures || configuredMode === 'require') {
+                return {
+                    verified: false,
+                    reason: 'pqc_key_unavailable',
+                    checked: 0,
+                    error: error?.message || 'unknown',
+                    pqc: { mode: configuredMode, checked: 0, unsigned: records.length },
+                };
+            }
+        }
+    }
+
+    const requiredFromRaw = options.pqcRequiredFromSeq
+        ?? process.env[PQC_REQUIRED_FROM_SEQ_ENV]
+        ?? 0;
+    const requiredFromSeq = Number.isFinite(Number(requiredFromRaw)) ? Number(requiredFromRaw) : 0;
+    const pqcKeys = ledgerPqcState?.current
+        ? [ledgerPqcState.current, ...(ledgerPqcState.previous || [])]
+        : [];
+
     for (const record of records) {
         if (Number(record.seq) !== previousSeq + 1) {
             return { verified: false, reason: 'sequence_gap', brokenAt: record.seq, checked: previousSeq };
@@ -105,11 +377,76 @@ const verifySecurityEventLedger = async ({ limit = 10000 } = {}) => {
                 checked: previousSeq,
             };
         }
+
+        if (record.pqcSignature) {
+            if (!pqcKeys.length) {
+                return {
+                    verified: false,
+                    reason: 'pqc_key_unavailable',
+                    brokenAt: record.seq,
+                    checked: previousSeq,
+                };
+            }
+            const message = computePqcSignedMessage({
+                seq: record.seq,
+                prevHash,
+                hash: record.hash,
+                payload: record.payload,
+            });
+            const preferred = pqcKeys.filter((key) => key.keyId === record.pqcKeyId);
+            const candidates = preferred.length ? preferred : pqcKeys;
+            let signatureValid = false;
+            for (const key of candidates) {
+                try {
+                    signatureValid = hybridSignature.verify(
+                        message,
+                        record.pqcSignature,
+                        key,
+                        { context: PQC_SIGNATURE_CONTEXT }
+                    ).valid;
+                } catch {
+                    signatureValid = false;
+                }
+                if (signatureValid) break;
+            }
+            if (!signatureValid) {
+                return {
+                    verified: false,
+                    reason: 'pqc_signature_mismatch',
+                    brokenAt: record.seq,
+                    checked: previousSeq,
+                    pqc: { mode: configuredMode, checked: pqcChecked, unsigned: pqcUnsigned },
+                };
+            }
+            pqcChecked += 1;
+        } else {
+            pqcUnsigned += 1;
+            if (configuredMode === 'require' && requiredFromSeq > 0 && Number(record.seq) >= requiredFromSeq) {
+                return {
+                    verified: false,
+                    reason: 'pqc_signature_missing',
+                    brokenAt: record.seq,
+                    checked: previousSeq,
+                    pqc: { mode: configuredMode, checked: pqcChecked, unsigned: pqcUnsigned },
+                };
+            }
+        }
+
         prevHash = record.hash;
         previousSeq = record.seq;
     }
 
-    return { verified: true, checked: previousSeq, headHash: prevHash };
+    return {
+        verified: true,
+        checked: previousSeq,
+        headHash: prevHash,
+        pqc: {
+            mode: configuredMode,
+            active: Boolean(ledgerPqcState?.current),
+            checked: pqcChecked,
+            unsigned: pqcUnsigned,
+        },
+    };
 };
 
 module.exports = {
@@ -118,6 +455,10 @@ module.exports = {
     appendSecurityEventToLedger,
     canonicalize,
     computeRecordIntegrity,
+    computePqcSignedMessage,
     isSecurityEventLedgerEnabled,
+    primeSecurityEventLedgerPqc,
+    resolveLedgerPqcMode,
+    getSecurityLedgerPqcStatus,
     verifySecurityEventLedger,
 };
