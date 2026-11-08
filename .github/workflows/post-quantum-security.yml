@@ -147,6 +147,64 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  pqc-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Run PQC primitive and integration tests
+        run: node scripts/run-test-tier.cjs server pqc --forceExit
+
+      - name: Verify default-safe runtime status
+        run: npm run security:pqc:runtime:strict
+
+      - name: Verify configured runtime with generated keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pqc-smoke"
+          node scripts/security/pqc-keygen.mjs --type hybrid-kem --out "$RUNNER_TEMP/pqc-smoke/field-kem.json"
+          node scripts/security/pqc-keygen.mjs --type hybrid-signature --out "$RUNNER_TEMP/pqc-smoke/ledger-signing.json"
+          FIELD_ENCRYPTION_ENABLED=true \
+          FIELD_ENCRYPTION_PQC_MODE=key-wrap \
+          FIELD_ENCRYPTION_PQC_KEM_KEY_REF="file:$RUNNER_TEMP/pqc-smoke/field-kem.json" \
+          SECURITY_EVENT_LEDGER_ENABLED=true \
+          SECURITY_EVENT_LEDGER_PQC_MODE=require \
+          SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF="file:$RUNNER_TEMP/pqc-smoke/ledger-signing.json" \
+          npm run security:pqc:runtime:strict
+
+      - name: Generate CBOM
+        run: npm run security:pqc:cbom:strict
+
+      - name: Upload PQC runtime and CBOM reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: pqc-runtime-cbom
+          path: |
+            reports/security/cbom.json
+            reports/security/cbom.md
+            reports/security/pqc-runtime-status.json
+            reports/security/pqc-runtime-status.md
+          if-no-files-found: warn
+          retention-days: 14
+
   semgrep-pqc:
     runs-on: ubuntu-latest
     timeout-minutes: 25
