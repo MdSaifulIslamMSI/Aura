@@ -75,6 +75,7 @@ const shouldCopyToScannerSource = (relativePath) => {
     'desktop-release/',
     'generated/',
     'output/',
+    'packages/supply-chain-gates/test/fixtures/',
     'server/data/',
     'server/uploads/',
   ].some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix));
