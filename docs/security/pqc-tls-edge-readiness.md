@@ -15,7 +15,7 @@ TLS 1.3 hardening is production-ready for Aura-controlled edge configurations to
 - OQS Provider experiments.
 - liboqs proxy experiments.
 - PQ certificate chains not accepted by mainstream browser/WebPKI clients.
-- Any custom app-level protocol wrapper.
+- Any custom TLS protocol wrapper or non-standard PQ handshake.
 
 ## Verification
 
