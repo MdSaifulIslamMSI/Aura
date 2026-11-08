@@ -143,7 +143,9 @@
     "test-exclude": "^8.0.0",
     "undici": "8.12.3",
     "uuid": "^14.0.0",
-    "ws": "^8.20.1"
+    "ws": "^8.20.1",
+    "@isaacs/nonrecursive-glob-match": "1.0.3",
+    "minimatch": "11.0.3"
   },
   "devDependencies": {
     "@babel/core": "^8.0.7",
