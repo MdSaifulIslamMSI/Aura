@@ -17,7 +17,7 @@ const logger = require('../utils/logger');
 //
 // Idempotent: already-encrypted and empty values are skipped, safe to re-run.
 // Usage:
-//   node scripts/backfill-field-encryption.js --dry-run   # counts only
+//   node server/scripts/backfill-field-encryption.js --dry-run   # counts only
 // Requires FIELD_ENCRYPTION_ENABLED=true and key material (KMS in production,
 // FIELD_ENCRYPTION_MASTER_KEY outside production).
 
