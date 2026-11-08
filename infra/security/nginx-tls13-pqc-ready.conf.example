@@ -7,6 +7,10 @@ server {
 
     ssl_protocols TLSv1.3;
     ssl_prefer_server_ciphers off;
+    # OpenSSL 3.5+ exposes the standardized hybrid group as X25519MLKEM768.
+    # Keep X25519 as an ordered fallback for clients that do not yet offer the
+    # hybrid group. Verify with scripts/security/tls-posture-probe.cjs.
+    ssl_ecdh_curve X25519MLKEM768:X25519;
     ssl_session_timeout 1d;
     ssl_session_cache shared:AURA_TLS:10m;
     ssl_session_tickets off;

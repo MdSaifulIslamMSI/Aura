@@ -37,6 +37,12 @@ const PROBE_VERSIONS = ['TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3'];
 const LEGACY_VERSIONS = new Set(['TLSv1', 'TLSv1.1']);
 const VERSION_RANK = Object.fromEntries(PROBE_VERSIONS.map((v, i) => [v, i]));
 
+// TLS 1.3 hybrid group standardized by IETF/OpenSSL. OpenSSL 3.5 exposes it as
+// `X25519MLKEM768`. A pure-group probe distinguishes a server that actually
+// selected the hybrid from one that merely tolerated the offer and fell back.
+const PQC_HYBRID_GROUP = 'X25519MLKEM768';
+const PQC_HYBRID_FALLBACK_GROUP = 'X25519MLKEM768:X25519';
+
 const loadPostureConfig = (root = defaultRoot) => JSON.parse(
     fs.readFileSync(path.join(root, CONFIG_RELATIVE), 'utf8')
 );
@@ -66,6 +72,92 @@ const CERTIFICATE_ERROR_CODES = new Set([
 const isCertificateVerificationError = (error) => (
     Boolean(error) && CERTIFICATE_ERROR_CODES.has(String(error.code || ''))
 );
+
+/** TLS 1.3 handshake restricted to one key-exchange group. */
+const probeTls13Group = (host, group, timeoutMs = 15000) => new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+    };
+    let socket;
+    try {
+        socket = tls.connect({
+            host,
+            port: 443,
+            servername: host,
+            rejectUnauthorized: true,
+            checkServerIdentity: () => undefined,
+            minVersion: 'TLSv1.3',
+            maxVersion: 'TLSv1.3',
+            ecdhCurve: group,
+        }, () => {
+            const cipher = typeof socket.getCipher === 'function' ? socket.getCipher() : null;
+            const ephemeral = typeof socket.getEphemeralKeyInfo === 'function'
+                ? socket.getEphemeralKeyInfo()
+                : null;
+            const protocol = socket.getProtocol();
+            socket.destroy();
+            finish({
+                accepted: true,
+                protocol,
+                cipher: cipher ? cipher.name : null,
+                ephemeral,
+            });
+        });
+    } catch (error) {
+        finish({ accepted: false, errorCode: error.code || error.message });
+        return;
+    }
+    socket.setTimeout(timeoutMs, () => {
+        socket.destroy();
+        finish({ accepted: false, errorCode: 'ETIMEDOUT' });
+    });
+    socket.on('error', (error) => finish(isCertificateVerificationError(error)
+        ? { accepted: true, certificateError: error.code }
+        : { accepted: false, errorCode: error.code || error.message }));
+});
+
+/**
+ * Measure whether an edge actually selects hybrid X25519+ML-KEM-768.
+ *
+ * A pure `X25519MLKEM768` handshake succeeds only when the server selects the
+ * hybrid group. If that fails but the ordered fallback succeeds, the edge
+ * offers hybrid but negotiated classical X25519 - a materially different
+ * posture that a generic "TLS 1.3 works" check cannot see.
+ */
+const probeHybridKex = async (host, timeoutMs = 15000) => {
+    const pure = await probeTls13Group(host, PQC_HYBRID_GROUP, timeoutMs);
+    if (pure.accepted) {
+        return {
+            status: 'hybrid-accepted',
+            group: PQC_HYBRID_GROUP,
+            protocol: pure.protocol || null,
+            cipher: pure.cipher || null,
+        };
+    }
+    const fallback = await probeTls13Group(host, PQC_HYBRID_FALLBACK_GROUP, timeoutMs);
+    if (fallback.accepted) {
+        return {
+            status: 'classical-fallback',
+            group: PQC_HYBRID_FALLBACK_GROUP,
+            protocol: fallback.protocol || null,
+            cipher: fallback.cipher || null,
+            pureGroupError: pure.errorCode || null,
+        };
+    }
+    return {
+        status: pure.errorCode === 'ETIMEDOUT' || fallback.errorCode === 'ETIMEDOUT'
+            ? 'timeout'
+            : 'unsupported',
+        group: null,
+        protocol: null,
+        cipher: null,
+        pureGroupError: pure.errorCode || null,
+        fallbackError: fallback.errorCode || null,
+    };
+};
 
 /** Live TLS probe for one host. Never throws; every outcome is a string. */
 const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) => {
@@ -106,12 +198,33 @@ const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) =>
     socket.on('error', (error) => finish(isCertificateVerificationError(error) ? 'accepted' : 'rejected'));
 });
 
-const probeEdge = async (edge, { timeoutMs = 15000, probe = probeHost } = {}) => {
+const probeEdge = async (edge, { timeoutMs = 15000, probe = probeHost, pqcProbe } = {}) => {
     const results = {};
     for (const version of PROBE_VERSIONS) {
         results[version] = await probe(edge.host, version, timeoutMs); // eslint-disable-line no-await-in-loop
     }
     const accepted = PROBE_VERSIONS.filter((v) => results[v] === 'accepted');
+
+    // Existing unit tests inject a classical version probe. They must not hit
+    // the network for the PQ leg, so only auto-enable the real hybrid probe
+    // when the caller did not substitute the default probe.
+    const hybridProbe = pqcProbe !== undefined
+        ? pqcProbe
+        : (probe === probeHost ? probeHybridKex : null);
+    let pqc = {
+        status: 'not-probed',
+        group: null,
+        protocol: null,
+        cipher: null,
+    };
+    if (hybridProbe) {
+        try {
+            pqc = await hybridProbe(edge.host, timeoutMs);
+        } catch (error) {
+            pqc = { status: 'error', group: null, error: error?.message || 'unknown' };
+        }
+    }
+
     return {
         label: edge.label,
         host: edge.host,
@@ -120,11 +233,15 @@ const probeEdge = async (edge, { timeoutMs = 15000, probe = probeHost } = {}) =>
         // this the declared expectation is dropped and the regression check in
         // evaluatePosture becomes unreachable.
         minExpected: edge.minExpected,
+        pqcHybridKexExpected: edge.pqcHybridKexExpected === true,
         results,
         accepted,
         minimum: accepted[0] || null,
         acceptsLegacy: accepted.some((v) => LEGACY_VERSIONS.has(v)),
         tls13Available: accepted.includes('TLSv1.3'),
+        pqcKex: pqc.status,
+        pqcGroup: pqc.group || null,
+        pqc,
     };
 };
 
@@ -175,6 +292,29 @@ const evaluatePosture = (edges, config) => {
                 message: `${edge.host} floor is ${edge.minimum}, stronger than the expected ${edge.minExpected}.`,
             });
         }
+
+        if (requirements.requirePqcHybridKex && edge.pqcKex !== 'hybrid-accepted') {
+            findings.push({
+                severity: 'blocker',
+                code: 'pqc_hybrid_kex_unavailable',
+                edge: edge.host,
+                message: `${edge.host} did not select hybrid X25519+ML-KEM-768 (measured: ${edge.pqcKex}).`,
+            });
+        } else if (edge.pqcHybridKexExpected && edge.pqcKex === 'classical-fallback') {
+            findings.push({
+                severity: 'warning',
+                code: 'pqc_hybrid_kex_fallback',
+                edge: edge.host,
+                message: `${edge.host} offers hybrid X25519+ML-KEM-768 but negotiated the classical X25519 fallback. Provider-side group preference, not an application regression.`,
+            });
+        } else if (edge.pqcHybridKexExpected && edge.pqcKex === 'unsupported') {
+            findings.push({
+                severity: 'warning',
+                code: 'pqc_hybrid_kex_unsupported',
+                edge: edge.host,
+                message: `${edge.host} did not accept hybrid X25519+ML-KEM-768. Re-check after the next provider TLS change.`,
+            });
+        }
     }
 
     const blockers = findings.filter((f) => f.severity === 'blocker');
@@ -185,6 +325,9 @@ const evaluatePosture = (edges, config) => {
             blockers: blockers.length,
             legacyTlsEdges: edges.filter((e) => e.acceptsLegacy).length,
             tls13Available: edges.filter((e) => e.tls13Available).length,
+            pqcHybridEdges: edges.filter((e) => e.pqcKex === 'hybrid-accepted').length,
+            pqcFallbackEdges: edges.filter((e) => e.pqcKex === 'classical-fallback').length,
+            pqcNotProbedEdges: edges.filter((e) => e.pqcKex === 'not-probed').length,
         },
         findings,
         edges,
@@ -205,12 +348,13 @@ const renderPostureMarkdown = (result) => {
         `- Edges measured: ${result.summary.edges}`,
         `- TLS 1.3 available: ${result.summary.tls13Available}/${result.summary.edges}`,
         `- Edges accepting legacy TLS: ${result.summary.legacyTlsEdges}`,
+        `- PQ hybrid X25519+ML-KEM-768 selected: ${result.summary.pqcHybridEdges}/${result.summary.edges} (classical fallback: ${result.summary.pqcFallbackEdges}, not measured: ${result.summary.pqcNotProbedEdges})`,
         '',
-        '| Edge | Host | Provider | Measured floor | TLS 1.3 | Legacy TLS |',
-        '| --- | --- | --- | --- | --- | --- |',
+        '| Edge | Host | Provider | Measured floor | TLS 1.3 | PQ KEX | Legacy TLS |',
+        '| --- | --- | --- | --- | --- | --- | --- |',
     ];
     for (const edge of result.edges) {
-        lines.push(`| ${edge.label} | \`${edge.host}\` | ${edge.provider} | ${edge.minimum || 'none'} | ${edge.tls13Available ? 'yes' : 'NO'} | ${edge.acceptsLegacy ? '**YES**' : 'no'} |`);
+        lines.push(`| ${edge.label} | \`${edge.host}\` | ${edge.provider} | ${edge.minimum || 'none'} | ${edge.tls13Available ? 'yes' : 'NO'} | ${edge.pqcKex || 'not measured'} | ${edge.acceptsLegacy ? '**YES**' : 'no'} |`);
     }
     lines.push('');
     if (result.findings.length) {
@@ -223,11 +367,11 @@ const renderPostureMarkdown = (result) => {
     return `${lines.join('\n')}\n`;
 };
 
-const runPostureProbe = async ({ root = defaultRoot, timeoutMs = 15000, probe = probeHost } = {}) => {
+const runPostureProbe = async ({ root = defaultRoot, timeoutMs = 15000, probe = probeHost, pqcProbe } = {}) => {
     const config = loadPostureConfig(root);
     const edges = [];
     for (const edge of config.edges || []) {
-        edges.push(await probeEdge(edge, { timeoutMs, probe })); // eslint-disable-line no-await-in-loop
+        edges.push(await probeEdge(edge, { timeoutMs, probe, pqcProbe })); // eslint-disable-line no-await-in-loop
     }
     return { config, ...evaluatePosture(edges, config) };
 };
@@ -246,9 +390,9 @@ const main = async () => {
 
     for (const edge of result.edges) {
         const legacy = edge.acceptsLegacy ? '  **LEGACY TLS ACCEPTED**' : '';
-        console.log(`  ${edge.host.padEnd(46)} floor=${String(edge.minimum || 'none').padEnd(8)} tls13=${edge.tls13Available ? 'yes ' : 'NO  '}${legacy}`);
+        console.log(`  ${edge.host.padEnd(46)} floor=${String(edge.minimum || 'none').padEnd(8)} tls13=${edge.tls13Available ? 'yes ' : 'NO  '} pqc-kex=${String(edge.pqcKex || 'not-measured').padEnd(18)}${legacy}`);
     }
-    console.log(`[tls-edge-posture] ${result.status}: ${result.summary.edges} edge(s), ${result.summary.tls13Available} with TLS 1.3, ${result.summary.legacyTlsEdges} accepting legacy TLS, ${result.summary.blockers} blocker(s).`);
+    console.log(`[tls-edge-posture] ${result.status}: ${result.summary.edges} edge(s), ${result.summary.tls13Available} with TLS 1.3, ${result.summary.pqcHybridEdges} selecting hybrid PQ KEX, ${result.summary.pqcFallbackEdges} classical fallback, ${result.summary.legacyTlsEdges} accepting legacy TLS, ${result.summary.blockers} blocker(s).`);
     if (result.status === 'fail') process.exit(1);
 };
 
@@ -262,7 +406,11 @@ if (require.main === module) {
 module.exports = {
     PROBE_VERSIONS,
     LEGACY_VERSIONS,
+    PQC_HYBRID_GROUP,
+    PQC_HYBRID_FALLBACK_GROUP,
     probeHost,
+    probeTls13Group,
+    probeHybridKex,
     probeEdge,
     evaluatePosture,
     loadPostureConfig,
