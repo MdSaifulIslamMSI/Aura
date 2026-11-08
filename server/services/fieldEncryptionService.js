@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const { deriveAes256GcmKey } = require('../utils/cryptoKdf');
 const logger = require('../utils/logger');
+const { getPqcCapabilities } = require('../security/pqc/algorithms');
+const hybridKem = require('../security/pqc/hybridKem');
+const { PqcKeyRegistry, parseReferenceList } = require('../security/pqc/keyRegistry');
 
 // Envelope encryption for sensitive fields at rest.
 //
@@ -25,6 +28,16 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const DEK_BYTES = 32;
 
+// PQC additions are additive and default-off. v1 ciphertext remains readable
+// forever; PQ modes write self-describing records so a later mode change never
+// strands data.
+const PQC_RECORD_PREFIX = 'pqc1.';
+const KEY_WRAP_VERSION = 'v2';
+const KEY_WRAP_KIND = 'kw';
+const PQC_FIELD_CONTEXT = 'aura:field-encryption:record';
+const PQC_WRAP_CONTEXT = 'aura:field-encryption:dek-wrap';
+const PQC_MODES = new Set(['off', 'auto', 'key-wrap', 'per-record', 'require']);
+
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
     const normalized = String(value).trim().toLowerCase();
@@ -36,12 +49,189 @@ const isProduction = () => process.env.NODE_ENV === 'production';
 let kmsDataKey = null; // { keyVersion, key (Buffer) }
 let previousKeys = new Map(); // keyVersion -> Buffer
 let primingPromise = null;
+let pqcState = null; // { configuredMode, effectiveMode, current, previous, registry, wrapState, ... }
 
 const isFieldEncryptionEnabled = () => parseBoolean(process.env.FIELD_ENCRYPTION_ENABLED, false);
 
 const resolveKmsKeyId = () => String(process.env.FIELD_ENCRYPTION_KMS_KEY_ID || '').trim();
 
 const resolveLocalMasterKey = () => String(process.env.FIELD_ENCRYPTION_MASTER_KEY || '').trim();
+
+const resolvePqcMode = () => String(process.env.FIELD_ENCRYPTION_PQC_MODE || 'off').trim().toLowerCase() || 'off';
+
+const resolvePqcKemKeyRef = () => String(
+    process.env.FIELD_ENCRYPTION_PQC_KEM_KEY_REF || process.env.PQC_KEM_KEY_REF || ''
+).trim();
+
+const resolvePqcPreviousKeyRefs = () => {
+    const value = process.env.FIELD_ENCRYPTION_PQC_KEM_PREVIOUS_KEY_REFS
+        || process.env.PQC_KEM_PREVIOUS_KEY_REFS
+        || '';
+    return parseReferenceList(value);
+};
+
+const isPqcHardMode = (mode = resolvePqcMode()) => ['key-wrap', 'per-record', 'require'].includes(mode);
+
+const assertValidPqcMode = () => {
+    const mode = resolvePqcMode();
+    if (!PQC_MODES.has(mode)) {
+        throw new Error(
+            `FIELD_ENCRYPTION_PQC_MODE=${mode} is invalid; use off, auto, key-wrap, per-record, or require`
+        );
+    }
+    return mode;
+};
+
+const assertPqcConfiguration = () => {
+    const mode = assertValidPqcMode();
+    if (mode === 'off' || mode === 'auto') return;
+    if (!resolvePqcKemKeyRef()) {
+        throw new Error(
+            `FIELD_ENCRYPTION_PQC_MODE=${mode} requires FIELD_ENCRYPTION_PQC_KEM_KEY_REF `
+            + '(file:/path/key.json, ssm:/parameter/name, or an inline JSON key record)'
+        );
+    }
+    if (!getPqcCapabilities().algorithms.mlKem.available) {
+        throw new Error(
+            `FIELD_ENCRYPTION_PQC_MODE=${mode} requires native ML-KEM support. `
+            + 'Run on Node.js 24.7+ with OpenSSL 3.5+.'
+        );
+    }
+};
+
+/**
+ * Load PQC KEM material once. `auto` degrades to classical v1 when the runtime
+ * or key material is unavailable; every explicit PQ mode fails closed.
+ */
+const primePqcState = async () => {
+    const configuredMode = assertValidPqcMode();
+    const reference = resolvePqcKemKeyRef();
+    const capabilities = getPqcCapabilities();
+
+    if (!reference) {
+        pqcState = {
+            configuredMode,
+            effectiveMode: 'off',
+            current: null,
+            previous: [],
+            unavailableReason: configuredMode === 'auto' ? 'no-key-reference' : null,
+            capabilities,
+        };
+        return pqcState;
+    }
+
+    if (!capabilities.algorithms.mlKem.available) {
+        const reason = capabilities.reasons.join('; ') || 'ML-KEM is unavailable';
+        if (isPqcHardMode(configuredMode)) {
+            throw new Error(`Field encryption PQC mode ${configuredMode} cannot start: ${reason}`);
+        }
+        pqcState = {
+            configuredMode,
+            effectiveMode: 'off',
+            current: null,
+            previous: [],
+            unavailableReason: reason,
+            capabilities,
+        };
+        logger.warn('field_encryption.pqc_unavailable', { mode: configuredMode, reason });
+        return pqcState;
+    }
+
+    try {
+        const registry = new PqcKeyRegistry({ logger });
+        const { current, previous } = await registry.loadRotated(
+            'hybrid-kem',
+            reference,
+            resolvePqcPreviousKeyRefs()
+        );
+        const effectiveMode = configuredMode === 'auto' || configuredMode === 'require'
+            ? 'per-record'
+            : configuredMode;
+        pqcState = {
+            configuredMode,
+            effectiveMode,
+            current,
+            previous,
+            registry,
+            unavailableReason: null,
+            capabilities,
+        };
+        logger.info('field_encryption.pqc_primed', {
+            configuredMode,
+            effectiveMode,
+            keyId: current.keyId,
+            keySource: current.source,
+            previousKeys: previous.length,
+        });
+        return pqcState;
+    } catch (error) {
+        if (configuredMode === 'auto' || configuredMode === 'off') {
+            pqcState = {
+                configuredMode,
+                effectiveMode: 'off',
+                current: null,
+                previous: [],
+                unavailableReason: error.message,
+                capabilities,
+            };
+            logger.warn('field_encryption.pqc_unavailable', { mode: configuredMode, reason: error.message });
+            return pqcState;
+        }
+        throw new Error(`Field encryption PQC mode ${configuredMode} could not load key material: ${error.message}`);
+    }
+};
+
+const requirePqcCurrentKey = () => {
+    if (!pqcState?.current) {
+        throw new Error('Field encryption PQC key material is not primed; call primeFieldEncryption() first');
+    }
+    return pqcState.current;
+};
+
+const getPqcDecryptKeys = () => {
+    if (!pqcState?.current) return [];
+    return [pqcState.current, ...(pqcState.previous || [])];
+};
+
+const ensurePqcWrapState = () => {
+    const current = requirePqcCurrentKey();
+    if (pqcState.wrapState && pqcState.wrapState.keyId === current.keyId) {
+        return pqcState.wrapState;
+    }
+    const dek = crypto.randomBytes(DEK_BYTES);
+    const wrappedToken = hybridKem.wrapDataKey(dek, {
+        publicKeyRecord: current,
+        context: PQC_WRAP_CONTEXT,
+    });
+    pqcState.wrapState = { keyId: current.keyId, dek, wrappedToken };
+    return pqcState.wrapState;
+};
+
+const buildKeyWrapAad = (wrappedToken) => Buffer.from(
+    `aura:field-encryption:key-wrap:v1|${wrappedToken}`,
+    'utf8'
+);
+
+const getPqcStatus = () => {
+    const capabilities = getPqcCapabilities();
+    return {
+        configuredMode: resolvePqcMode(),
+        effectiveMode: pqcState?.effectiveMode || 'off',
+        active: Boolean(pqcState?.current),
+        decryptOnly: Boolean(pqcState?.current && pqcState.effectiveMode === 'off'),
+        keyId: pqcState?.current?.keyId || null,
+        keySource: pqcState?.current?.source || null,
+        previousKeys: pqcState?.previous?.length || 0,
+        algorithm: 'X25519+ML-KEM-768',
+        unavailableReason: pqcState?.unavailableReason || null,
+        capabilities: {
+            available: capabilities.algorithms.mlKem.available,
+            fullyAvailable: capabilities.fullyAvailable,
+            nodeVersion: capabilities.nodeVersion,
+            opensslVersion: capabilities.opensslVersion,
+        },
+    };
+};
 
 const buildPreviousKeys = () => {
     const map = new Map();
@@ -98,14 +288,15 @@ const normalizeLegacyKeyMaterial = (material) => crypto.scryptSync(
 
 const assertEnablementContract = () => {
     if (!isFieldEncryptionEnabled()) return;
-    if (resolveKmsKeyId()) return;
-    if (resolveLocalMasterKey()) {
+    if (!resolveKmsKeyId()) {
+        if (!resolveLocalMasterKey()) {
+            throw new Error('FIELD_ENCRYPTION_ENABLED requires FIELD_ENCRYPTION_KMS_KEY_ID (or FIELD_ENCRYPTION_MASTER_KEY outside production)');
+        }
         if (isProduction()) {
             throw new Error('FIELD_ENCRYPTION_MASTER_KEY is not allowed in production; configure FIELD_ENCRYPTION_KMS_KEY_ID');
         }
-        return;
     }
-    throw new Error('FIELD_ENCRYPTION_ENABLED requires FIELD_ENCRYPTION_KMS_KEY_ID (or FIELD_ENCRYPTION_MASTER_KEY outside production)');
+    assertPqcConfiguration();
 };
 
 // The wrapped DEK is persisted (KMS-encrypted, never plaintext) so every boot
@@ -193,11 +384,15 @@ const loadLocalDataKey = () => normalizeKeyMaterial(resolveLocalMasterKey());
 
 const nextKeyVersion = () => `k${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`;
 
-// Prime the in-memory DEK. Idempotent and safe to call at every startup.
+// Prime the in-memory DEK and PQC key material. Idempotent and safe to call at
+// every startup.
 const primeFieldEncryption = async () => {
     assertEnablementContract();
-    if (!isFieldEncryptionEnabled()) return { enabled: false };
-    if (kmsDataKey) return { enabled: true, cached: true, keyVersion: kmsDataKey.keyVersion };
+    if (!isFieldEncryptionEnabled()) return { enabled: false, pqc: getPqcStatus() };
+    if (kmsDataKey) {
+        if (!pqcState) await primePqcState();
+        return { enabled: true, cached: true, keyVersion: kmsDataKey.keyVersion, pqc: getPqcStatus() };
+    }
     if (primingPromise) return primingPromise;
 
     primingPromise = (async () => {
@@ -223,8 +418,13 @@ const primeFieldEncryption = async () => {
             }
         }
         kmsDataKey = { keyVersion, key };
-        logger.info('field_encryption.primed', { keyVersion, provider: resolveKmsKeyId() ? 'kms' : 'local' });
-        return { enabled: true, keyVersion };
+        await primePqcState();
+        logger.info('field_encryption.primed', {
+            keyVersion,
+            provider: resolveKmsKeyId() ? 'kms' : 'local',
+            pqcMode: pqcState?.effectiveMode || 'off',
+        });
+        return { enabled: true, keyVersion, pqc: getPqcStatus() };
     })();
 
     try {
@@ -243,11 +443,7 @@ const requireKeyMaterial = () => {
 
 const b64url = (buffer) => Buffer.from(buffer).toString('base64url');
 
-const encrypt = (plaintext) => {
-    if (plaintext === undefined || plaintext === null || plaintext === '') return plaintext;
-    if (typeof plaintext !== 'string') plaintext = String(plaintext);
-    if (!isFieldEncryptionEnabled()) return plaintext;
-
+const encryptClassical = (plaintext) => {
     const { key, keyVersion } = requireKeyMaterial();
     const iv = crypto.randomBytes(IV_BYTES);
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES });
@@ -262,6 +458,56 @@ const encrypt = (plaintext) => {
     ].join('.');
 };
 
+// Key-wrap mode keeps one random DEK per process and embeds its PQ-wrapped
+// form in every record. Old records stay readable after a restart or key
+// rotation because the wrapped DEK travels with the ciphertext, so no extra
+// secret store or migration is required.
+const encryptWithKeyWrap = (plaintext) => {
+    const wrap = ensurePqcWrapState();
+    const iv = crypto.randomBytes(IV_BYTES);
+    const cipher = crypto.createCipheriv('aes-256-gcm', wrap.dek, iv, { authTagLength: TAG_BYTES });
+    cipher.setAAD(buildKeyWrapAad(wrap.wrappedToken));
+    let encrypted = cipher.update(plaintext, 'utf8');
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return [
+        KEY_WRAP_VERSION,
+        KEY_WRAP_KIND,
+        b64url(wrap.wrappedToken),
+        b64url(iv),
+        b64url(cipher.getAuthTag()),
+        b64url(encrypted),
+    ].join('.');
+};
+
+const encryptWithPqc = (plaintext) => {
+    try {
+        requirePqcCurrentKey();
+        if (pqcState.effectiveMode === 'key-wrap') return encryptWithKeyWrap(plaintext);
+        return hybridKem.sealToken(plaintext, {
+            publicKeyRecord: pqcState.current,
+            context: PQC_FIELD_CONTEXT,
+        });
+    } catch (error) {
+        if (pqcState?.configuredMode === 'auto') {
+            logger.warn('field_encryption.pqc_encrypt_fallback', { reason: error.message });
+            return encryptClassical(plaintext);
+        }
+        throw error;
+    }
+};
+
+const encrypt = (plaintext) => {
+    if (plaintext === undefined || plaintext === null || plaintext === '') return plaintext;
+    if (typeof plaintext !== 'string') plaintext = String(plaintext);
+    if (!isFieldEncryptionEnabled()) return plaintext;
+
+    const effectiveMode = pqcState?.effectiveMode || 'off';
+    if (effectiveMode === 'per-record' || effectiveMode === 'key-wrap') {
+        return encryptWithPqc(plaintext);
+    }
+    return encryptClassical(plaintext);
+};
+
 const decryptWithKey = (ciphertext, key) => {
     const [, , ivRaw, tagRaw, ctRaw] = ciphertext.split('.');
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivRaw, 'base64url'), {
@@ -271,9 +517,59 @@ const decryptWithKey = (ciphertext, key) => {
     return Buffer.concat([decipher.update(Buffer.from(ctRaw, 'base64url')), decipher.final()]).toString('utf8');
 };
 
+const decryptPqcRecord = (ciphertext) => {
+    const seen = new Set();
+    for (const key of getPqcDecryptKeys()) {
+        if (!key?.keyId || seen.has(key.keyId)) continue;
+        seen.add(key.keyId);
+        try {
+            return hybridKem.openToken(ciphertext, {
+                privateKeyRecord: key,
+                context: PQC_FIELD_CONTEXT,
+            });
+        } catch {
+            // Wrong key, tampered record, or wrong context. Try the next key.
+        }
+    }
+    return null;
+};
+
+const decryptKeyWrap = (ciphertext) => {
+    const parts = ciphertext.split('.');
+    if (parts.length !== 6) return null;
+    const [version, kind, wrappedRaw, ivRaw, tagRaw, ctRaw] = parts;
+    if (version !== KEY_WRAP_VERSION || kind !== KEY_WRAP_KIND || !wrappedRaw || !ivRaw || !tagRaw || !ctRaw) {
+        return null;
+    }
+    const wrappedToken = Buffer.from(wrappedRaw, 'base64url').toString('utf8');
+    const seen = new Set();
+    for (const key of getPqcDecryptKeys()) {
+        if (!key?.keyId || seen.has(key.keyId)) continue;
+        seen.add(key.keyId);
+        try {
+            const dek = hybridKem.unwrapDataKey(wrappedToken, {
+                privateKeyRecord: key,
+                context: PQC_WRAP_CONTEXT,
+            });
+            const decipher = crypto.createDecipheriv('aes-256-gcm', dek, Buffer.from(ivRaw, 'base64url'), {
+                authTagLength: TAG_BYTES,
+            });
+            decipher.setAAD(buildKeyWrapAad(wrappedToken));
+            decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+            return Buffer.concat([decipher.update(Buffer.from(ctRaw, 'base64url')), decipher.final()]).toString('utf8');
+        } catch {
+            // Wrong key or tampered envelope; try the next key.
+        }
+    }
+    return null;
+};
+
 const decrypt = (ciphertext) => {
     if (ciphertext === undefined || ciphertext === null || ciphertext === '') return ciphertext;
     if (typeof ciphertext !== 'string') return ciphertext;
+
+    if (ciphertext.startsWith(PQC_RECORD_PREFIX)) return decryptPqcRecord(ciphertext);
+    if (ciphertext.startsWith(`${KEY_WRAP_VERSION}.${KEY_WRAP_KIND}.`)) return decryptKeyWrap(ciphertext);
     if (!ciphertext.startsWith(`${FORMAT_VERSION}.`)) return ciphertext; // legacy plaintext (dual-read)
 
     const [version, keyVersionRaw, ivRaw, tagRaw, ctRaw] = ciphertext.split('.');
@@ -304,7 +600,11 @@ const decrypt = (ciphertext) => {
     return null;
 };
 
-const isEncrypted = (value) => typeof value === 'string' && value.startsWith(`${FORMAT_VERSION}.`);
+const isEncrypted = (value) => typeof value === 'string' && (
+    value.startsWith(`${FORMAT_VERSION}.`)
+    || value.startsWith(PQC_RECORD_PREFIX)
+    || value.startsWith(`${KEY_WRAP_VERSION}.${KEY_WRAP_KIND}.`)
+);
 
 const isPrimed = () => Boolean(kmsDataKey);
 
@@ -338,6 +638,7 @@ const getFieldEncryptionStatus = () => {
         plaintextAtRest: !enabled,
         // True when production is knowingly running without encryption at rest.
         acknowledgedPlaintextAtRest: isProduction() && !enabled && explicitPlaintextOverride,
+        pqc: getPqcStatus(),
     };
 };
 
@@ -363,7 +664,7 @@ const assertFieldEncryptionProductionReadiness = () => {
     if (status.acknowledgedPlaintextAtRest) {
         logger.error('field_encryption.plaintext_at_rest_acknowledged', {
             reason: 'ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION is set; PII fields are stored in plaintext',
-            remediation: 'Set FIELD_ENCRYPTION_ENABLED=true with FIELD_ENCRYPTION_KMS_KEY_ID, then run scripts/backfill-field-encryption.js',
+            remediation: 'Set FIELD_ENCRYPTION_ENABLED=true with FIELD_ENCRYPTION_KMS_KEY_ID, then run server/scripts/backfill-field-encryption.js',
         });
         return status;
     }
@@ -371,7 +672,7 @@ const assertFieldEncryptionProductionReadiness = () => {
     throw new Error(
         'Production refuses to start with encryption at rest disabled. '
         + 'Set FIELD_ENCRYPTION_ENABLED=true and configure FIELD_ENCRYPTION_KMS_KEY_ID '
-        + '(then run `node scripts/backfill-field-encryption.js --dry-run`), '
+        + '(then run `node server/scripts/backfill-field-encryption.js --dry-run`), '
         + 'or explicitly acknowledge plaintext at rest with ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION=true.'
     );
 };
@@ -386,4 +687,6 @@ module.exports = {
     assertFieldEncryptionConfig,
     assertFieldEncryptionProductionReadiness,
     getFieldEncryptionStatus,
+    resolvePqcMode,
+    getPqcStatus,
 };
