@@ -59,6 +59,11 @@ rules:
     paths:
       exclude:
         - tests/fixtures/security/pqc/**
+        # Reviewed runtime hybrid KEM: crypto.diffieHellman is the native
+        # X25519 leg of X25519+ML-KEM-768, and the X25519 secret is combined
+        # with the ML-KEM secret via HKDF-SHA256. This is not custom DH;
+        # round-trip and tamper coverage lives in pqcPrimitives.test.js.
+        - server/security/pqc/hybridKem.js
 
   - id: nodejs-md5
     message: Do not add MD5 usage. Use modern integrity/signature primitives and document legacy exceptions with expiring allowlists.

@@ -4,7 +4,8 @@
   "requirements": {
     "rejectLegacyTls": true,
     "requireTls13Available": true,
-    "comment": "A TLS 1.3 minimum is deliberately NOT required. Every edge below is measured at a TLS 1.2 floor with 1.3 available; requiring 1.3 here would be a gate no real edge could satisfy, which is the same silent-pass as skipping the check, only dressed as a failure."
+    "requirePqcHybridKex": false,
+    "comment": "A TLS 1.3 minimum is deliberately NOT required. Every edge below is measured at a TLS 1.2 floor with 1.3 available; requiring 1.3 here would be a gate no real edge could satisfy, which is the same silent-pass as skipping the check, only dressed as a failure. Hybrid PQ key exchange is measured per edge but not required globally: selection is provider-controlled, and one edge is known to negotiate the classical fallback. Set requirePqcHybridKex=true only after every measured edge selects X25519MLKEM768."
   },
   "edges": [
     {
@@ -13,28 +14,35 @@
       "owner": "provider",
       "provider": "AWS CloudFront",
       "minExpected": "TLSv1.2",
-      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). MinimumProtocolVersion is not honoured on CloudFrontDefaultCertificate distributions - CloudFront enforces its own 1.2 floor. Verified by probing, not by reading config."
+      "pqcHybridKexExpected": true,
+      "note": "Fronts the backend API (AURA_BACKEND_ORIGIN). MinimumProtocolVersion is not honoured on CloudFrontDefaultCertificate distributions - CloudFront enforces its own 1.2 floor. Verified by probing, not by reading config. Measured 2026-11: pure X25519MLKEM768 handshake accepted."
     },
     {
       "label": "storefront (Vercel)",
       "host": "aurapilot.vercel.app",
       "owner": "provider",
       "provider": "Vercel",
-      "minExpected": "TLSv1.2"
+      "minExpected": "TLSv1.2",
+      "pqcHybridKexExpected": true,
+      "note": "Measured 2026-11: pure X25519MLKEM768 handshake accepted."
     },
     {
       "label": "gateway (Vercel)",
       "host": "aura-gateway.vercel.app",
       "owner": "provider",
       "provider": "Vercel",
-      "minExpected": "TLSv1.2"
+      "minExpected": "TLSv1.2",
+      "pqcHybridKexExpected": true,
+      "note": "Measured 2026-11: pure X25519MLKEM768 handshake accepted."
     },
     {
       "label": "storefront (Netlify)",
       "host": "aurapilot.netlify.app",
       "owner": "provider",
       "provider": "Netlify",
-      "minExpected": "TLSv1.2"
+      "minExpected": "TLSv1.2",
+      "pqcHybridKexExpected": false,
+      "note": "Measured 2026-11: pure X25519MLKEM768 rejected; ordered X25519MLKEM768:X25519 fallback accepted and selected X25519. Provider currently does not select hybrid on this edge."
     }
   ]
 }
