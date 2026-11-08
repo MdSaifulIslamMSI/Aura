@@ -514,6 +514,13 @@
       "tests/trafficPolicyRegistry.test.js",
       "tests/trafficResponseSmoothness.test.js"
     ],
+    "pqc": [
+      "tests/pqcPrimitives.test.js",
+      "tests/fieldEncryptionPqc.test.js",
+      "tests/securityEventLedgerPqc.test.js",
+      "tests/securityEventLedgerHeadModel.test.js",
+      "tests/tlsPostureProbe.test.js"
+    ],
     "noDbFiles": [
       "s3HttpsPolicy.test.js",
       "httpServerTimeouts.test.js",

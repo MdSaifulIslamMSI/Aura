@@ -33,7 +33,7 @@ The reusable S3 remediation is `node scripts/security/enforce-s3-https.mjs --hel
 - OQS Provider experiments.
 - liboqs proxy experiments.
 - PQ certificate chains not accepted by mainstream browser/WebPKI clients.
-- Any custom app-level protocol wrapper.
+- Any custom TLS protocol wrapper or non-standard PQ handshake.
 
 ## Verification
 

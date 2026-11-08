@@ -104,6 +104,17 @@ duo_redirect_uri="$(ssm_get_optional DUO_REDIRECT_URI)"
 duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
 cloudfront_origin_verify_secret="$(ssm_get_optional AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET)"
+field_encryption_pqc_mode="$(ssm_get_optional FIELD_ENCRYPTION_PQC_MODE)"
+field_encryption_pqc_kem_key_ref="$(ssm_get_optional FIELD_ENCRYPTION_PQC_KEM_KEY_REF)"
+field_encryption_pqc_kem_previous_key_refs="$(ssm_get_optional FIELD_ENCRYPTION_PQC_KEM_PREVIOUS_KEY_REFS)"
+field_encryption_enabled="$(ssm_get_optional FIELD_ENCRYPTION_ENABLED)"
+field_encryption_kms_key_id="$(ssm_get_optional FIELD_ENCRYPTION_KMS_KEY_ID)"
+security_event_ledger_pqc_mode="$(ssm_get_optional SECURITY_EVENT_LEDGER_PQC_MODE)"
+security_event_ledger_pqc_signing_key_ref="$(ssm_get_optional SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF)"
+security_event_ledger_pqc_previous_key_refs="$(ssm_get_optional SECURITY_EVENT_LEDGER_PQC_PREVIOUS_KEY_REFS)"
+security_event_ledger_pqc_required_from_seq="$(ssm_get_optional SECURITY_EVENT_LEDGER_PQC_REQUIRED_FROM_SEQ)"
+security_event_ledger_enabled="$(ssm_get_optional SECURITY_EVENT_LEDGER_ENABLED)"
+security_event_ledger_secret="$(ssm_get_optional SECURITY_EVENT_LEDGER_SECRET)"
 order_email_provider=null
 otp_email_fail_closed=true
 gmail_user=
@@ -299,6 +310,19 @@ ENV
 if staging_admin_security_requires_isolated_firebase; then
   append_env_if_set FIREBASE_SERVICE_ACCOUNT "$firebase_service_account"
 fi
+# PQC stays absent unless explicitly provisioned, so an unconfigured staging
+# deployment keeps the default-safe classical behavior.
+append_env_if_set FIELD_ENCRYPTION_PQC_MODE "$field_encryption_pqc_mode"
+append_env_if_set FIELD_ENCRYPTION_PQC_KEM_KEY_REF "$field_encryption_pqc_kem_key_ref"
+append_env_if_set FIELD_ENCRYPTION_PQC_KEM_PREVIOUS_KEY_REFS "$field_encryption_pqc_kem_previous_key_refs"
+append_env_if_set FIELD_ENCRYPTION_ENABLED "$field_encryption_enabled"
+append_env_if_set FIELD_ENCRYPTION_KMS_KEY_ID "$field_encryption_kms_key_id"
+append_env_if_set SECURITY_EVENT_LEDGER_PQC_MODE "$security_event_ledger_pqc_mode"
+append_env_if_set SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF "$security_event_ledger_pqc_signing_key_ref"
+append_env_if_set SECURITY_EVENT_LEDGER_PQC_PREVIOUS_KEY_REFS "$security_event_ledger_pqc_previous_key_refs"
+append_env_if_set SECURITY_EVENT_LEDGER_PQC_REQUIRED_FROM_SEQ "$security_event_ledger_pqc_required_from_seq"
+append_env_if_set SECURITY_EVENT_LEDGER_ENABLED "$security_event_ledger_enabled"
+append_env_if_set SECURITY_EVENT_LEDGER_SECRET "$security_event_ledger_secret"
 append_env_if_set DUO_ENABLED "$duo_enabled"
 append_env_if_set DUO_CLIENT_ID "$duo_client_id"
 append_env_if_set DUO_CLIENT_SECRET "$duo_client_secret"
