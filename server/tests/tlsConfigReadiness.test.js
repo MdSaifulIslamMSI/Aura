@@ -135,7 +135,7 @@ describe('TLS config readiness checker', () => {
     });
 
     test('passes a valid IAM custom certificate with the modern viewer policy', () => {
-        const { ACMCertificateArn, ...viewer } = modernViewerCertificate;
+        const { ACMCertificateArn: _ACMCertificateArn, ...viewer } = modernViewerCertificate;
         const { result, report } = runConfig({ ViewerCertificate: { ...viewer, IAMCertificateId: 'test-certificate' } });
         expect(result.status).toBe(0);
         expect(minimumCheck(report).status).toBe('pass');
@@ -212,7 +212,7 @@ describe('TLS config readiness checker', () => {
     });
 
     test('does not use an allowed origin enum as proof of the viewer TLS 1.3 minimum', () => {
-        const { ViewerCertificate, ...config } = withOriginProtocols(['TLSv1.2']);
+        const { ViewerCertificate: _ViewerCertificate, ...config } = withOriginProtocols(['TLSv1.2']);
         const scan = runConfig(config);
         expectMinimumFailure(scan);
         expect(originCheck(scan.report).status).toBe('pass');
