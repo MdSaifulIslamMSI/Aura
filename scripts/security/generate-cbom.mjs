@@ -618,7 +618,7 @@ const renderMarkdown = ({ bom, checks, summary }) => {
     '',
     '| Status | Check | Detail |',
     '| --- | --- | --- |',
-    ...checks.map((entry) => `| ${entry.status} | ${entry.id} | ${String(entry.detail).replace(/\|/g, '\\|')} |`),
+    ...checks.map((entry) => `| ${entry.status} | ${entry.id} | ${String(entry.detail).replace(/\\/g, '\\\\').replace(/\|/g, '\\|')} |`),
     '',
   ].join('\n');
 };

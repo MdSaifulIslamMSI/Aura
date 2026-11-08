@@ -9,7 +9,6 @@ const {
     loadKemKeyRecord,
     publicKemKeysFromRecord,
     fromBase64Url,
-    toBase64Url,
 } = require('./keyMaterial');
 
 // Hybrid KEM envelope, application layer.

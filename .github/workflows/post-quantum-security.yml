@@ -169,14 +169,7 @@ jobs:
         run: npm --prefix server ci
 
       - name: Run PQC primitive and integration tests
-        run: >-
-          npm --prefix server test --
-          --runTestsByPath
-          tests/pqcPrimitives.test.js
-          tests/fieldEncryptionPqc.test.js
-          tests/securityEventLedgerPqc.test.js
-          tests/tlsPostureProbe.test.js
-          --forceExit
+        run: node scripts/run-test-tier.cjs server pqc --forceExit
 
       - name: Verify default-safe runtime status
         run: npm run security:pqc:runtime:strict

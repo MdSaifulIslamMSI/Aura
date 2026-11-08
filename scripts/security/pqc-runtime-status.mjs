@@ -422,7 +422,7 @@ const buildReport = async (options) => {
 
 const renderMarkdown = (report) => {
   const rows = report.checks.map((entry) => (
-    `| ${entry.status} | ${entry.id} | ${entry.title} | ${String(entry.detail || '').replace(/\|/g, '\\|')} |`
+    `| ${entry.status} | ${entry.id} | ${entry.title} | ${String(entry.detail || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|')} |`
   ));
   return [
     '# PQC Runtime Status',

@@ -98,14 +98,13 @@ const classifyReference = (reference) => {
     );
 };
 
-const assertPrivateKeyFilePermissions = (filePath) => {
+const assertPrivateKeyFilePermissions = (filePath, stat = fs.statSync(filePath)) => {
     if (process.platform === 'win32') {
         // Windows does not expose POSIX permission bits; ACL inspection is left
         // to the deployment platform. The file is still required to live outside
         // a world-readable static directory by the reference policy below.
         return { checked: false, reason: 'windows-acl-not-inspected' };
     }
-    const stat = fs.statSync(filePath);
     const mode = stat.mode & 0o777;
     if (mode & 0o077) {
         throw new Error(
@@ -117,12 +116,21 @@ const assertPrivateKeyFilePermissions = (filePath) => {
 
 const readFileReference = (filePath, { requirePrivate }) => {
     const resolved = path.resolve(expandHome(filePath));
-    const stat = fs.statSync(resolved);
-    if (!stat.isFile()) throw new Error(`PQC key reference ${resolved} is not a regular file`);
-    const text = fs.readFileSync(resolved, 'utf8');
+    // Stat and read through one descriptor so a swap between the isFile check
+    // and the read cannot substitute a different file.
+    const fd = fs.openSync(resolved, 'r');
+    let text;
+    let stat;
+    try {
+        stat = fs.fstatSync(fd);
+        if (!stat.isFile()) throw new Error(`PQC key reference ${resolved} is not a regular file`);
+        text = fs.readFileSync(fd, 'utf8');
+    } finally {
+        fs.closeSync(fd);
+    }
     let permissionCheck = { checked: false, reason: 'public-only-key' };
     if (requirePrivate && /"privateKey"\s*:/.test(text)) {
-        permissionCheck = assertPrivateKeyFilePermissions(resolved);
+        permissionCheck = assertPrivateKeyFilePermissions(resolved, stat);
     }
     return {
         text,
