@@ -4,7 +4,7 @@ const { generateHybridSigningKey } = require('../security/pqc/keyMaterial');
 
 const mockLedgerState = { seq: 0, lastHash: '', records: [] };
 
-jest.mock('../models/SecurityEventLedger', () => ({
+jest.mock('../models/SecurityEventLedgerHead', () => ({
     findOneAndUpdate: jest.fn(async (query, update) => {
         const returningNew = Boolean(update && update.options && update.options.new);
         const previous = { _id: query._id, seq: mockLedgerState.seq, lastHash: mockLedgerState.lastHash };
@@ -15,6 +15,9 @@ jest.mock('../models/SecurityEventLedger', () => ({
             ? { _id: query._id, seq: mockLedgerState.seq, lastHash: mockLedgerState.lastHash }
             : previous;
     }),
+}));
+
+jest.mock('../models/SecurityEventLedger', () => ({
     create: jest.fn(async (doc) => {
         mockLedgerState.records.push(doc);
         return doc;

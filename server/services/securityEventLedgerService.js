@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const SecurityEventLedger = require('../models/SecurityEventLedger');
+const SecurityEventLedgerHead = require('../models/SecurityEventLedgerHead');
 const logger = require('../utils/logger');
 const { getPqcCapabilities } = require('../security/pqc/algorithms');
 const hybridSignature = require('../security/pqc/hybridSignature');
@@ -232,7 +233,7 @@ const appendSecurityEventToLedger = async (event) => {
             }
         }
 
-        const counter = await SecurityEventLedger.findOneAndUpdate(
+        const counter = await SecurityEventLedgerHead.findOneAndUpdate(
             { _id: COUNTER_DOC_ID },
             { $inc: { seq: 1 } },
             { upsert: true, new: false, setDefaultsOnInsert: true }
@@ -294,7 +295,7 @@ const appendSecurityEventToLedger = async (event) => {
             ...pqcDoc,
         });
 
-        await SecurityEventLedger.findOneAndUpdate(
+        await SecurityEventLedgerHead.findOneAndUpdate(
             { _id: COUNTER_DOC_ID },
             { $set: { lastHash: hash, seq } }
         );
