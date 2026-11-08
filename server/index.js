@@ -125,6 +125,11 @@ const {
     assertFieldEncryptionProductionReadiness,
     getFieldEncryptionStatus,
 } = require('./services/fieldEncryptionService');
+const {
+    primeSecurityEventLedgerPqc,
+    resolveLedgerPqcMode,
+    getSecurityLedgerPqcStatus,
+} = require('./services/securityEventLedgerService');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
 const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
@@ -1022,6 +1027,11 @@ const logCryptoPolicyAtStartup = () => {
             policyVersion: policy.policyVersion,
             minimumTlsVersion: policy.minimumTlsVersion,
             allowedSymmetricCrypto: policy.allowedSymmetricCrypto,
+            runtimePqc: policy.runtimePqc ? {
+                hybridKem: policy.runtimePqc.hybridKem,
+                hybridSignature: policy.runtimePqc.hybridSignature,
+                defaultMode: policy.runtimePqc.defaultMode,
+            } : undefined,
         });
     } catch (error) {
         logger.warn('crypto_policy.unavailable', { reason: error.message });
@@ -1036,7 +1046,7 @@ const logFieldEncryptionPostureAtStartup = () => {
         logger.error('field_encryption.plaintext_at_rest', {
             mode: status.mode,
             acknowledged: status.acknowledgedPlaintextAtRest,
-            remediation: 'FIELD_ENCRYPTION_ENABLED=true + FIELD_ENCRYPTION_KMS_KEY_ID, then backfill-field-encryption.js',
+            remediation: 'FIELD_ENCRYPTION_ENABLED=true + FIELD_ENCRYPTION_KMS_KEY_ID, then run server/scripts/backfill-field-encryption.js',
         });
         return;
     }
@@ -1044,7 +1054,28 @@ const logFieldEncryptionPostureAtStartup = () => {
         mode: status.mode,
         provider: status.provider,
         primed: status.primed,
+        pqc: status.pqc,
     });
+};
+
+const logSecurityLedgerPqcPostureAtStartup = () => {
+    const status = getSecurityLedgerPqcStatus();
+    if (status.configuredMode === 'off' && !status.active) return;
+    const payload = {
+        configuredMode: status.configuredMode,
+        effectiveMode: status.effectiveMode,
+        active: status.active,
+        algorithm: status.algorithm,
+        keyId: status.keyId,
+        keySource: status.keySource,
+        previousKeys: status.previousKeys,
+        unavailableReason: status.unavailableReason,
+    };
+    if (status.configuredMode === 'require' && !status.active) {
+        logger.error('security_ledger.pqc_posture', payload);
+        return;
+    }
+    logger.info('security_ledger.pqc_posture', payload);
 };
 
 if (require.main === module) {
@@ -1079,6 +1110,9 @@ assertProductionRedisConfig();
         if (isFieldEncryptionEnabled()) {
             await primeFieldEncryption();
         }
+        if (resolveLedgerPqcMode() !== 'off' || process.env.SECURITY_EVENT_LEDGER_PQC_SIGNING_KEY_REF) {
+            await primeSecurityEventLedgerPqc();
+        }
         await initRedis();
 
         // Async startup tasks (Catalog, Workers) will run in the background.
@@ -1088,6 +1122,7 @@ assertProductionRedisConfig();
             logger.info('server.startup_bind_success', { port: PORT, env: NODE_ENV });
             logCryptoPolicyAtStartup();
             logFieldEncryptionPostureAtStartup();
+            logSecurityLedgerPqcPostureAtStartup();
 
             try {
                 startFxRateScheduler();

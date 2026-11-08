@@ -6,6 +6,9 @@
  * production gate that closes that hole.
  */
 
+const fs = require('fs');
+const path = require('path');
+
 const loadService = () => {
     jest.resetModules();
     return require('../services/fieldEncryptionService');
@@ -100,6 +103,21 @@ describe('fieldEncryption production readiness', () => {
             expect(() => loadService().assertFieldEncryptionProductionReadiness()).toThrow(
                 /FIELD_ENCRYPTION_KMS_KEY_ID[\s\S]*ALLOW_PLAINTEXT_AT_REST_IN_PRODUCTION/
             );
+        });
+
+        test('remediation points at the real backfill script', () => {
+            process.env.NODE_ENV = 'production';
+            clearCryptoEnv();
+
+            let message = '';
+            try {
+                loadService().assertFieldEncryptionProductionReadiness();
+            } catch (error) {
+                message = error.message;
+            }
+
+            expect(message).toContain('server/scripts/backfill-field-encryption.js');
+            expect(fs.existsSync(path.join(__dirname, '..', 'scripts', 'backfill-field-encryption.js'))).toBe(true);
         });
 
         test('does not throw when the override is explicitly set', () => {
