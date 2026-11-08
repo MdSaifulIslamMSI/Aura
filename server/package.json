@@ -125,7 +125,10 @@
     "fast-uri": "4.2.3",
     "fast-xml-builder": "^1.2.0",
     "gaxios": "^7.1.4",
-    "glob": "^13.0.6",
+    "glob": {
+      ".": "14.0.3",
+      "minimatch": "11.0.3"
+    },
     "google-gax": "^5.0.6",
     "http-proxy-agent": "^7.0.2",
     "ip-address": "10.7.4",
@@ -141,7 +144,8 @@
     "test-exclude": "^8.0.0",
     "undici": "8.12.3",
     "uuid": "^14.0.0",
-    "ws": "^8.20.1"
+    "ws": "^8.20.1",
+    "@isaacs/nonrecursive-glob-match": "1.0.3"
   },
   "devDependencies": {
     "@babel/core": "^8.0.7",
