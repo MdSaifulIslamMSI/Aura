@@ -9,6 +9,11 @@ const securityEventLedgerSchema = new mongoose.Schema({
     prevHash: { type: String, required: true },
     hash: { type: String, required: true, index: true },
     signature: { type: String, required: true },
+    // Additive hybrid PQC layer. Records written before PQC rollout omit these
+    // fields and remain valid under the HMAC-only chain (dual-read).
+    pqcSignature: { type: String, required: false },
+    pqcKeyId: { type: String, required: false, index: true },
+    pqcAlgorithm: { type: String, required: false },
     payload: { type: mongoose.Schema.Types.Mixed, required: true },
 }, { timestamps: true });
 

@@ -101,4 +101,46 @@ describe('production TLS edge posture', () => {
     test('probes versions weakest-first so the first hit is the true minimum', () => {
         expect(PROBE_VERSIONS).toEqual(['TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3']);
     });
+
+    test('records hybrid PQ key exchange without failing when it is not required', async () => {
+        const good = { 'edge.test': ['TLSv1.2', 'TLSv1.3'] };
+        const measured = await probeEdge(edge('edge.test'), {
+            probe: fakeProbe(good),
+            pqcProbe: async () => ({ status: 'hybrid-accepted', group: 'X25519MLKEM768' }),
+        });
+        const result = evaluatePosture([measured], config());
+
+        expect(measured.pqcKex).toBe('hybrid-accepted');
+        expect(result.status).toBe('pass');
+        expect(result.summary.pqcHybridEdges).toBe(1);
+    });
+
+    test('reports a provider classical fallback as a warning, not a blocker', async () => {
+        const good = { 'edge.test': ['TLSv1.2', 'TLSv1.3'] };
+        const measured = await probeEdge({ ...edge('edge.test'), pqcHybridKexExpected: true }, {
+            probe: fakeProbe(good),
+            pqcProbe: async () => ({ status: 'classical-fallback', group: 'X25519MLKEM768:X25519' }),
+        });
+        const result = evaluatePosture([measured], config());
+
+        expect(result.status).toBe('pass');
+        expect(result.findings.map((f) => f.code)).toContain('pqc_hybrid_kex_fallback');
+        expect(result.summary.pqcFallbackEdges).toBe(1);
+    });
+
+    test('fails a PQ-required edge that negotiates only classical key exchange', async () => {
+        const good = { 'edge.test': ['TLSv1.2', 'TLSv1.3'] };
+        const measured = await probeEdge(edge('edge.test'), {
+            probe: fakeProbe(good),
+            pqcProbe: async () => ({ status: 'unsupported', group: null }),
+        });
+        const pqcRequired = {
+            ...config(),
+            requirements: { ...config().requirements, requirePqcHybridKex: true },
+        };
+        const result = evaluatePosture([measured], pqcRequired);
+
+        expect(result.status).toBe('fail');
+        expect(result.findings.map((f) => f.code)).toContain('pqc_hybrid_kex_unavailable');
+    });
 });
