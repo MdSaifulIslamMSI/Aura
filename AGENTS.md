@@ -173,6 +173,11 @@ gh run view <run-id> --repo MdSaifulIslamMSI/Aura --log-failed
 
 ## 6. Verification Ladder
 
+- Folder integrity: run `npm run folder:check:strict` in the canonical folder
+  before claiming done. It fails when `HEAD` is behind `origin/main`,
+  `node_modules` is missing/stale, another worktree exists, or a stash holds
+  work elsewhere; a local pre-push hook runs the same gate. Use `--offline`
+  only when the network is unavailable, and never weaken the gate to pass.
 - Instruction-only changes: inspect `AGENTS.md`, and confirm every referenced script actually exists.
 - Frontend behavior: run targeted Vitest tests, then `npm --prefix app run build` for broad UI/config changes.
 - Frontend E2E or visual flows: run the relevant Playwright test or browser smoke check.
