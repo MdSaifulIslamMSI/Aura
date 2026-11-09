@@ -75,6 +75,19 @@ test('registry: tarball path not matching name@version fails', () => {
     assert.match(result.errors[0], /tarball path does not match lodash@4\.18\.0/);
 });
 
+test('registry: declared bundleDependencies inherit the parent tarball instead of a registry URL', () => {
+    const result = checkRegistry({ lockfiles: [fixture('registry', 'bundled', 'package-lock.json')] });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.errors, []);
+    assert.match(result.logs[0], /1 registry entr\(ies\) verified/);
+});
+
+test('registry: inBundle without a parent bundleDependencies declaration still fails', () => {
+    const result = checkRegistry({ lockfiles: [fixture('registry', 'bundled-unclaimed', 'package-lock.json')] });
+    assert.equal(result.ok, false);
+    assert.match(result.errors[0], /bundled-dep" does not resolve over HTTPS.*\(no resolved URL\)/);
+});
+
 // ---------------------------------------------------------------- freshness
 
 const NOW = Date.parse('2026-10-04T12:00:00.000Z');

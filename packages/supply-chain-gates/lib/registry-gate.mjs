@@ -36,12 +36,33 @@ export const checkRegistry = ({ lockfiles, registryHost = DEFAULT_REGISTRY_HOST,
             continue;
         }
         const lock = JSON.parse(readFileSyncImpl(lockfilePath, 'utf8'));
+        const packages = lock.packages || {};
+
+        // `inBundle` entries are shipped inside an ancestor's tarball: npm
+        // records no independent resolved URL or integrity for them, so there
+        // is no registry fetch to validate. The ancestor entry is still
+        // validated below, and its sha512 covers the bundled code. Require the
+        // ancestor to actually declare the dependency as bundled so a
+        // hand-added `inBundle` flag cannot skip validation.
+        const bundledPaths = new Set();
+        for (const [parentPath, parentEntry] of Object.entries(packages)) {
+            const declared = Array.isArray(parentEntry?.bundleDependencies)
+                ? parentEntry.bundleDependencies
+                : Array.isArray(parentEntry?.bundledDependencies)
+                    ? parentEntry.bundledDependencies
+                    : [];
+            const prefix = parentPath ? `${parentPath}/` : '';
+            for (const name of declared) {
+                bundledPaths.add(`${prefix}node_modules/${name}`);
+            }
+        }
 
         let checked = 0;
-        for (const [entryPath, entry] of Object.entries(lock.packages || {})) {
+        for (const [entryPath, entry] of Object.entries(packages)) {
             // The root entry and link-target entries outside node_modules carry no
             // tarball; only installed packages are validated.
             if (!entryPath || !entryPath.startsWith('node_modules/') || entry.link === true) continue;
+            if (entry.inBundle === true && !entry.resolved && bundledPaths.has(entryPath)) continue;
             const declaredName = typeof entry.name === 'string' && entry.name
                 ? entry.name
                 : entryPath.split('node_modules/').pop();
