@@ -13,6 +13,13 @@ const clampPositiveInt = (value, fallback, min, max) => {
 const getPoolMaxConnections = () => clampPositiveInt(process.env.GMAIL_POOL_MAX_CONNECTIONS, 3, 1, 10);
 const getPoolMaxMessages = () => clampPositiveInt(process.env.GMAIL_POOL_MAX_MESSAGES, 100, 10, 1000);
 
+// Gmail returns 535 for a wrong password *and* for transient per-account SMTP
+// auth throttling. One rejected login is not proof the credential is dead.
+const isGmailAuthRejection = (error) => {
+    const code = String(error?.code || '').toUpperCase();
+    return code === 'EAUTH' || Number(error?.responseCode || 0) === 535;
+};
+
 class GmailProvider extends BaseEmailProvider {
     constructor({
         user,
@@ -32,11 +39,12 @@ class GmailProvider extends BaseEmailProvider {
             throw new AppError('Gmail provider credentials are missing', 500);
         }
 
-        this.transporter = nodemailer.createTransport({
+        this.transporter = this.createTransporter({ pooled: true });
+    }
+
+    createTransporter({ pooled }) {
+        const options = {
             service: 'gmail',
-            pool: true,
-            maxConnections: getPoolMaxConnections(),
-            maxMessages: getPoolMaxMessages(),
             // nodemailer sockets have no default timeout; without these a wedged
             // SMTP connection holds the claimed order-email queue slot until the
             // stale-lock reaper runs.
@@ -47,7 +55,29 @@ class GmailProvider extends BaseEmailProvider {
                 user: this.user,
                 pass: this.pass,
             },
-        });
+        };
+        if (pooled) {
+            options.pool = true;
+            // Pool defaults stay small for Gmail's per-account connection
+            // limits; raise via env on dedicated sending accounts only.
+            options.maxConnections = getPoolMaxConnections();
+            options.maxMessages = getPoolMaxMessages();
+        }
+        return nodemailer.createTransport(options);
+    }
+
+    buildResult(info, meta) {
+        return {
+            provider: this.name,
+            providerMessageId: info.messageId || '',
+            response: {
+                accepted: info.accepted || [],
+                rejected: info.rejected || [],
+                response: info.response || '',
+                envelope: info.envelope || {},
+                meta,
+            },
+        };
     }
 
     // eslint-disable-next-line class-methods-use-this
@@ -96,18 +126,24 @@ class GmailProvider extends BaseEmailProvider {
                 ...(this.replyTo ? { replyTo: this.replyTo } : {}),
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            return {
-                provider: this.name,
-                providerMessageId: info.messageId || '',
-                response: {
-                    accepted: info.accepted || [],
-                    rejected: info.rejected || [],
-                    response: info.response || '',
-                    envelope: info.envelope || {},
-                    meta,
-                },
-            };
+            try {
+                const info = await this.transporter.sendMail(mailOptions);
+                return this.buildResult(info, meta);
+            } catch (error) {
+                if (!isGmailAuthRejection(error)) {
+                    throw error;
+                }
+                // A pooled connection can be the thing that failed auth. Retry
+                // once on a fresh, non-pooled connection before classifying the
+                // credential as dead and returning a 503 to the user.
+                const retryTransporter = this.createTransporter({ pooled: false });
+                try {
+                    const info = await retryTransporter.sendMail(mailOptions);
+                    return this.buildResult(info, meta);
+                } finally {
+                    retryTransporter.close();
+                }
+            }
         } catch (error) {
             const normalized = this.normalizeError(error);
             const wrapped = new AppError(
