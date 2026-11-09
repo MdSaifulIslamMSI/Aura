@@ -11,13 +11,16 @@ durable Mongo ledger: `server/models/SecurityEventLedger.js` +
 `server/services/securityEventLedgerService.js`.
 
 - Each record carries `seq`, `prevHash`, `hash`, `signature`. The chain head
-  (`seq` + `lastHash`) lives in one counter document updated atomically
-  (`findOneAndUpdate`), so concurrent writers can never fork the chain.
+  (`seq` + `lastHash`) lives in one counter document. Reserving `seq`,
+  inserting the record, and advancing `lastHash` run in one transaction
+  (`readConcern: snapshot`, `writeConcern: majority`), so concurrent writers
+  cannot fork the chain.
 - `hash` and `signature` are HMAC-SHA256 (`SECURITY_EVENT_LEDGER_SECRET`)
   over `seq|prevHash|canonicalPayload` and `...|hash` respectively.
 - Editing, deleting, or reordering records in the database breaks the chain;
   `server/scripts/verify-security-event-ledger.mjs` replays and validates it
-  (exit 1 on tampering, gap, or misconfiguration).
+  (exit 1 on tampering, gap, or misconfiguration). Run it manually; no
+  schedule is configured.
 - Flag: `SECURITY_EVENT_LEDGER_ENABLED=true` + `SECURITY_EVENT_LEDGER_SECRET`.
   Off by default; append is fire-and-forget and never changes request outcomes.
 - Limitation, stated honestly: an attacker who compromises the *app runtime*
