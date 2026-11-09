@@ -5,6 +5,14 @@
 //
 // Usage: node server/scripts/verify-security-event-ledger.mjs [--limit N]
 
+import { createRequire } from 'node:module';
+
+// This file is ESM (.mjs) because the operational runbooks invoke it directly,
+// but the ledger service and its model are CommonJS. createRequire bridges the
+// two; without it Node throws "require is not defined in ES module scope" and
+// the scheduled integrity check exits before touching the database.
+const require = createRequire(import.meta.url);
+
 const mongoose = require('mongoose');
 const { verifySecurityEventLedger } = require('../services/securityEventLedgerService');
 
