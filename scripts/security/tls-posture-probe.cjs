@@ -1,22 +1,8 @@
 #!/usr/bin/env node
-// Measures the real TLS posture of every production edge and gates only what is
-// actually enforceable from this repository.
-//
-// Why this exists: config/security/post-quantum-policy.json used to assert
-// `"minimumTlsVersion": "TLSv1.3"` as if the repo controlled it. It does not.
-// Every production hostname is platform-assigned (cloudfront.net, vercel.app,
-// netlify.app, up.railway.app), so:
-//
-//   * ACM validation requires proving control of a domain. None of these zones
-//     belong to this project, so a custom certificate - the only way to change
-//     a CloudFront viewer minimum - cannot be issued at all.
-//   * The protocol floor is set by each provider, not by this repo.
-//
-// Asserting TLS 1.3 in a policy file was therefore an unverifiable claim, and
-// the TLS checker skipped CDN configs entirely rather than confront it. This
-// probe replaces the claim with measurement: it asserts the two things that are
-// both real and enforceable - no edge regresses into legacy TLS, and TLS 1.3
-// stays available - and records the measured floor without pretending to own it.
+// Measures negotiated TLS versions at production edges and checks declared policy.
+// Certificate/client/network failures are inconclusive, not proof of TLS rejection.
+// Remediation controls depend on the TLS terminator and provider configuration;
+// hostname ownership alone does not establish which controls are available.
 //
 // CommonJS on purpose: the server jest suite requires this module directly, and
 // the suite's transform does not handle ESM.
@@ -32,10 +18,14 @@ const tls = require('tls');
 const defaultRoot = path.resolve(__dirname, '..', '..');
 const CONFIG_RELATIVE = 'config/security/tls-edge-posture.json';
 
-// Ordered weakest first, so the first ACCEPTED is the effective minimum.
+// Ordered weakest first to record the lowest observed acceptance. Inconclusive
+// weaker probes prevent that observation from establishing the actual floor.
 const PROBE_VERSIONS = ['TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3'];
 const LEGACY_VERSIONS = new Set(['TLSv1', 'TLSv1.1']);
 const VERSION_RANK = Object.fromEntries(PROBE_VERSIONS.map((v, i) => [v, i]));
+// Only an explicit protocol_version alert (70) counts as reported rejection.
+// Pre-handshake alerts are unauthenticated; other failures remain inconclusive.
+const PEER_PROTOCOL_REJECTION_CODES = new Set(['ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION']);
 
 // TLS 1.3 hybrid group standardized by IETF/OpenSSL. OpenSSL 3.5 exposes it as
 // `X25519MLKEM768`. A pure-group probe distinguishes a server that actually
@@ -43,15 +33,13 @@ const VERSION_RANK = Object.fromEntries(PROBE_VERSIONS.map((v, i) => [v, i]));
 const PQC_HYBRID_GROUP = 'X25519MLKEM768';
 const PQC_HYBRID_FALLBACK_GROUP = 'X25519MLKEM768:X25519';
 
-const loadPostureConfig = (root = defaultRoot) => JSON.parse(
-    fs.readFileSync(path.join(root, CONFIG_RELATIVE), 'utf8')
-);
-
-// Certificate-verification failures reported by Node/OpenSSL. A handshake
-// that fails on one of these still PROVES the server negotiated the probed
-// protocol version: the version is chosen in the ServerHello, which precedes
-// certificate validation. Treating them as a rejected version would blame the
-// protocol floor for a certificate problem.
+// Certificate-verification failures reported by Node/OpenSSL. A hybrid-group
+// handshake that fails on one of these still negotiated the probed group: the
+// group is chosen in the ServerHello, which precedes certificate validation.
+// Treating them as an unsupported group would blame the key exchange for a
+// certificate problem. The version probe below deliberately does NOT use this
+// set: there, an unverifiable chain leaves the legacy result inconclusive
+// rather than being counted as acceptance.
 const CERTIFICATE_ERROR_CODES = new Set([
     'CERT_CHAIN_TOO_LONG',
     'CERT_HAS_EXPIRED',
@@ -71,6 +59,17 @@ const CERTIFICATE_ERROR_CODES = new Set([
 
 const isCertificateVerificationError = (error) => (
     Boolean(error) && CERTIFICATE_ERROR_CODES.has(String(error.code || ''))
+);
+
+const probeErrorResult = (error) => (
+    typeof error?.code === 'string' ? `error:${error.code}` : 'unknown'
+);
+const inconclusiveLegacyVersions = (edge) => [...LEGACY_VERSIONS].filter(
+    (version) => !['accepted', 'rejected'].includes(edge.results?.[version])
+);
+
+const loadPostureConfig = (root = defaultRoot) => JSON.parse(
+    fs.readFileSync(path.join(root, CONFIG_RELATIVE), 'utf8')
 );
 
 /** TLS 1.3 handshake restricted to one key-exchange group. */
@@ -159,49 +158,66 @@ const probeHybridKex = async (host, timeoutMs = 15000) => {
     };
 };
 
-/** Live TLS probe for one host. Never throws; every outcome is a string. */
+/** Resolves accepted/rejected, timeout, error:<code>, or unknown on local/network failure. */
 const probeHost = (host, version, timeoutMs = 15000) => new Promise((resolve) => {
     let settled = false;
+    let socket;
     const finish = (result) => {
         if (settled) return;
         settled = true;
+        clearTimeout(deadline);
+        if (socket) {
+            socket.removeListener('secureConnect', onSecureConnect);
+            socket.destroy();
+        }
         resolve(result);
     };
-    const socket = tls.connect({
-        host,
-        port: 443,
-        servername: host,
-        // We are measuring what the edge offers, not whether we trust its
-        // chain - but the chain is still verified. Only the HOSTNAME match is
-        // waived (the edge hostnames are provider-owned and are listed in
-        // config/security/tls-edge-posture.json), and a chain failure is
-        // reported as 'accepted' below because the protocol version was
-        // already negotiated by then.
-        //
-        // Certificate validation is deliberately NOT disabled here: this
-        // probe opens a real TLS session to a production edge, and a probe
-        // that accepts any certificate would also accept a session to an
-        // impostor. The version measurement does not need it.
-        rejectUnauthorized: true,
-        checkServerIdentity: () => undefined,
-        minVersion: version,
-        maxVersion: version,
-    }, () => {
-        const negotiated = socket.getProtocol();
-        socket.destroy();
-        finish(negotiated ? 'accepted' : 'rejected');
-    });
-    socket.setTimeout(timeoutMs, () => {
-        socket.destroy();
-        finish('timeout');
-    });
-    socket.on('error', (error) => finish(isCertificateVerificationError(error) ? 'accepted' : 'rejected'));
+    const onSecureConnect = () => {
+        if (socket.authorized !== true) {
+            const error = socket.authorizationError;
+            finish(probeErrorResult(typeof error === 'string' ? { code: error } : error));
+            return;
+        }
+        finish(socket.getProtocol() === version ? 'accepted' : 'unknown');
+    };
+    const onError = (error) => finish(
+        PEER_PROTOCOL_REJECTION_CODES.has(error?.code) ? 'rejected' : probeErrorResult(error)
+    );
+    const onClose = () => {
+        finish('unknown');
+        // Retain the error handler until close: destroy can race a pending error.
+        socket.removeListener('error', onError);
+    };
+    // An absolute deadline also covers DNS/connect stalls and active handshakes,
+    // unlike a socket inactivity timeout. Invalid/overflowing delays use the default.
+    const delay = Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 2147483647
+        ? timeoutMs : 15000;
+    const deadline = setTimeout(() => finish('timeout'), delay);
+    try {
+        socket = tls.connect({
+            host,
+            port: 443,
+            servername: host,
+            rejectUnauthorized: true,
+            minVersion: version,
+            maxVersion: version,
+            // OpenSSL's default security level can disable legacy TLS locally.
+            // Relax only these diagnostic sockets, never runtime/global defaults.
+            ...(LEGACY_VERSIONS.has(version) ? { ciphers: 'DEFAULT:@SECLEVEL=0' } : {}),
+        });
+        socket.once('secureConnect', onSecureConnect);
+        socket.on('error', onError);
+        socket.once('close', onClose);
+    } catch (error) {
+        // A synchronous setup failure cannot be evidence of a peer response.
+        finish(probeErrorResult(error));
+    }
 });
 
 const probeEdge = async (edge, { timeoutMs = 15000, probe = probeHost, pqcProbe } = {}) => {
     const results = {};
     for (const version of PROBE_VERSIONS) {
-        results[version] = await probe(edge.host, version, timeoutMs); // eslint-disable-line no-await-in-loop
+        results[version] = await probe(edge.host, version, timeoutMs);
     }
     const accepted = PROBE_VERSIONS.filter((v) => results[v] === 'accepted');
 
@@ -260,7 +276,17 @@ const evaluatePosture = (edges, config) => {
                 severity: 'blocker',
                 code: 'legacy_tls_accepted',
                 edge: edge.host,
-                message: `${edge.host} accepts legacy TLS (${legacy.join(', ')}). This is the one TLS failure this repository can be held to: an edge serving TLS 1.0/1.1 is a real exposure, and it is always a provider-side misconfiguration to report.`,
+                message: `${edge.host} accepts legacy TLS (${legacy.join(', ')}), contrary to policy. Remediation is required at the TLS-terminating edge.`,
+            });
+        }
+
+        const inconclusiveLegacy = inconclusiveLegacyVersions(edge);
+        if (requirements.rejectLegacyTls && inconclusiveLegacy.length) {
+            findings.push({
+                severity: 'blocker',
+                code: 'legacy_tls_inconclusive',
+                edge: edge.host,
+                message: `${edge.host} legacy TLS checks are inconclusive (${inconclusiveLegacy.map((v) => `${v}: ${edge.results?.[v] ?? 'unknown'}`).join(', ')}). Certificate/client/network failures do not prove the peer rejects legacy TLS.`,
             });
         }
 
@@ -269,27 +295,25 @@ const evaluatePosture = (edges, config) => {
                 severity: 'blocker',
                 code: 'tls13_unavailable',
                 edge: edge.host,
-                message: `${edge.host} does not offer TLS 1.3. Providers have shipped TLS 1.3 by default for years; its absence means something was explicitly turned off.`,
+                message: `${edge.host} TLS 1.3 availability was not confirmed (probe: ${edge.results?.['TLSv1.3'] ?? 'unknown'}).`,
             });
         }
 
-        // Informational, never a failure: the floor is provider-owned. Only a
-        // floor WEAKER than declared is a regression. Rank rises with strength,
-        // so a regression is a LOWER rank than expected - the comparison is
-        // deliberately not `>` here.
+        // Acceptance below the declared minimum is a regression, even if other
+        // probes are inconclusive. Rank rises with protocol strength.
         if (edge.minExpected && edge.minimum && VERSION_RANK[edge.minimum] < VERSION_RANK[edge.minExpected]) {
             findings.push({
                 severity: 'blocker',
                 code: 'minimum_regressed',
                 edge: edge.host,
-                message: `${edge.host} floor is ${edge.minimum}, weaker than the expected ${edge.minExpected}.`,
+                message: `${edge.host} accepts ${edge.minimum}, weaker than the expected minimum ${edge.minExpected}.`,
             });
         } else if (edge.minExpected && edge.minimum && edge.minimum !== edge.minExpected) {
             findings.push({
                 severity: 'info',
                 code: 'minimum_stronger_than_expected',
                 edge: edge.host,
-                message: `${edge.host} floor is ${edge.minimum}, stronger than the expected ${edge.minExpected}.`,
+                message: `${edge.host} lowest observed acceptance is ${edge.minimum}, stronger than the expected ${edge.minExpected}; inconclusive weaker probes may still prevent establishing the floor.`,
             });
         }
 
@@ -340,21 +364,26 @@ const renderPostureMarkdown = (result) => {
         '',
         `Status: **${result.status}**`,
         '',
-        'These hostnames are platform-assigned. The TLS floor is set by each provider and',
-        'cannot be changed from this repository - a custom certificate would need control of',
-        'the domain, which this project does not have. What this gate asserts is the part',
-        'that is both real and enforceable: no legacy TLS, and TLS 1.3 still available.',
+        'Accepted handshakes require certificate-chain and hostname verification.',
+        'This probe measures negotiated TLS versions, not HTTP behavior.',
+        'Only an explicit protocol-version alert counts as rejection.',
+        'Pre-handshake alerts are unauthenticated and do not prove the intended server sent them.',
+        'Certificate, client, and network failures leave legacy checks inconclusive and fail the legacy-rejection gate.',
+        'The lowest accepted version is an observation, not an authenticated proof of the edge\'s protocol floor.',
+        'Remediation controls depend on the TLS terminator and provider configuration,',
+        'not hostname ownership alone.',
         '',
         `- Edges measured: ${result.summary.edges}`,
         `- TLS 1.3 available: ${result.summary.tls13Available}/${result.summary.edges}`,
+        `- PQ hybrid KEX selected: ${result.summary.pqcHybridEdges}/${result.summary.edges} (classical fallback: ${result.summary.pqcFallbackEdges}, not measured: ${result.summary.pqcNotProbedEdges})`,
         `- Edges accepting legacy TLS: ${result.summary.legacyTlsEdges}`,
-        `- PQ hybrid X25519+ML-KEM-768 selected: ${result.summary.pqcHybridEdges}/${result.summary.edges} (classical fallback: ${result.summary.pqcFallbackEdges}, not measured: ${result.summary.pqcNotProbedEdges})`,
         '',
-        '| Edge | Host | Provider | Measured floor | TLS 1.3 | PQ KEX | Legacy TLS |',
-        '| --- | --- | --- | --- | --- | --- | --- |',
+        '| Edge | Host | Provider | Lowest accepted TLS | TLS 1.3 | Legacy TLS |',
+        '| --- | --- | --- | --- | --- | --- |',
     ];
     for (const edge of result.edges) {
-        lines.push(`| ${edge.label} | \`${edge.host}\` | ${edge.provider} | ${edge.minimum || 'none'} | ${edge.tls13Available ? 'yes' : 'NO'} | ${edge.pqcKex || 'not measured'} | ${edge.acceptsLegacy ? '**YES**' : 'no'} |`);
+        const legacy = edge.acceptsLegacy ? '**YES**' : inconclusiveLegacyVersions(edge).length ? 'unknown' : 'no';
+        lines.push(`| ${edge.label} | \`${edge.host}\` | ${edge.provider} | ${edge.minimum || 'none observed'} | ${edge.tls13Available ? 'yes' : 'not confirmed'} | ${legacy} |`);
     }
     lines.push('');
     if (result.findings.length) {
@@ -371,7 +400,7 @@ const runPostureProbe = async ({ root = defaultRoot, timeoutMs = 15000, probe = 
     const config = loadPostureConfig(root);
     const edges = [];
     for (const edge of config.edges || []) {
-        edges.push(await probeEdge(edge, { timeoutMs, probe, pqcProbe })); // eslint-disable-line no-await-in-loop
+        edges.push(await probeEdge(edge, { timeoutMs, probe, pqcProbe }));
     }
     return { config, ...evaluatePosture(edges, config) };
 };
@@ -389,8 +418,9 @@ const main = async () => {
     fs.writeFileSync(path.join(reportDir, 'tls-edge-posture.md'), renderPostureMarkdown(result));
 
     for (const edge of result.edges) {
-        const legacy = edge.acceptsLegacy ? '  **LEGACY TLS ACCEPTED**' : '';
-        console.log(`  ${edge.host.padEnd(46)} floor=${String(edge.minimum || 'none').padEnd(8)} tls13=${edge.tls13Available ? 'yes ' : 'NO  '} pqc-kex=${String(edge.pqcKex || 'not-measured').padEnd(18)}${legacy}`);
+        const legacy = edge.acceptsLegacy ? '  **LEGACY TLS ACCEPTED**'
+            : inconclusiveLegacyVersions(edge).length ? '  **LEGACY TLS INCONCLUSIVE**' : '';
+        console.log(`  ${edge.host.padEnd(46)} lowestAccepted=${String(edge.minimum || 'none observed').padEnd(8)} tls13=${edge.tls13Available ? 'yes ' : 'not confirmed'} pqc-kex=${String(edge.pqcKex || 'not-probed').padEnd(18)}${legacy}`);
     }
     console.log(`[tls-edge-posture] ${result.status}: ${result.summary.edges} edge(s), ${result.summary.tls13Available} with TLS 1.3, ${result.summary.pqcHybridEdges} selecting hybrid PQ KEX, ${result.summary.pqcFallbackEdges} classical fallback, ${result.summary.legacyTlsEdges} accepting legacy TLS, ${result.summary.blockers} blocker(s).`);
     if (result.status === 'fail') process.exit(1);
