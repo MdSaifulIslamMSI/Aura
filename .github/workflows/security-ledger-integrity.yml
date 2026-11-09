@@ -1,0 +1,141 @@
+name: Security Ledger Integrity
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 04:17 UTC daily (09:47 IST) - low-traffic window
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-ledger-integrity
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing AWS_INSTANCE_TAG_KEY"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing AWS_INSTANCE_TAG_VALUE"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-security-ledger-integrity
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch ledger verification through SSM
+        id: ssm
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          node <<'NODE' > "${RUNNER_TEMP}/ssm-commands.json"
+          const commands = [
+            'set -euo pipefail',
+            'docker exec -w /app aws-api-1 node scripts/verify-security-event-ledger.mjs --limit 200000',
+          ];
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura security event ledger integrity verification" \
+            --timeout 300 \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for verification result
+        env:
+          COMMAND_ID: ${{ steps.ssm.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 36); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for the ledger verification command."
+          exit 1
+
+      - name: Notify Aura status system on failure
+        if: failure()
+        env:
+          STATUS_WEBHOOK_URL: ${{ secrets.STATUS_WEBHOOK_URL }}
+          STATUS_WEBHOOK_TOKEN: ${{ secrets.STATUS_WEBHOOK_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STATUS_WEBHOOK_URL}" ] || [ -z "${STATUS_WEBHOOK_TOKEN}" ]; then
+            echo "Status webhook secrets are not configured; skipping status notification."
+            exit 0
+          fi
+          curl -fsS -X POST "${STATUS_WEBHOOK_URL}" \
+            -H "Authorization: Bearer ${STATUS_WEBHOOK_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"source\": \"github_actions\",
+              \"workflow\": \"Security Ledger Integrity\",
+              \"conclusion\": \"failure\",
+              \"sha\": \"${GITHUB_SHA}\",
+              \"url\": \"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"
+            }" || echo "Status webhook notification failed; the job failure is still recorded."
