@@ -317,7 +317,7 @@
   "devDependencies": {
     "@sentry/electron": "^8.3.0",
     "@eslint/js": "^10.0.1",
-    "electron": "^44.5.0",
+    "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
