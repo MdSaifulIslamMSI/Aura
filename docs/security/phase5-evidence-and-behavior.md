@@ -19,8 +19,10 @@ durable Mongo ledger: `server/models/SecurityEventLedger.js` +
   over `seq|prevHash|canonicalPayload` and `...|hash` respectively.
 - Editing, deleting, or reordering records in the database breaks the chain;
   `server/scripts/verify-security-event-ledger.mjs` replays and validates it
-  (exit 1 on tampering, gap, or misconfiguration). Run it manually; no
-  schedule is configured.
+  (exit 1 on tampering, gap, or misconfiguration).
+  `.github/workflows/security-ledger-integrity.yml` runs it daily at 04:17 UTC
+  through SSM inside the production backend container; the same command can be
+  run manually.
 - Flag: `SECURITY_EVENT_LEDGER_ENABLED=true` + `SECURITY_EVENT_LEDGER_SECRET`.
   Off by default; append is fire-and-forget and never changes request outcomes.
 - Limitation, stated honestly: an attacker who compromises the *app runtime*

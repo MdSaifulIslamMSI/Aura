@@ -3,7 +3,7 @@
 **Status:** remediated and verified  
 **Severity:** high (audit integrity; no confidentiality impact)  
 **Affected surface:** production security event ledger (`securityeventledgers`)  
-**Fixes:** #746 (transactional append, deployed as `9a36ab8a`) and #747 (verifier ESM)  
+**Fixes:** #746 (transactional append, deployed as `9a36ab8a`), #747 (verifier ESM), and #749 (scheduled integrity check)  
 **Archive:** `securityeventledgers_incident_20261109`, 126 records, SHA-256 `6a1a0aa292f384cca1b894bd5a4107dd2e9a3699bb640baf76847c12b83084f3`
 
 ## Summary
@@ -29,6 +29,8 @@ There is no evidence of payload tampering or signature forgery: every one of the
 | 2026-11-09 13:49:38 | signed reset record appended at seq 1; chain verifies |
 | 2026-11-09 13:51:28 | signed probe appended at seq 2; chain verifies |
 | 2026-11-09 13:53 | post-reset audit confirms archive digest, indexes, and PQC coverage |
+| 2026-11-09 14:26 | second deploy ships `49f0e60e`; shipped verifier returns `OK — 2 records verified` |
+| 2026-11-09 14:30 | #749 merges the daily ledger-integrity workflow |
 
 ## Root cause
 
@@ -74,6 +76,6 @@ The shipped `server/scripts/verify-security-event-ledger.mjs` was ESM but used C
 ## Residual risk and follow-ups
 
 - **The archive is still a forked DAG.** Re-linking the 62 orphans would require rewriting their hashes and PQC signatures, which would destroy the audit value. The signed reset record binds the archive digest instead. Treat the archive as an attested historical artifact, not a replayable chain.
-- **No scheduled verifier.** Nothing runs the (now fixed) script automatically. Scheduling needs either Atlas network access from CI or an on-instance cron; the design is not included in this change.
-- **Production image predates #747.** The running image is `9a36ab8a`; the verifier fix (`49f0e60e`) ships with the next deploy. The inline verifier used during this incident is equivalent to the shipped logic.
+- **Scheduled verifier.** #749 adds `.github/workflows/security-ledger-integrity.yml`, which runs the verifier daily at 04:17 UTC through SSM inside the backend container and fails the job on a broken chain. It reuses the existing OIDC deploy role; the ledger secret is never copied into GitHub.
+- **The shipped verifier is now deployed.** `49f0e60e` shipped at 2026-11-09 14:26 UTC. The in-container file is byte-identical to `main` (SHA-256 `61fdd5fc…`) and returned `OK — 2 records verified` (exit 0), retiring the `.fixed.mjs` workaround.
 - **#744 remains parked** until the dependency release cooldown clears on 2026-11-13 06:15 UTC.
