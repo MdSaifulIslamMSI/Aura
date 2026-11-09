@@ -1,0 +1,17 @@
+#!/bin/sh
+# Local pre-push gate: refuse to push from a drifted folder.
+#
+# Git runs this hook in the checkout that owns .git/hooks, so it is a local
+# guard, not CI. It runs the same gate as `npm run folder:check:strict` and
+# blocks the push when HEAD is behind origin/main, node_modules is not
+# provisioned, another worktree exists, or a stash holds work elsewhere.
+#
+# `git rev-parse --show-toplevel` resolves the folder being pushed from, so the
+# hook also refuses to push from a secondary worktree.
+
+set -e
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+exec node scripts/dev/check-folder-integrity.mjs --strict

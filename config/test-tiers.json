@@ -84,6 +84,7 @@
       "tests/ecommerce.business-logic.security.test.js",
       "tests/emergencyControlController.test.js",
       "tests/envContractScripts.test.js",
+      "tests/folderIntegrityCheck.test.js",
       "tests/fraudDecisionController.test.js",
       "tests/fieldEncryptionAtRest.test.js",
       "tests/backupArchiveCrypto.test.js",
