@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const SecurityEventLedger = require('../models/SecurityEventLedger');
 const SecurityEventLedgerHead = require('../models/SecurityEventLedgerHead');
 const logger = require('../utils/logger');
@@ -7,11 +8,13 @@ const hybridSignature = require('../security/pqc/hybridSignature');
 const { PqcKeyRegistry, parseReferenceList } = require('../security/pqc/keyRegistry');
 
 // Phase 5B: durable, tamper-evident sink for security events. Every record is
-// signed with SECURITY_EVENT_LEDGER_SECRET and chained to its predecessor via
-// an atomic counter (seq + lastHash live in one document, so concurrent
-// writers can never fork the chain). An attacker with database access can
-// delete or alter records, but every modification breaks the chain and is
-// detected by server/scripts/verify-security-event-ledger.mjs.
+// signed with SECURITY_EVENT_LEDGER_SECRET and chained to its predecessor via a
+// monotonic sequence number. Because each hash binds the previous hash, appends
+// are sequential by construction: reserving `seq`, writing the record, and
+// advancing `lastHash` happen in one transaction, so concurrent writers cannot
+// fork the chain or re-issue a sequence number. An attacker with database
+// access can delete or alter records, but every modification breaks the chain
+// and is detected by server/scripts/verify-security-event-ledger.mjs.
 //
 // Flag: SECURITY_EVENT_LEDGER_ENABLED=true. The secret must be set when the
 // flag is on; without it the append degrades to a loud no-op (never blocking
@@ -193,6 +196,87 @@ const computeRecordIntegrity = ({ seq, prevHash, payload }) => {
     return { hash, signature };
 };
 
+const TRANSACTION_OPTIONS = {
+    readConcern: { level: 'snapshot' },
+    writeConcern: { w: 'majority' },
+};
+
+const isUnsupportedTransactionError = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return (
+        message.includes('transaction numbers are only allowed on a replica set member or mongos')
+        || message.includes('transactions are not supported')
+        || message.includes('does not support retryable writes')
+    );
+};
+
+// Production always runs on a replica set (guarded by config/db.js), so a
+// failed transaction there is a real fault and must surface as a dropped
+// append. A single-node development Mongo cannot transact; serialize appends
+// in-process instead so the chain stays coherent without inventing a second
+// unsupported topology.
+const canFallBackToSerializedAppend = () => String(process.env.NODE_ENV || '') !== 'production';
+
+let serializedAppendTail = Promise.resolve();
+let transactionsUnavailable = false;
+
+const runSerializedAppend = async (task) => {
+    const previous = serializedAppendTail;
+    let release;
+    serializedAppendTail = new Promise((resolve) => { release = resolve; });
+    await previous;
+    try {
+        return await task(null);
+    } finally {
+        release();
+    }
+};
+
+// A record's hash binds it to its predecessor, so appends are sequential by
+// construction. Reserving a seq and publishing the record must therefore be
+// one atomic unit: when two appends overlapped, the slower one could publish
+// an older `seq`/`lastHash` after a newer one had already advanced the head,
+// re-issuing a sequence number that was already stored (E11000 on seq_1) and
+// forking the chain.
+const runLedgerAppend = async (task) => {
+    if (!transactionsUnavailable) {
+        let session = null;
+        try {
+            session = await mongoose.startSession();
+            let result;
+            await session.withTransaction(async () => {
+                result = await task(session);
+            }, TRANSACTION_OPTIONS);
+            return result;
+        } catch (error) {
+            if (!isUnsupportedTransactionError(error) || !canFallBackToSerializedAppend()) {
+                throw error;
+            }
+            transactionsUnavailable = true;
+            logger.warn('security_ledger.transactions_unavailable', {
+                error: error?.message || 'unknown',
+                fallback: 'serialized_single_process',
+            });
+        } finally {
+            if (session) {
+                try {
+                    await session.endSession();
+                } catch {
+                    // Session cleanup must never mask the append outcome.
+                }
+            }
+        }
+    }
+    return runSerializedAppend(task);
+};
+
+class LedgerSigningBlockedError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'LedgerSigningBlockedError';
+    }
+}
+
 // Fire-and-forget append. Never throws; a ledger failure must not change the
 // request outcome (console + ring buffer remain the primary trail).
 const appendSecurityEventToLedger = async (event) => {
@@ -233,75 +317,93 @@ const appendSecurityEventToLedger = async (event) => {
             }
         }
 
-        const counter = await SecurityEventLedgerHead.findOneAndUpdate(
-            { _id: COUNTER_DOC_ID },
-            { $inc: { seq: 1 } },
-            { upsert: true, new: false, setDefaultsOnInsert: true }
-        );
-        const seq = Number(counter?.seq || 0) + 1;
-        const prevHash = String(counter?.lastHash || '') || GENESIS_HASH;
-        const { hash, signature } = computeRecordIntegrity({ seq, prevHash, payload: event });
+        const appendRecord = async (session) => {
+            const sessionOptions = session ? { session } : {};
+            const counter = await SecurityEventLedgerHead.findOneAndUpdate(
+                { _id: COUNTER_DOC_ID },
+                { $inc: { seq: 1 } },
+                { upsert: true, new: false, setDefaultsOnInsert: true, ...sessionOptions }
+            );
+            const seq = Number(counter?.seq || 0) + 1;
+            const prevHash = String(counter?.lastHash || '') || GENESIS_HASH;
+            const { hash, signature } = computeRecordIntegrity({ seq, prevHash, payload: event });
 
-        // PQ signatures are an additive layer over the HMAC chain. `require`
-        // blocks the append instead of silently writing an unsigned record;
-        // `auto` falls back to the chain when key material is unavailable.
-        const pqcDoc = {};
-        let pqcOutcome = { mode: configuredMode, signed: false, keyId: null };
-        if (shouldConsiderPqc) {
-            try {
-                const state = prePrimedState || await primeSecurityEventLedgerPqc();
-                if (state.effectiveMode === 'sign' && state.current) {
-                    const signed = hybridSignature.sign(
-                        computePqcSignedMessage({ seq, prevHash, hash, payload: event }),
-                        state.current,
-                        { context: PQC_SIGNATURE_CONTEXT }
-                    );
-                    pqcDoc.pqcSignature = hybridSignature.serializeSignature(signed);
-                    pqcDoc.pqcKeyId = signed.keyId;
-                    pqcDoc.pqcAlgorithm = signed.alg;
-                    pqcOutcome = { mode: configuredMode, signed: true, keyId: signed.keyId };
-                } else if (configuredMode === 'require') {
-                    throw new Error(state.unavailableReason || 'PQC signing key is not active');
-                }
-            } catch (error) {
-                if (configuredMode === 'require' || !PQC_MODES.has(configuredMode)) {
-                    logger.error('security_ledger.pqc_signing_blocked', {
+            // PQ signatures are an additive layer over the HMAC chain. `require`
+            // blocks the append instead of silently writing an unsigned record;
+            // `auto` falls back to the chain when key material is unavailable.
+            const pqcDoc = {};
+            let pqcOutcome = { mode: configuredMode, signed: false, keyId: null };
+            if (shouldConsiderPqc) {
+                try {
+                    const state = prePrimedState || await primeSecurityEventLedgerPqc();
+                    if (state.effectiveMode === 'sign' && state.current) {
+                        const signed = hybridSignature.sign(
+                            computePqcSignedMessage({ seq, prevHash, hash, payload: event }),
+                            state.current,
+                            { context: PQC_SIGNATURE_CONTEXT }
+                        );
+                        pqcDoc.pqcSignature = hybridSignature.serializeSignature(signed);
+                        pqcDoc.pqcKeyId = signed.keyId;
+                        pqcDoc.pqcAlgorithm = signed.alg;
+                        pqcOutcome = { mode: configuredMode, signed: true, keyId: signed.keyId };
+                    } else if (configuredMode === 'require') {
+                        throw new Error(state.unavailableReason || 'PQC signing key is not active');
+                    }
+                } catch (error) {
+                    if (configuredMode === 'require' || !PQC_MODES.has(configuredMode)) {
+                        // Abort the transaction so a blocked append does not
+                        // consume the sequence number reserved above.
+                        throw new LedgerSigningBlockedError(error?.message || 'unknown');
+                    }
+                    logger.warn('security_ledger.pqc_signing_fallback', {
                         event: String(event?.event || ''),
                         mode: configuredMode,
                         error: error?.message || 'unknown',
                     });
-                    return {
-                        enabled: true,
-                        appended: false,
-                        error: 'pqc_signing_unavailable',
-                        pqc: { mode: configuredMode, signed: false },
-                    };
                 }
-                logger.warn('security_ledger.pqc_signing_fallback', {
-                    event: String(event?.event || ''),
-                    mode: configuredMode,
-                    error: error?.message || 'unknown',
-                });
             }
-        }
 
-        await SecurityEventLedger.create({
-            seq,
-            eventId: String(event?.requestId || '') + ':' + seq,
-            prevHash,
-            hash,
-            signature,
-            payload: event,
-            ...pqcDoc,
-        });
+            const [created] = await SecurityEventLedger.create([{
+                seq,
+                eventId: String(event?.requestId || '') + ':' + seq,
+                prevHash,
+                hash,
+                signature,
+                payload: event,
+                ...pqcDoc,
+            }], sessionOptions);
+            if (!created) {
+                throw new Error('ledger record was not persisted');
+            }
 
-        await SecurityEventLedgerHead.findOneAndUpdate(
-            { _id: COUNTER_DOC_ID },
-            { $set: { lastHash: hash, seq } }
-        );
+            // `seq` was already advanced atomically by the `$inc` above.
+            // Writing it again here regressed the counter whenever a slower
+            // append published after a faster one, re-issuing a used number.
+            await SecurityEventLedgerHead.findOneAndUpdate(
+                { _id: COUNTER_DOC_ID },
+                { $set: { lastHash: hash } },
+                sessionOptions
+            );
 
-        return { enabled: true, appended: true, seq, hash, pqc: pqcOutcome };
+            return { seq, hash, pqc: pqcOutcome };
+        };
+
+        const appended = await runLedgerAppend(appendRecord);
+        return { enabled: true, appended: true, ...appended };
     } catch (error) {
+        if (error instanceof LedgerSigningBlockedError) {
+            logger.error('security_ledger.pqc_signing_blocked', {
+                event: String(event?.event || ''),
+                mode: resolveLedgerPqcMode(),
+                error: error.message,
+            });
+            return {
+                enabled: true,
+                appended: false,
+                error: 'pqc_signing_unavailable',
+                pqc: { mode: resolveLedgerPqcMode(), signed: false },
+            };
+        }
         logger.warn('security_ledger.append_failed', {
             event: String(event?.event || ''),
             error: error?.message || 'unknown',

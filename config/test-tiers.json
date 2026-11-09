@@ -149,6 +149,8 @@
       "tests/security/sensitiveActionRegistry.test.js",
       "tests/securityAuditService.test.js",
       "tests/securityEventLedger.test.js",
+      "tests/securityEventLedgerConcurrency.test.js",
+      "tests/securityEventLedgerTransaction.test.js",
       "tests/securityMaturityScorecard.test.js",
       "tests/securitySanitizers.test.js",
       "tests/sellerActivation.test.js",
@@ -623,6 +625,7 @@
       "trustMetrics.test.js",
       "trustPolicies.test.js",
       "trustRedactor.test.js",
+      "securityEventLedgerTransaction.test.js",
       "uploadAssetController.test.js",
       "uploadSignatureService.test.js",
       "userValidators.test.js"
