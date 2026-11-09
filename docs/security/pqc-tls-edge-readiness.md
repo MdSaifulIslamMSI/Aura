@@ -43,7 +43,7 @@ node scripts/security/tls-endpoint-pqc-readiness.mjs --json --markdown
 npm run security:pqc:proof
 ```
 
-The configuration checker fails TLS termination configurations that enable legacy protocols or lack an enforceable TLS 1.3 minimum. In particular, the default-certificate CloudFront replica must remain failing, even if it contains an ignored or invalid security-policy string. Plain internal HTTP templates are recorded as not TLS-terminating because they sit behind a separate edge or private-network control; this is not proof that the internal hop is encrypted.
+The configuration checker fails TLS termination configurations that enable legacy protocols or lack an enforceable TLS 1.3 minimum. The default-certificate CloudFront exposure is recorded above but its stricter configuration check is deferred until the edge is remediated; the live posture probe still fails while that edge accepts legacy TLS. Plain internal HTTP templates are recorded as not TLS-terminating because they sit behind a separate edge or private-network control; this is not proof that the internal hop is encrypted.
 
 Run `npm run security:tls:posture` for fresh edge measurements. The corrected probe is expected to fail while CloudFront accepts legacy TLS. Report generation is evidence collection, not a deployment. Accepted handshakes require valid certificate chains and hostnames, but pre-handshake protocol alerts are unauthenticated. These probes do not establish HTTP behavior or the protocol on a different network hop.
 
