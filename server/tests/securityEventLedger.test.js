@@ -48,9 +48,10 @@ jest.mock('../models/SecurityEventLedgerHead', () => ({
 }));
 
 jest.mock('../models/SecurityEventLedger', () => ({
-    create: jest.fn(async (doc) => {
-        mockLedgerState.records.push(doc);
-        return doc;
+    create: jest.fn(async (docs) => {
+        const list = Array.isArray(docs) ? docs : [docs];
+        list.forEach((doc) => mockLedgerState.records.push(doc));
+        return Array.isArray(docs) ? list : list[0];
     }),
     find: jest.fn(() => ({
         sort: () => ({

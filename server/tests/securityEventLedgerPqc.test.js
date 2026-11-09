@@ -2,6 +2,17 @@
 
 const { generateHybridSigningKey } = require('../security/pqc/keyMaterial');
 
+// This suite reloads the service with jest.resetModules() to exercise PQC key
+// rotation. The fresh module graph would otherwise pick up a second, unconnected
+// Mongoose instance and buffer every startSession() call for 10s. Model access
+// is mocked below; only the session needs a stand-in.
+jest.mock('mongoose', () => ({
+    startSession: jest.fn(async () => ({
+        withTransaction: async (fn) => fn(),
+        endSession: async () => {},
+    })),
+}));
+
 const mockLedgerState = { seq: 0, lastHash: '', records: [] };
 
 jest.mock('../models/SecurityEventLedgerHead', () => ({
@@ -18,9 +29,10 @@ jest.mock('../models/SecurityEventLedgerHead', () => ({
 }));
 
 jest.mock('../models/SecurityEventLedger', () => ({
-    create: jest.fn(async (doc) => {
-        mockLedgerState.records.push(doc);
-        return doc;
+    create: jest.fn(async (docs) => {
+        const list = Array.isArray(docs) ? docs : [docs];
+        list.forEach((doc) => mockLedgerState.records.push(doc));
+        return Array.isArray(docs) ? list : list[0];
     }),
     find: jest.fn(() => ({
         sort: () => ({
