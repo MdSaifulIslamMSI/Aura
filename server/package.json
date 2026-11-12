@@ -100,7 +100,7 @@
     "firebase-admin": "^14.4.0",
     "helmet": "^8.3.0",
     "livekit-server-sdk": "^2.19.2",
-    "mongoose": "9.11.3",
+    "mongoose": "9.11.4",
     "node-cron": "^4.6.0",
     "node-domexception": "file:vendor/node-domexception",
     "nodemailer": "^10.2.1",
