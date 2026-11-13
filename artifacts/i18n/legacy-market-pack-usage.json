@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-21T20:26:01.213Z",
+  "generatedAt": "2026-11-13T17:01:30.520Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {
       "high": 0,
       "medium": 18,
-      "low": 142
+      "low": 144
     },
     "computedTranslatorLookupFiles": 39,
     "delegatedStableIcuFiles": 10,
@@ -15,9 +15,9 @@
     "productionLegacyStableFiles": 0,
     "residualLegacyMessageIds": 0,
     "runtimeEnumCompatibilityFiles": 0,
-    "stableIcuHookFiles": 99,
+    "stableIcuHookFiles": 101,
     "testHarnessLegacyMessageIds": 4,
-    "totalFiles": 160
+    "totalFiles": 162
   },
   "records": [
     {
@@ -6142,6 +6142,24 @@
       "usesStableIcuHook": true
     },
     {
+      "file": "app/src/pages/AICompare/index.test.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": true,
+      "migratedStableIcuIdCount": 0,
+      "migratedStableIcuIds": [],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": false,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": false,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
+    },
+    {
       "file": "app/src/pages/Cart/Cart.test.jsx",
       "importsLegacyPacks": false,
       "isTestFile": true,
@@ -6395,6 +6413,24 @@
     },
     {
       "file": "app/src/pages/Profile/index.test.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": true,
+      "migratedStableIcuIdCount": 0,
+      "migratedStableIcuIds": [],
+      "residualLegacyIdCount": 0,
+      "residualLegacyIds": [],
+      "risk": "low",
+      "testHarnessLegacyIdCount": 0,
+      "testHarnessLegacyIds": [],
+      "usesComputedTranslatorLookup": false,
+      "usesDelegatedStableIcuTranslator": false,
+      "usesDynamicRuntimeTranslation": false,
+      "usesMarketContext": false,
+      "usesRuntimeEnumCompatibility": false,
+      "usesStableIcuHook": true
+    },
+    {
+      "file": "app/src/pages/VisualSearch/index.test.jsx",
       "importsLegacyPacks": false,
       "isTestFile": true,
       "migratedStableIcuIdCount": 0,
