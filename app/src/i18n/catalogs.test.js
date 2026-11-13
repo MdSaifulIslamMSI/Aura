@@ -31,8 +31,8 @@ describe('catalogs', () => {
 });
 
 describe('isFormatJsEnabled', () => {
-    it('defaults to disabled when the flag is unset', () => {
-        expect(isFormatJsEnabled()).toBe(false);
+    it('defaults to enabled when the flag is unset', () => {
+        expect(isFormatJsEnabled()).toBe(true);
     });
 
     it('parses truthy and falsy env values', () => {
@@ -47,19 +47,22 @@ describe('isFormatJsEnabled', () => {
 
         vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'off');
         expect(isFormatJsEnabled()).toBe(false);
+        vi.unstubAllEnvs();
     });
 });
 
 describe('resolveFormatJsLanguage', () => {
-    it('locks to English while FormatJS is disabled', () => {
-        expect(resolveFormatJsLanguage('hi')).toBe('en');
-        expect(resolveFormatJsLanguage('en-XA')).toBe('en');
-    });
-
-    it('honors known languages once FormatJS is enabled', () => {
-        vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'true');
+    it('honors known languages by default and falls back to English for unknown codes', () => {
+        vi.unstubAllEnvs();
         expect(resolveFormatJsLanguage('hi')).toBe('hi');
         expect(resolveFormatJsLanguage('en')).toBe('en');
+        expect(resolveFormatJsLanguage('en-XA')).toBe('en-XA');
         expect(resolveFormatJsLanguage('not-a-locale')).toBe('en');
+    });
+
+    it('locks to English only when FormatJS is explicitly disabled', () => {
+        vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'false');
+        expect(resolveFormatJsLanguage('hi')).toBe('en');
+        expect(resolveFormatJsLanguage('en-XA')).toBe('en');
     });
 });

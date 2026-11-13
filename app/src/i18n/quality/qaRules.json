@@ -2,7 +2,17 @@
   "englishLeakageAllowlist": [
     "Aura",
     "Aura Points",
-    "OTP"
+    "Aura Marketplace Desktop",
+    "Aura Marketplace {version}",
+    "Gatus",
+    "Gmail",
+    "MM / YY",
+    "OTP",
+    "Uptime Kuma",
+    "npm run student-pack:doctor",
+    "support@aura.shop",
+    "you@example.com",
+    "{phoneCode} 98XXXXXXXX"
   ],
   "maxCompactExpansionRatio": 2,
   "rtlLocales": [

@@ -6,6 +6,12 @@ import { useOptionalLocale } from './LocaleProvider';
 
 const intlCache = createIntlCache();
 
+const interpolateFallbackTemplate = (template = '', values = {}) => String(template || '')
+    .replace(/\{\{\s*([^}\s]+)\s*\}\}|\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, doubleToken, singleToken) => {
+        const key = doubleToken || singleToken;
+        return Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : '';
+    });
+
 export const useStableIcuMessages = (legacyTranslate) => {
     const market = useOptionalMarket();
     const localeContext = useOptionalLocale();
@@ -22,7 +28,8 @@ export const useStableIcuMessages = (legacyTranslate) => {
         if (typeof legacyTranslate === 'function') {
             return legacyTranslate(id, values, fallback);
         }
-        return fallback || catalogs.en[id] || id;
+        const template = fallback || catalogs.en[id] || '';
+        return template ? interpolateFallbackTemplate(template, values) : id;
     }, [legacyTranslate]);
 
     return useCallback((id, values = {}, fallback = '') => {
@@ -32,10 +39,23 @@ export const useStableIcuMessages = (legacyTranslate) => {
         }
 
         try {
+            const localizedTemplate = messages[id];
+            // Wait for lazy locale catalog or fall back to legacy pack if the catalog entry still copies English verbatim.
+            if (
+                language !== 'en'
+                && (!localizedTemplate || localizedTemplate === defaultMessage)
+                && typeof legacyTranslate === 'function'
+            ) {
+                const legacyCandidate = legacyTranslate(id, values, defaultMessage);
+                if (legacyCandidate && legacyCandidate !== defaultMessage && legacyCandidate !== id) {
+                    return legacyCandidate;
+                }
+            }
+
             // Extraction comes from stableUiMessages.js; this adapter formats catalog-backed IDs at runtime.
             return intl['formatMessage']({ id, defaultMessage }, values);
         } catch {
             return translateFallback(id, values, fallback || defaultMessage);
         }
-    }, [intl, translateFallback]);
+    }, [intl, language, legacyTranslate, messages, translateFallback]);
 };

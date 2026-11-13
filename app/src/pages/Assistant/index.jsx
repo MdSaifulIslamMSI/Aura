@@ -24,6 +24,7 @@ import MessageList from '@/components/features/chat/MessageList';
 import MultimodalDock from '@/components/features/chat/MultimodalDock';
 import { useAssistantController } from '@/components/features/chat/useAssistantController';
 import { AuthContext } from '@/context/AuthContext';
+import { useOptionalMarket } from '@/context/MarketContext';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
 import { cn } from '@/lib/utils';
 import { aiApi } from '@/services/aiApi';
@@ -83,6 +84,30 @@ const composerMessages = defineMessages({
         defaultMessage: 'Listening...',
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    voiceWarmupError: {
+        id: 'assistant.voice.warmupUnavailable',
+        defaultMessage: 'Voice surface is warming up. Chat and grounded product search remain fully available.',
+    },
+    attachmentUploadFailed: {
+        id: 'assistant.attachment.uploadFailed',
+        defaultMessage: 'Attachment upload failed.',
+    },
+    attachmentUnsupported: {
+        id: 'assistant.attachment.unsupportedType',
+        defaultMessage: 'Only image and audio files are supported.',
+    },
+    attachmentReadFailed: {
+        id: 'assistant.attachment.readFailed',
+        defaultMessage: 'Failed to read {fileName}',
+    },
+    attachmentTooLarge: {
+        id: 'assistant.attachment.tooLarge',
+        defaultMessage: '{fileName} is larger than 8 MB.',
+    },
+    attachmentFallbackTitle: {
+        id: 'assistant.attachment.fallbackTitle',
+        defaultMessage: 'Attachment',
+    },
     promptPlaceholder: {
         id: 'cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600',
         defaultMessage: 'Compare products, review a cart, or find a match...',
@@ -120,22 +145,36 @@ const STARTER_PROMPTS = [
     },
 ];
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+const readFileAsDataUrl = (file, formatMessage = null) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error(`Failed to read ${file?.name || 'attachment'}`));
+    reader.onerror = () => {
+        const fallbackTitle = formatMessage
+            ? formatMessage(composerMessages.attachmentFallbackTitle)
+            : 'attachment';
+        reject(new Error(formatMessage
+            ? formatMessage(composerMessages.attachmentReadFailed, { fileName: file?.name || fallbackTitle })
+            : `Failed to read ${file?.name || 'attachment'}`));
+    };
     reader.readAsDataURL(file);
 });
 
-const toComposerAttachment = async (file) => {
+const toComposerAttachment = async (file, formatMessage = null) => {
     const mimeType = String(file?.type || '').trim().toLowerCase();
     const isImage = mimeType.startsWith('image/');
     const isAudio = mimeType.startsWith('audio/');
     if (!isImage && !isAudio) {
-        throw new Error('Only image and audio files are supported.');
+        throw new Error(formatMessage
+            ? formatMessage(composerMessages.attachmentUnsupported)
+            : 'Only image and audio files are supported.');
     }
     if (Number(file?.size || 0) > MAX_MEDIA_FILE_BYTES) {
-        throw new Error(`${file?.name || 'Attachment'} is larger than 8 MB.`);
+        const fallbackTitle = formatMessage
+            ? formatMessage(composerMessages.attachmentFallbackTitle)
+            : 'Attachment';
+        throw new Error(formatMessage
+            ? formatMessage(composerMessages.attachmentTooLarge, { fileName: file?.name || fallbackTitle })
+            : `${file?.name || 'Attachment'} is larger than 8 MB.`);
     }
 
     return {
@@ -143,14 +182,21 @@ const toComposerAttachment = async (file) => {
         kind: isImage ? 'image' : 'audio',
         fileName: String(file?.name || '').trim(),
         mimeType,
-        dataUrl: await readFileAsDataUrl(file),
+        dataUrl: await readFileAsDataUrl(file, formatMessage),
     };
 };
 
-const formatSessionTime = (timestamp = 0) => {
+const formatSessionTime = (timestamp = 0, intl = null) => {
     if (!timestamp) return '';
 
-    return new Intl.DateTimeFormat('en-IN', {
+    if (intl) {
+        return intl.formatTime(timestamp, {
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit',
     }).format(new Date(timestamp));
@@ -168,6 +214,8 @@ const getCapabilityTone = (availability = null) => {
 
 const AssistantPage = () => {
     const intl = useIntl();
+    const market = useOptionalMarket();
+    const activeVoiceLocale = market?.voiceLocale || intl.locale || 'en-IN';
     const location = useLocation();
     const {
         currentUser,
@@ -229,7 +277,7 @@ const AssistantPage = () => {
         value: inputValue,
         onChange: setInputValue,
         clearOnStart: true,
-        lang: 'en-IN',
+        lang: activeVoiceLocale,
     });
 
     const originPath = resolveAssistantOriginLocation(
@@ -465,7 +513,7 @@ const AssistantPage = () => {
         let cancelled = false;
 
         aiApi.createVoiceSession({
-            locale: 'en-IN',
+            locale: activeVoiceLocale,
         }).then((payload) => {
             if (cancelled) return;
             setVoiceSessionConfig(payload || null);
@@ -473,13 +521,13 @@ const AssistantPage = () => {
         }).catch(() => {
             if (cancelled) return;
             setVoiceSessionConfig(null);
-            setVoiceSessionError('Voice surface is warming up. Chat and grounded product search remain fully available.');
+            setVoiceSessionError(intl.formatMessage(composerMessages.voiceWarmupError));
         });
 
         return () => {
             cancelled = true;
         };
-    }, [isAuthenticated]);
+    }, [activeVoiceLocale, intl, isAuthenticated]);
 
     useEffect(() => {
         setIsSidebarOpen(false);
@@ -564,7 +612,7 @@ const AssistantPage = () => {
         try {
             const selected = [];
             for (const file of files.slice(0, MAX_MEDIA_ATTACHMENTS)) {
-                selected.push(await toComposerAttachment(file));
+                selected.push(await toComposerAttachment(file, intl.formatMessage));
             }
 
             setAttachments((current) => {
@@ -572,13 +620,13 @@ const AssistantPage = () => {
                 return next;
             });
         } catch (error) {
-            setAttachmentError(error?.message || 'Attachment upload failed.');
+            setAttachmentError(error?.message || intl.formatMessage(composerMessages.attachmentUploadFailed));
         } finally {
             if (event?.target) {
                 event.target.value = '';
             }
         }
-    }, []);
+    }, [intl]);
 
     const handleStarterPrompt = useCallback((starter) => {
         if (!starter?.prompt) {
@@ -713,7 +761,7 @@ const AssistantPage = () => {
                                                             {session.title}
                                                         </p>
                                                         <span className="shrink-0 text-[11px] text-slate-500">
-                                                            {formatSessionTime(session.updatedAt)}
+                                                            {formatSessionTime(session.updatedAt, intl)}
                                                         </span>
                                                     </div>
                                                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
@@ -946,7 +994,7 @@ const AssistantPage = () => {
                                                 {attachment.kind === 'image' ? (
                                                     <img
                                                         src={attachment.dataUrl}
-                                                        alt={attachment.fileName || 'attachment'}
+                                                        alt={attachment.fileName || intl.formatMessage({ id: 'assistant.attachment.fallbackName', defaultMessage: 'attachment' })}
                                                         className="h-10 w-10 rounded-[0.9rem] object-cover"
                                                     />
                                                 ) : (
@@ -955,7 +1003,7 @@ const AssistantPage = () => {
                                                     </span>
                                                 )}
                                                 <div className="min-w-0">
-                                                    <p className="truncate text-sm font-semibold">{attachment.fileName || 'attachment'}</p>
+                                                    <p className="truncate text-sm font-semibold">{attachment.fileName || intl.formatMessage({ id: 'assistant.attachment.fallbackName', defaultMessage: 'attachment' })}</p>
                                                     <p className="text-[11px] text-cyan-100/75">
                                                         {attachment.kind === 'image' ? <StableText id={"common.jsx.expression.image.ready.for.grounding.152acb95"} defaultMessage={"Image ready for grounding"} /> : <StableText id={"common.jsx.expression.audio.ready.for.processing.68d50ec5"} defaultMessage={"Audio ready for processing"} />}
                                                     </p>

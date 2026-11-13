@@ -47,8 +47,6 @@ describe('useStableIcuMessages', () => {
 
     it('uses the market language catalog once that locale is loaded', async () => {
         await loadCatalog('hi');
-        // Non-English catalogs only engage when the FormatJS flag is enabled.
-        vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'true');
         useOptionalMarket.mockReturnValue({ languageCode: 'hi', locale: 'hi-IN' });
 
         const { result } = renderHook(() => useStableIcuMessages());
@@ -56,6 +54,5 @@ describe('useStableIcuMessages', () => {
 
         expect(t('accessibility.hidePassword')).toBe(catalogs.hi['accessibility.hidePassword']);
         expect(t('accessibility.hidePassword')).not.toBe('');
-        vi.unstubAllEnvs();
     });
 });

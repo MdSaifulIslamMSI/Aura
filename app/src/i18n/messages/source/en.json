@@ -4025,6 +4025,9 @@
   "assistant.attachment.fallbackName": {
     "defaultMessage": "attachment"
   },
+  "assistant.attachment.fallbackTitle": {
+    "defaultMessage": "Attachment"
+  },
   "assistant.attachment.imageNumber": {
     "defaultMessage": "Image {value}",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -4041,8 +4044,20 @@
     "defaultMessage": "Attachment {value}",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "assistant.attachment.readFailed": {
+    "defaultMessage": "Failed to read {fileName}"
+  },
   "assistant.attachment.remove.ariaLabel": {
     "defaultMessage": "Remove {fileName}"
+  },
+  "assistant.attachment.tooLarge": {
+    "defaultMessage": "{fileName} is larger than 8 MB."
+  },
+  "assistant.attachment.unsupportedType": {
+    "defaultMessage": "Only image and audio files are supported."
+  },
+  "assistant.attachment.uploadFailed": {
+    "defaultMessage": "Attachment upload failed."
   },
   "assistant.attachments.upload.ariaLabel": {
     "defaultMessage": "Upload attachments"
@@ -4338,6 +4353,9 @@
   "assistant.tool.status.done": {
     "defaultMessage": "done",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.voice.warmupUnavailable": {
+    "defaultMessage": "Voice surface is warming up. Chat and grounded product search remain fully available."
   },
   "assistant.workspace.ariaLabel": {
     "defaultMessage": "Assistant workspace"
@@ -6647,9 +6665,6 @@
     "defaultMessage": "Items",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection": {
-    "defaultMessage": "Cart, wishlist, checkout, and order reflection"
-  },
   "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read": {
     "defaultMessage": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns."
   },
@@ -7706,9 +7721,8 @@
     "defaultMessage": "Checking",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.expression.current.host.da7c5d43": {
-    "defaultMessage": "Current host",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  "common.jsx.expression.degraded.status": {
+    "defaultMessage": "Degraded"
   },
   "common.jsx.expression.describe.the.mission.instead.of.specific.skus.1490bce5": {
     "defaultMessage": "Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.",
@@ -7730,13 +7744,8 @@
     "defaultMessage": "Guest",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.expression.host.aligned.cf15d78e": {
-    "defaultMessage": "Host aligned",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.expression.host.drift.detected.f97beb6c": {
-    "defaultMessage": "Host drift detected",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  "common.jsx.expression.healthy.status": {
+    "defaultMessage": "Healthy"
   },
   "common.jsx.expression.image.ready.for.grounding.152acb95": {
     "defaultMessage": "Image ready for grounding",
@@ -7752,10 +7761,6 @@
   },
   "common.jsx.expression.listening.6dab600d": {
     "defaultMessage": "Listening...",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.expression.live.target.07b371c6": {
-    "defaultMessage": "Live target",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.local.safety.2f828dea": {
@@ -7785,6 +7790,9 @@
   "common.jsx.expression.mission.readiness.6e520e73": {
     "defaultMessage": "Mission readiness",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.jsx.expression.monitoring.status": {
+    "defaultMessage": "Monitoring"
   },
   "common.jsx.expression.my.trade.in.requests.98e4cc10": {
     "defaultMessage": "My Trade-In Requests",
@@ -7954,10 +7962,6 @@
     "defaultMessage": "Zero-Query Entry",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee": {
-    "defaultMessage": "A sharper front door for Aura's live frontend stack.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c": {
     "defaultMessage": "A startup module crashed before the interface finished loading. Retry the render or refresh the page to recover.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -7998,10 +8002,6 @@
     "defaultMessage": "Aura failed to boot",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.aura.gateway.02299ec6": {
-    "defaultMessage": "Aura Gateway",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.aura.global.hq.a16ecbd5": {
     "defaultMessage": "Aura Global HQ,",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8030,24 +8030,12 @@
     "defaultMessage": "Bangalore, 560001, India",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39": {
-    "defaultMessage": "Both links should feel ideologically identical.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.budget.c9a30fc0": {
     "defaultMessage": "Budget (",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.build.id.4b254665": {
-    "defaultMessage": "Build ID",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.building.grounded.verdict.356b5430": {
     "defaultMessage": "Building grounded verdict...",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.built.5bb02b71": {
-    "defaultMessage": "Built",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.built.d5378f24": {
@@ -8086,10 +8074,6 @@
     "defaultMessage": "Checked",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed": {
-    "defaultMessage": "Cleaner, calmer, and less toy-like.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.clear.context.e550a0f3": {
     "defaultMessage": "Clear context",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8104,10 +8088,6 @@
   },
   "common.jsx.text.commit.301904c6": {
     "defaultMessage": "· Commit",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.commit.975b7130": {
-    "defaultMessage": "Commit",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.compare.deck.2ba24d3b": {
@@ -8146,28 +8126,8 @@
     "defaultMessage": "Copyright",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.current.release.6530b9c3": {
-    "defaultMessage": "Current release",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.decision.engine.ec27ce72": {
     "defaultMessage": "Decision Engine",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.deployment.contract.00f9b039": {
-    "defaultMessage": "Deployment contract",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.deployment.target.pending.3f1c8241": {
-    "defaultMessage": "Deployment target pending",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.design.standard.c1185458": {
-    "defaultMessage": "Design standard",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af": {
-    "defaultMessage": "Different domains are fine. Missing state, weaker flows, or reduced capability are not. This gateway makes that expectation explicit before the user enters either runtime.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.email.c5f7832f": {
@@ -8202,10 +8162,6 @@
     "defaultMessage": "Gated flows",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.general.link.direction.e0b93b2a": {
-    "defaultMessage": "General Link Direction",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.go.to.storefront.0b3d8c87": {
     "defaultMessage": "Go to storefront",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8228,18 +8184,6 @@
   },
   "common.jsx.text.hits.e3d06d10": {
     "defaultMessage": "Hits:",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.hosts.3cf51fa9": {
-    "defaultMessage": "Hosts",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777": {
-    "defaultMessage": "If Netlify and Vercel ever show different build IDs, commits, or a runtime/target mismatch here, the public storefront runtimes are out of sync.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147": {
-    "defaultMessage": "If you spin up a separate Vercel project such as",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.index.version.286a2b27": {
@@ -8276,10 +8220,6 @@
   },
   "common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff": {
     "defaultMessage": "Lift the current brief into voice and keep the shopping context intact.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.live.domain.bc1cccb3": {
-    "defaultMessage": "Live domain",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.live.runtimes.ae649138": {
@@ -8342,10 +8282,6 @@
     "defaultMessage": "Multimodal Fast Lane",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.needs.url.6a1ab20b": {
-    "defaultMessage": "Needs URL",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.next.actions.009c0d35": {
     "defaultMessage": "Next actions",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8378,20 +8314,12 @@
     "defaultMessage": "Open AI Winner",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.open.storefront.9a0fe7ee": {
-    "defaultMessage": "Open storefront",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.open.suggested.bundle.view.02976b67": {
     "defaultMessage": "Open Suggested Bundle View",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.powered.by.aura.status.9f496e1b": {
     "defaultMessage": "Powered by Aura status",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b": {
-    "defaultMessage": "Ready for a dedicated gateway project.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.recent.signals.8acbff42": {
@@ -8430,10 +8358,6 @@
     "defaultMessage": "Runtime",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.runtime.vs.target.bab208a2": {
-    "defaultMessage": "Runtime vs Target",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.save.subscription.7d065402": {
     "defaultMessage": "Save subscription",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8452,10 +8376,6 @@
   },
   "common.jsx.text.server.reason.9e07fa1a": {
     "defaultMessage": "Server reason:",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.shared.behavior.33436b63": {
-    "defaultMessage": "Shared behavior",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.shell.when.a.new.install.package.is.7d8525a4": {
@@ -8530,16 +8450,8 @@
     "defaultMessage": "The assistant will start threading chat, voice, and live-call events here as you use them.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e": {
-    "defaultMessage": "The page now behaves more like a premium access layer than a temporary glossy experiment: better hierarchy, stronger language, clearer deployment context, and a more controlled visual system.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.theme.fe958fe1": {
     "defaultMessage": "Theme",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99": {
-    "defaultMessage": ", this gateway can be the calm handoff layer above both live storefronts instead of a rough technical switchboard living inside one of them.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d": {
@@ -8572,10 +8484,6 @@
   },
   "common.jsx.text.use.back.to.app.and.the.call.ecee176e": {
     "defaultMessage": "Use back to app and the call keeps running in the corner.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.vercel.netlify.f28e116f": {
-    "defaultMessage": "Vercel + Netlify",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.verifying.subscription.37c14b7f": {
@@ -9582,7 +9490,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "footer.cleanBody": {
-    "defaultMessage": "Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.",
+    "defaultMessage": "Search, deals, marketplace browsing, and support stay connected across every storefront session.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "footer.cleanHeadline": {
@@ -9958,35 +9866,206 @@
     "defaultMessage": "Trending Items",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "launch.pillar.gatewayReady.body": {
-    "defaultMessage": "This layout is strong enough to move into a dedicated general gateway domain without feeling improvised."
+  "launch.architecture.eyebrow": {
+    "defaultMessage": "System Showcase"
   },
-  "launch.pillar.gatewayReady.title": {
-    "defaultMessage": "Gateway-ready surface"
+  "launch.architecture.tablistAria": {
+    "defaultMessage": "Platform capability views"
   },
-  "launch.pillar.singleCommerce.body": {
-    "defaultMessage": "Sessions, products, orders, and account state all resolve against the same live production core."
+  "launch.architecture.title": {
+    "defaultMessage": "Interactive Platform Capabilities"
   },
-  "launch.pillar.singleCommerce.title": {
-    "defaultMessage": "Single commerce system"
+  "launch.buildTime.unavailable": {
+    "defaultMessage": "Build time unavailable"
   },
-  "launch.pillar.twoRuntimes.body": {
-    "defaultMessage": "Vercel and Netlify stay separate at the hosting layer while behaving like the same Aura experience."
+  "launch.contract.admin": {
+    "defaultMessage": "Role-gated AWS & operations control plane"
   },
-  "launch.pillar.twoRuntimes.title": {
-    "defaultMessage": "Two public runtimes"
+  "launch.contract.api": {
+    "defaultMessage": "Unified API & payment security contract"
   },
-  "launch.runtime.netlify.summary": {
-    "defaultMessage": "Best for validating the independent Netlify host while keeping the exact same commerce behavior and data."
+  "launch.contract.auth": {
+    "defaultMessage": "Authentication & session continuity"
   },
-  "launch.runtime.netlify.title": {
-    "defaultMessage": "Netlify mirrored runtime"
+  "launch.contract.heading": {
+    "defaultMessage": "Verified Runtime Contract"
   },
-  "launch.runtime.vercel.summary": {
-    "defaultMessage": "Best for the flagship Aura entrypoint and the fastest path into the shared production storefront."
+  "launch.contract.locale": {
+    "defaultMessage": "Synchronized 20-locale FormatJS catalogs"
   },
-  "launch.runtime.vercel.title": {
-    "defaultMessage": "Vercel primary runtime"
+  "launch.cta.assistant": {
+    "defaultMessage": "Commerce Copilot"
+  },
+  "launch.cta.compare": {
+    "defaultMessage": "AI Compare"
+  },
+  "launch.cta.storefront": {
+    "defaultMessage": "Enter Storefront"
+  },
+  "launch.cta.visualSearch": {
+    "defaultMessage": "Visual Search"
+  },
+  "launch.edge.cloudfront.badge": {
+    "defaultMessage": "AWS Edge"
+  },
+  "launch.edge.cloudfront.description": {
+    "defaultMessage": "Serves the S3 and CloudFront edge distribution backed by the shared backend contract."
+  },
+  "launch.edge.cloudfront.role": {
+    "defaultMessage": "AWS CDN Storefront"
+  },
+  "launch.edge.cloudfront.title": {
+    "defaultMessage": "CloudFront Distribution"
+  },
+  "launch.edge.render.badge": {
+    "defaultMessage": "Render Mirror"
+  },
+  "launch.edge.render.description": {
+    "defaultMessage": "Mirrors main-branch builds while maintaining full authentication and catalog parity."
+  },
+  "launch.edge.render.role": {
+    "defaultMessage": "Mirror Storefront"
+  },
+  "launch.edge.render.title": {
+    "defaultMessage": "Render Mirror Storefront"
+  },
+  "launch.edges.eyebrow": {
+    "defaultMessage": "Live Storefront Topology"
+  },
+  "launch.edges.subtitle": {
+    "defaultMessage": "Each distribution endpoint shares the same API gateway, authentication posture, and checkout validation contract."
+  },
+  "launch.edges.title": {
+    "defaultMessage": "Production Frontend Destinations"
+  },
+  "launch.hero.eyebrow": {
+    "defaultMessage": "Aura Architecture & Multi-Edge Gateway"
+  },
+  "launch.hero.headline": {
+    "defaultMessage": "One commerce platform across four production edges and grounded AI workspaces."
+  },
+  "launch.hero.subtitle": {
+    "defaultMessage": "Explore Aura's live storefront mirrors, inspect the multimodal Commerce Copilot, test Visual Search and AI Compare, and verify active build telemetry from one command surface."
+  },
+  "launch.marketplace.link": {
+    "defaultMessage": "Explore Marketplace"
+  },
+  "launch.releases.link": {
+    "defaultMessage": "Desktop & Mobile Releases"
+  },
+  "launch.runtimeHost.local": {
+    "defaultMessage": "Local runtime"
+  },
+  "launch.runtimeHost.unknown": {
+    "defaultMessage": "Active runtime"
+  },
+  "launch.showcase.assistant.cta": {
+    "defaultMessage": "Launch Commerce Copilot"
+  },
+  "launch.showcase.assistant.pointOne": {
+    "defaultMessage": "Bounded multi-iteration catalog verification before product citations"
+  },
+  "launch.showcase.assistant.pointThree": {
+    "defaultMessage": "Locale-aware voice intake and explicit confirmation before mutations"
+  },
+  "launch.showcase.assistant.pointTwo": {
+    "defaultMessage": "Persistent viewer-scoped chat sessions synced across routes"
+  },
+  "launch.showcase.assistant.summary": {
+    "defaultMessage": "Multimodal shopping assistant with verified product tool execution, voice dictation, image/audio context, and confirmation cards."
+  },
+  "launch.showcase.assistant.tag": {
+    "defaultMessage": "Grounded AI"
+  },
+  "launch.showcase.assistant.title": {
+    "defaultMessage": "Commerce Copilot & Tool Loop"
+  },
+  "launch.showcase.i18n.cta": {
+    "defaultMessage": "Browse Storefront"
+  },
+  "launch.showcase.i18n.pointOne": {
+    "defaultMessage": "Native Devanagari, Bengali, Arabic, CJK, and Latin scripts enforced in CI"
+  },
+  "launch.showcase.i18n.pointThree": {
+    "defaultMessage": "Locale-driven currency presentment, numbers, and timestamps"
+  },
+  "launch.showcase.i18n.pointTwo": {
+    "defaultMessage": "Zero-egress PII-redacting runtime compositional phrase translator"
+  },
+  "launch.showcase.i18n.summary": {
+    "defaultMessage": "FormatJS AST catalogs across 19 localized languages with bidirectional RTL adaptation and zero-egress compositional translation."
+  },
+  "launch.showcase.i18n.tag": {
+    "defaultMessage": "Global Native Script"
+  },
+  "launch.showcase.i18n.title": {
+    "defaultMessage": "20-Locale ICU & Compositional Engine"
+  },
+  "launch.showcase.intelligence.cta": {
+    "defaultMessage": "Open Visual Search"
+  },
+  "launch.showcase.intelligence.pointOne": {
+    "defaultMessage": "Live median, floor, and ceiling snapshot against matched listings"
+  },
+  "launch.showcase.intelligence.pointThree": {
+    "defaultMessage": "Direct screenshot-to-comparison handoff for matched SKUs"
+  },
+  "launch.showcase.intelligence.pointTwo": {
+    "defaultMessage": "Weighted comparison modes across Value, Spec, Trust, and Balanced"
+  },
+  "launch.showcase.intelligence.summary": {
+    "defaultMessage": "Upload or paste product screenshots to inspect live price-gap distributions, authenticity hints, and side-by-side winners."
+  },
+  "launch.showcase.intelligence.tag": {
+    "defaultMessage": "Decision Engine"
+  },
+  "launch.showcase.intelligence.title": {
+    "defaultMessage": "Visual Search & AI Compare"
+  },
+  "launch.showcase.security.cta": {
+    "defaultMessage": "Open AI Compare"
+  },
+  "launch.showcase.security.pointOne": {
+    "defaultMessage": "Trusted-device verification and step-up checkpoint enforcement"
+  },
+  "launch.showcase.security.pointThree": {
+    "defaultMessage": "Strict Content-Security-Policy parity across every frontend edge"
+  },
+  "launch.showcase.security.pointTwo": {
+    "defaultMessage": "Verified GitHub release artifacts with desktop and mobile targets"
+  },
+  "launch.showcase.security.summary": {
+    "defaultMessage": "Risk-scored login checkpoints, signed order/payment receipts, webhook idempotency, and admin-gated AWS operations."
+  },
+  "launch.showcase.security.tag": {
+    "defaultMessage": "Defense in Depth"
+  },
+  "launch.showcase.security.title": {
+    "defaultMessage": "Zero-Trust Auth & Resilience Layer"
+  },
+  "launch.targets.copiedOrigin": {
+    "defaultMessage": "Copied"
+  },
+  "launch.targets.copyOrigin": {
+    "defaultMessage": "Copy origin URL for {label}"
+  },
+  "launch.targets.openStorefront": {
+    "defaultMessage": "Open storefront"
+  },
+  "launch.targets.openTarget": {
+    "defaultMessage": "Open {label}"
+  },
+  "launch.telemetry.builtAt": {
+    "defaultMessage": "Built At"
+  },
+  "launch.telemetry.deployTarget": {
+    "defaultMessage": "Deploy Target"
+  },
+  "launch.telemetry.releaseId": {
+    "defaultMessage": "Release ID"
+  },
+  "launch.telemetry.source": {
+    "defaultMessage": "Build Source"
   },
   "listing.catalogEyebrow": {
     "defaultMessage": "Full catalog",
@@ -12275,6 +12354,42 @@
   "multimodal.chatResumed.title": {
     "defaultMessage": "Chat resumed"
   },
+  "multimodal.dock.cartCount": {
+    "defaultMessage": "Cart {count}"
+  },
+  "multimodal.dock.intentLabel": {
+    "defaultMessage": "Intent {intent}"
+  },
+  "multimodal.dock.liveMediaActive": {
+    "defaultMessage": "Live {mode} active"
+  },
+  "multimodal.dock.locked": {
+    "defaultMessage": "Locked"
+  },
+  "multimodal.dock.networkOffline": {
+    "defaultMessage": "offline"
+  },
+  "multimodal.dock.networkOnline": {
+    "defaultMessage": "online"
+  },
+  "multimodal.dock.noShopperBrief": {
+    "defaultMessage": "No explicit shopper brief yet."
+  },
+  "multimodal.dock.open": {
+    "defaultMessage": "Open"
+  },
+  "multimodal.dock.ready": {
+    "defaultMessage": "Ready"
+  },
+  "multimodal.dock.sessionUpdated": {
+    "defaultMessage": "Session state updated."
+  },
+  "multimodal.dock.shoppingFlowFallback": {
+    "defaultMessage": "Shopping flow"
+  },
+  "multimodal.dock.voiceBriefFallback": {
+    "defaultMessage": "Launch with a clean voice prompt."
+  },
   "multimodal.liveInspectionNeedsListing.detail": {
     "defaultMessage": "Open a marketplace listing to launch a voice or video inspection lane."
   },
@@ -12447,6 +12562,9 @@
     "defaultMessage": "My profile",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "nav.runtimeSwitch.switchLabel": {
+    "defaultMessage": "Switch"
+  },
   "nav.searchDesktop": {
     "defaultMessage": "Search products, brands, and live deals",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12520,10 +12638,6 @@
   },
   "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e": {
     "defaultMessage": "Ask for product picks, cart review, order support, or grounded marketplace decisions.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3": {
-    "defaultMessage": "Choose the runtime you want, enter the same production commerce system, and keep the same identity, cart, wishlist, profile, and order state across both domains. This is the gateway surface that can also graduate into a dedicated general-domain project when you want it to.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "order.jsx.text.id": {
@@ -13331,16 +13445,8 @@
     "defaultMessage": "Add products from the left panel to start comparing.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "product.jsx.text.matched.product.8b686b00": {
-    "defaultMessage": "matched product",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "product.jsx.text.select.up.to.4.products.and.let.02c6cece": {
     "defaultMessage": "Select up to 4 products and let the engine pick the best fit.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "product.jsx.text.shared.production.data.f8bd2f6b": {
-    "defaultMessage": "Shared production data",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "product.jsx.text.watch.3139f8c4": {
@@ -16975,10 +17081,6 @@
     "defaultMessage": "File Name (optional)",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "search.jsx.text.from.live.catalog.8df55cd8": {
-    "defaultMessage": "from live catalog.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "search.jsx.text.highest.62013f0d": {
     "defaultMessage": "Highest",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -18318,6 +18420,9 @@
   "status.uptime.sinceMonitoringBeganSuffix": {
     "defaultMessage": "- Uptime since monitoring began: {uptime}"
   },
+  "support.category.general": {
+    "defaultMessage": "General"
+  },
   "support.jsx.expression.copied.a4f59665": {
     "defaultMessage": "Copied",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -18932,6 +19037,30 @@
   "videoCall.switchCamera.title": {
     "defaultMessage": "Switch camera"
   },
+  "visualSearch.authenticity.highRisk": {
+    "defaultMessage": "High Risk"
+  },
+  "visualSearch.authenticity.likelyAuthentic": {
+    "defaultMessage": "Likely Authentic"
+  },
+  "visualSearch.authenticity.verify": {
+    "defaultMessage": "Verify"
+  },
+  "visualSearch.card.authenticityUnavailable": {
+    "defaultMessage": "Authenticity signals unavailable."
+  },
+  "visualSearch.card.generalCategory": {
+    "defaultMessage": "General"
+  },
+  "visualSearch.card.open": {
+    "defaultMessage": "Open"
+  },
+  "visualSearch.card.unknownBrand": {
+    "defaultMessage": "Unknown brand"
+  },
+  "visualSearch.card.untitledProduct": {
+    "defaultMessage": "Untitled Product"
+  },
   "visualSearch.error.compareNeedsMatches": {
     "defaultMessage": "Need at least 2 matched products to open AI Compare.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -18940,13 +19069,40 @@
     "defaultMessage": "Provide image URL, uploaded screenshot, filename, or hint text.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "visualSearch.error.readFailed": {
+    "defaultMessage": "Failed to read image file."
+  },
+  "visualSearch.error.searchFailed": {
+    "defaultMessage": "Visual search failed."
+  },
   "visualSearch.error.unsupportedImageType": {
     "defaultMessage": "Only PNG, JPEG, GIF, and WebP image files are supported for visual search.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "visualSearch.field.imageUrl": {
+    "defaultMessage": "Image URL"
+  },
   "visualSearch.inputPreview.alt": {
     "defaultMessage": "Visual search input",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "visualSearch.limit.matchesCount": {
+    "defaultMessage": "{count, plural, one {# match} other {# matches}}"
+  },
+  "visualSearch.priceGap.above": {
+    "defaultMessage": "{amount} above median"
+  },
+  "visualSearch.priceGap.atMedian": {
+    "defaultMessage": "At median price"
+  },
+  "visualSearch.priceGap.below": {
+    "defaultMessage": "{amount} below median"
+  },
+  "visualSearch.priceGap.noBaseline": {
+    "defaultMessage": "No median baseline"
+  },
+  "visualSearch.results.countSummary": {
+    "defaultMessage": "{count, plural, one {# matched product from live catalog.} other {# matched products from live catalog.}}"
   },
   "voice.captureUnavailable": {
     "defaultMessage": "Voice capture is unavailable in this browser. Typed command mode is enabled.",

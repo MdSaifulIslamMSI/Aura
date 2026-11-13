@@ -1,5 +1,6 @@
 import { useDeferredValue } from 'react';
 import { Camera, Mic, PhoneCall, Sparkles, Video, Wifi, WifiOff } from 'lucide-react';
+import { FormattedMessage } from 'react-intl';
 import { cn } from '@/lib/utils';
 import { useMultimodalAssistant } from '@/context/MultimodalAssistantContext';
 import { useChatStore } from '@/store/chatStore';
@@ -94,7 +95,9 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             <Mic className="h-4 w-4" />
                             <StableText id={"common.jsx.text.voice.copilot.4a1c779c"} defaultMessage={"Voice copilot"} />
                         </span>
-                        <span className="text-xs uppercase tracking-[0.16em]">Open</span>
+                        <span className="text-xs uppercase tracking-[0.16em]">
+                            <FormattedMessage id="multimodal.dock.open" defaultMessage="Open" />
+                        </span>
                     </button>
 
                     <button
@@ -108,7 +111,9 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             <StableText id={"common.jsx.text.live.voice.b748e062"} defaultMessage={"Live voice"} />
                         </span>
                         <span className="text-xs uppercase tracking-[0.16em]">
-                            {routeContext?.canLaunchInspection ? 'Ready' : 'Locked'}
+                            {routeContext?.canLaunchInspection
+                                ? <FormattedMessage id="multimodal.dock.ready" defaultMessage="Ready" />
+                                : <FormattedMessage id="multimodal.dock.locked" defaultMessage="Locked" />}
                         </span>
                     </button>
 
@@ -143,7 +148,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                         <StableText id={"common.jsx.text.one.continuity.layer.across.chat.voice.and.8554d950"} defaultMessage={"One continuity layer across chat, voice, and live calls."} />
                     </p>
                     <p className={cn('mt-1 text-xs', mutedTextClass)}>
-                        {routeContext?.routeLabel || 'Shopping flow'} <StableText id={"common.jsx.text.active.lane.de283afd"} defaultMessage={"| Active lane"} /> {String(activeChannel || 'chat').replace(/-/g, ' ')}
+                        {routeContext?.routeLabel || <FormattedMessage id="multimodal.dock.shoppingFlowFallback" defaultMessage="Shopping flow" />} <StableText id={"common.jsx.text.active.lane.de283afd"} defaultMessage={"| Active lane"} /> {String(activeChannel || 'chat').replace(/-/g, ' ')}
                     </p>
                 </div>
 
@@ -173,7 +178,9 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             : (isWhiteMode ? 'border-amber-200 bg-amber-500/10 text-amber-700' : 'border-amber-300/20 bg-amber-500/12 text-amber-100')
                     )}>
                         {networkHealthy ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                        {networkHealthy ? (readiness?.networkProfile || 'online') : 'offline'}
+                        {networkHealthy
+                            ? (readiness?.networkProfile || <FormattedMessage id="multimodal.dock.networkOnline" defaultMessage="online" />)
+                            : <FormattedMessage id="multimodal.dock.networkOffline" defaultMessage="offline" />}
                     </span>
                 </div>
             </div>
@@ -195,7 +202,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                         <StableText id={"common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff"} defaultMessage={"Lift the current brief into voice and keep the shopping context intact."} />
                     </p>
                     <p className={cn('mt-1 text-xs', isWhiteMode ? 'text-slate-300' : 'text-cyan-100/75')}>
-                        {activeDraft || 'Launch with a clean voice prompt.'}
+                        {activeDraft || <FormattedMessage id="multimodal.dock.voiceBriefFallback" defaultMessage="Launch with a clean voice prompt." />}
                     </p>
                 </button>
 
@@ -251,7 +258,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300"><StableText id={"common.jsx.text.continuity.17ba6f4e"} defaultMessage={"Continuity"} /></div>
                     <p className={cn('mt-2 text-sm', mutedTextClass)}>
                         <StableText id={"common.jsx.text.latest.brief.62cb2c64"} defaultMessage={"Latest brief:"} /> <span className={cn('font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
-                            {continuityContext?.lastQuery || 'No explicit shopper brief yet.'}
+                            {continuityContext?.lastQuery || <FormattedMessage id="multimodal.dock.noShopperBrief" defaultMessage="No explicit shopper brief yet." />}
                         </span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
@@ -259,17 +266,29 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             <StableText id={"common.jsx.text.mode.f5737ed1"} defaultMessage={"Mode"} /> {continuityContext?.chatMode || 'explore'}
                         </span>
                         <span className={cn('rounded-full border px-2.5 py-1', surfaceClassName)}>
-                            Cart {continuityContext?.cartCount || 0}
+                            <FormattedMessage
+                                id="multimodal.dock.cartCount"
+                                defaultMessage="Cart {count}"
+                                values={{ count: continuityContext?.cartCount || 0 }}
+                            />
                         </span>
                         <span className={cn('rounded-full border px-2.5 py-1', surfaceClassName)}>
-                            Intent {continuityContext?.currentIntent || 'adaptive'}
+                            <FormattedMessage
+                                id="multimodal.dock.intentLabel"
+                                defaultMessage="Intent {intent}"
+                                values={{ intent: continuityContext?.currentIntent || 'adaptive' }}
+                            />
                         </span>
                         {activeCallSummary?.active ? (
                             <span className={cn(
                                 'rounded-full border px-2.5 py-1',
                                 isWhiteMode ? 'border-emerald-200 bg-emerald-500/10 text-emerald-700' : 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100'
                             )}>
-                                Live {activeCallSummary.mediaMode} active
+                                <FormattedMessage
+                                    id="multimodal.dock.liveMediaActive"
+                                    defaultMessage="Live {mode} active"
+                                    values={{ mode: activeCallSummary.mediaMode }}
+                                />
                             </span>
                         ) : null}
                     </div>
@@ -281,7 +300,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                         {deferredEvents.length > 0 ? deferredEvents.map((event) => (
                             <div key={event.id} className={cn('rounded-2xl border px-3 py-2.5', buildStatusTone(event.tone, isWhiteMode))}>
                                 <div className="text-xs font-black uppercase tracking-[0.16em]">{event.title}</div>
-                                <div className="mt-1 text-xs leading-5 opacity-90">{event.detail || 'Session state updated.'}</div>
+                                <div className="mt-1 text-xs leading-5 opacity-90">{event.detail || <FormattedMessage id="multimodal.dock.sessionUpdated" defaultMessage="Session state updated." />}</div>
                             </div>
                         )) : (
                             <div className={cn('rounded-2xl border px-3 py-3 text-xs', surfaceClassName, mutedTextClass)}>

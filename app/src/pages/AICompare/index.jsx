@@ -91,7 +91,7 @@ const formatCompareModeLabel = (mode, t) => {
 
 const AICompare = () => {
   const navigate = useNavigate();
-  const { formatPrice, t: legacyT } = useMarket();
+  const { formatNumber, formatPrice, t: legacyT } = useMarket();
   const t = useStableIcuMessages(legacyT);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -235,13 +235,13 @@ const AICompare = () => {
   const specRows = useMemo(() => [
     { key: 'price', label: t('compare.spec.price', {}, 'Price'), formatter: (p) => formatEntityPrice(formatPrice, p) },
     { key: 'rating', label: t('compare.spec.rating', {}, 'Rating'), formatter: (p) => `${p.rating || 0}/5` },
-    { key: 'reviews', label: t('compare.spec.reviews', {}, 'Reviews'), formatter: (p) => (p.ratingCount || 0).toLocaleString('en-IN') },
+    { key: 'reviews', label: t('compare.spec.reviews', {}, 'Reviews'), formatter: (p) => formatNumber(p.ratingCount || 0) },
     { key: 'discount', label: t('compare.spec.discount', {}, 'Discount'), formatter: (p) => `${p.discountPercentage || 0}%` },
     { key: 'delivery', label: t('compare.spec.delivery', {}, 'Delivery'), formatter: (p) => p.deliveryTime || t('compare.spec.notAvailable', {}, 'N/A') },
     { key: 'stock', label: t('compare.spec.stock', {}, 'Stock'), formatter: (p) => (p.stock > 0 ? t('compare.spec.inStock', {}, 'In Stock') : t('compare.spec.outOfStock', {}, 'Out of Stock')) },
     { key: 'warranty', label: t('compare.spec.warranty', {}, 'Warranty'), formatter: (p) => (p.warranty ? t('common.answer.yes', {}, 'Yes') : t('common.answer.no', {}, 'No')) },
     { key: 'ai-score', label: t('compare.spec.aiScore', {}, 'AI Score'), formatter: (_p, row) => `${row.totalScore}` },
-  ], [formatPrice, t]);
+  ], [formatNumber, formatPrice, t]);
 
   useEffect(() => {
     const productIds = selectedProducts

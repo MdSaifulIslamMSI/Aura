@@ -18,6 +18,22 @@ import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
+import { defineMessages } from 'react-intl';
+
+const footerStatusMessages = defineMessages({
+  healthy: {
+    id: 'common.jsx.expression.healthy.status',
+    defaultMessage: 'Healthy',
+  },
+  degraded: {
+    id: 'common.jsx.expression.degraded.status',
+    defaultMessage: 'Degraded',
+  },
+  monitoring: {
+    id: 'common.jsx.expression.monitoring.status',
+    defaultMessage: 'Monitoring',
+  },
+});
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
   degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-amber-500/0 hover:shadow-amber-500/20',
@@ -26,7 +42,7 @@ const STATUS_CLASSES = {
 
 const Footer = () => {
   const location = useLocation();
-  const { t: legacyT } = useMarket();
+  const { locale, t: legacyT } = useMarket();
   const t = useStableIcuMessages(legacyT);
   const [trustStatus, setTrustStatus] = useState({
     backend: { status: 'checking', db: 'unknown', uptime: 0, timestamp: null },
@@ -35,7 +51,10 @@ const Footer = () => {
   });
   const supportDeskPath = buildSupportHandoffPath();
   const runtimeHost = useMemo(() => resolveRuntimeHost(), []);
-  const releaseBuiltAtLabel = useMemo(() => formatReleaseBuiltAt(releaseInfo.builtAt), []);
+  const releaseBuiltAtLabel = useMemo(
+    () => formatReleaseBuiltAt(releaseInfo.builtAt, locale),
+    [locale]
+  );
   const hasRuntimeTargetMismatch = useMemo(
     () => (
       releaseInfo.deployTarget !== 'unknown'
@@ -174,10 +193,10 @@ const Footer = () => {
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Server className="w-3.5 h-3.5" />
                   {systemHealthStatus === 'healthy'
-                    ? 'Healthy'
+                    ? <StableText {...footerStatusMessages.healthy} />
                     : systemHealthStatus === 'checking'
                       ? <StableText id={"common.jsx.expression.checking.20c680de"} defaultMessage={"Checking"} />
-                      : 'Degraded'}
+                      : <StableText {...footerStatusMessages.degraded} />}
                 </p>
               </div>
 
@@ -185,7 +204,7 @@ const Footer = () => {
                 <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.paymentSafety', {}, 'Payments Safety')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  {paymentSafetyStatus === 'healthy' ? <StableText id={"common.jsx.expression.protected.ad671e1c"} defaultMessage={"Protected"} /> : 'Monitoring'}
+                  {paymentSafetyStatus === 'healthy' ? <StableText id={"common.jsx.expression.protected.ad671e1c"} defaultMessage={"Protected"} /> : <StableText {...footerStatusMessages.monitoring} />}
                 </p>
               </div>
 
@@ -219,7 +238,7 @@ const Footer = () => {
               {t('footer.cleanHeadline', {}, 'Shopping support, trust, and discovery stay in one place.')}
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
-              {t('footer.cleanBody', {}, 'Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.')}
+              {t('footer.cleanBody', {}, 'Search, deals, marketplace browsing, and support stay connected across every storefront session.')}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to={supportDeskPath} className="btn-secondary inline-flex items-center gap-2">

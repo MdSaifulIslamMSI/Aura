@@ -14,6 +14,7 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { productApi } from '@/services/api';
@@ -22,6 +23,77 @@ import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
 import { toSafePreviewImage } from '@/utils/visualSearchPreview';
 
 import { StableText } from '@/i18n/StableText';
+
+const visualSearchMessages = defineMessages({
+  authenticityLikely: {
+    id: 'visualSearch.authenticity.likelyAuthentic',
+    defaultMessage: 'Likely Authentic',
+  },
+  authenticityHighRisk: {
+    id: 'visualSearch.authenticity.highRisk',
+    defaultMessage: 'High Risk',
+  },
+  authenticityVerify: {
+    id: 'visualSearch.authenticity.verify',
+    defaultMessage: 'Verify',
+  },
+  priceGapNoBaseline: {
+    id: 'visualSearch.priceGap.noBaseline',
+    defaultMessage: 'No median baseline',
+  },
+  priceGapAtMedian: {
+    id: 'visualSearch.priceGap.atMedian',
+    defaultMessage: 'At median price',
+  },
+  priceGapBelow: {
+    id: 'visualSearch.priceGap.below',
+    defaultMessage: '{amount} below median',
+  },
+  priceGapAbove: {
+    id: 'visualSearch.priceGap.above',
+    defaultMessage: '{amount} above median',
+  },
+  readImageFailed: {
+    id: 'visualSearch.error.readFailed',
+    defaultMessage: 'Failed to read image file.',
+  },
+  searchFailed: {
+    id: 'visualSearch.error.searchFailed',
+    defaultMessage: 'Visual search failed.',
+  },
+  imageUrlLabel: {
+    id: 'visualSearch.field.imageUrl',
+    defaultMessage: 'Image URL',
+  },
+  matchesLimit: {
+    id: 'visualSearch.limit.matchesCount',
+    defaultMessage: '{count, plural, one {# match} other {# matches}}',
+  },
+  resultsCountSummary: {
+    id: 'visualSearch.results.countSummary',
+    defaultMessage: '{count, plural, one {# matched product from live catalog.} other {# matched products from live catalog.}}',
+  },
+  untitledProduct: {
+    id: 'visualSearch.card.untitledProduct',
+    defaultMessage: 'Untitled Product',
+  },
+  unknownBrand: {
+    id: 'visualSearch.card.unknownBrand',
+    defaultMessage: 'Unknown brand',
+  },
+  generalCategory: {
+    id: 'visualSearch.card.generalCategory',
+    defaultMessage: 'General',
+  },
+  authenticityUnavailable: {
+    id: 'visualSearch.card.authenticityUnavailable',
+    defaultMessage: 'Authenticity signals unavailable.',
+  },
+  openProduct: {
+    id: 'visualSearch.card.open',
+    defaultMessage: 'Open',
+  },
+});
 const QUICK_HINTS = [
   'iPhone 15 Pro Max titanium',
   'gaming laptop rtx',
@@ -51,6 +123,9 @@ const deriveFileNameFromUrl = (value = '') => {
 };
 
 const toSafeLimit = (value, fallback = 12) => {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+    return fallback;
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(24, Math.max(4, Math.trunc(parsed)));
@@ -68,10 +143,14 @@ const authenticityTone = (verdict = 'verify') => {
   return 'border-amber-400/45 bg-amber-400/15 text-amber-300';
 };
 
-const authenticityLabel = (verdict = 'verify') => {
-  if (verdict === 'likely_authentic') return 'Likely Authentic';
-  if (verdict === 'high_risk') return 'High Risk';
-  return 'Verify';
+const authenticityLabel = (verdict = 'verify', intl = null) => {
+  if (verdict === 'likely_authentic') {
+    return intl ? intl.formatMessage(visualSearchMessages.authenticityLikely) : 'Likely Authentic';
+  }
+  if (verdict === 'high_risk') {
+    return intl ? intl.formatMessage(visualSearchMessages.authenticityHighRisk) : 'High Risk';
+  }
+  return intl ? intl.formatMessage(visualSearchMessages.authenticityVerify) : 'Verify';
 };
 
 const priceGapTone = (position = 'near') => {
@@ -80,11 +159,22 @@ const priceGapTone = (position = 'near') => {
   return 'border-white/20 bg-white/10 text-slate-200';
 };
 
-const summarizePriceGap = (priceGap, formatAmount) => {
-  if (!priceGap || Number(priceGap.medianPrice || 0) <= 0) return 'No median baseline';
+const summarizePriceGap = (priceGap, formatAmount, intl = null) => {
+  if (!priceGap || Number(priceGap.medianPrice || 0) <= 0) {
+    return intl ? intl.formatMessage(visualSearchMessages.priceGapNoBaseline) : 'No median baseline';
+  }
   const amount = Number(priceGap.againstMedianAmount || 0);
-  if (amount === 0) return 'At median price';
-  return `${formatAmount(Math.abs(amount))} ${amount < 0 ? 'below' : 'above'} median`;
+  if (amount === 0) {
+    return intl ? intl.formatMessage(visualSearchMessages.priceGapAtMedian) : 'At median price';
+  }
+  const formattedAmount = formatAmount(Math.abs(amount));
+  if (intl) {
+    return intl.formatMessage(
+      amount < 0 ? visualSearchMessages.priceGapBelow : visualSearchMessages.priceGapAbove,
+      { amount: formattedAmount },
+    );
+  }
+  return `${formattedAmount} ${amount < 0 ? 'below' : 'above'} median`;
 };
 
 const readImageDimensions = (file) =>
@@ -104,11 +194,11 @@ const readImageDimensions = (file) =>
     image.src = previewUrl;
   });
 
-const readFileAsDataUrl = (file) =>
+const readFileAsDataUrl = (file, readFailedMessage = 'Failed to read image file.') =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.onerror = () => reject(new Error(readFailedMessage));
     reader.readAsDataURL(file);
   });
 
@@ -120,6 +210,7 @@ const formatSize = (sizeBytes = 0) => {
 };
 
 const VisualSearch = () => {
+  const intl = useIntl();
   const navigate = useNavigate();
   const { formatPrice, t: legacyT } = useMarket();
   const t = useStableIcuMessages(legacyT);
@@ -182,7 +273,7 @@ const VisualSearch = () => {
 
     const [dimensions, nextImageDataUrl] = await Promise.all([
       readImageDimensions(file),
-      readFileAsDataUrl(file),
+      readFileAsDataUrl(file, intl.formatMessage(visualSearchMessages.readImageFailed)),
     ]);
     setImageDataUrl(nextImageDataUrl);
     setImageMeta({
@@ -201,7 +292,7 @@ const VisualSearch = () => {
         .trim()
         .slice(0, 180);
     });
-  }, [t]);
+  }, [intl, t]);
 
   const runSearchWithPayload = async ({
     incomingUrl = imageUrl,
@@ -243,7 +334,7 @@ const VisualSearch = () => {
       setTotal(Number(response?.total || 0));
       setMarketSnapshot(response?.marketSnapshot || null);
     } catch (requestError) {
-      setError(requestError.message || 'Visual search failed.');
+      setError(requestError.message || intl.formatMessage(visualSearchMessages.searchFailed));
       setMatches([]);
       setTotal(0);
       setTokens([]);
@@ -389,7 +480,7 @@ const VisualSearch = () => {
               </label>
 
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                Image URL
+                <FormattedMessage {...visualSearchMessages.imageUrlLabel} />
                 <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/15 bg-zinc-950/70 px-3 py-2">
                   <Link2 className="w-4 h-4 text-slate-500" />
                   <input
@@ -444,7 +535,9 @@ const VisualSearch = () => {
                   onChange={(event) => setLimit(toSafeLimit(event.target.value, 12))}
                   className="mt-2 w-full accent-cyan-400"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">{limit} matches</p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  <FormattedMessage {...visualSearchMessages.matchesLimit} values={{ count: limit }} />
+                </p>
               </label>
             </div>
 
@@ -486,7 +579,9 @@ const VisualSearch = () => {
                   <Sparkles className="w-4 h-4 text-neo-cyan" />
                   <StableText id={"search.jsx.text.match.intelligence.74bc104f"} defaultMessage={"Match Intelligence"} />
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">{total} <StableText id={"product.jsx.text.matched.product.8b686b00"} defaultMessage={"matched product"} />{total === 1 ? '' : 's'} <StableText id={"search.jsx.text.from.live.catalog.8df55cd8"} defaultMessage={"from live catalog."} /></p>
+                <p className="text-xs text-slate-400 mt-1">
+                  <FormattedMessage {...visualSearchMessages.resultsCountSummary} values={{ count: total }} />
+                </p>
               </div>
               <button
                 type="button"
@@ -586,32 +681,32 @@ const VisualSearch = () => {
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-white line-clamp-2">{product.title || 'Untitled Product'}</p>
+                    <p className="text-sm font-bold text-white line-clamp-2">{product.title || intl.formatMessage(visualSearchMessages.untitledProduct)}</p>
                     <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-black uppercase tracking-wider', confidenceTone(confidence))}>
                       {Math.round(confidence * 100)}%
                     </span>
                   </div>
 
-                  <p className="mt-1 text-xs text-slate-400 line-clamp-1">{product.brand || 'Unknown brand'} · {product.category || 'General'}</p>
+                  <p className="mt-1 text-xs text-slate-400 line-clamp-1">{product.brand || intl.formatMessage(visualSearchMessages.unknownBrand)} · {product.category || intl.formatMessage(visualSearchMessages.generalCategory)}</p>
 
                   <div className="mt-2 flex items-center gap-2">
                     <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider', authenticityTone(authenticity?.verdict))}>
-                      {authenticityLabel(authenticity?.verdict)} {Number(authenticity?.score || 0)}%
+                      {authenticityLabel(authenticity?.verdict, intl)} {Number(authenticity?.score || 0)}%
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">{authenticity?.summary || 'Authenticity signals unavailable.'}</p>
+                  <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">{authenticity?.summary || intl.formatMessage(visualSearchMessages.authenticityUnavailable)}</p>
 
                   <div className="mt-2">
                     <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold', priceGapTone(priceGap.position))}>
-                      {summarizePriceGap(priceGap, formatBrowseAmount)}
+                      {summarizePriceGap(priceGap, formatBrowseAmount, intl)}
                     </span>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-base font-black text-white">{formatEntityPrice(formatPrice, product)}</span>
                     <span className="text-xs font-bold text-neo-cyan inline-flex items-center gap-1">
-                      Open
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <FormattedMessage {...visualSearchMessages.openProduct} />
+                      <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                     </span>
                   </div>
                 </Link>

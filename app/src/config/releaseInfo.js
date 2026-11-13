@@ -50,9 +50,13 @@ export const releaseInfo = Object.freeze({
   builtAt: sanitizeValue(rawReleaseInfo.builtAt, ''),
 });
 
-export const formatReleaseBuiltAt = (builtAt = releaseInfo.builtAt) => {
+export const formatReleaseBuiltAt = (
+  builtAt = releaseInfo.builtAt,
+  locale = undefined,
+  unavailableLabel = 'build time unavailable',
+) => {
   if (!builtAt) {
-    return 'build time unavailable';
+    return unavailableLabel;
   }
 
   const parsedDate = new Date(builtAt);
@@ -60,7 +64,7 @@ export const formatReleaseBuiltAt = (builtAt = releaseInfo.builtAt) => {
     return builtAt;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale || undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(parsedDate);

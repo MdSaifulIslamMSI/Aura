@@ -34,6 +34,36 @@ humanReviewQueue.forEach((entry) => {
 });
 
 const MOJIBAKE_PATTERN = /\uFFFD|Ã|Â|â€™|â€œ|â€|ï¿½/;
+const QUESTION_MARK_CORRUPTION_PATTERN = /\p{L}\?+\p{L}|\?{2,}/u;
+const URL_PATTERN = /https?:\/\/\S+/g;
+const NON_LATIN_SCRIPT_RULES = {
+    ar: /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/,
+    as: /[\u0980-\u09FF]/,
+    bn: /[\u0980-\u09FF]/,
+    gu: /[\u0A80-\u0AFF]/,
+    hi: /[\u0900-\u097F]/,
+    ja: /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/,
+    kn: /[\u0C80-\u0CFF]/,
+    ml: /[\u0D00-\u0D7F]/,
+    mr: /[\u0900-\u097F]/,
+    or: /[\u0B00-\u0B7F]/,
+    pa: /[\u0A00-\u0A7F]/,
+    sa: /[\u0900-\u097F]/,
+    te: /[\u0C00-\u0C7F]/,
+    ur: /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/,
+    zh: /[\u4E00-\u9FFF]/,
+};
+const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const CLI_CMD_PATTERN = /\bnpm\s+run\s+[a-z0-9:_-]+/gi;
+const PHONE_MASK_PATTERN = /\b98X+\b/g;
+const stripPlaceholdersAndUrls = (value = '') => String(value || '')
+    .replace(URL_PATTERN, ' ')
+    .replace(EMAIL_PATTERN, ' ')
+    .replace(CLI_CMD_PATTERN, ' ')
+    .replace(PHONE_MASK_PATTERN, ' ')
+    .replace(/\{[A-Za-z0-9_]+\}/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .trim();
 const RAW_HTML_RISK_PATTERN = /<script\b|javascript:|on[a-z]+\s*=/i;
 const COMPACT_ID_PATTERN = /^(nav|auth|checkout|common|status)\./;
 
@@ -84,8 +114,38 @@ for (const locale of requiredLocales) {
             return;
         }
 
-        if (MOJIBAKE_PATTERN.test(translatedMessage)) {
-            pushIssue(locale, id, 'mojibake', 'Message contains a known broken-encoding marker.');
+        const cleanedForCorruption = stripPlaceholdersAndUrls(translatedMessage);
+        const cleanedEnglishForCorruption = stripPlaceholdersAndUrls(sourceMessage);
+        const hasCorruptedSpaceQuestion = /[₹—–•·]|[^\x00-\x7F]/.test(cleanedEnglishForCorruption)
+            && !cleanedEnglishForCorruption.includes('?')
+            && /(?:^|\s)\?(?:\s|$)/.test(cleanedForCorruption);
+        if (
+            MOJIBAKE_PATTERN.test(translatedMessage)
+            || QUESTION_MARK_CORRUPTION_PATTERN.test(cleanedForCorruption)
+            || hasCorruptedSpaceQuestion
+        ) {
+            pushIssue(locale, id, 'mojibake', 'Message contains broken encoding or ?-substitution glyphs.');
+        }
+
+        const isAllowlistedExact = qaRules.englishLeakageAllowlist.includes(sourceMessage)
+            && translatedMessage === sourceMessage;
+        const nativeScriptRegex = NON_LATIN_SCRIPT_RULES[locale];
+        if (nativeScriptRegex && !isAllowlistedExact) {
+            const allowlistPattern = qaRules.englishLeakageAllowlist
+                .filter((item) => item && !/[{}@]/.test(item))
+                .sort((a, b) => b.length - a.length)
+                .map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|');
+            const withoutAllowlist = allowlistPattern
+                ? cleanedForCorruption.replace(new RegExp(`\\b(?:${allowlistPattern})\\b`, 'gi'), ' ')
+                : cleanedForCorruption;
+            const withoutTechnicalTokens = withoutAllowlist
+                .replace(/\b(?:Aura|Razorpay|Stripe|Vercel|Netlify|CloudFront|Render|LiveKit|Gemma|Gemini|Google|GitHub|WebAuthn|Passkey|Whisper|Android|iOS|HTTP|HTTPS|JSON|CSV|PDF|OTP|UPI|EMI|COD|INR|USD|API|SDK|URL|SLA|FAQ|SMS|PIN|CPU|GPU|RAM|USB|WiFi|OK)\b/gi, ' ')
+                .replace(/\b[A-Z]{2,6}\b/g, ' ')
+                .trim();
+            if (!nativeScriptRegex.test(withoutTechnicalTokens) && /[a-z]{3,}/i.test(withoutTechnicalTokens)) {
+                pushIssue(locale, id, 'romanized-leakage', 'Non-Latin locale entry has no native script characters and contains Romanized text.');
+            }
         }
 
         if (RAW_HTML_RISK_PATTERN.test(translatedMessage)) {
