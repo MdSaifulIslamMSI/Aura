@@ -18,10 +18,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 90542
 - Unique review locale/id pairs: 90542
-- Actionable grouped queue entries: 128
-- Actionable affected locale/message pairs: 1022
+- Actionable grouped queue entries: 129
+- Actionable affected locale/message pairs: 1030
 - Native-review audit grouped entries: 4471
-- Native-review audit affected locale/message pairs: 89520
+- Native-review audit affected locale/message pairs: 89512
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,9 +29,9 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 39 | 436 | bn 20, hi 20, te 22, mr 22, ur 22, gu 22, pa 22, ml 20, kn 22, or 22, as 20, sa 20, es 31, fr 31, de 30, ar 20, ja 22, pt 28, zh 20 |
+| critical | 39 | 442 | bn 20, hi 22, te 22, mr 22, ur 22, gu 22, pa 22, ml 20, kn 22, or 22, as 20, sa 22, es 31, fr 31, de 30, ar 20, ja 22, pt 28, zh 22 |
 | high | 10 | 16 | te 1, ml 1, kn 1, es 1, fr 3, de 5, ar 1, ja 1, pt 2 |
-| medium | 48 | 513 | bn 25, hi 23, te 27, mr 25, ur 27, gu 26, pa 26, ml 25, kn 26, or 26, as 25, sa 26, es 30, fr 33, de 39, ar 23, ja 27, pt 29, zh 25 |
+| medium | 49 | 515 | bn 25, hi 23, te 27, mr 25, ur 27, gu 26, pa 26, ml 25, kn 26, or 26, as 25, sa 26, es 32, fr 33, de 39, ar 23, ja 27, pt 29, zh 25 |
 | low | 31 | 57 | te 1, ur 1, gu 1, kn 1, or 1, es 9, fr 15, de 21, ja 1, pt 5, zh 1 |
 
 ## Examples
@@ -41,7 +41,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 38 | you@example.com | desktopLogin.placeholder.email, login.placeholder.email |
 | critical | high | 38 | n/a | admin.awsControl.value.notAvailableShort, admin.jsx.expression.n.a |
 | critical | high | 38 | support@aura.shop | support.jsx.text.support.aura.shop.6e88e9bf, support.jsx.text.support.aura.shop.859c28ac |
-| critical | high | 24 | UPI | checkout.payment.upiTitle, profile.payments.type.upi |
+| critical | high | 30 | UPI | checkout.payment.upiTitle, profile.payments.type.upi |
 | critical | high | 19 | {sign} {amount} | checkout.paymentAdjustment.amount |
 | critical | high | 19 | - {name} | checkout.payment.currency.option.name |
 | critical | high | 19 | CLI | common.jsx.text.cli.d8cfa7cf |
@@ -76,7 +76,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | Locale | Affected pairs |
 | --- | ---: |
 | bn | 3683 |
-| hi | 3685 |
+| hi | 3683 |
 | te | 4991 |
 | mr | 4995 |
 | ur | 3678 |
@@ -86,14 +86,14 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | kn | 4992 |
 | or | 4993 |
 | as | 4997 |
-| sa | 4996 |
-| es | 4971 |
+| sa | 4994 |
+| es | 4969 |
 | fr | 4960 |
 | de | 4947 |
 | ar | 3684 |
 | ja | 4991 |
 | pt | 4978 |
-| zh | 4996 |
+| zh | 4994 |
 
 ## Files
 

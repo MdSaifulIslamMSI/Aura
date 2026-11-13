@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13T16:31:28.255Z",
+  "generatedAt": "2026-11-13T17:01:30.520Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {

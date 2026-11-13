@@ -1,6 +1,6 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-11-13T16:30:23.886Z
+Generated: 2026-11-13T17:00:00.896Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
