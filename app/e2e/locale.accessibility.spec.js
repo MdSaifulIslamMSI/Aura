@@ -40,6 +40,7 @@ test.describe('Locale Accessibility QA', () => {
             await seedLocale(page, locale);
             await mockLocaleShellApis(page);
             await waitForAppShell(page, '/login');
+            await expect(page.locator('#login-title, main h1').first()).toBeVisible({ timeout: 15_000 });
 
             const results = await new AxeBuilder({ page }).analyze();
             const blockingViolations = results.violations.filter(({ impact }) => BLOCKING_IMPACTS.has(impact));
