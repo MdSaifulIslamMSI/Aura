@@ -587,26 +587,23 @@ export const reassembleMessage = (decomposed, translatedSegmentsMap, locale, enS
 };
 
 const loadConfigSources = async () => {
-  const { MARKET_MESSAGES } = await import('../../app/src/config/marketConfig.js');
+  const { MARKET_MESSAGES, SIMPLE_OVERRIDES } = await import('../../app/src/config/marketConfig.js');
   const { GENERATED_MARKET_MESSAGES } = await import('../../app/src/config/generatedMarketMessages.js');
   const { REMAINING_UI_LOCALE_MESSAGES } = await import('../../app/src/config/remainingUiLocaleMessages.js');
   const { LOCALE_POLISH_MESSAGES } = await import('../../app/src/config/localePolishMessages.js');
-  return { MARKET_MESSAGES, GENERATED_MARKET_MESSAGES, REMAINING_UI_LOCALE_MESSAGES, LOCALE_POLISH_MESSAGES };
+  return { MARKET_MESSAGES, SIMPLE_OVERRIDES, GENERATED_MARKET_MESSAGES, REMAINING_UI_LOCALE_MESSAGES, LOCALE_POLISH_MESSAGES };
 };
 
 const extractSimpleOverridesBlockKeys = () => {
   const mcSource = fs.readFileSync(path.join(CONFIG_DIR, 'marketConfig.js'), 'utf8');
-  const startMarker = 'const SIMPLE_OVERRIDES = {';
+  const startMarker = 'export const SIMPLE_OVERRIDES = {';
   const endMarker = '\n};\n\nconst NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL =';
   const startIdx = mcSource.indexOf(startMarker);
   const endIdx = mcSource.indexOf(endMarker, startIdx);
   if (startIdx < 0 || endIdx < 0) {
     throw new Error('Could not locate SIMPLE_OVERRIDES block in marketConfig.js');
   }
-  const blockBody = mcSource.slice(startIdx + startMarker.length - 1, endIdx + 2);
-  // Safe static literal eval inside Function (no I/O)
-  const simpleOverrides = new Function(`return (${blockBody.replace(/;$/, '')});`)();
-  return { mcSource, startIdx, endIdx, simpleOverrides };
+  return { mcSource, startIdx, endIdx };
 };
 
 const collectAllRepairTasks = async () => {
@@ -615,13 +612,13 @@ const collectAllRepairTasks = async () => {
 
   const {
     MARKET_MESSAGES,
+    SIMPLE_OVERRIDES: simpleOverrides,
     GENERATED_MARKET_MESSAGES,
     REMAINING_UI_LOCALE_MESSAGES,
     LOCALE_POLISH_MESSAGES,
   } = await loadConfigSources();
   const enGenerated = { ...(GENERATED_MARKET_MESSAGES.en || {}), 'footer.cleanBody': FOOTER_CLEAN_BODY_NEW };
   const enRemaining = { ...(REMAINING_UI_LOCALE_MESSAGES.en || {}) };
-  const { simpleOverrides } = extractSimpleOverridesBlockKeys();
 
   // Master English lookup across all config layers (including MARKET_MESSAGES.en & legacy phoneHint.signin)
   const masterEn = {
@@ -851,7 +848,7 @@ const writeRemainingUiLocaleMessages = (originalSource, updatedAllMap, enBase) =
 const writeSimpleOverridesInMarketConfig = (mcSource, startIdx, endIdx, updatedSimpleOverrides) => {
   const before = mcSource.slice(0, startIdx);
   const after = mcSource.slice(endIdx);
-  const lines = ['const SIMPLE_OVERRIDES = {'];
+  const lines = ['export const SIMPLE_OVERRIDES = {'];
   for (const [locale, map] of Object.entries(updatedSimpleOverrides)) {
     lines.push(`  ${locale}: {`);
     lines.push(formatJsObjectEntries(map, '    '));

@@ -523,7 +523,7 @@ const EN_MESSAGES = {
   'profile.settings.security.providerLinking': 'Linking {{provider}}...',
 };
 
-const SIMPLE_OVERRIDES = {
+export const SIMPLE_OVERRIDES = {
   hi: {
     "market.title": "मार्केट स्टूडियो",
     "market.subtitle": "देश, भाषा को ट्यून करें और अपना स्थान खोए बिना मुद्रा ब्राउज़ करें।",

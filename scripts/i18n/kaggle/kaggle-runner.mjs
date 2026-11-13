@@ -185,7 +185,7 @@ function pushDataset(slug) {
     }
 
     if (exists) {
-        console.log(`Updating private Kaggle dataset ${slug}...`);
+        console.log('Updating private Kaggle tasks dataset...');
         console.log(
             runKaggle(
                 ['datasets', 'version', '-p', 'dataset', '-m', 'Refresh i18n AST repair tasks', '-r', 'skip'],
@@ -193,7 +193,7 @@ function pushDataset(slug) {
             )
         );
     } else {
-        console.log(`Creating private Kaggle dataset ${slug}...`);
+        console.log('Creating private Kaggle tasks dataset...');
         console.log(runKaggle(['datasets', 'create', '-p', 'dataset', '-r', 'skip'], workRoot));
     }
 }
@@ -324,10 +324,10 @@ const accelerator = flags.accelerator || 'NvidiaTeslaT4';
 switch (command) {
     case 'doctor':
         console.log(`Kaggle CLI: ${version}`);
-        console.log(`Kaggle owner: ${owner}`);
-        console.log(`Tasks dataset: ${slugs.tasksDataset}`);
-        console.log(`Model dataset: ${slugs.modelDataset}`);
-        console.log(`Workers (${slugs.shards}): ${slugs.kernelSlugs.join(', ')}`);
+        console.log('Kaggle account: configured');
+        console.log('Tasks dataset: configured (private)');
+        console.log('Model dataset: configured (private)');
+        console.log('Worker shards: configured');
         break;
     case 'push': {
         if (!flags['skip-dataset']) {
