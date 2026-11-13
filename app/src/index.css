@@ -896,11 +896,24 @@ html[data-color-mode] :is(.border-neo-emerald, [class*='border-neo-emerald']) {
   border-color: rgb(var(--theme-secondary-rgb) / 1) !important;
 }
 
-html[data-color-mode] :is(.bg-neo-cyan, [class*='bg-neo-cyan']) {
+/* Keep solid .bg-neo-* backgrounds opaque so dark-ink CTAs preserve WCAG contrast; limit 0.16 tint to opacity modifiers. */
+html[data-color-mode] :is(.bg-neo-cyan, .focus\:bg-neo-cyan:focus) {
+  background-color: rgb(var(--theme-primary-rgb) / 1) !important;
+}
+
+html[data-color-mode='white'] :is(.bg-neo-cyan, .focus\:bg-neo-cyan:focus) {
+  color: #ffffff !important;
+}
+
+html[data-color-mode] :is([class^='bg-neo-cyan/'], [class*=' bg-neo-cyan/']) {
   background-color: rgb(var(--theme-primary-rgb) / 0.16) !important;
 }
 
-html[data-color-mode] :is(.bg-neo-emerald, [class*='bg-neo-emerald']) {
+html[data-color-mode] .bg-neo-emerald {
+  background-color: rgb(var(--theme-secondary-rgb) / 1) !important;
+}
+
+html[data-color-mode] :is([class^='bg-neo-emerald/'], [class*=' bg-neo-emerald/']) {
   background-color: rgb(var(--theme-secondary-rgb) / 0.16) !important;
 }
 
