@@ -219,7 +219,7 @@ const formatSupportCategory = (t, value) => {
 
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
-    const { t: legacyT, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime, voiceLocale } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinSupportCall, callStatus, activeCallContext } = useVideoCall();
@@ -253,7 +253,7 @@ export default function AdminSupport() {
         value: newMessage,
         onChange: setNewMessage,
         clearOnStart: false,
-        lang: 'en-IN',
+        lang: voiceLocale || 'en-IN',
     });
 
     const handleMessagesScroll = () => {

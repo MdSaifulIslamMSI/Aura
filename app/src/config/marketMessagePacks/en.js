@@ -1374,7 +1374,7 @@ export const MARKET_MESSAGE_PACK = {
   "filters.warrantyOnly": "Warranty only",
   "footer.about": "About",
   "footer.body": "Aura is built to feel like a premium retail operating system: trusted product discovery, clear transaction signals, and a marketplace layer that still looks composed under pressure.",
-  "footer.cleanBody": "Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.",
+  "footer.cleanBody": "Search, deals, marketplace browsing, and support stay connected across every storefront session.",
   "footer.cleanHeadline": "Shopping support, trust, and discovery stay in one place.",
   "footer.connect": "Connect",
   "footer.contactSupport": "Contact Support",

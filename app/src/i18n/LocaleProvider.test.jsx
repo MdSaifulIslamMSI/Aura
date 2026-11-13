@@ -42,7 +42,20 @@ afterEach(() => {
 });
 
 describe('LocaleProvider', () => {
-    it('formats reviewed ICU plurals when the FormatJS migration layer is enabled', async () => {
+    it('enables reviewed ICU plurals by default when the FormatJS flag is unset', async () => {
+        render(
+            <LocaleProvider>
+                <LocaleProbe />
+            </LocaleProvider>
+        );
+
+        expect(screen.getByTestId('active-language')).toHaveTextContent('hi');
+        await waitFor(() => {
+            expect(screen.getByTestId('item-count')).toHaveTextContent('2 आइटम');
+        });
+    });
+
+    it('formats reviewed ICU plurals when the FormatJS migration layer is explicitly enabled', async () => {
         vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'true');
 
         render(
@@ -57,7 +70,7 @@ describe('LocaleProvider', () => {
         });
     });
 
-    it('falls back to English while the FormatJS migration layer is disabled', () => {
+    it('falls back to English when the FormatJS migration layer is explicitly disabled', () => {
         vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'false');
 
         render(

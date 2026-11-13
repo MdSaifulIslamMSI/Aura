@@ -53,7 +53,7 @@ const normalizeSourceLanguage = (value = 'auto') => {
 
 const normalizeProviderName = (value = 'noop') => {
     const normalized = String(value || 'noop').trim().toLowerCase();
-    if (['noop', 'mock', 'libretranslate'].includes(normalized)) {
+    if (['noop', 'mock', 'libretranslate', 'compositional'].includes(normalized)) {
         return normalized;
     }
     return 'noop';

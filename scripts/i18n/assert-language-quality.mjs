@@ -20,6 +20,8 @@ const {
 const LETTER_PATTERN = /\p{Letter}/gu;
 const PLACEHOLDER_PATTERN = /\{\{\s*[^}]+\s*\}\}|__AURA_PLACEHOLDER_\d+__/g;
 const MOJIBAKE_PATTERN = /\uFFFD|Ã|Â|â€™|â€œ|â€|ï¿½/;
+const QUESTION_MARK_CORRUPTION_PATTERN = /\p{L}\?+\p{L}|\?{2,}/u;
+const STRIP_URL_OR_PLACEHOLDER_PATTERN = /https?:\/\/\S+|\{[A-Za-z0-9_]+\}|<[^>]+>/g;
 const RAW_HTML_RISK_PATTERN = /<script\b|javascript:|on[a-z]+\s*=/i;
 const MIN_NATIVE_TRANSLATED_LETTER_PERCENT = 60;
 
@@ -240,7 +242,15 @@ for (const locale of requiredLocales) {
             return;
         }
 
-        if (MOJIBAKE_PATTERN.test(translatedMessage)) row.mojibake += 1;
+        const strippedTranslated = translatedMessage.replace(STRIP_URL_OR_PLACEHOLDER_PATTERN, ' ').trim();
+        const strippedSource = sourceMessage.replace(STRIP_URL_OR_PLACEHOLDER_PATTERN, ' ').trim();
+        const hasQuestionSubstitution = QUESTION_MARK_CORRUPTION_PATTERN.test(strippedTranslated)
+            || (
+                /[₹—–•·]|[^\x00-\x7F]/.test(strippedSource)
+                && !strippedSource.includes('?')
+                && /(?:^|\s)\?(?:\s|$)/.test(strippedTranslated)
+            );
+        if (MOJIBAKE_PATTERN.test(translatedMessage) || hasQuestionSubstitution) row.mojibake += 1;
         if (RAW_HTML_RISK_PATTERN.test(translatedMessage)) row.rawHtmlRisk += 1;
 
         let sourceAst;

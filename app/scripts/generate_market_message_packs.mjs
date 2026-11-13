@@ -408,13 +408,13 @@ const buildBaseLanguagePack = (languageCode) => {
     }
 
     return sortObjectEntries({
-        ...readExistingLanguagePack(languageCode),
-        ...(GENERATED_BASE_MARKET_MESSAGES[languageCode] || {}),
-        ...(PRIORITY_MARKET_MESSAGES[languageCode] || {}),
         ...(GENERATED_LOCALE_MESSAGES[languageCode] || {}),
         ...(GENERATED_DYNAMIC_MARKET_MESSAGES[languageCode] || {}),
+        ...(PRIORITY_MARKET_MESSAGES[languageCode] || {}),
+        ...(GENERATED_BASE_MARKET_MESSAGES[languageCode] || {}),
         ...(REMAINING_UI_LOCALE_MESSAGES[languageCode] || {}),
         ...(LOCALE_POLISH_MESSAGES[languageCode] || {}),
+        ...buildReviewedCompatibilityMessages(languageCode),
     });
 };
 
@@ -505,8 +505,8 @@ const main = async () => {
         const preservedMessages = shouldRefreshNativeScript
             ? baseMessages
             : sortObjectEntries({
-                ...baseMessages,
                 ...readExistingLanguagePack(languageCode),
+                ...baseMessages,
             });
         const fallbackMessages = applyReviewedCatalogFallback(preservedMessages, languageCode);
         const messages = shouldRefreshNativeScript

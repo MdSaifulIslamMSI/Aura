@@ -39,7 +39,7 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
                         ) : null}
                         <div>
                             <span className={cn('font-semibold', mutedTextClass)}><FormattedMessage id="support.jsx.text.category" defaultMessage="Category" /></span>
-                            <p className="mt-0.5">{prefill?.category || 'general'}</p>
+                            <p className="mt-0.5">{prefill?.category || <FormattedMessage id="support.category.general" defaultMessage="General" />}</p>
                         </div>
                         <div>
                             <span className={cn('font-semibold', mutedTextClass)}><FormattedMessage id="support.jsx.text.subject" defaultMessage="Subject" /></span>

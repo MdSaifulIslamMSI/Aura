@@ -1,8 +1,13 @@
+const { createCompositionalTranslationProvider } = require('./compositionalTranslationProvider');
 const { createLibreTranslateProvider } = require('./libreTranslateProvider');
 const { createMockTranslationProvider } = require('./mockTranslationProvider');
 const { createNoopTranslationProvider } = require('./noopTranslationProvider');
 
 const createTranslationProvider = (config = {}) => {
+    if (config.providerName === 'compositional') {
+        return createCompositionalTranslationProvider();
+    }
+
     if (config.providerName === 'libretranslate') {
         return createLibreTranslateProvider({
             baseUrl: config.libreTranslateBaseUrl,

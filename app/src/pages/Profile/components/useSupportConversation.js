@@ -29,7 +29,7 @@ export function useSupportConversation({
     prefill = {},
 }) {
     useSocketDemand('profile-support', true);
-    const { t: legacyT } = useMarket();
+    const { t: legacyT, voiceLocale } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const { socket, isConnected, connectionState } = useSocket();
     const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
@@ -74,7 +74,7 @@ export function useSupportConversation({
         value: activeComposerValue,
         onChange: handleSupportComposerChange,
         clearOnStart: false,
-        lang: 'en-IN',
+        lang: voiceLocale || 'en-IN',
     });
 
     const handleMessagesScroll = () => {

@@ -411,6 +411,7 @@ const ListingCard = ({
     accentSecondary,
     getCategoryLabel,
     getConditionLabel,
+    formatNumber,
     t,
     translateListingText,
 }) => {
@@ -527,7 +528,7 @@ const ListingCard = ({
                     </span>
                     <span className="inline-flex items-center gap-2">
                         <Eye className="h-3.5 w-3.5" style={{ color: accentPrimary }} />
-                        {t('marketplace.card.views', { count: (listing.views || 0).toLocaleString('en-IN') }, '{{count}} views')}
+                        {t('marketplace.card.views', { count: formatNumber(listing.views || 0) }, '{{count}} views')}
                     </span>
                 </div>
 
@@ -548,7 +549,7 @@ const ListingCard = ({
 
 export default function Marketplace() {
     const { colorMode } = useColorMode();
-    const { t: legacyT } = useMarket();
+    const { formatNumber, t: legacyT } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1047,7 +1048,7 @@ export default function Marketplace() {
                                         {t('marketplace.hero.categoryLane', { category: selectedCategory.label }, '{{category}} lane')}
                                     </span>
                                     <span className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {t('marketplace.hero.liveListings', { count: (pagination.total || 0).toLocaleString('en-IN') }, '{{count}} live listings')}
+                                        {t('marketplace.hero.liveListings', { count: formatNumber(pagination.total || 0) }, '{{count}} live listings')}
                                     </span>
                                 </div>
                             </div>
@@ -1164,7 +1165,7 @@ export default function Marketplace() {
                             <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: toRgba(accentPrimary, 0.14) }}>
                                 <div className="flex flex-wrap items-center gap-3">
                                     <div className={cn('rounded-full border px-4 py-2 text-xs font-semibold', chipClass)} style={sectionStyle}>
-                                        {t('marketplace.results.listingsCount', { count: (pagination.total || 0).toLocaleString('en-IN') }, '{{count}} listings')}
+                                        {t('marketplace.results.listingsCount', { count: formatNumber(pagination.total || 0) }, '{{count}} listings')}
                                     </div>
                                     <button
                                         type="button"
@@ -1401,6 +1402,7 @@ export default function Marketplace() {
                                                     accentSecondary={accentSecondary}
                                                     getCategoryLabel={getCategoryLabel}
                                                     getConditionLabel={getConditionLabel}
+                                                    formatNumber={formatNumber}
                                                     t={t}
                                                     translateListingText={translateListingText}
                                                 />

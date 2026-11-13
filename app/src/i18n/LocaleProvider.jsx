@@ -45,10 +45,11 @@ export function LocaleProvider({ children }) {
 
     const value = useMemo(() => ({
         direction: market.direction,
+        isCatalogReady: loadedCatalog.language === language,
         language,
         locale,
         messages,
-    }), [language, locale, market.direction, messages]);
+    }), [language, loadedCatalog.language, locale, market.direction, messages]);
 
     return (
         <LocaleContext.Provider value={value}>
