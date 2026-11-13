@@ -1,13 +1,13 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-10-21T20:26:01.213Z
+Generated: 2026-11-13T16:31:28.255Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
 ## Summary
 
-- Tracked files: 160
-- Stable ICU hook files: 99
+- Tracked files: 162
+- Stable ICU hook files: 101
 - Delegated stable ICU translator files: 10
 - Migrated stable ICU message IDs observed across files: 3493
 - Residual production legacy literal message IDs: 0
@@ -17,7 +17,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Runtime enum compatibility files: 0
 - High-risk files: 0
 - Medium-risk files: 18
-- Low-risk files: 142
+- Low-risk files: 144
 - Dynamic runtime translation files: 18
 - Legacy pack import files: 40
 
@@ -166,6 +166,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/context/MarketContext.test.jsx` | 0 | 0 | useMarket, test-harness |
 | low | `app/src/i18n/StableText.jsx` | 0 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/i18n/useStableIcuMessages.js` | 0 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/AICompare/index.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Cart/Cart.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Checkout/components/StepAddress.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Checkout/components/StepReview.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
@@ -181,6 +182,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Profile/components/PrivacyControlsSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Profile/components/SupportSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Profile/index.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/VisualSearch/index.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Wishlist/Wishlist.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/utils/authErrors.js` | 0 | 0 | computed-key-compatibility |
 | low | `app/src/utils/enumLocalization.js` | 0 | 0 | t() |

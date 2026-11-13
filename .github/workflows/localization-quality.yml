@@ -70,8 +70,9 @@ jobs:
         run: npm --prefix server ci
       - name: Verify committed stable ICU catalog generation
         run: |
+          npm run i18n:signoff:check
           npm run i18n:stable-catalogs
-          git diff --exit-code -- app/src/i18n/messages app/src/i18n/quality/humanReviewQueue.json app/src/i18n/quality/nativeReviewAudit.json docs/localization-human-review-queue.md
+          git diff --exit-code -- app/src/i18n/messages app/src/i18n/quality/humanReviewQueue.json app/src/i18n/quality/nativeReviewAudit.json app/src/i18n/quality/nativeSignoffLedger.json docs/localization-human-review-queue.md
       - name: Verify discovered stable UI text coverage
         run: npm run i18n:discover-text:check
       - name: Verify human-review queue integrity

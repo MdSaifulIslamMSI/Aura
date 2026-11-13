@@ -10,7 +10,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 208,
+      "line": 216,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -23,7 +23,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 322,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -36,7 +36,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 316,
+      "line": 324,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -49,7 +49,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 325,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -62,7 +62,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 510,
+      "line": 518,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -79,6 +79,45 @@
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
+      "column": 23,
+      "defaultMessageSource": "message-id",
+      "fallback": "",
+      "file": "app/src/components/layout/Footer/index.jsx",
+      "icuDefaultMessage": "",
+      "id": "",
+      "interpolationTokens": [],
+      "kind": "dynamic-lookup",
+      "legacyEnglishTemplate": "",
+      "line": 196,
+      "reason": "StableText id is computed and requires manual review."
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "message-id",
+      "fallback": "",
+      "file": "app/src/components/layout/Footer/index.jsx",
+      "icuDefaultMessage": "",
+      "id": "",
+      "interpolationTokens": [],
+      "kind": "dynamic-lookup",
+      "legacyEnglishTemplate": "",
+      "line": 199,
+      "reason": "StableText id is computed and requires manual review."
+    },
+    {
+      "column": 150,
+      "defaultMessageSource": "message-id",
+      "fallback": "",
+      "file": "app/src/components/layout/Footer/index.jsx",
+      "icuDefaultMessage": "",
+      "id": "",
+      "interpolationTokens": [],
+      "kind": "dynamic-lookup",
+      "legacyEnglishTemplate": "",
+      "line": 207,
+      "reason": "StableText id is computed and requires manual review."
+    },
+    {
       "column": 31,
       "defaultMessageSource": "message-id",
       "fallback": "",
@@ -88,7 +127,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 383,
+      "line": 386,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -1534,10 +1573,9 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 33,
+      "messageIdCount": 31,
       "messageIds": [
         "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df",
-        "product.jsx.text.matched.product.8b686b00",
         "search.jsx.expression.run.visual.search.db1e93fa",
         "search.jsx.expression.scanning.catalog.f1f44d07",
         "search.jsx.text.choose.image.15fa1bac",
@@ -1545,7 +1583,6 @@
         "search.jsx.text.compare.top.matches.4555d135",
         "search.jsx.text.derived.keyword.eb081899",
         "search.jsx.text.file.name.optional.ac353e76",
-        "search.jsx.text.from.live.catalog.8df55cd8",
         "search.jsx.text.highest.62013f0d",
         "search.jsx.text.hints.18758c62",
         "search.jsx.text.input.preview.deada035",
@@ -1569,51 +1606,6 @@
         "visualSearch.error.missingInput",
         "visualSearch.error.unsupportedImageType",
         "visualSearch.inputPreview.alt"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 33,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Launch/index.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 31,
-      "messageIds": [
-        "common.jsx.expression.current.host.da7c5d43",
-        "common.jsx.expression.host.aligned.cf15d78e",
-        "common.jsx.expression.host.drift.detected.f97beb6c",
-        "common.jsx.expression.live.target.07b371c6",
-        "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee",
-        "common.jsx.text.aura.gateway.02299ec6",
-        "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39",
-        "common.jsx.text.build.id.4b254665",
-        "common.jsx.text.built.5bb02b71",
-        "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed",
-        "common.jsx.text.commit.975b7130",
-        "common.jsx.text.current.release.6530b9c3",
-        "common.jsx.text.deployment.contract.00f9b039",
-        "common.jsx.text.deployment.target.pending.3f1c8241",
-        "common.jsx.text.design.standard.c1185458",
-        "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af",
-        "common.jsx.text.general.link.direction.e0b93b2a",
-        "common.jsx.text.hosts.3cf51fa9",
-        "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777",
-        "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147",
-        "common.jsx.text.live.domain.bc1cccb3",
-        "common.jsx.text.needs.url.6a1ab20b",
-        "common.jsx.text.open.storefront.9a0fe7ee",
-        "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b",
-        "common.jsx.text.runtime.vs.target.bab208a2",
-        "common.jsx.text.shared.behavior.33436b63",
-        "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e",
-        "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99",
-        "common.jsx.text.vercel.netlify.f28e116f",
-        "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3",
-        "product.jsx.text.shared.production.data.f8bd2f6b"
       ],
       "risk": "high",
       "stableLiteralCount": 31,
@@ -1709,7 +1701,7 @@
       "usesDynamicRuntimeTranslation": false
     },
     {
-      "dynamicLookupCount": 0,
+      "dynamicLookupCount": 3,
       "file": "app/src/components/layout/Footer/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -3067,7 +3059,7 @@
         "nav.wishlist"
       ],
       "risk": "medium",
-      "stableLiteralCount": 76,
+      "stableLiteralCount": 77,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6171,7 +6163,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-10-21T20:25:56.721Z",
+  "generatedAt": "2026-11-13T16:30:23.886Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6279,7 +6271,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account unavailable",
-      "line": 34,
+      "line": 40,
       "reason": ""
     },
     {
@@ -6292,7 +6284,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This admin account cannot continue.",
-      "line": 35,
+      "line": 41,
       "reason": ""
     },
     {
@@ -6305,7 +6297,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The server reports that the account is disabled or suspended. Contact a security administrator before trying again.",
-      "line": 36,
+      "line": 42,
       "reason": ""
     },
     {
@@ -6318,7 +6310,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity check",
-      "line": 39,
+      "line": 45,
       "reason": ""
     },
     {
@@ -6331,7 +6323,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify the admin email first.",
-      "line": 40,
+      "line": 46,
       "reason": ""
     },
     {
@@ -6344,7 +6336,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin security setup starts only after the identity provider confirms this email address.",
-      "line": 41,
+      "line": 47,
       "reason": ""
     },
     {
@@ -6357,7 +6349,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Access denied",
-      "line": 44,
+      "line": 50,
       "reason": ""
     },
     {
@@ -6370,7 +6362,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This account is not authorized for admin access.",
-      "line": 45,
+      "line": 51,
       "reason": ""
     },
     {
@@ -6383,7 +6375,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin role and allowlist decisions come from the server and cannot be changed on this page.",
-      "line": 46,
+      "line": 52,
       "reason": ""
     },
     {
@@ -6396,7 +6388,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh sign-in required",
-      "line": 49,
+      "line": 55,
       "reason": ""
     },
     {
@@ -6409,7 +6401,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in again before continuing.",
-      "line": 50,
+      "line": 56,
       "reason": ""
     },
     {
@@ -6422,7 +6414,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery and admin verification require a recent primary sign-in. Your destination will be preserved in memory for this sign-in flow.",
-      "line": 51,
+      "line": 57,
       "reason": ""
     },
     {
@@ -6435,7 +6427,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin verification",
-      "line": 54,
+      "line": 60,
       "reason": ""
     },
     {
@@ -6448,7 +6440,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify an approved admin factor.",
-      "line": 55,
+      "line": 61,
       "reason": ""
     },
     {
@@ -6461,7 +6453,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use the passkey registered for this browser, or complete Duo when it is available. Verification creates only a short-lived server session assurance.",
-      "line": 56,
+      "line": 62,
       "reason": ""
     },
     {
@@ -6474,7 +6466,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Supervised recovery",
-      "line": 59,
+      "line": 65,
       "reason": ""
     },
     {
@@ -6487,7 +6479,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "An approved admin factor must be enrolled.",
-      "line": 60,
+      "line": 66,
       "reason": ""
     },
     {
@@ -6500,7 +6492,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ask an authorized operator for a short-lived, one-time recovery grant. The grant can enroll a factor; it cannot open the admin console.",
-      "line": 61,
+      "line": 67,
       "reason": ""
     },
     {
@@ -6513,7 +6505,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enroll admin passkey",
-      "line": 64,
+      "line": 70,
       "reason": ""
     },
     {
@@ -6526,7 +6518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create the required admin passkey.",
-      "line": 65,
+      "line": 71,
       "reason": ""
     },
     {
@@ -6539,7 +6531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery grant is now bound to this browser session. Complete the passkey ceremony before the authority expires.",
-      "line": 66,
+      "line": 72,
       "reason": ""
     },
     {
@@ -6552,7 +6544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provider unavailable",
-      "line": 69,
+      "line": 75,
       "reason": ""
     },
     {
@@ -6565,7 +6557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin verification is temporarily unavailable.",
-      "line": 70,
+      "line": 76,
       "reason": ""
     },
     {
@@ -6578,7 +6570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The server cannot reach or safely configure an approved admin verification provider. Access remains locked.",
-      "line": 71,
+      "line": 77,
       "reason": ""
     },
     {
@@ -6591,7 +6583,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Configuration lock",
-      "line": 74,
+      "line": 80,
       "reason": ""
     },
     {
@@ -6604,7 +6596,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin security configuration is incomplete.",
-      "line": 75,
+      "line": 81,
       "reason": ""
     },
     {
@@ -6617,7 +6609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The backend failed its admin security contract. Access remains locked until an operator repairs the configuration.",
-      "line": 76,
+      "line": 82,
       "reason": ""
     },
     {
@@ -6630,7 +6622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The passkey prompt was cancelled, timed out, or could not use this authenticator. No security state was changed.",
-      "line": 82,
+      "line": 88,
       "reason": ""
     },
     {
@@ -6643,7 +6635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The security checkpoint could not be completed.",
-      "line": 86,
+      "line": 92,
       "reason": ""
     },
     {
@@ -6656,7 +6648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin security checkpoint",
-      "line": 134,
+      "line": 140,
       "reason": ""
     },
     {
@@ -6669,7 +6661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking admin security state.",
-      "line": 135,
+      "line": 141,
       "reason": ""
     },
     {
@@ -6682,7 +6674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The server is resolving the required verification path.",
-      "line": 136,
+      "line": 142,
       "reason": ""
     },
     {
@@ -6695,7 +6687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking server policy",
-      "line": 179,
+      "line": 185,
       "reason": ""
     },
     {
@@ -6708,7 +6700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolving the admin checkpoint…",
-      "line": 182,
+      "line": 188,
       "reason": ""
     },
     {
@@ -6721,7 +6713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No admin content is loaded until the backend returns an authoritative security state.",
-      "line": 186,
+      "line": 192,
       "reason": ""
     },
     {
@@ -6734,7 +6726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "One-time recovery grant",
-      "line": 204,
+      "line": 210,
       "reason": ""
     },
     {
@@ -6747,7 +6739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Paste the operator-issued grant. It stays only in this field until exchange and is never saved in browser storage.",
-      "line": 207,
+      "line": 213,
       "reason": ""
     },
     {
@@ -6760,7 +6752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Exchanging…",
-      "line": 225,
+      "line": 231,
       "reason": ""
     },
     {
@@ -6773,7 +6765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue to passkey setup",
-      "line": 226,
+      "line": 232,
       "reason": ""
     },
     {
@@ -6786,7 +6778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Waiting for passkey…",
-      "line": 241,
+      "line": 247,
       "reason": ""
     },
     {
@@ -6799,7 +6791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Set up admin passkey",
-      "line": 242,
+      "line": 248,
       "reason": ""
     },
     {
@@ -6812,7 +6804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Waiting for passkey…",
-      "line": 258,
+      "line": 264,
       "reason": ""
     },
     {
@@ -6825,7 +6817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify with passkey",
-      "line": 259,
+      "line": 265,
       "reason": ""
     },
     {
@@ -6838,7 +6830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify with Duo",
-      "line": 267,
+      "line": 273,
       "reason": ""
     },
     {
@@ -6851,7 +6843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in again",
-      "line": 279,
+      "line": 285,
       "reason": ""
     },
     {
@@ -6864,7 +6856,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry server check",
-      "line": 296,
+      "line": 302,
       "reason": ""
     },
     {
@@ -6877,7 +6869,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign out",
-      "line": 303,
+      "line": 309,
       "reason": ""
     },
     {
@@ -6890,7 +6882,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Return to storefront",
-      "line": 306,
+      "line": 312,
       "reason": ""
     },
     {
@@ -6903,7 +6895,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Request ID:",
-      "line": 312,
+      "line": 318,
       "reason": ""
     },
     {
@@ -7475,7 +7467,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart summary",
-      "line": 128,
+      "line": 136,
       "reason": ""
     },
     {
@@ -7488,7 +7480,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Items",
-      "line": 133,
+      "line": 141,
       "reason": ""
     },
     {
@@ -7501,7 +7493,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Item subtotal",
-      "line": 137,
+      "line": 145,
       "reason": ""
     },
     {
@@ -7514,7 +7506,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Item savings",
-      "line": 142,
+      "line": 150,
       "reason": ""
     },
     {
@@ -7527,7 +7519,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shipping, tax, stock, and final discounts are verified at checkout.",
-      "line": 149,
+      "line": 157,
       "reason": ""
     },
     {
@@ -7543,7 +7535,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No exact match for \"{{query}}\". Showing closest matches{{confidence}}",
-      "line": 171,
+      "line": 179,
       "reason": ""
     },
     {
@@ -7556,7 +7548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Why this answer",
-      "line": 270,
+      "line": 278,
       "reason": ""
     },
     {
@@ -7569,7 +7561,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 277,
+      "line": 285,
       "reason": ""
     },
     {
@@ -7582,7 +7574,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 282,
+      "line": 290,
       "reason": ""
     },
     {
@@ -7598,7 +7590,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providerName}} · {{providerModel}}",
-      "line": 287,
+      "line": 295,
       "reason": ""
     },
     {
@@ -7611,7 +7603,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 295,
+      "line": 303,
       "reason": ""
     },
     {
@@ -7626,7 +7618,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{label}} ready",
-      "line": 314,
+      "line": 322,
       "reason": ""
     },
     {
@@ -7641,7 +7633,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{label}} gated",
-      "line": 316,
+      "line": 324,
       "reason": ""
     },
     {
@@ -7656,7 +7648,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{label}} unknown",
-      "line": 317,
+      "line": 325,
       "reason": ""
     },
     {
@@ -7669,7 +7661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 326,
+      "line": 334,
       "reason": ""
     },
     {
@@ -7682,7 +7674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 339,
+      "line": 347,
       "reason": ""
     },
     {
@@ -7695,7 +7687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "done",
-      "line": 350,
+      "line": 358,
       "reason": ""
     },
     {
@@ -7708,7 +7700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 360,
+      "line": 368,
       "reason": ""
     },
     {
@@ -7721,7 +7713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 361,
+      "line": 369,
       "reason": ""
     },
     {
@@ -7734,7 +7726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 362,
+      "line": 370,
       "reason": ""
     },
     {
@@ -7747,7 +7739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 363,
+      "line": 371,
       "reason": ""
     },
     {
@@ -7760,7 +7752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 364,
+      "line": 372,
       "reason": ""
     },
     {
@@ -7773,7 +7765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 365,
+      "line": 373,
       "reason": ""
     },
     {
@@ -7786,7 +7778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 366,
+      "line": 374,
       "reason": ""
     },
     {
@@ -7801,7 +7793,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Image {{value}}",
-      "line": 397,
+      "line": 405,
       "reason": ""
     },
     {
@@ -7816,7 +7808,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attachment {{value}}",
-      "line": 401,
+      "line": 409,
       "reason": ""
     },
     {
@@ -7829,7 +7821,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 408,
+      "line": 416,
       "reason": ""
     },
     {
@@ -7842,7 +7834,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Audio note",
-      "line": 425,
+      "line": 433,
       "reason": ""
     },
     {
@@ -7855,7 +7847,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "audio upload",
-      "line": 426,
+      "line": 434,
       "reason": ""
     },
     {
@@ -7868,7 +7860,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 435,
+      "line": 443,
       "reason": ""
     },
     {
@@ -7881,7 +7873,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 519,
+      "line": 527,
       "reason": ""
     },
     {
@@ -7894,7 +7886,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 523,
+      "line": 531,
       "reason": ""
     },
     {
@@ -7907,7 +7899,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 68,
+      "line": 69,
       "reason": ""
     },
     {
@@ -7920,7 +7912,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 71,
+      "line": 72,
       "reason": ""
     },
     {
@@ -7933,7 +7925,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 81,
+      "line": 82,
       "reason": ""
     },
     {
@@ -7946,7 +7938,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 81,
+      "line": 82,
       "reason": ""
     },
     {
@@ -7959,7 +7951,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 95,
+      "line": 96,
       "reason": ""
     },
     {
@@ -7972,7 +7964,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 108,
+      "line": 111,
       "reason": ""
     },
     {
@@ -7985,7 +7977,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 123,
+      "line": 128,
       "reason": ""
     },
     {
@@ -7998,7 +7990,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 126,
+      "line": 131,
       "reason": ""
     },
     {
@@ -8011,7 +8003,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 126,
+      "line": 131,
       "reason": ""
     },
     {
@@ -8024,7 +8016,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 140,
+      "line": 145,
       "reason": ""
     },
     {
@@ -8037,11 +8029,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 143,
+      "line": 148,
       "reason": ""
     },
     {
-      "column": 71,
+      "column": 149,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "| Active lane",
       "file": "app/src/components/features/chat/MultimodalDock.jsx",
@@ -8050,7 +8042,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 146,
+      "line": 151,
       "reason": ""
     },
     {
@@ -8063,7 +8055,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 158,
+      "line": 163,
       "reason": ""
     },
     {
@@ -8076,7 +8068,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 158,
+      "line": 163,
       "reason": ""
     },
     {
@@ -8089,7 +8081,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 167,
+      "line": 172,
       "reason": ""
     },
     {
@@ -8102,7 +8094,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 167,
+      "line": 172,
       "reason": ""
     },
     {
@@ -8115,7 +8107,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 192,
+      "line": 199,
       "reason": ""
     },
     {
@@ -8128,7 +8120,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 195,
+      "line": 202,
       "reason": ""
     },
     {
@@ -8141,7 +8133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 213,
+      "line": 220,
       "reason": ""
     },
     {
@@ -8154,7 +8146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 216,
+      "line": 223,
       "reason": ""
     },
     {
@@ -8167,7 +8159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 220,
+      "line": 227,
       "reason": ""
     },
     {
@@ -8180,7 +8172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 220,
+      "line": 227,
       "reason": ""
     },
     {
@@ -8193,7 +8185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 221,
+      "line": 228,
       "reason": ""
     },
     {
@@ -8206,7 +8198,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 236,
+      "line": 243,
       "reason": ""
     },
     {
@@ -8219,7 +8211,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 239,
+      "line": 246,
       "reason": ""
     },
     {
@@ -8232,7 +8224,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 250,
       "reason": ""
     },
     {
@@ -8245,7 +8237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 250,
       "reason": ""
     },
     {
@@ -8258,7 +8250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 244,
+      "line": 251,
       "reason": ""
     },
     {
@@ -8271,7 +8263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 251,
+      "line": 258,
       "reason": ""
     },
     {
@@ -8284,7 +8276,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 253,
+      "line": 260,
       "reason": ""
     },
     {
@@ -8297,7 +8289,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 259,
+      "line": 266,
       "reason": ""
     },
     {
@@ -8310,7 +8302,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 279,
+      "line": 298,
       "reason": ""
     },
     {
@@ -8323,7 +8315,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 288,
+      "line": 307,
       "reason": ""
     },
     {
@@ -9689,7 +9681,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support and Trust",
-      "line": 167,
+      "line": 186,
       "reason": ""
     },
     {
@@ -9702,7 +9694,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "System Health",
-      "line": 173,
+      "line": 192,
       "reason": ""
     },
     {
@@ -9715,7 +9707,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 179,
+      "line": 198,
       "reason": ""
     },
     {
@@ -9728,7 +9720,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payments Safety",
-      "line": 185,
+      "line": 204,
       "reason": ""
     },
     {
@@ -9741,7 +9733,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 188,
+      "line": 207,
       "reason": ""
     },
     {
@@ -9754,7 +9746,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Security",
-      "line": 193,
+      "line": 212,
       "reason": ""
     },
     {
@@ -9767,7 +9759,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 196,
+      "line": 215,
       "reason": ""
     },
     {
@@ -9780,7 +9772,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 196,
+      "line": 215,
       "reason": ""
     },
     {
@@ -9793,7 +9785,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Contact Support",
-      "line": 206,
+      "line": 225,
       "reason": ""
     },
     {
@@ -9806,7 +9798,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Network",
-      "line": 216,
+      "line": 235,
       "reason": ""
     },
     {
@@ -9819,20 +9811,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shopping support, trust, and discovery stay in one place.",
-      "line": 219,
+      "line": 238,
       "reason": ""
     },
     {
       "column": 16,
       "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.",
+      "fallback": "Search, deals, marketplace browsing, and support stay connected across every storefront session.",
       "file": "app/src/components/layout/Footer/index.jsx",
-      "icuDefaultMessage": "Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.",
+      "icuDefaultMessage": "Search, deals, marketplace browsing, and support stay connected across every storefront session.",
       "id": "footer.cleanBody",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Search, deals, marketplace browsing, and support should feel connected without the footer turning into another landing page.",
-      "line": 222,
+      "legacyEnglishTemplate": "Search, deals, marketplace browsing, and support stay connected across every storefront session.",
+      "line": 241,
       "reason": ""
     },
     {
@@ -9845,7 +9837,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Contact Support",
-      "line": 226,
+      "line": 245,
       "reason": ""
     },
     {
@@ -9858,7 +9850,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open Trust Center",
-      "line": 229,
+      "line": 248,
       "reason": ""
     },
     {
@@ -9871,7 +9863,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "About",
-      "line": 235,
+      "line": 254,
       "reason": ""
     },
     {
@@ -9884,7 +9876,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support",
-      "line": 240,
+      "line": 259,
       "reason": ""
     },
     {
@@ -9897,7 +9889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Legal",
-      "line": 245,
+      "line": 264,
       "reason": ""
     },
     {
@@ -9910,7 +9902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Connect",
-      "line": 250,
+      "line": 269,
       "reason": ""
     },
     {
@@ -9923,7 +9915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Headquarters",
-      "line": 268,
+      "line": 287,
       "reason": ""
     },
     {
@@ -9936,7 +9928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 273,
+      "line": 292,
       "reason": ""
     },
     {
@@ -9949,7 +9941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 275,
+      "line": 294,
       "reason": ""
     },
     {
@@ -9962,7 +9954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 277,
+      "line": 296,
       "reason": ""
     },
     {
@@ -9975,7 +9967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 283,
+      "line": 302,
       "reason": ""
     },
     {
@@ -9988,7 +9980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 300,
+      "line": 319,
       "reason": ""
     },
     {
@@ -10001,7 +9993,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All Rights Reserved.",
-      "line": 300,
+      "line": 319,
       "reason": ""
     },
     {
@@ -10014,7 +10006,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 309,
+      "line": 328,
       "reason": ""
     },
     {
@@ -10027,7 +10019,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 312,
+      "line": 331,
       "reason": ""
     },
     {
@@ -10040,7 +10032,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 338,
       "reason": ""
     },
     {
@@ -10053,7 +10045,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 338,
       "reason": ""
     },
     {
@@ -10066,7 +10058,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 338,
       "reason": ""
     },
     {
@@ -10079,7 +10071,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 99,
+      "line": 100,
       "reason": ""
     },
     {
@@ -10094,7 +10086,20 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}}",
-      "line": 107,
+      "line": 108,
+      "reason": ""
+    },
+    {
+      "column": 9,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Live runtimes",
+      "file": "app/src/components/layout/Navbar/index.jsx",
+      "icuDefaultMessage": "Live runtimes",
+      "id": "common.jsx.text.live.runtimes.ae649138",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 136,
       "reason": ""
     },
     {
@@ -10109,7 +10114,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}} from account menu",
-      "line": 142,
+      "line": 143,
       "reason": ""
     },
     {
@@ -10122,7 +10127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 189,
+      "line": 192,
       "reason": ""
     },
     {
@@ -10135,7 +10140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune country, language, and browse currency without losing your place.",
-      "line": 192,
+      "line": 195,
       "reason": ""
     },
     {
@@ -10148,7 +10153,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset to detected market",
-      "line": 200,
+      "line": 203,
       "reason": ""
     },
     {
@@ -10161,7 +10166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country",
-      "line": 206,
+      "line": 209,
       "reason": ""
     },
     {
@@ -10174,7 +10179,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Language",
-      "line": 221,
+      "line": 224,
       "reason": ""
     },
     {
@@ -10187,7 +10192,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Currency",
-      "line": 236,
+      "line": 239,
       "reason": ""
     },
     {
@@ -10200,7 +10205,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detected",
-      "line": 253,
+      "line": 256,
       "reason": ""
     },
     {
@@ -10213,7 +10218,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Region",
-      "line": 256,
+      "line": 259,
       "reason": ""
     },
     {
@@ -10226,7 +10231,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local prices",
-      "line": 259,
+      "line": 262,
       "reason": ""
     },
     {
@@ -10239,7 +10244,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog prices convert from INR for browsing. Final payment quotes lock at checkout.",
-      "line": 269,
+      "line": 272,
       "reason": ""
     },
     {
@@ -10252,7 +10257,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice commands, dates, and UI copy follow the selected language and locale where translated.",
-      "line": 272,
+      "line": 275,
       "reason": ""
     },
     {
@@ -10265,7 +10270,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Native catalog FX",
-      "line": 273,
+      "line": 276,
       "reason": ""
     },
     {
@@ -10278,7 +10283,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 300,
+      "line": 303,
       "reason": ""
     },
     {
@@ -10291,7 +10296,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 307,
+      "line": 310,
       "reason": ""
     },
     {
@@ -10304,7 +10309,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 308,
+      "line": 311,
       "reason": ""
     },
     {
@@ -10317,7 +10322,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 317,
+      "line": 320,
       "reason": ""
     },
     {
@@ -10330,7 +10335,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 323,
+      "line": 326,
       "reason": ""
     },
     {
@@ -10343,7 +10348,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 328,
+      "line": 331,
       "reason": ""
     },
     {
@@ -10356,7 +10361,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 394,
+      "line": 397,
       "reason": ""
     },
     {
@@ -10369,7 +10374,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 532,
+      "line": 535,
       "reason": ""
     },
     {
@@ -10382,7 +10387,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 533,
+      "line": 536,
       "reason": ""
     },
     {
@@ -10395,7 +10400,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 588,
+      "line": 591,
       "reason": ""
     },
     {
@@ -10408,7 +10413,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 661,
+      "line": 664,
       "reason": ""
     },
     {
@@ -10421,7 +10426,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 671,
+      "line": 674,
       "reason": ""
     },
     {
@@ -10434,7 +10439,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 677,
+      "line": 680,
       "reason": ""
     },
     {
@@ -10447,7 +10452,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 688,
+      "line": 691,
       "reason": ""
     },
     {
@@ -10460,7 +10465,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open market settings",
-      "line": 711,
+      "line": 714,
       "reason": ""
     },
     {
@@ -10473,7 +10478,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market preferences",
-      "line": 726,
+      "line": 729,
       "reason": ""
     },
     {
@@ -10486,7 +10491,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 731,
+      "line": 734,
       "reason": ""
     },
     {
@@ -10499,7 +10504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country, language, and currency controls.",
-      "line": 734,
+      "line": 737,
       "reason": ""
     },
     {
@@ -10512,7 +10517,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune browsing without disturbing the main navigation rail.",
-      "line": 737,
+      "line": 740,
       "reason": ""
     },
     {
@@ -10525,7 +10530,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open profile menu",
-      "line": 776,
+      "line": 779,
       "reason": ""
     },
     {
@@ -10540,7 +10545,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 790,
+      "line": 793,
       "reason": ""
     },
     {
@@ -10553,7 +10558,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close profile menu backdrop",
-      "line": 801,
+      "line": 804,
       "reason": ""
     },
     {
@@ -10566,7 +10571,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account",
-      "line": 813,
+      "line": 816,
       "reason": ""
     },
     {
@@ -10579,7 +10584,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Profile, orders, and saved shopping links.",
-      "line": 816,
+      "line": 819,
       "reason": ""
     },
     {
@@ -10592,7 +10597,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close",
-      "line": 824,
+      "line": 827,
       "reason": ""
     },
     {
@@ -10607,7 +10612,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 832,
+      "line": 835,
       "reason": ""
     },
     {
@@ -10620,7 +10625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 841,
+      "line": 844,
       "reason": ""
     },
     {
@@ -10633,7 +10638,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 848,
+      "line": 851,
       "reason": ""
     },
     {
@@ -10646,7 +10651,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 855,
+      "line": 858,
       "reason": ""
     },
     {
@@ -10659,7 +10664,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 863,
+      "line": 866,
       "reason": ""
     },
     {
@@ -10672,7 +10677,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 871,
+      "line": 874,
       "reason": ""
     },
     {
@@ -10685,7 +10690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 883,
+      "line": 886,
       "reason": ""
     },
     {
@@ -10698,7 +10703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logout failed. Please try again.",
-      "line": 895,
+      "line": 898,
       "reason": ""
     },
     {
@@ -10711,7 +10716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logout",
-      "line": 901,
+      "line": 904,
       "reason": ""
     },
     {
@@ -10724,7 +10729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications temporarily unavailable",
-      "line": 910,
+      "line": 913,
       "reason": ""
     },
     {
@@ -10737,7 +10742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications are temporarily unavailable",
-      "line": 911,
+      "line": 914,
       "reason": ""
     },
     {
@@ -10750,7 +10755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 928,
+      "line": 931,
       "reason": ""
     },
     {
@@ -10763,7 +10768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 936,
+      "line": 939,
       "reason": ""
     },
     {
@@ -10776,7 +10781,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Toggle menu",
-      "line": 952,
+      "line": 955,
       "reason": ""
     },
     {
@@ -10789,7 +10794,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 963,
+      "line": 966,
       "reason": ""
     },
     {
@@ -10802,7 +10807,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 964,
+      "line": 967,
       "reason": ""
     },
     {
@@ -10815,7 +10820,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 971,
+      "line": 974,
       "reason": ""
     },
     {
@@ -10828,7 +10833,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 991,
+      "line": 994,
       "reason": ""
     },
     {
@@ -10841,7 +10846,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 992,
+      "line": 995,
       "reason": ""
     },
     {
@@ -10854,7 +10859,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 999,
+      "line": 1002,
       "reason": ""
     },
     {
@@ -10867,7 +10872,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close mobile menu backdrop",
-      "line": 1011,
+      "line": 1014,
       "reason": ""
     },
     {
@@ -10880,7 +10885,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop",
-      "line": 1028,
+      "line": 1031,
       "reason": ""
     },
     {
@@ -10893,7 +10898,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 1036,
+      "line": 1039,
       "reason": ""
     },
     {
@@ -10906,7 +10911,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 1044,
+      "line": 1047,
       "reason": ""
     },
     {
@@ -10919,7 +10924,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1044,
+      "line": 1047,
       "reason": ""
     },
     {
@@ -10932,7 +10937,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 1052,
+      "line": 1055,
       "reason": ""
     },
     {
@@ -10945,7 +10950,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 1060,
+      "line": 1063,
       "reason": ""
     },
     {
@@ -10958,7 +10963,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse by category",
-      "line": 1066,
+      "line": 1069,
       "reason": ""
     },
     {
@@ -10971,7 +10976,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account control",
-      "line": 1083,
+      "line": 1086,
       "reason": ""
     },
     {
@@ -10984,7 +10989,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 1088,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -10997,7 +11002,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 1091,
+      "line": 1094,
       "reason": ""
     },
     {
@@ -11010,7 +11015,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 1094,
+      "line": 1097,
       "reason": ""
     },
     {
@@ -11023,7 +11028,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1094,
+      "line": 1097,
       "reason": ""
     },
     {
@@ -11036,7 +11041,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 1101,
+      "line": 1104,
       "reason": ""
     },
     {
@@ -11049,7 +11054,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 1133,
+      "line": 1136,
       "reason": ""
     },
     {
@@ -11062,7 +11067,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login / Sign up",
-      "line": 1177,
+      "line": 1180,
       "reason": ""
     },
     {
@@ -25581,7 +25586,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 637,
+      "line": 685,
       "reason": ""
     },
     {
@@ -25594,7 +25599,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 638,
+      "line": 686,
       "reason": ""
     },
     {
@@ -25607,7 +25612,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 643,
+      "line": 691,
       "reason": ""
     },
     {
@@ -25620,7 +25625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 643,
+      "line": 691,
       "reason": ""
     },
     {
@@ -25633,7 +25638,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 662,
+      "line": 710,
       "reason": ""
     },
     {
@@ -25646,7 +25651,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 806,
+      "line": 854,
       "reason": ""
     },
     {
@@ -25659,7 +25664,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 812,
+      "line": 860,
       "reason": ""
     },
     {
@@ -25672,7 +25677,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 836,
+      "line": 884,
       "reason": ""
     },
     {
@@ -25685,7 +25690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 960,
+      "line": 1008,
       "reason": ""
     },
     {
@@ -25698,7 +25703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 960,
+      "line": 1008,
       "reason": ""
     },
     {
@@ -33795,409 +33800,6 @@
       "reason": ""
     },
     {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Aura Gateway",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Aura Gateway",
-      "id": "common.jsx.text.aura.gateway.02299ec6",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 144,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "A sharper front door for Aura's live frontend stack.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "A sharper front door for Aura's live frontend stack.",
-      "id": "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 147,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Choose the runtime you want, enter the same production commerce system, and keep the same identity, cart, wishlist, profile, and order state across both domains. This is the gateway surface that can also graduate into a dedicated general-domain project when you want it to.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Choose the runtime you want, enter the same production commerce system, and keep the same identity, cart, wishlist, profile, and order state across both domains. This is the gateway surface that can also graduate into a dedicated general-domain project when you want it to.",
-      "id": "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 150,
-      "reason": ""
-    },
-    {
-      "column": 49,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "General Link Direction",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "General Link Direction",
-      "id": "common.jsx.text.general.link.direction.e0b93b2a",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 180,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Ready for a dedicated gateway project.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Ready for a dedicated gateway project.",
-      "id": "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 182,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "If you spin up a separate Vercel project such as",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "If you spin up a separate Vercel project such as",
-      "id": "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 191,
-      "reason": ""
-    },
-    {
-      "column": 237,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": ", this gateway can be the calm handoff layer above both live storefronts instead of a rough technical switchboard living inside one of them.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": ", this gateway can be the calm handoff layer above both live storefronts instead of a rough technical switchboard living inside one of them.",
-      "id": "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 191,
-      "reason": ""
-    },
-    {
-      "column": 19,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Deployment contract",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Deployment contract",
-      "id": "common.jsx.text.deployment.contract.00f9b039",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 208,
-      "reason": ""
-    },
-    {
-      "column": 102,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Hosts",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Hosts",
-      "id": "common.jsx.text.hosts.3cf51fa9",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 212,
-      "reason": ""
-    },
-    {
-      "column": 70,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Vercel + Netlify",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Vercel + Netlify",
-      "id": "common.jsx.text.vercel.netlify.f28e116f",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 213,
-      "reason": ""
-    },
-    {
-      "column": 70,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Shared production data",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Shared production data",
-      "id": "product.jsx.text.shared.production.data.f8bd2f6b",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 217,
-      "reason": ""
-    },
-    {
-      "column": 23,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Current release",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Current release",
-      "id": "common.jsx.text.current.release.6530b9c3",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 224,
-      "reason": ""
-    },
-    {
-      "column": 51,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Host drift detected",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Host drift detected",
-      "id": "common.jsx.expression.host.drift.detected.f97beb6c",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 234,
-      "reason": ""
-    },
-    {
-      "column": 165,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Host aligned",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Host aligned",
-      "id": "common.jsx.expression.host.aligned.cf15d78e",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 234,
-      "reason": ""
-    },
-    {
-      "column": 104,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Build ID",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Build ID",
-      "id": "common.jsx.text.build.id.4b254665",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 240,
-      "reason": ""
-    },
-    {
-      "column": 104,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Runtime vs Target",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Runtime vs Target",
-      "id": "common.jsx.text.runtime.vs.target.bab208a2",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 244,
-      "reason": ""
-    },
-    {
-      "column": 104,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Commit",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Commit",
-      "id": "common.jsx.text.commit.975b7130",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 248,
-      "reason": ""
-    },
-    {
-      "column": 104,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Built",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Built",
-      "id": "common.jsx.text.built.5bb02b71",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 252,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "If Netlify and Vercel ever show different build IDs, commits, or a runtime/target mismatch here, the public storefront runtimes are out of sync.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "If Netlify and Vercel ever show different build IDs, commits, or a runtime/target mismatch here, the public storefront runtimes are out of sync.",
-      "id": "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 258,
-      "reason": ""
-    },
-    {
-      "column": 45,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Current host",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Current host",
-      "id": "common.jsx.expression.current.host.da7c5d43",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 287,
-      "reason": ""
-    },
-    {
-      "column": 161,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Live target",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Live target",
-      "id": "common.jsx.expression.live.target.07b371c6",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 287,
-      "reason": ""
-    },
-    {
-      "column": 27,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Live domain",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Live domain",
-      "id": "common.jsx.text.live.domain.bc1cccb3",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 308,
-      "reason": ""
-    },
-    {
-      "column": 33,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Open storefront",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Open storefront",
-      "id": "common.jsx.text.open.storefront.9a0fe7ee",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 342,
-      "reason": ""
-    },
-    {
-      "column": 33,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Deployment target pending",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Deployment target pending",
-      "id": "common.jsx.text.deployment.target.pending.3f1c8241",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 347,
-      "reason": ""
-    },
-    {
-      "column": 90,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Needs URL",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Needs URL",
-      "id": "common.jsx.text.needs.url.6a1ab20b",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 348,
-      "reason": ""
-    },
-    {
-      "column": 45,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Shared behavior",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Shared behavior",
-      "id": "common.jsx.text.shared.behavior.33436b63",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 360,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Both links should feel ideologically identical.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Both links should feel ideologically identical.",
-      "id": "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 362,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Different domains are fine. Missing state, weaker flows, or reduced capability are not. This gateway makes that expectation explicit before the user enters either runtime.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Different domains are fine. Missing state, weaker flows, or reduced capability are not. This gateway makes that expectation explicit before the user enters either runtime.",
-      "id": "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 365,
-      "reason": ""
-    },
-    {
-      "column": 45,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Design standard",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Design standard",
-      "id": "common.jsx.text.design.standard.c1185458",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 387,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Cleaner, calmer, and less toy-like.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "Cleaner, calmer, and less toy-like.",
-      "id": "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 389,
-      "reason": ""
-    },
-    {
-      "column": 17,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "The page now behaves more like a premium access layer than a temporary glossy experiment: better hierarchy, stronger language, clearer deployment context, and a more controlled visual system.",
-      "file": "app/src/pages/Launch/index.jsx",
-      "icuDefaultMessage": "The page now behaves more like a premium access layer than a temporary glossy experiment: better hierarchy, stronger language, clearer deployment context, and a more controlled visual system.",
-      "id": "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 392,
-      "reason": ""
-    },
-    {
       "column": 27,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "{{count}} min ago",
@@ -37072,7 +36674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "account setup",
-      "line": 1431,
+      "line": 1441,
       "reason": ""
     },
     {
@@ -37085,7 +36687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "password recovery",
-      "line": 1433,
+      "line": 1443,
       "reason": ""
     },
     {
@@ -37098,7 +36700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "sign-in",
-      "line": 1434,
+      "line": 1444,
       "reason": ""
     },
     {
@@ -37111,7 +36713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish activating your account",
-      "line": 1436,
+      "line": 1446,
       "reason": ""
     },
     {
@@ -37124,7 +36726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unlock password reset",
-      "line": 1438,
+      "line": 1448,
       "reason": ""
     },
     {
@@ -37137,7 +36739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish signing in",
-      "line": 1439,
+      "line": 1449,
       "reason": ""
     },
     {
@@ -37150,7 +36752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes Re-Sent",
-      "line": 1448,
+      "line": 1458,
       "reason": ""
     },
     {
@@ -37163,7 +36765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Code Sent",
-      "line": 1449,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -37178,7 +36780,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh {{mode}} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.",
-      "line": 1451,
+      "line": 1461,
       "reason": ""
     },
     {
@@ -37193,7 +36795,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email code is ready. After that, you will confirm the same {{mode}} with Firebase SMS on your phone.",
-      "line": 1452,
+      "line": 1462,
       "reason": ""
     },
     {
@@ -37206,7 +36808,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Verified",
-      "line": 1458,
+      "line": 1468,
       "reason": ""
     },
     {
@@ -37221,7 +36823,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 is complete. Enter the Firebase SMS code sent to your phone to {{outcome}}.",
-      "line": 1459,
+      "line": 1469,
       "reason": ""
     },
     {
@@ -37234,7 +36836,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase Code Re-Sent",
-      "line": 1466,
+      "line": 1476,
       "reason": ""
     },
     {
@@ -37247,7 +36849,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase SMS Sent",
-      "line": 1467,
+      "line": 1477,
       "reason": ""
     },
     {
@@ -37260,7 +36862,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh 6-digit Firebase verification code is on its way to your phone.",
-      "line": 1469,
+      "line": 1479,
       "reason": ""
     },
     {
@@ -37273,7 +36875,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A 6-digit Firebase verification code has been sent to your phone.",
-      "line": 1470,
+      "line": 1480,
       "reason": ""
     },
     {
@@ -37286,7 +36888,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Check for a Code",
-      "line": 1475,
+      "line": 1485,
       "reason": ""
     },
     {
@@ -37299,7 +36901,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a fresh verification code has been sent.",
-      "line": 1477,
+      "line": 1487,
       "reason": ""
     },
     {
@@ -37312,7 +36914,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a 6-digit verification code has been sent.",
-      "line": 1478,
+      "line": 1488,
       "reason": ""
     },
     {
@@ -37325,7 +36927,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is required",
-      "line": 1598,
+      "line": 1608,
       "reason": ""
     },
     {
@@ -37338,7 +36940,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must be at least 12 characters",
-      "line": 1599,
+      "line": 1609,
       "reason": ""
     },
     {
@@ -37351,7 +36953,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain an uppercase letter",
-      "line": 1600,
+      "line": 1610,
       "reason": ""
     },
     {
@@ -37364,7 +36966,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a lowercase letter",
-      "line": 1601,
+      "line": 1611,
       "reason": ""
     },
     {
@@ -37377,7 +36979,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a digit",
-      "line": 1602,
+      "line": 1612,
       "reason": ""
     },
     {
@@ -37390,7 +36992,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a special character (!@#$%^&*)",
-      "line": 1603,
+      "line": 1613,
       "reason": ""
     },
     {
@@ -37403,7 +37005,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passwords do not match",
-      "line": 1604,
+      "line": 1614,
       "reason": ""
     },
     {
@@ -37416,7 +37018,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number is required",
-      "line": 1610,
+      "line": 1620,
       "reason": ""
     },
     {
@@ -37429,7 +37031,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use international phone format with country code, for example +1 202 555 0142",
-      "line": 1614,
+      "line": 1624,
       "reason": ""
     },
     {
@@ -37442,33 +37044,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name is required",
-      "line": 1618,
-      "reason": ""
-    },
-    {
-      "column": 48,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Email address is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Email address is required",
-      "id": "login.error.emailRequired",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Email address is required",
-      "line": 1619,
-      "reason": ""
-    },
-    {
-      "column": 63,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Valid email address is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Valid email address is required",
-      "id": "login.error.emailValid",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1620,
+      "line": 1628,
       "reason": ""
     },
     {
@@ -37498,19 +37074,6 @@
       "reason": ""
     },
     {
-      "column": 51,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Password is required",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Password is required",
-      "id": "login.error.passwordRequired",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Password is required",
-      "line": 1631,
-      "reason": ""
-    },
-    {
       "column": 48,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Email address is required",
@@ -37520,7 +37083,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address is required",
-      "line": 1634,
+      "line": 1639,
       "reason": ""
     },
     {
@@ -37533,7 +37096,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1635,
+      "line": 1640,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Password is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Password is required",
+      "id": "login.error.passwordRequired",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Password is required",
+      "line": 1641,
+      "reason": ""
+    },
+    {
+      "column": 48,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Email address is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Email address is required",
+      "id": "login.error.emailRequired",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Email address is required",
+      "line": 1644,
+      "reason": ""
+    },
+    {
+      "column": 63,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Valid email address is required",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Valid email address is required",
+      "id": "login.error.emailValid",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Valid email address is required",
+      "line": 1645,
       "reason": ""
     },
     {
@@ -37546,7 +37148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are already signed in. Please log out before creating another account.",
-      "line": 1643,
+      "line": 1653,
       "reason": ""
     },
     {
@@ -37559,7 +37161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter complete 6-digit OTP",
-      "line": 1706,
+      "line": 1716,
       "reason": ""
     },
     {
@@ -37572,7 +37174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure phone challenge expired. Please request a new code.",
-      "line": 1745,
+      "line": 1755,
       "reason": ""
     },
     {
@@ -37585,7 +37187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email OTP and Firebase phone verification are complete. Set a new password for this account now.",
-      "line": 1782,
+      "line": 1792,
       "reason": ""
     },
     {
@@ -37598,7 +37200,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email and phone are verified. Set a new password for this account now.",
-      "line": 1816,
+      "line": 1826,
       "reason": ""
     },
     {
@@ -37611,7 +37213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in proof expired. Please re-enter credentials.",
-      "line": 1877,
+      "line": 1887,
       "reason": ""
     },
     {
@@ -37624,7 +37226,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SET NEW PASSWORD",
-      "line": 2011,
+      "line": 2021,
       "reason": ""
     },
     {
@@ -37637,7 +37239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.",
-      "line": 2012,
+      "line": 2022,
       "reason": ""
     },
     {
@@ -37650,7 +37252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL",
-      "line": 2019,
+      "line": 2029,
       "reason": ""
     },
     {
@@ -37663,7 +37265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.",
-      "line": 2021,
+      "line": 2031,
       "reason": ""
     },
     {
@@ -37676,7 +37278,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.",
-      "line": 2023,
+      "line": 2033,
       "reason": ""
     },
     {
@@ -37689,7 +37291,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.",
-      "line": 2024,
+      "line": 2034,
       "reason": ""
     },
     {
@@ -37702,7 +37304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE",
-      "line": 2030,
+      "line": 2040,
       "reason": ""
     },
     {
@@ -37715,7 +37317,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.",
-      "line": 2032,
+      "line": 2042,
       "reason": ""
     },
     {
@@ -37728,7 +37330,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.",
-      "line": 2034,
+      "line": 2044,
       "reason": ""
     },
     {
@@ -37741,7 +37343,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.",
-      "line": 2035,
+      "line": 2045,
       "reason": ""
     },
     {
@@ -37754,7 +37356,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2040,
+      "line": 2050,
       "reason": ""
     },
     {
@@ -37767,7 +37369,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit Firebase SMS code sent to your phone to complete the login.",
-      "line": 2042,
+      "line": 2052,
       "reason": ""
     },
     {
@@ -37782,7 +37384,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to your email{{extra}}.",
-      "line": 2043,
+      "line": 2053,
       "reason": ""
     },
     {
@@ -37795,7 +37397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and phone",
-      "line": 2043,
+      "line": 2053,
       "reason": ""
     },
     {
@@ -37808,7 +37410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "CREATE ACCOUNT",
-      "line": 2050,
+      "line": 2060,
       "reason": ""
     },
     {
@@ -37821,7 +37423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before account creation.",
-      "line": 2052,
+      "line": 2062,
       "reason": ""
     },
     {
@@ -37834,7 +37436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.",
-      "line": 2054,
+      "line": 2064,
       "reason": ""
     },
     {
@@ -37847,7 +37449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your phone number. We'll verify it with an OTP sent to your email and phone.",
-      "line": 2055,
+      "line": 2065,
       "reason": ""
     },
     {
@@ -37860,7 +37462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2059,
+      "line": 2069,
       "reason": ""
     },
     {
@@ -37873,7 +37475,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before password reset.",
-      "line": 2061,
+      "line": 2071,
       "reason": ""
     },
     {
@@ -37886,7 +37488,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.",
-      "line": 2063,
+      "line": 2073,
       "reason": ""
     },
     {
@@ -37899,7 +37501,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number. We'll verify both before allowing a new password.",
-      "line": 2064,
+      "line": 2074,
       "reason": ""
     },
     {
@@ -37912,7 +37514,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "WELCOME BACK",
-      "line": 2068,
+      "line": 2078,
       "reason": ""
     },
     {
@@ -37925,7 +37527,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel after your password is checked.",
-      "line": 2070,
+      "line": 2080,
       "reason": ""
     },
     {
@@ -37938,7 +37540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.",
-      "line": 2072,
+      "line": 2082,
       "reason": ""
     },
     {
@@ -37951,7 +37553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your credentials. We'll verify your identity with an OTP.",
-      "line": 2073,
+      "line": 2083,
       "reason": ""
     },
     {
@@ -37964,7 +37566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This password change is allowed only after verified recovery for the same email and phone.",
-      "line": 2081,
+      "line": 2091,
       "reason": ""
     },
     {
@@ -37977,7 +37579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your new password must meet the full strength policy before it is saved.",
-      "line": 2082,
+      "line": 2092,
       "reason": ""
     },
     {
@@ -37990,7 +37592,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.",
-      "line": 2083,
+      "line": 2093,
       "reason": ""
     },
     {
@@ -38003,7 +37605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the email address that will own the new account.",
-      "line": 2091,
+      "line": 2101,
       "reason": ""
     },
     {
@@ -38016,7 +37618,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the registered recovery email for this account.",
-      "line": 2093,
+      "line": 2103,
       "reason": ""
     },
     {
@@ -38029,7 +37631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 checks the email address tied to your password and registered phone number.",
-      "line": 2094,
+      "line": 2104,
       "reason": ""
     },
     {
@@ -38042,7 +37644,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 will still require the Firebase phone code before this flow is finalized.",
-      "line": 2095,
+      "line": 2105,
       "reason": ""
     },
     {
@@ -38055,7 +37657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Both codes expire quickly and each resend refreshes the full secure verification chain.",
-      "line": 2096,
+      "line": 2106,
       "reason": ""
     },
     {
@@ -38068,7 +37670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this new account.",
-      "line": 2103,
+      "line": 2113,
       "reason": ""
     },
     {
@@ -38081,7 +37683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery email step is already verified for this account.",
-      "line": 2105,
+      "line": 2115,
       "reason": ""
     },
     {
@@ -38094,7 +37696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this login attempt.",
-      "line": 2106,
+      "line": 2116,
       "reason": ""
     },
     {
@@ -38107,7 +37709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The final Firebase SMS confirmation binds this flow to your registered phone.",
-      "line": 2107,
+      "line": 2117,
       "reason": ""
     },
     {
@@ -38120,7 +37722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the phone code expires, resend refreshes both email and phone factors together.",
-      "line": 2108,
+      "line": 2118,
       "reason": ""
     },
     {
@@ -38133,7 +37735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes expire in 5 minutes and can be used only once.",
-      "line": 2113,
+      "line": 2123,
       "reason": ""
     },
     {
@@ -38146,7 +37748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura never asks for your OTP outside this secure verification step.",
-      "line": 2114,
+      "line": 2124,
       "reason": ""
     },
     {
@@ -38159,7 +37761,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry and resend controls stay available if delivery is delayed.",
-      "line": 2115,
+      "line": 2125,
       "reason": ""
     },
     {
@@ -38172,7 +37774,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before account creation.",
-      "line": 2122,
+      "line": 2132,
       "reason": ""
     },
     {
@@ -38185,7 +37787,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email is checked first, then Firebase phone verification finishes the new account securely.",
-      "line": 2124,
+      "line": 2134,
       "reason": ""
     },
     {
@@ -38198,7 +37800,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email and phone are verified before a new account becomes active.",
-      "line": 2125,
+      "line": 2135,
       "reason": ""
     },
     {
@@ -38211,7 +37813,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller, payment, and order access stay locked behind verified identity.",
-      "line": 2126,
+      "line": 2136,
       "reason": ""
     },
     {
@@ -38224,7 +37826,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fraud checks and duplicate-account controls run before activation.",
-      "line": 2127,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -38237,7 +37839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before recovery continues.",
-      "line": 2134,
+      "line": 2144,
       "reason": ""
     },
     {
@@ -38250,7 +37852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery checks your email first, then requires Firebase phone verification before password reset.",
-      "line": 2136,
+      "line": 2146,
       "reason": ""
     },
     {
@@ -38263,7 +37865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset requests stay tied to your registered email and phone.",
-      "line": 2137,
+      "line": 2147,
       "reason": ""
     },
     {
@@ -38276,7 +37878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh verification chain is required before any password recovery step.",
-      "line": 2138,
+      "line": 2148,
       "reason": ""
     },
     {
@@ -38289,7 +37891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspicious recovery attempts are rate-limited automatically.",
-      "line": 2139,
+      "line": 2149,
       "reason": ""
     },
     {
@@ -38302,7 +37904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone verification is unavailable here, so Aura is using secure backup delivery through the available verification channel.",
-      "line": 2145,
+      "line": 2155,
       "reason": ""
     },
     {
@@ -38315,7 +37917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is verified first, then login codes are sent to both your email and Firebase phone channel.",
-      "line": 2147,
+      "line": 2157,
       "reason": ""
     },
     {
@@ -38328,7 +37930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password validity is checked before an OTP is issued.",
-      "line": 2148,
+      "line": 2158,
       "reason": ""
     },
     {
@@ -38341,7 +37943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone confirmation reduces account-takeover risk before the session is finalized.",
-      "line": 2149,
+      "line": 2159,
       "reason": ""
     },
     {
@@ -38354,7 +37956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rate limits, device checks, and audit logs guard repeated attempts.",
-      "line": 2150,
+      "line": 2160,
       "reason": ""
     },
     {
@@ -38367,7 +37969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP window",
-      "line": 2162,
+      "line": 2172,
       "reason": ""
     },
     {
@@ -38380,7 +37982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset window",
-      "line": 2162,
+      "line": 2172,
       "reason": ""
     },
     {
@@ -38393,7 +37995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity gate",
-      "line": 2162,
+      "line": 2172,
       "reason": ""
     },
     {
@@ -38406,7 +38008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "5-minute secure verify",
-      "line": 2164,
+      "line": 2174,
       "reason": ""
     },
     {
@@ -38419,7 +38021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP verified, new password pending",
-      "line": 2166,
+      "line": 2176,
       "reason": ""
     },
     {
@@ -38432,7 +38034,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Credentials checked before send",
-      "line": 2167,
+      "line": 2177,
       "reason": ""
     },
     {
@@ -38445,7 +38047,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery",
-      "line": 2170,
+      "line": 2180,
       "reason": ""
     },
     {
@@ -38458,7 +38060,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP live, Firebase phone pending",
-      "line": 2172,
+      "line": 2182,
       "reason": ""
     },
     {
@@ -38471,7 +38073,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email verified, Firebase SMS active",
-      "line": 2174,
+      "line": 2184,
       "reason": ""
     },
     {
@@ -38484,7 +38086,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backup OTP fallback active",
-      "line": 2176,
+      "line": 2186,
       "reason": ""
     },
     {
@@ -38497,7 +38099,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + Firebase SMS",
-      "line": 2178,
+      "line": 2188,
       "reason": ""
     },
     {
@@ -38510,7 +38112,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + phone active",
-      "line": 2179,
+      "line": 2189,
       "reason": ""
     },
     {
@@ -38523,7 +38125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email first, phone required",
-      "line": 2179,
+      "line": 2189,
       "reason": ""
     },
     {
@@ -38536,7 +38138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Flow",
-      "line": 2182,
+      "line": 2192,
       "reason": ""
     },
     {
@@ -38549,7 +38151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New account activation",
-      "line": 2184,
+      "line": 2194,
       "reason": ""
     },
     {
@@ -38562,7 +38164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery unlocked",
-      "line": 2187,
+      "line": 2197,
       "reason": ""
     },
     {
@@ -38575,7 +38177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password recovery",
-      "line": 2188,
+      "line": 2198,
       "reason": ""
     },
     {
@@ -38588,7 +38190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in",
-      "line": 2189,
+      "line": 2199,
       "reason": ""
     },
     {
@@ -38601,7 +38203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social access",
-      "line": 2192,
+      "line": 2202,
       "reason": ""
     },
     {
@@ -38616,7 +38218,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 2195,
+      "line": 2205,
       "reason": ""
     },
     {
@@ -38629,7 +38231,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Google, Facebook, GitHub, and X available",
-      "line": 2196,
+      "line": 2206,
       "reason": ""
     },
     {
@@ -38642,7 +38244,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP active in app",
-      "line": 2198,
+      "line": 2208,
       "reason": ""
     },
     {
@@ -38655,7 +38257,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only until this tab is refreshed",
-      "line": 2200,
+      "line": 2210,
       "reason": ""
     },
     {
@@ -38670,7 +38272,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only on {{host}}",
-      "line": 2201,
+      "line": 2211,
       "reason": ""
     },
     {
@@ -38683,7 +38285,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "this host",
-      "line": 2201,
+      "line": 2211,
       "reason": ""
     },
     {
@@ -38696,7 +38298,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resumable flow",
-      "line": 2228,
+      "line": 2238,
       "reason": ""
     },
     {
@@ -38709,7 +38311,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fast recovery ready",
-      "line": 2229,
+      "line": 2239,
       "reason": ""
     },
     {
@@ -38722,7 +38324,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your previous secure auth attempt can be restarted with the saved identity details.",
-      "line": 2230,
+      "line": 2240,
       "reason": ""
     },
     {
@@ -38737,7 +38339,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved {{age}}",
-      "line": 2232,
+      "line": 2242,
       "reason": ""
     },
     {
@@ -38750,7 +38352,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2238,
+      "line": 2248,
       "reason": ""
     },
     {
@@ -38767,7 +38369,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last secure session used {{assurance}} via {{provider}} {{age}}.",
-      "line": 2240,
+      "line": 2250,
       "reason": ""
     },
     {
@@ -38780,7 +38382,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "just now",
-      "line": 2245,
+      "line": 2255,
       "reason": ""
     },
     {
@@ -38796,7 +38398,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last secure session used {{provider}} {{age}}.",
-      "line": 2249,
+      "line": 2259,
       "reason": ""
     },
     {
@@ -38809,7 +38411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "just now",
-      "line": 2253,
+      "line": 2263,
       "reason": ""
     },
     {
@@ -38822,7 +38424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2261,
+      "line": 2271,
       "reason": ""
     },
     {
@@ -38835,7 +38437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use saved identity",
-      "line": 2265,
+      "line": 2275,
       "reason": ""
     },
     {
@@ -38848,7 +38450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fastest lane",
-      "line": 2281,
+      "line": 2291,
       "reason": ""
     },
     {
@@ -38861,7 +38463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2347,
+      "line": 2357,
       "reason": ""
     },
     {
@@ -38874,7 +38476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2348,
+      "line": 2358,
       "reason": ""
     },
     {
@@ -38887,7 +38489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2352,
+      "line": 2362,
       "reason": ""
     },
     {
@@ -38900,7 +38502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access",
-      "line": 2395,
+      "line": 2405,
       "reason": ""
     },
     {
@@ -38913,7 +38515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 2396,
+      "line": 2406,
       "reason": ""
     },
     {
@@ -38926,7 +38528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2406,
+      "line": 2416,
       "reason": ""
     },
     {
@@ -38939,7 +38541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2414,
+      "line": 2424,
       "reason": ""
     },
     {
@@ -38952,7 +38554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2415,
+      "line": 2425,
       "reason": ""
     },
     {
@@ -38965,7 +38567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop owner access is not configured for this app.",
-      "line": 2577,
+      "line": 2587,
       "reason": ""
     },
     {
@@ -38978,7 +38580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Owner Access",
-      "line": 2584,
+      "line": 2594,
       "reason": ""
     },
     {
@@ -38991,7 +38593,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Desktop is verifying the local owner access key.",
-      "line": 2585,
+      "line": 2595,
       "reason": ""
     },
     {
@@ -39004,7 +38606,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop Duo sign-in could not arm the secure browser bridge. Please refresh from Aura Desktop and try again.",
-      "line": 2610,
+      "line": 2620,
       "reason": ""
     },
     {
@@ -39017,7 +38619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2624,
+      "line": 2634,
       "reason": ""
     },
     {
@@ -39030,7 +38632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL CODE",
-      "line": 2627,
+      "line": 2637,
       "reason": ""
     },
     {
@@ -39043,7 +38645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CREATE ACCOUNT",
-      "line": 2629,
+      "line": 2639,
       "reason": ""
     },
     {
@@ -39056,7 +38658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CONTINUE",
-      "line": 2630,
+      "line": 2640,
       "reason": ""
     },
     {
@@ -39069,7 +38671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & SIGN IN",
-      "line": 2631,
+      "line": 2641,
       "reason": ""
     },
     {
@@ -39082,7 +38684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP & SIGN IN",
-      "line": 2633,
+      "line": 2643,
       "reason": ""
     },
     {
@@ -39095,7 +38697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2633,
+      "line": 2643,
       "reason": ""
     },
     {
@@ -39108,7 +38710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND BACKUP OTP",
-      "line": 2636,
+      "line": 2646,
       "reason": ""
     },
     {
@@ -39121,7 +38723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2637,
+      "line": 2647,
       "reason": ""
     },
     {
@@ -39134,7 +38736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN UP",
-      "line": 2637,
+      "line": 2647,
       "reason": ""
     },
     {
@@ -39147,7 +38749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2638,
+      "line": 2648,
       "reason": ""
     },
     {
@@ -39160,7 +38762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP",
-      "line": 2638,
+      "line": 2648,
       "reason": ""
     },
     {
@@ -39173,7 +38775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2639,
+      "line": 2649,
       "reason": ""
     },
     {
@@ -39186,7 +38788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN IN",
-      "line": 2639,
+      "line": 2649,
       "reason": ""
     },
     {
@@ -39898,7 +39500,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow",
-      "line": 470,
+      "line": 471,
       "reason": ""
     },
     {
@@ -39911,7 +39513,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Negotiable",
-      "line": 476,
+      "line": 477,
       "reason": ""
     },
     {
@@ -39924,7 +39526,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 486,
+      "line": 487,
       "reason": ""
     },
     {
@@ -39937,7 +39539,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified",
-      "line": 495,
+      "line": 496,
       "reason": ""
     },
     {
@@ -39952,7 +39554,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller: {{name}}",
-      "line": 507,
+      "line": 508,
       "reason": ""
     },
     {
@@ -39965,7 +39567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety",
-      "line": 513,
+      "line": 514,
       "reason": ""
     },
     {
@@ -39978,7 +39580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown city",
-      "line": 522,
+      "line": 523,
       "reason": ""
     },
     {
@@ -39993,7 +39595,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} views",
-      "line": 530,
+      "line": 531,
       "reason": ""
     },
     {
@@ -40006,7 +39608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review the listing carefully before payment.",
-      "line": 536,
+      "line": 537,
       "reason": ""
     },
     {
@@ -40019,7 +39621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open listing",
-      "line": 541,
+      "line": 542,
       "reason": ""
     },
     {
@@ -40032,7 +39634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live listings are unavailable right now. Please retry.",
-      "line": 587,
+      "line": 588,
       "reason": ""
     },
     {
@@ -40045,7 +39647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hotspot telemetry is unavailable right now.",
-      "line": 610,
+      "line": 611,
       "reason": ""
     },
     {
@@ -40058,7 +39660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not detect city from your location.",
-      "line": 664,
+      "line": 665,
       "reason": ""
     },
     {
@@ -40073,7 +39675,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "confidence {{value}}%",
-      "line": 678,
+      "line": 679,
       "reason": ""
     },
     {
@@ -40088,7 +39690,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{value}}m accuracy",
-      "line": 679,
+      "line": 680,
       "reason": ""
     },
     {
@@ -40105,7 +39707,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Using GPS city: {{city}}{{state}}{{quality}}",
-      "line": 682,
+      "line": 683,
       "reason": ""
     },
     {
@@ -40118,7 +39720,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to detect your city right now.",
-      "line": 693,
+      "line": 694,
       "reason": ""
     },
     {
@@ -40131,7 +39733,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All Categories",
-      "line": 721,
+      "line": 722,
       "reason": ""
     },
     {
@@ -40144,7 +39746,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fair",
-      "line": 726,
+      "line": 727,
       "reason": ""
     },
     {
@@ -40159,7 +39761,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City: {{city}}",
-      "line": 820,
+      "line": 821,
       "reason": ""
     },
     {
@@ -40174,7 +39776,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Condition: {{condition}}",
-      "line": 821,
+      "line": 822,
       "reason": ""
     },
     {
@@ -40189,7 +39791,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Min {{price}}",
-      "line": 822,
+      "line": 823,
       "reason": ""
     },
     {
@@ -40204,7 +39806,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Max {{price}}",
-      "line": 823,
+      "line": 824,
       "reason": ""
     },
     {
@@ -40217,7 +39819,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Filter deck",
-      "line": 831,
+      "line": 832,
       "reason": ""
     },
     {
@@ -40230,7 +39832,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refine the market view.",
-      "line": 834,
+      "line": 835,
       "reason": ""
     },
     {
@@ -40245,7 +39847,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active",
-      "line": 838,
+      "line": 839,
       "reason": ""
     },
     {
@@ -40258,7 +39860,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Condition",
-      "line": 844,
+      "line": 845,
       "reason": ""
     },
     {
@@ -40271,7 +39873,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Min price",
-      "line": 860,
+      "line": 861,
       "reason": ""
     },
     {
@@ -40284,7 +39886,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Max price",
-      "line": 870,
+      "line": 871,
       "reason": ""
     },
     {
@@ -40297,7 +39899,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No limit",
-      "line": 875,
+      "line": 876,
       "reason": ""
     },
     {
@@ -40310,7 +39912,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City",
-      "line": 882,
+      "line": 883,
       "reason": ""
     },
     {
@@ -40323,7 +39925,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Any city",
-      "line": 887,
+      "line": 888,
       "reason": ""
     },
     {
@@ -40336,7 +39938,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset filters",
-      "line": 915,
+      "line": 916,
       "reason": ""
     },
     {
@@ -40349,7 +39951,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace command deck",
-      "line": 946,
+      "line": 947,
       "reason": ""
     },
     {
@@ -40362,7 +39964,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse the local market with trust signals built in.",
-      "line": 949,
+      "line": 950,
       "reason": ""
     },
     {
@@ -40375,7 +39977,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Marketplace now behaves like a premium acquisition desk: sharper search, location-aware discovery, live demand hotspots, and seller safety cues that stay visible while you browse.",
-      "line": 952,
+      "line": 953,
       "reason": ""
     },
     {
@@ -40388,7 +39990,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search by title, category, brand, or keyword",
-      "line": 962,
+      "line": 963,
       "reason": ""
     },
     {
@@ -40401,7 +40003,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City",
-      "line": 972,
+      "line": 973,
       "reason": ""
     },
     {
@@ -40414,7 +40016,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detecting",
-      "line": 984,
+      "line": 985,
       "reason": ""
     },
     {
@@ -40427,7 +40029,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Near me",
-      "line": 984,
+      "line": 985,
       "reason": ""
     },
     {
@@ -40440,7 +40042,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell now",
-      "line": 995,
+      "line": 996,
       "reason": ""
     },
     {
@@ -40453,7 +40055,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode on",
-      "line": 1043,
+      "line": 1044,
       "reason": ""
     },
     {
@@ -40466,7 +40068,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode off",
-      "line": 1044,
+      "line": 1045,
       "reason": ""
     },
     {
@@ -40481,7 +40083,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{category}} lane",
-      "line": 1047,
+      "line": 1048,
       "reason": ""
     },
     {
@@ -40496,7 +40098,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} live listings",
-      "line": 1050,
+      "line": 1051,
       "reason": ""
     },
     {
@@ -40509,7 +40111,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Average safety",
-      "line": 1057,
+      "line": 1058,
       "reason": ""
     },
     {
@@ -40522,7 +40124,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Composite marketplace trust score",
-      "line": 1059,
+      "line": 1060,
       "reason": ""
     },
     {
@@ -40535,7 +40137,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow coverage",
-      "line": 1064,
+      "line": 1065,
       "reason": ""
     },
     {
@@ -40548,7 +40150,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings with payment protection enabled",
-      "line": 1066,
+      "line": 1067,
       "reason": ""
     },
     {
@@ -40561,7 +40163,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified sellers",
-      "line": 1071,
+      "line": 1072,
       "reason": ""
     },
     {
@@ -40574,7 +40176,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity-cleared sellers in the current result set",
-      "line": 1073,
+      "line": 1074,
       "reason": ""
     },
     {
@@ -40587,7 +40189,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust notes",
-      "line": 1088,
+      "line": 1089,
       "reason": ""
     },
     {
@@ -40600,7 +40202,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buyer discipline stays premium.",
-      "line": 1091,
+      "line": 1092,
       "reason": ""
     },
     {
@@ -40613,7 +40215,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market pulse",
-      "line": 1112,
+      "line": 1113,
       "reason": ""
     },
     {
@@ -40626,7 +40228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live demand and supply hotspots",
-      "line": 1115,
+      "line": 1116,
       "reason": ""
     },
     {
@@ -40639,7 +40241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All cities",
-      "line": 1119,
+      "line": 1120,
       "reason": ""
     },
     {
@@ -40652,7 +40254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "GPS-aware hotspot signals show where listings are moving, where demand is climbing, and which categories feel hottest in the current market window.",
-      "line": 1124,
+      "line": 1125,
       "reason": ""
     },
     {
@@ -40665,7 +40267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Not enough live marketplace signals for this filter yet. Try another city or broaden the lane.",
-      "line": 1144,
+      "line": 1145,
       "reason": ""
     },
     {
@@ -40680,7 +40282,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} listings",
-      "line": 1167,
+      "line": 1168,
       "reason": ""
     },
     {
@@ -40693,7 +40295,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hide filters",
-      "line": 1180,
+      "line": 1181,
       "reason": ""
     },
     {
@@ -40706,7 +40308,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Show filters",
-      "line": 1181,
+      "line": 1182,
       "reason": ""
     },
     {
@@ -40719,7 +40321,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Clear all",
-      "line": 1242,
+      "line": 1243,
       "reason": ""
     },
     {
@@ -40732,7 +40334,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local commerce safety mode",
-      "line": 1263,
+      "line": 1264,
       "reason": ""
     },
     {
@@ -40745,7 +40347,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Meetup, escrow, and seller-risk cues stay visible while browsing.",
-      "line": 1266,
+      "line": 1267,
       "reason": ""
     },
     {
@@ -40758,7 +40360,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode on",
-      "line": 1280,
+      "line": 1281,
       "reason": ""
     },
     {
@@ -40771,7 +40373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enable safety mode",
-      "line": 1281,
+      "line": 1282,
       "reason": ""
     },
     {
@@ -40784,7 +40386,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Average safety",
-      "line": 1287,
+      "line": 1288,
       "reason": ""
     },
     {
@@ -40797,7 +40399,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Composite trust score for visible listings",
-      "line": 1289,
+      "line": 1290,
       "reason": ""
     },
     {
@@ -40810,7 +40412,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "High safety",
-      "line": 1294,
+      "line": 1295,
       "reason": ""
     },
     {
@@ -40823,7 +40425,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings currently above the strong-trust threshold",
-      "line": 1296,
+      "line": 1297,
       "reason": ""
     },
     {
@@ -40836,7 +40438,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow",
-      "line": 1301,
+      "line": 1302,
       "reason": ""
     },
     {
@@ -40849,7 +40451,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Coverage across the current result page",
-      "line": 1303,
+      "line": 1304,
       "reason": ""
     },
     {
@@ -40862,7 +40464,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The market view hit a snag.",
-      "line": 1337,
+      "line": 1338,
       "reason": ""
     },
     {
@@ -40875,7 +40477,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry now",
-      "line": 1349,
+      "line": 1350,
       "reason": ""
     },
     {
@@ -40888,7 +40490,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No listings match this market view.",
-      "line": 1365,
+      "line": 1366,
       "reason": ""
     },
     {
@@ -40901,7 +40503,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Try relaxing filters, switching to another city, or be the first seller to publish inventory in this lane.",
-      "line": 1368,
+      "line": 1369,
       "reason": ""
     },
     {
@@ -40914,7 +40516,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create listing",
-      "line": 1375,
+      "line": 1376,
       "reason": ""
     },
     {
@@ -40927,7 +40529,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace pagination",
-      "line": 1416,
+      "line": 1418,
       "reason": ""
     },
     {
@@ -40940,7 +40542,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Prev",
-      "line": 1428,
+      "line": 1430,
       "reason": ""
     },
     {
@@ -40953,7 +40555,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next",
-      "line": 1465,
+      "line": 1467,
       "reason": ""
     },
     {
@@ -60276,7 +59878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Only PNG, JPEG, GIF, and WebP image files are supported for visual search.",
-      "line": 165,
+      "line": 256,
       "reason": ""
     },
     {
@@ -60289,7 +59891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provide image URL, uploaded screenshot, filename, or hint text.",
-      "line": 223,
+      "line": 314,
       "reason": ""
     },
     {
@@ -60302,7 +59904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Need at least 2 matched products to open AI Compare.",
-      "line": 274,
+      "line": 365,
       "reason": ""
     },
     {
@@ -60315,7 +59917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 333,
+      "line": 424,
       "reason": ""
     },
     {
@@ -60328,7 +59930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 334,
+      "line": 425,
       "reason": ""
     },
     {
@@ -60341,7 +59943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 335,
+      "line": 426,
       "reason": ""
     },
     {
@@ -60354,7 +59956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 337,
+      "line": 428,
       "reason": ""
     },
     {
@@ -60367,7 +59969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 345,
+      "line": 436,
       "reason": ""
     },
     {
@@ -60380,7 +59982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 350,
+      "line": 441,
       "reason": ""
     },
     {
@@ -60393,7 +59995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 366,
+      "line": 457,
       "reason": ""
     },
     {
@@ -60406,7 +60008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 375,
+      "line": 466,
       "reason": ""
     },
     {
@@ -60419,7 +60021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
+      "line": 472,
       "reason": ""
     },
     {
@@ -60432,7 +60034,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 415,
+      "line": 506,
       "reason": ""
     },
     {
@@ -60445,7 +60047,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 426,
+      "line": 517,
       "reason": ""
     },
     {
@@ -60458,7 +60060,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 437,
+      "line": 528,
       "reason": ""
     },
     {
@@ -60471,7 +60073,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 459,
+      "line": 552,
       "reason": ""
     },
     {
@@ -60484,7 +60086,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 459,
+      "line": 552,
       "reason": ""
     },
     {
@@ -60497,7 +60099,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 465,
+      "line": 558,
       "reason": ""
     },
     {
@@ -60510,33 +60112,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 487,
-      "reason": ""
-    },
-    {
-      "column": 68,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "matched product",
-      "file": "app/src/pages/VisualSearch/index.jsx",
-      "icuDefaultMessage": "matched product",
-      "id": "product.jsx.text.matched.product.8b686b00",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 489,
-      "reason": ""
-    },
-    {
-      "column": 191,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "from live catalog.",
-      "file": "app/src/pages/VisualSearch/index.jsx",
-      "icuDefaultMessage": "from live catalog.",
-      "id": "search.jsx.text.from.live.catalog.8df55cd8",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 489,
+      "line": 580,
       "reason": ""
     },
     {
@@ -60549,7 +60125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 499,
+      "line": 594,
       "reason": ""
     },
     {
@@ -60562,7 +60138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 507,
+      "line": 602,
       "reason": ""
     },
     {
@@ -60575,7 +60151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 511,
+      "line": 606,
       "reason": ""
     },
     {
@@ -60588,7 +60164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 515,
+      "line": 610,
       "reason": ""
     },
     {
@@ -60601,7 +60177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 519,
+      "line": 614,
       "reason": ""
     },
     {
@@ -60614,7 +60190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 529,
+      "line": 624,
       "reason": ""
     },
     {
@@ -60627,7 +60203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 532,
+      "line": 627,
       "reason": ""
     },
     {
@@ -60640,7 +60216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 548,
+      "line": 643,
       "reason": ""
     },
     {
@@ -60653,7 +60229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Visual search input",
-      "line": 551,
+      "line": 646,
       "reason": ""
     },
     {
@@ -60666,7 +60242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 584,
+      "line": 679,
       "reason": ""
     },
     {
@@ -60679,7 +60255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 624,
+      "line": 719,
       "reason": ""
     },
     {
@@ -60692,7 +60268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 625,
+      "line": 720,
       "reason": ""
     },
     {
@@ -60867,18 +60443,18 @@
     "app/src/services/runtimeTranslation.test.js"
   ],
   "summary": {
-    "dynamicLookupReferences": 16,
+    "dynamicLookupReferences": 19,
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
-    "productionFiles": 101,
-    "productionStableReferences": 4142,
+    "productionFiles": 100,
+    "productionStableReferences": 4110,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 538,
+    "sourceFilesScanned": 541,
     "testHarnessReferences": 16,
-    "totalTrackedFiles": 154,
-    "uniqueProductionStableIds": 3737,
+    "totalTrackedFiles": 153,
+    "uniqueProductionStableIds": 3704,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -61076,7 +60652,7 @@
       "interpolationTokens": [],
       "kind": "test-harness-literal",
       "legacyEnglishTemplate": "Hide password",
-      "line": 57,
+      "line": 55,
       "reason": "Test harness literal is tracked but excluded from production call-site migration."
     },
     {
@@ -61089,7 +60665,7 @@
       "interpolationTokens": [],
       "kind": "test-harness-literal",
       "legacyEnglishTemplate": "Hide password",
-      "line": 58,
+      "line": 56,
       "reason": "Test harness literal is tracked but excluded from production call-site migration."
     }
   ],
@@ -62349,17 +61925,13 @@
     "common.jsx.expression.camera.on.02df25ad",
     "common.jsx.expression.camera.ready.1394fc22",
     "common.jsx.expression.checking.20c680de",
-    "common.jsx.expression.current.host.da7c5d43",
     "common.jsx.expression.describe.the.mission.instead.of.specific.skus.1490bce5",
     "common.jsx.expression.end.call.5d79cf02",
     "common.jsx.expression.end.live.call.4a6e50ef",
     "common.jsx.expression.example.build.a.gaming.setup.under.rs.09e19f88",
     "common.jsx.expression.guest.c539652f",
-    "common.jsx.expression.host.aligned.cf15d78e",
-    "common.jsx.expression.host.drift.detected.f97beb6c",
     "common.jsx.expression.image.ready.for.grounding.152acb95",
     "common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda",
-    "common.jsx.expression.live.target.07b371c6",
     "common.jsx.expression.local.safety.2f828dea",
     "common.jsx.expression.mic.check.123c4ea4",
     "common.jsx.expression.mic.off.24f68399",
@@ -62402,7 +61974,6 @@
     "common.jsx.expression.you.pay.bba5beab",
     "common.jsx.expression.your.item.36f6881c",
     "common.jsx.expression.zero.query.entry.f4765066",
-    "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee",
     "common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c",
     "common.jsx.text.active.lane.de283afd",
     "common.jsx.text.advanced.controls.037c1ff0",
@@ -62413,18 +61984,14 @@
     "common.jsx.text.assistant.lanes.00fbe316",
     "common.jsx.text.assistant.unavailable.965f19f5",
     "common.jsx.text.aura.failed.to.boot.c2290ff2",
-    "common.jsx.text.aura.gateway.02299ec6",
     "common.jsx.text.aura.global.hq.a16ecbd5",
     "common.jsx.text.aura.mobile.fbf108da",
     "common.jsx.text.aura.status.e81a8e71",
     "common.jsx.text.aura.terminal.2fded973",
     "common.jsx.text.back.to.status.a3682887",
     "common.jsx.text.bangalore.560001.india.029e9526",
-    "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39",
     "common.jsx.text.budget.c9a30fc0",
-    "common.jsx.text.build.id.4b254665",
     "common.jsx.text.building.grounded.verdict.356b5430",
-    "common.jsx.text.built.5bb02b71",
     "common.jsx.text.built.d5378f24",
     "common.jsx.text.bundle.controls.f884667c",
     "common.jsx.text.bundle.intelligence.53ded863",
@@ -62434,12 +62001,10 @@
     "common.jsx.text.camera.preview.on.4d45b043",
     "common.jsx.text.cancel.call.ce5d87e2",
     "common.jsx.text.checked.a765e9cb",
-    "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed",
     "common.jsx.text.clear.context.e550a0f3",
     "common.jsx.text.cli.d8cfa7cf",
     "common.jsx.text.commerce.copilot.e872e317",
     "common.jsx.text.commit.301904c6",
-    "common.jsx.text.commit.975b7130",
     "common.jsx.text.compare.deck.2ba24d3b",
     "common.jsx.text.compare.mode.0d5f6e3b",
     "common.jsx.text.components.dcf72b86",
@@ -62449,12 +62014,7 @@
     "common.jsx.text.continuity.17ba6f4e",
     "common.jsx.text.controlled.commerce.intelligence.ac057065",
     "common.jsx.text.copyright.cb65dd27",
-    "common.jsx.text.current.release.6530b9c3",
     "common.jsx.text.decision.engine.ec27ce72",
-    "common.jsx.text.deployment.contract.00f9b039",
-    "common.jsx.text.deployment.target.pending.3f1c8241",
-    "common.jsx.text.design.standard.c1185458",
-    "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af",
     "common.jsx.text.email.c5f7832f",
     "common.jsx.text.env.set.59da8b3a",
     "common.jsx.text.escalate.into.full.live.inspection.without.dropping.68c857d1",
@@ -62463,16 +62023,12 @@
     "common.jsx.text.frontier.ai.layer.21e85bce",
     "common.jsx.text.frontier.ai.layer.39f8bb96",
     "common.jsx.text.gated.flows.ae8d462c",
-    "common.jsx.text.general.link.direction.e0b93b2a",
     "common.jsx.text.go.to.storefront.0b3d8c87",
     "common.jsx.text.grounded.compare.analysis.445d2870",
     "common.jsx.text.groups.9780c562",
     "common.jsx.text.guard.9c93eb32",
     "common.jsx.text.harness.ready.8275fff8",
     "common.jsx.text.hits.e3d06d10",
-    "common.jsx.text.hosts.3cf51fa9",
-    "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777",
-    "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147",
     "common.jsx.text.index.version.286a2b27",
     "common.jsx.text.input.surface.0baff8c8",
     "common.jsx.text.installed.12e4a5de",
@@ -62482,7 +62038,6 @@
     "common.jsx.text.latest.86686e15",
     "common.jsx.text.latest.brief.62cb2c64",
     "common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff",
-    "common.jsx.text.live.domain.bc1cccb3",
     "common.jsx.text.live.runtimes.ae649138",
     "common.jsx.text.live.video.24b6b896",
     "common.jsx.text.live.video.72e92a0c",
@@ -62498,7 +62053,6 @@
     "common.jsx.text.modify.b63f7e1f",
     "common.jsx.text.monitoring.started.5d1383ef",
     "common.jsx.text.multimodal.fast.lane.2253a5d9",
-    "common.jsx.text.needs.url.6a1ab20b",
     "common.jsx.text.next.actions.009c0d35",
     "common.jsx.text.next.unlocks.763d6c50",
     "common.jsx.text.no.component.groups.are.available.right.now.60c94d7d",
@@ -62507,10 +62061,8 @@
     "common.jsx.text.npm.run.student.pack.doctor.577acd82",
     "common.jsx.text.one.continuity.layer.across.chat.voice.and.8554d950",
     "common.jsx.text.open.ai.winner.4f94b94d",
-    "common.jsx.text.open.storefront.9a0fe7ee",
     "common.jsx.text.open.suggested.bundle.view.02976b67",
     "common.jsx.text.powered.by.aura.status.9f496e1b",
-    "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b",
     "common.jsx.text.recent.signals.8acbff42",
     "common.jsx.text.reconnecting.864d4686",
     "common.jsx.text.request.id.5d9e393e",
@@ -62520,13 +62072,11 @@
     "common.jsx.text.rs.81723069",
     "common.jsx.text.rss.343bc2b9",
     "common.jsx.text.runtime.afc86fdf",
-    "common.jsx.text.runtime.vs.target.bab208a2",
     "common.jsx.text.save.subscription.7d065402",
     "common.jsx.text.savings.ef1e285b",
     "common.jsx.text.scanning.catalog.a5663ba2",
     "common.jsx.text.sentry.datadog.doppler.testmail.lambdatest.and.localstack.8c9720ae",
     "common.jsx.text.server.reason.9e07fa1a",
-    "common.jsx.text.shared.behavior.33436b63",
     "common.jsx.text.shell.when.a.new.install.package.is.7d8525a4",
     "common.jsx.text.skip.to.main.content.a891514d",
     "common.jsx.text.smart.bundle.builder.196a2b01",
@@ -62545,9 +62095,7 @@
     "common.jsx.text.target.7598ea83",
     "common.jsx.text.the.ai.assistant.is.temporarily.paused.while.6d35d05b",
     "common.jsx.text.the.assistant.will.start.threading.chat.voice.08684715",
-    "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e",
     "common.jsx.text.theme.fe958fe1",
-    "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99",
     "common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d",
     "common.jsx.text.tool.timeline.375e9234",
     "common.jsx.text.tower.7.innovation.district.9a662aca",
@@ -62555,7 +62103,6 @@
     "common.jsx.text.trying.to.restore.the.call.161003b5",
     "common.jsx.text.unsubscribe.ad8525fd",
     "common.jsx.text.use.back.to.app.and.the.call.ecee176e",
-    "common.jsx.text.vercel.netlify.f28e116f",
     "common.jsx.text.verifying.subscription.37c14b7f",
     "common.jsx.text.view.history.74a3ac4e",
     "common.jsx.text.voice.and.live.help.4900edb8",
@@ -63399,7 +62946,6 @@
     "notification.jsx.text.we.ll.let.you.know.when.something.a3ca62c5",
     "notifications.new",
     "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e",
-    "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3",
     "orders.actions.buyAgain",
     "orders.actions.buyAgainError",
     "orders.actions.buyAgainReady",
@@ -63589,9 +63135,7 @@
     "product.jsx.expression.visit.any.product.page.and.click.trade.c67059de",
     "product.jsx.text.add.products.db32d71e",
     "product.jsx.text.add.products.from.the.left.panel.to.3b04af45",
-    "product.jsx.text.matched.product.8b686b00",
     "product.jsx.text.select.up.to.4.products.and.let.02c6cece",
-    "product.jsx.text.shared.production.data.f8bd2f6b",
     "product.jsx.text.watch.3139f8c4",
     "product.off",
     "product.quantity.decrease.ariaLabel",
@@ -64478,7 +64022,6 @@
     "search.jsx.text.compare.top.matches.4555d135",
     "search.jsx.text.derived.keyword.eb081899",
     "search.jsx.text.file.name.optional.ac353e76",
-    "search.jsx.text.from.live.catalog.8df55cd8",
     "search.jsx.text.highest.62013f0d",
     "search.jsx.text.hints.18758c62",
     "search.jsx.text.input.preview.deada035",

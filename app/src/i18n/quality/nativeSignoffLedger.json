@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "description": "Hash-bound human linguistic signoffs per (locale, messageId). Valid approvals graduate matching translations out of nativeReviewAudit.json and automatically invalidate whenever English source or translated copy changes.",
+  "approvals": {}
+}

@@ -55,6 +55,8 @@
     "i18n:human-review-summary": "node scripts/i18n/summarize-human-review-queue.mjs",
     "i18n:language-quality": "node scripts/i18n/assert-language-quality.mjs",
     "i18n:language-quality:final": "node scripts/i18n/assert-language-quality.mjs --final",
+    "i18n:signoff": "node scripts/i18n/native-signoff-ledger.mjs",
+    "i18n:signoff:check": "node scripts/i18n/native-signoff-ledger.mjs --check",
     "i18n:outperform": "node scripts/i18n/assert-i18n-outperformance.mjs",
     "i18n:translate:repair": "node scripts/i18n/translate-actionable-queue.mjs",
     "i18n:codemod:dry-run": "node scripts/i18n/codemod-stable-ui-to-icu.mjs",

@@ -1,17 +1,17 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-10-21T20:25:56.721Z
+Generated: 2026-11-13T16:30:23.886Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 538
-- Tracked files: 154
-- Production files with stable literal UI copy: 101
-- Production stable literal references: 4142
-- Unique production stable IDs: 3737
-- Dynamic lookup references requiring manual review: 16
+- Source files scanned: 541
+- Tracked files: 153
+- Production files with stable literal UI copy: 100
+- Production stable literal references: 4110
+- Unique production stable IDs: 3704
+- Dynamic lookup references requiring manual review: 19
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
 - Runtime enum compatibility files: 1
@@ -41,11 +41,10 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Cart/index.jsx` | 46 | 45 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/OrderSummary.jsx` | 43 | 43 | 0 | stable-ui |
 | high | `app/src/pages/MissionControl/index.jsx` | 43 | 43 | 1 | runtime-content-nearby |
-| high | `app/src/pages/VisualSearch/index.jsx` | 33 | 33 | 0 | stable-ui |
-| high | `app/src/pages/Launch/index.jsx` | 31 | 31 | 0 | stable-ui |
+| high | `app/src/pages/VisualSearch/index.jsx` | 31 | 31 | 0 | stable-ui |
 | high | `app/src/components/features/chat/MultimodalDock.jsx` | 33 | 30 | 0 | stable-ui |
 | high | `app/src/pages/Status/index.jsx` | 31 | 30 | 0 | stable-ui |
-| high | `app/src/components/layout/Footer/index.jsx` | 30 | 29 | 0 | stable-ui |
+| high | `app/src/components/layout/Footer/index.jsx` | 30 | 29 | 3 | stable-ui |
 | high | `app/src/pages/MyListings/index.jsx` | 30 | 28 | 0 | stable-ui |
 | high | `app/src/components/features/auth/DesktopBrowserAuthShell.jsx` | 22 | 22 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepAddress.jsx` | 23 | 22 | 0 | stable-ui |
@@ -72,7 +71,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/pages/ProductDetails/index.jsx` | 108 | 98 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Home/index.jsx` | 97 | 84 | 0 | stable-ui |
 | medium | `app/src/components/shared/GlobalSearchBar.jsx` | 55 | 53 | 0 | runtime-content-nearby |
-| medium | `app/src/components/layout/Navbar/index.jsx` | 76 | 50 | 1 | stable-ui |
+| medium | `app/src/components/layout/Navbar/index.jsx` | 77 | 50 | 1 | stable-ui |
 | medium | `app/src/pages/AICompare/index.jsx` | 45 | 45 | 2 | stable-ui |
 | medium | `app/src/components/features/product/Filters/index.jsx` | 38 | 34 | 0 | stable-ui |
 | medium | `app/src/components/features/chat/MessageItem.jsx` | 32 | 32 | 5 | stable-ui |
@@ -136,13 +135,16 @@ These computed keys stay outside automatic migration until manually reviewed.
 
 | File | Line | Reason |
 | --- | ---: | --- |
-| `app/src/components/features/chat/MessageItem.jsx` | 208 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 314 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 316 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 317 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 510 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 216 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 322 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 324 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 325 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 518 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/features/orders/OrderProgressStepper.jsx` | 62 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/layout/Navbar/index.jsx` | 383 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/layout/Footer/index.jsx` | 196 | StableText id is computed and requires manual review. |
+| `app/src/components/layout/Footer/index.jsx` | 199 | StableText id is computed and requires manual review. |
+| `app/src/components/layout/Footer/index.jsx` | 207 | StableText id is computed and requires manual review. |
+| `app/src/components/layout/Navbar/index.jsx` | 386 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/i18n/StableText.jsx` | 6 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 89 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 360 | First t() argument is computed or interpolated and requires manual review. |

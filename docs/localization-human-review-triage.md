@@ -18,10 +18,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 90542
 - Unique review locale/id pairs: 90542
-- Actionable grouped queue entries: 155
-- Actionable affected locale/message pairs: 1066
+- Actionable grouped queue entries: 128
+- Actionable affected locale/message pairs: 1022
 - Native-review audit grouped entries: 4471
-- Native-review audit affected locale/message pairs: 89476
+- Native-review audit affected locale/message pairs: 89520
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,10 +29,10 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 43 | 444 | bn 20, hi 20, te 22, mr 22, ur 22, gu 22, pa 22, ml 20, kn 22, or 22, as 20, sa 20, es 31, fr 32, de 32, ar 20, ja 22, pt 33, zh 20 |
-| high | 14 | 22 | te 1, ml 1, kn 1, es 1, fr 4, de 7, ar 1, ja 1, pt 5 |
-| medium | 53 | 519 | bn 25, hi 23, te 27, mr 25, ur 27, gu 26, pa 26, ml 25, kn 26, or 26, as 25, sa 26, es 31, fr 36, de 40, ar 23, ja 27, pt 30, zh 25 |
-| low | 45 | 81 | te 1, ur 1, gu 1, kn 1, or 1, es 11, fr 23, de 23, ja 1, pt 17, zh 1 |
+| critical | 39 | 436 | bn 20, hi 20, te 22, mr 22, ur 22, gu 22, pa 22, ml 20, kn 22, or 22, as 20, sa 20, es 31, fr 31, de 30, ar 20, ja 22, pt 28, zh 20 |
+| high | 10 | 16 | te 1, ml 1, kn 1, es 1, fr 3, de 5, ar 1, ja 1, pt 2 |
+| medium | 48 | 513 | bn 25, hi 23, te 27, mr 25, ur 27, gu 26, pa 26, ml 25, kn 26, or 26, as 25, sa 26, es 30, fr 33, de 39, ar 23, ja 27, pt 29, zh 25 |
+| low | 31 | 57 | te 1, ur 1, gu 1, kn 1, or 1, es 9, fr 15, de 21, ja 1, pt 5, zh 1 |
 
 ## Examples
 
@@ -48,12 +48,12 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 19 | CVV | checkout.jsx.text.cvv |
 | high | high | 6 | AR | login.brand.initials |
 | high | high | 2 | Status | orders.filters.status |
-| high | high | 2 | Aura Terminal | common.jsx.text.aura.terminal.2fded973 |
-| high | high | 2 | Max Matches | search.jsx.text.max.matches.1860e29d |
 | high | high | 1 | Item | orders.invoice.item |
 | high | high | 1 | Aura Status | common.jsx.text.aura.status.e81a8e71 |
+| high | high | 1 | Aura Terminal | common.jsx.text.aura.terminal.2fded973 |
 | high | high | 1 | Bangalore, 560001, India | common.jsx.text.bangalore.560001.india.029e9526 |
 | high | high | 1 | Budget ( | common.jsx.text.budget.c9a30fc0 |
+| high | high | 1 | Median | search.jsx.text.median.1e89a3f6 |
 | medium | medium | 19 | ... | admin.shared.busy |
 | medium | medium | 19 | N/A | compare.spec.notAvailable |
 | medium | medium | 19 | {min} - {max} | filters.chip.price |
@@ -63,13 +63,13 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | medium | medium | 19 | \| **** {last4} | profile.payments.method.last4Suffix |
 | medium | medium | 19 | \| {brand} | profile.payments.method.brandSuffix |
 | low | low | 7 | ID | admin.orders.table.id |
-| low | low | 4 | Malayalam | common.object.property.label.malayalam |
-| low | low | 4 | Marathi | common.object.property.label.marathi |
-| low | low | 4 | Urdu | common.object.property.label.urdu |
-| low | low | 3 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
 | low | low | 3 | Normal | profile.support.priority.normal |
 | low | low | 3 | China | common.object.property.label.china |
-| low | low | 3 | Gujarati | common.object.property.label.gujarati |
+| low | low | 3 | Hindi | common.object.property.label.hindi |
+| low | low | 3 | Malayalam | common.object.property.label.malayalam |
+| low | low | 3 | Odia | common.object.property.label.odia |
+| low | low | 3 | Urdu | common.object.property.label.urdu |
+| low | low | 2 | Action | admin.email.table.action, admin.users.timeline.action |
 
 ## Native Review Audit By Locale
 
@@ -87,12 +87,12 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | or | 4993 |
 | as | 4997 |
 | sa | 4996 |
-| es | 4968 |
-| fr | 4947 |
-| de | 4940 |
+| es | 4971 |
+| fr | 4960 |
+| de | 4947 |
 | ar | 3684 |
 | ja | 4991 |
-| pt | 4957 |
+| pt | 4978 |
 | zh | 4996 |
 
 ## Files

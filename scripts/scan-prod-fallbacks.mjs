@@ -119,6 +119,7 @@ const isGeneratedRepoPath = (repoPath = '') => repoPath.startsWith('app/android/
   || repoPath.startsWith('app/dist/')
   || repoPath === 'app/src/i18n/quality/humanReviewQueue.json'
   || repoPath === 'app/src/i18n/quality/nativeReviewAudit.json'
+  || repoPath === 'app/src/i18n/quality/nativeSignoffLedger.json'
   || repoPath.startsWith('desktop-release/')
   || repoPath.startsWith('generated/')
   || repoPath.startsWith('output/');

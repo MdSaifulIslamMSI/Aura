@@ -18,8 +18,8 @@ This report is the per-language quality gate for the reviewed ICU catalog system
 - Uncovered stable UI scanner candidates: 0
 - Blocking mechanical quality rows: 0
 - Final native-quality rows not ready: 19
-- Actionable review pairs tracked: 1066
-- Native signoff pairs tracked: 89476
+- Actionable review pairs tracked: 1022
+- Native signoff pairs tracked: 89520
 
 ## Per-Language Status
 
@@ -38,12 +38,12 @@ This report is the per-language quality gate for the reviewed ICU catalog system
 | or | PASS | NOT_FINAL | translation-repair-required | 5042 | 34 | 0 | 49 | 4993 | 96.2% (4992/4993) | n/a (0 messages) |
 | as | PASS | NOT_FINAL | translation-repair-required | 5042 | 30 | 0 | 45 | 4997 | 97.2% (4996/4997) | n/a (0 messages) |
 | sa | PASS | NOT_FINAL | translation-repair-required | 5042 | 31 | 0 | 46 | 4996 | 96.6% (4993/4996) | n/a (0 messages) |
-| es | PASS | NOT_FINAL | translation-repair-required | 5042 | 70 | 0 | 74 | 4968 | n/a | n/a |
-| fr | PASS | NOT_FINAL | translation-repair-required | 5042 | 92 | 0 | 95 | 4947 | n/a | n/a |
-| de | PASS | NOT_FINAL | translation-repair-required | 5042 | 108 | 0 | 102 | 4940 | n/a | n/a |
+| es | PASS | NOT_FINAL | translation-repair-required | 5042 | 67 | 0 | 71 | 4971 | n/a | n/a |
+| fr | PASS | NOT_FINAL | translation-repair-required | 5042 | 79 | 0 | 82 | 4960 | n/a | n/a |
+| de | PASS | NOT_FINAL | translation-repair-required | 5042 | 101 | 0 | 95 | 4947 | n/a | n/a |
 | ar | PASS | NOT_FINAL | translation-repair-required | 5042 | 29 | 0 | 44 | 3684 | 97.7% (4995/4998) | 96.7% (1314/1314) |
 | ja | PASS | NOT_FINAL | translation-repair-required | 5042 | 36 | 0 | 51 | 4991 | 92.8% (4990/4991) | n/a (0 messages) |
-| pt | PASS | NOT_FINAL | translation-repair-required | 5042 | 85 | 0 | 85 | 4957 | n/a | n/a |
+| pt | PASS | NOT_FINAL | translation-repair-required | 5042 | 64 | 0 | 64 | 4978 | n/a | n/a |
 | zh | PASS | NOT_FINAL | translation-repair-required | 5042 | 31 | 0 | 46 | 4996 | 94.2% (4992/4996) | n/a (0 messages) |
 | en-XA | PASS | PSEUDO_LOCALE | pseudo-locale | 5042 | 0 | 0 | 0 | 0 | n/a | n/a |
 

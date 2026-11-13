@@ -13,7 +13,9 @@ import stableCatalogPolicy from './stable-catalog-policy.cjs';
 
 const {
     getPromotionReviewReason,
+    isNativeSignoffApproved,
     isStaleEnglishFallback,
+    normalizeSignoffLedger,
     shouldCollectFormatJsSourceFile,
 } = stableCatalogPolicy;
 
@@ -29,6 +31,7 @@ const criticalMessagesPath = path.join(sourceDir, 'i18n/messages/criticalMessage
 const localeManifestPath = path.join(qualityDir, 'localeManifest.json');
 const queuePath = path.join(qualityDir, 'humanReviewQueue.json');
 const nativeReviewAuditPath = path.join(qualityDir, 'nativeReviewAudit.json');
+const nativeSignoffLedgerPath = path.join(qualityDir, 'nativeSignoffLedger.json');
 const queueDocPath = path.join(repoDir, 'docs/localization-human-review-queue.md');
 const overridesPath = path.join(repoDir, 'scripts/i18n/stable-ui-message-overrides.json');
 const brandTermsPath = path.join(sourceDir, 'i18n/glossary/brand-terms.json');
@@ -57,6 +60,11 @@ const reviewedLocales = [
 ];
 const overrides = JSON.parse(fs.readFileSync(overridesPath, 'utf8'));
 const localeManifest = JSON.parse(fs.readFileSync(localeManifestPath, 'utf8'));
+const nativeSignoffLedger = normalizeSignoffLedger(
+    fs.existsSync(nativeSignoffLedgerPath)
+        ? JSON.parse(fs.readFileSync(nativeSignoffLedgerPath, 'utf8'))
+        : {}
+);
 const brandTerms = JSON.parse(fs.readFileSync(brandTermsPath, 'utf8'));
 const forbiddenTransliterations = JSON.parse(fs.readFileSync(forbiddenTransliterationsPath, 'utf8'));
 const inventory = await collectLegacyMigrationInventory();
@@ -251,6 +259,7 @@ if (conflicts.length > 0) {
 
 const reviewWorkItems = [];
 const catalogs = { en: sourceMessages };
+let approvedSignoffCount = 0;
 
 const enqueue = ({ id, locale, message, reason, risk }) => {
     reviewWorkItems.push({
@@ -261,6 +270,20 @@ const enqueue = ({ id, locale, message, reason, risk }) => {
         risk,
         sourceMessage: sourceMessages[id] || '',
     });
+};
+
+const enqueuePromotionIfUnsigned = ({ id, locale, message, reason, risk, sourceMessage }) => {
+    const signoffRecord = nativeSignoffLedger.approvals?.[locale]?.[id];
+    if (isNativeSignoffApproved({
+        record: signoffRecord,
+        locale,
+        sourceMessage,
+        translatedMessage: message,
+    })) {
+        approvedSignoffCount += 1;
+        return;
+    }
+    enqueue({ id, locale, message, reason, risk });
 };
 
 const findCandidateGlossaryIssue = (sourceMessage, candidate) => {
@@ -393,12 +416,13 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
                     }
 
                     if (candidate !== sourceMessage) {
-                        enqueue({
+                        enqueuePromotionIfUnsigned({
                             id,
                             locale,
                             message: candidate,
                             reason: promotionReasonForId(id),
                             risk,
+                            sourceMessage,
                         });
                         return candidate;
                     }
@@ -411,20 +435,22 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
                         risk,
                     });
                 } else if (stableIdSet.has(id)) {
-                    enqueue({
+                    enqueuePromotionIfUnsigned({
                         id,
                         locale,
                         message: existingMessage,
                         reason: 'legacy-pack-promotion-needs-human-review',
                         risk,
+                        sourceMessage,
                     });
                 } else if (localeManifest[locale]?.reviewStatus?.includes('queued')) {
-                    enqueue({
+                    enqueuePromotionIfUnsigned({
                         id,
                         locale,
                         message: existingMessage,
                         reason: 'foundation-pack-promotion-needs-human-review',
                         risk,
+                        sourceMessage,
                     });
                 }
                 return existingMessage;
@@ -484,15 +510,24 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
         return sourceMessage;
     }
 
-    enqueue({
-        id,
-        locale,
-        message: candidate,
-        reason: candidate === sourceMessage
-            ? 'exact-english-fallback-needs-human-review'
-            : promotionReasonForId(id),
-        risk,
-    });
+    if (candidate === sourceMessage) {
+        enqueue({
+            id,
+            locale,
+            message: candidate,
+            reason: 'exact-english-fallback-needs-human-review',
+            risk,
+        });
+    } else {
+        enqueuePromotionIfUnsigned({
+            id,
+            locale,
+            message: candidate,
+            reason: promotionReasonForId(id),
+            risk,
+            sourceMessage,
+        });
+    }
     return candidate;
 };
 
@@ -723,4 +758,5 @@ console.log(`Generated actionable human review queue entries: ${sortedQueue.leng
 console.log(`Actionable affected locale-message pairs: ${queueSummary.affectedMessageCount}`);
 console.log(`Generated native review audit entries: ${nativeReviewAudit.length}`);
 console.log(`Native review audit affected locale-message pairs: ${nativeAuditSummary.affectedMessageCount}`);
+console.log(`Native signoff ledger approvals honored: ${approvedSignoffCount}`);
 console.log(`Queue: ${path.relative(repoDir, queuePath).replace(/\\/g, '/')}`);

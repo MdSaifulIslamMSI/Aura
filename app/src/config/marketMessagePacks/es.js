@@ -1253,7 +1253,7 @@ export const MARKET_MESSAGE_PACK = {
   "checkout.preferred": "Privilegiado",
   "checkout.processing": "Procesando...",
   "checkout.protectedOrderHold": "Retencion de orden protegida",
-  "checkout.qty": "En la actualidad {{count}}",
+  "checkout.qty": "Cant. {{count}}",
   "checkout.quickPay": "Pago rápido",
   "checkout.quoteLocked": "Cotización bloqueada",
   "checkout.quotePending": "Cotización pendiente",
