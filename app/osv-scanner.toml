@@ -7,8 +7,3 @@
 # converted from an exact 0.6.0 pin to ^0.6.1 so the fixed release is
 # actually installable. `npm run security:override-pins` now fails the build
 # if a pinned override would revert a security fix.
-
-[[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-ignoreUntil = 2026-12-31
-reason = "braces 3.0.3 is the latest published release; every version in the affected range (<=3.0.3) is unfixed upstream (CVE-2026-93687, CWE-674 stack-exhaustion ReDoS, High). Build/proxy tooling reached only from trusted internal configuration (micromatch, http-proxy-middleware), never from untrusted user-supplied glob patterns. Mirrors security-audit-exceptions.json and .trivyignore.yaml. Re-evaluate for an upstream fix after the expiry."
